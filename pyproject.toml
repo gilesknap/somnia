@@ -13,7 +13,14 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 description = "Bedtime audiobook reader with semantic seek: TTS-rendered public-domain books plus a conversational agent that finds your place again"
-dependencies = [] # Add project dependencies here, e.g. ["click", "numpy"]
+dependencies = [
+    "beautifulsoup4",
+    "httpx",
+    "numpy",
+    "pysbd",
+    "soundfile",
+    "sqlite-vec",
+]
 dynamic = ["version"]
 license.file = "LICENSE"
 readme = "README.md"
@@ -34,6 +41,14 @@ dev = [
     "sphinx-design",
     "tox-uv",
     "types-mock",
+]
+
+[project.optional-dependencies]
+# Heavy ML dependencies (torch etc.) needed to render and index books.
+# Install with `pip install somnia[ml]` on the machine that runs ingest.
+ml = [
+    "kokoro>=0.9",
+    "sentence-transformers",
 ]
 
 [project.scripts]
@@ -59,7 +74,13 @@ addopts = """
     --tb=native -vv --doctest-modules --doctest-glob="*.rst"
     """
 # https://iscinumpy.gitlab.io/post/bound-version-constraints/#watch-for-warnings
-filterwarnings = "error"
+filterwarnings = [
+    "error",
+    # pysbd (unmaintained but best-in-class sentence splitter) has old-style
+    # escape sequences that raise SyntaxWarning on import under Python 3.12+
+    "ignore:invalid escape sequence:SyntaxWarning",
+    "ignore:invalid escape sequence:DeprecationWarning",
+]
 # Doctest python code in docs, python code in src docstrings, test functions in tests
 testpaths = "docs src tests"
 
@@ -173,3 +194,5 @@ lint.select = [
 # See https://github.com/DiamondLightSource/python-copier-template/issues/154
 # Remove this line to forbid private member access in tests
 "tests/**/*" = ["SLF001"]
+# CSV fixture rows can't be wrapped
+"tests/test_catalog.py" = ["E501"]
