@@ -31,9 +31,10 @@ class Config:
     agent_model: str = "claude-sonnet-5"
     agent_max_tokens: int = 4096
     anthropic_api_key: str = ""
-    # How long to wait before checking a move stuck. A player that is going to
-    # report its own position back does so within a second.
-    move_settle_s: float = 1.0
+    # How long to wait before checking a move stuck, when a player was running.
+    # It costs nothing when nothing is playing, and a player that is going to
+    # reopen a session and report its own position takes a second or two.
+    move_settle_s: float = 2.0
     sentence_silence_ms: int = 120
     paragraph_silence_ms: int = 500
     window_sentences: int = 3

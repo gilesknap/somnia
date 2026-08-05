@@ -261,7 +261,11 @@ class Library:
                 abs_client.close_session(session_id)
             abs_client.set_position(item_id, target_s)
 
-            time.sleep(self._cfg.move_settle_s)  # a player fights back at once
+            # Nothing playing, nothing to argue with: don't make them wait for
+            # a race that cannot happen. A player that was running gets a
+            # couple of seconds to reopen a session and put the book back.
+            if live:
+                time.sleep(self._cfg.move_settle_s)
             if self._is_at(item_id, target_s):
                 if attempt:
                     logger.info("move to %d took %d tries", position_ms, attempt + 1)
