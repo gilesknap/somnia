@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+from somnia.abs import AbsClient
 from somnia.config import Config
 from somnia.db import connect
 from somnia.ingest import publish_chapters
@@ -58,7 +59,9 @@ def test_publish_chapters_states_every_boundary_in_seconds(
     conn: Any, tmp_path: Path
 ) -> None:
     abs_client = FakeAbs(duration_ms=549425)
-    publish_chapters(_cfg(tmp_path), conn, abs_client, 271, REL_PATH, 549425)  # type: ignore[arg-type]
+    publish_chapters(
+        _cfg(tmp_path), conn, cast(AbsClient, abs_client), 271, REL_PATH, 549425
+    )
     assert abs_client.pushed == [
         {"id": 0, "start": 0.0, "end": 231.73, "title": "01 My Early Home"},
         {"id": 1, "start": 231.73, "end": 549.425, "title": "02 The Hunt"},
@@ -70,7 +73,13 @@ def test_publish_chapters_waits_for_the_scan_to_catch_up(
 ) -> None:
     abs_client = FakeAbs(duration_ms=549425, polls_until_ready=2)
     publish_chapters(
-        _cfg(tmp_path), conn, abs_client, 271, REL_PATH, 549425, timeout_s=10  # type: ignore[arg-type]
+        _cfg(tmp_path),
+        conn,
+        cast(AbsClient, abs_client),
+        271,
+        REL_PATH,
+        549425,
+        timeout_s=10,
     )
     assert abs_client.finds == 3
     assert abs_client.pushed is not None
@@ -81,6 +90,12 @@ def test_publish_chapters_gives_up_quietly_when_the_item_never_appears(
 ) -> None:
     abs_client = FakeAbs(duration_ms=549425)
     publish_chapters(
-        _cfg(tmp_path), conn, abs_client, 271, "not/this/book", 549425, timeout_s=0  # type: ignore[arg-type]
+        _cfg(tmp_path),
+        conn,
+        cast(AbsClient, abs_client),
+        271,
+        "not/this/book",
+        549425,
+        timeout_s=0,
     )
     assert abs_client.pushed is None
