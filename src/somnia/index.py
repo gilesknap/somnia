@@ -59,19 +59,31 @@ def find_passage(
     book_gid: int,
     query: str,
     k: int = 5,
+    before_ms: int | None = None,
 ) -> list[Passage]:
-    """Semantic search within one book; candidates carry surrounding context."""
+    """Semantic search within one book; candidates carry surrounding context.
+
+    ``before_ms`` restricts the search to passages that start before that point
+    in the book — the spoiler guard. Answering "who is Ginger?" from a chapter
+    the listener has not reached yet would ruin the thing we are here to
+    protect, so questions are answered from what they could have heard.
+    """
     qvec = embedder.encode_query(query)
-    rows = conn.execute(
-        """
+    # sqlite-vec applies its k limit before our filters, so over-fetch: the
+    # book filter (and the spoiler cutoff, which can exclude most of a book)
+    # both cut into the candidate set.
+    fetch_k = k * (16 if before_ms is not None else 4)
+    sql = """
         SELECT c.id, c.chapter_idx, c.start_ms, c.end_ms, c.text, v.distance
         FROM vec_chunks v
         JOIN chunks c ON c.id = v.rowid
         WHERE v.embedding MATCH ? AND v.k = ? AND c.book_gid = ?
-        ORDER BY v.distance
-        """,
-        (qvec.tobytes(), k * 4, book_gid),
-    ).fetchmany(k)
+    """
+    params: list[object] = [qvec.tobytes(), fetch_k, book_gid]
+    if before_ms is not None:
+        sql += " AND c.start_ms <= ?"
+        params.append(before_ms)
+    rows = conn.execute(sql + " ORDER BY v.distance", params).fetchmany(k)
 
     passages: list[Passage] = []
     for r in rows:
