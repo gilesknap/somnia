@@ -26,6 +26,29 @@ class AbsClient:
         resp = self._client.post(f"/api/libraries/{library_id}/scan")
         resp.raise_for_status()
 
+    def find_item(self, library_id: str, rel_path: str) -> dict[str, Any] | None:
+        """The library item at ``rel_path`` (relative to the library folder)."""
+        resp = self._client.get(f"/api/libraries/{library_id}/items")
+        resp.raise_for_status()
+        items: list[dict[str, Any]] = resp.json()["results"]
+        for item in items:
+            if item.get("relPath") == rel_path:
+                return item
+        return None
+
+    def set_chapters(self, item_id: str, chapters: list[dict[str, Any]]) -> None:
+        """Replace an item's chapter marks.
+
+        ABS derives chapter marks from the audio files the first time it scans
+        an item and never rebuilds them afterwards — not even on a forced scan
+        — so a book that grows file by file would keep the chapter list it had
+        on day one. somnia knows the real boundaries, so it states them.
+        """
+        resp = self._client.post(
+            f"/api/items/{item_id}/chapters", json={"chapters": chapters}
+        )
+        resp.raise_for_status()
+
     def ping(self) -> bool:
         try:
             return self._client.get("/healthcheck").status_code == 200

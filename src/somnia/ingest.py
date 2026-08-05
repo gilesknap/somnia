@@ -10,6 +10,7 @@ single timeline), so the index and ABS agree about positions forever.
 import logging
 import re
 import sqlite3
+import time
 from pathlib import Path
 
 from .abs import AbsClient
@@ -21,7 +22,7 @@ from .index import add_chunks
 from .segment import TimedSentence, sentences, windows
 from .tts import TTSEngine
 
-__all__ = ["ingest_book"]
+__all__ = ["ingest_book", "publish_chapters"]
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,53 @@ def _render_chapter(
         audio.append_silence(cfg.paragraph_silence_ms - cfg.sentence_silence_ms)
     audio.encode(out_path, bitrate=cfg.aac_bitrate)
     return audio.position_ms, timed
+
+
+def publish_chapters(
+    cfg: Config,
+    conn: sqlite3.Connection,
+    abs_client: AbsClient,
+    gid: int,
+    rel_path: str,
+    expect_ms: int,
+    timeout_s: float = 30.0,
+) -> None:
+    """Tell ABS where this book's chapters start, once its scan has caught up.
+
+    The scan ABS runs is asynchronous, so we wait for the item's duration to
+    reach the audio we have written before stating the marks — pushing early
+    would describe chapters past the end of the file ABS knows about. Every
+    push sends the whole list, so a push that times out is repaired by the
+    next chapter's.
+    """
+    deadline = time.monotonic() + timeout_s
+    while True:
+        item = abs_client.find_item(cfg.abs_library_id, rel_path)
+        if item is not None and item["media"]["duration"] * 1000 >= expect_ms - 1000:
+            rows = conn.execute(
+                "SELECT idx, title, start_ms, end_ms FROM chapters"
+                " WHERE book_gid = ? ORDER BY idx",
+                (gid,),
+            ).fetchall()
+            abs_client.set_chapters(
+                item["id"],
+                [
+                    {
+                        "id": r["idx"],
+                        "start": r["start_ms"] / 1000,
+                        "end": r["end_ms"] / 1000,
+                        "title": r["title"],
+                    }
+                    for r in rows
+                ],
+            )
+            return
+        if time.monotonic() >= deadline:
+            logger.warning(
+                "ABS scan did not catch up in %.0fs; marks deferred", timeout_s
+            )
+            return
+        time.sleep(2)
 
 
 def ingest_book(
@@ -120,8 +168,16 @@ def ingest_book(
         if abs_client and cfg.abs_library_id:
             try:
                 abs_client.scan_library(cfg.abs_library_id)
+                publish_chapters(
+                    cfg,
+                    conn,
+                    abs_client,
+                    gid,
+                    str(book_dir.relative_to(cfg.library_dir)),
+                    offset_ms,
+                )
             except Exception:
-                logger.warning("ABS scan trigger failed; continuing", exc_info=True)
+                logger.warning("ABS update failed; continuing", exc_info=True)
 
     with conn:
         conn.execute("UPDATE books SET status = 'done' WHERE gid = ?", (gid,))
