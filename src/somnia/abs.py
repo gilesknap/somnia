@@ -64,11 +64,41 @@ class AbsClient:
                 return entry
         return None
 
-    def create_bookmark(self, item_id: str, time_s: float, title: str) -> None:
-        """Plant a named bookmark — the seek vector the app can jump to."""
-        resp = self._client.post(
-            f"/api/me/item/{item_id}/bookmark",
-            json={"time": round(time_s, 3), "title": title},
+    def open_sessions(self, item_id: str) -> list[str]:
+        """Playback sessions currently open on this item, on any device.
+
+        A player holding an open session is the authority on where the book
+        is: it syncs its own position back every few seconds, overwriting
+        anything written underneath it.
+        """
+        resp = self._client.get("/api/users/online")
+        resp.raise_for_status()
+        sessions: list[dict[str, Any]] = resp.json().get("openSessions", [])
+        return [
+            s["id"]
+            for s in sessions
+            if s.get("libraryItemId") == item_id and s.get("id")
+        ]
+
+    def close_session(self, session_id: str) -> None:
+        """End a playback session so the next one starts from stored progress."""
+        resp = self._client.post(f"/api/session/{session_id}/close")
+        resp.raise_for_status()
+
+    def set_position(self, item_id: str, time_s: float) -> None:
+        """Move the listener to a point in the book.
+
+        This is the same progress record the app writes while you listen, so
+        setting it is indistinguishable from having listened up to there: the
+        app resumes from this point instead of where it left off. ABS
+        recalculates the percentage itself from the item's duration.
+
+        Close any open session on the item first (see :meth:`open_sessions`),
+        or a player that is still running will sync its own position back over
+        this within seconds.
+        """
+        resp = self._client.patch(
+            f"/api/me/progress/{item_id}", json={"currentTime": round(time_s, 3)}
         )
         resp.raise_for_status()
 

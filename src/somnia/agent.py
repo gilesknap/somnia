@@ -3,11 +3,12 @@
 The model's job is disambiguation and phrasing, not retrieval — the tools do the
 work, and every answer is grounded in a passage that was actually rendered. The
 default model is Haiku, which costs cents per conversation and is more than
-enough to turn "the bit where the horse dies" into a bookmark.
+enough to turn "the bit where the horse dies" into a place in the book.
 """
 
 import logging
 import sqlite3
+from collections.abc import Callable
 from typing import Any
 
 from anthropic import Anthropic, beta_tool
@@ -16,7 +17,7 @@ from .abs import AbsClient
 from .config import Config
 from .tools import Library, format_timestamp
 
-__all__ = ["SYSTEM_PROMPT", "ask", "build_tools"]
+__all__ = ["SYSTEM_PROMPT", "Conversation", "build_tools", "open_library"]
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +38,25 @@ tool result — not to show you understood, not to offer them a choice, not even
 to ask a clarifying question. If you want to ask which of two moments they
 meant, describe only moments the tools actually returned.
 
-Only what somnia has rendered exists as audio, and only a passage the tools
-return can be bookmarked.
+Only what somnia has rendered exists as audio, and you can only move them to a
+passage the tools returned.
+
+A name they say — a person, an animal, a place — is almost always something
+inside the book they are listening to, and some of those names are also titles
+of other books. Search the book before saying anything about what does or does
+not exist. The catalog is for when they are plainly asking to add something new
+to listen to, not for identifying a name they just said.
 
 A search always returns its closest matches, however poor they are, so read the
 passages and judge for yourself whether any is really the moment they meant. If
-none is, say you couldn't find it rather than bookmarking the least bad one.
+none is, say you couldn't find it rather than moving them to the least bad one.
 
-When they describe a moment they want to get back to, find it and plant a
-bookmark, then tell them the name you gave it and roughly where it falls. They
-jump to bookmarks from the app; you never play anything yourself.
+When they describe a moment they want to get back to, find it and move the book
+there, then tell them roughly where it now sits — "you're back at two hours in,
+in the chapter about X". Moving sets where the book resumes from; pressing play
+is theirs to do, and you never play anything yourself. When the tool says a
+player was running, tell them to press play again: audio already going carries
+on for a moment and will not jump by itself.
 
 Searches are limited to how far they have listened. When a search reports that
 a closer match lies further on, say that it is ahead of where they have got and
@@ -55,17 +65,34 @@ there until they accept.
 
 Once they accept, search again with allow_spoilers so you can read those
 passages and pick the right one. The timestamp alone is the top-ranked guess
-and the ranking is often a near miss; bookmarking it unread lands them minutes
-from the moment they asked for. Reading the passage does not oblige you to
-describe it — bookmark it and name the bookmark in their words.
+and the ranking is often a near miss; moving them there unread lands them
+minutes from the moment they asked for. Reading the passage does not oblige you
+to describe it — move them there and tell them only that you have.
+
+Moving them forward is a real jump: they will hear what is there. Never do it
+past where they have listened unless they have just asked you to.
 
 If it is ambiguous which book or which of several passages they mean, ask one
-short question. Otherwise just act.\
+short question. Otherwise just act.
+
+Never end your turn without saying something. Every action needs a sentence
+after it, even when the answer is only "you're there now" — a silent reply is
+indistinguishable from a broken app to someone half asleep in the dark. This
+matters most just after they have told you to go ahead: say that you have
+moved them and where to, and nothing about what happens there.\
 """
 
 
-def build_tools(library: Library) -> list[Any]:
-    """Wrap the tool layer for the runner, as text the model can read."""
+def build_tools(
+    library: Library, note: Callable[[str], None] = lambda _: None
+) -> list[Any]:
+    """Wrap the tool layer for the runner, as text the model can read.
+
+    ``note`` is told about anything that changed the world — moving the book,
+    starting a render. It is what the conversation falls back on when the model
+    acts and then says nothing, and it deliberately never sees search results,
+    which are full of the passages the spoiler guard exists to withhold.
+    """
 
     @beta_tool
     def list_books() -> str:
@@ -102,7 +129,9 @@ def build_tools(library: Library) -> list[Any]:
         Args:
             gid: The Gutenberg id, from search_catalog.
         """
-        return library.add_book(gid)
+        started = library.add_book(gid)
+        note(started)
+        return started
 
     @beta_tool
     def get_position(gid: int) -> str:
@@ -161,25 +190,29 @@ def build_tools(library: Library) -> list[Any]:
             lines.append(
                 "A closer match lies further on than they have listened, at"
                 f" {format_timestamp(search.better_ahead.start_ms)}. Tell them it is"
-                " ahead of where they are and offer to bookmark it or answer anyway."
-                " Do not say what happens there unless they accept."
+                " ahead of where they are. Offer to take them there or to answer"
+                " anyway, and do not say what happens there unless they accept."
             )
         return "\n\n".join(lines)
 
     @beta_tool
-    def plant_bookmark(gid: int, position_ms: int, title: str) -> str:
-        """Bookmark a moment so they can jump to it from the app.
+    def move_to(gid: int, position_ms: int) -> str:
+        """Move the book to a moment, so playing it resumes from there.
+
+        This is how they get taken to a passage: their position in the book
+        becomes the point you name, and the next tap on play starts there.
 
         Args:
             gid: The Gutenberg id of the book.
             position_ms: Milliseconds from the start of the book, as returned
                 by find_passage.
-            title: A short name for the bookmark, in their words.
         """
         try:
-            return library.plant_bookmark(gid, position_ms, title)
+            moved = library.move_to(gid, position_ms)
         except LookupError as exc:
             return str(exc)
+        note(moved)
+        return moved
 
     return [
         list_books,
@@ -187,35 +220,75 @@ def build_tools(library: Library) -> list[Any]:
         add_book,
         get_position,
         find_passage,
-        plant_bookmark,
+        move_to,
     ]
 
 
-def ask(
-    cfg: Config,
-    conn: sqlite3.Connection,
-    question: str,
-    history: list[Any] | None = None,
-) -> tuple[str, list[Any]]:
-    """Run one turn of the conversation. Returns (reply, updated history)."""
+def open_library(cfg: Config, conn: sqlite3.Connection) -> Library:
+    """The tool layer, wired to Audiobookshelf if a token is configured."""
     abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
-    library = Library(cfg, conn, abs_client)
-    client = Anthropic(api_key=cfg.anthropic_api_key or None)
+    return Library(cfg, conn, abs_client)
 
-    messages: list[Any] = [*(history or []), {"role": "user", "content": question}]
-    runner = client.beta.messages.tool_runner(
-        model=cfg.agent_model,
-        max_tokens=cfg.agent_max_tokens,
-        system=SYSTEM_PROMPT,
-        tools=build_tools(library),
-        messages=messages,
-    )
 
-    reply = ""
-    for message in runner:
-        messages.append({"role": "assistant", "content": message.content})
-        tool_response = runner.generate_tool_call_response()
-        if tool_response is not None:
-            messages.append(tool_response)
-        reply = "".join(b.text for b in message.content if b.type == "text")
-    return reply, messages
+class Conversation:
+    """One exchange with the agent, held open across turns.
+
+    The library outlives the turn deliberately: its embedder loads torch and
+    a sentence-transformer model, which takes seconds. Building it per question
+    would put that wait between "where does the horse die" and the answer.
+    """
+
+    def __init__(
+        self,
+        cfg: Config,
+        library: Library,
+        client: Anthropic | None = None,
+    ) -> None:
+        self._cfg = cfg
+        self._client = client or Anthropic(api_key=cfg.anthropic_api_key or None)
+        self._actions: list[str] = []
+        self._tools = build_tools(library, self._actions.append)
+        self.messages: list[Any] = []
+
+    def ask(self, question: str) -> str:
+        """Run one turn: the tools do the work, the model does the talking.
+
+        The turn is built on a copy and only kept if it finishes. A turn that
+        dies part-way leaves an assistant tool call with no result behind it,
+        and every later question in that conversation would be rejected —
+        which, at 2am, looks like an app that has simply stopped working.
+        """
+        # The runner copies the list it is given, so mirroring its turns back
+        # into ours is what carries the history to the next question.
+        self._actions.clear()
+        turn: list[Any] = [*self.messages, {"role": "user", "content": question}]
+        runner = self._client.beta.messages.tool_runner(
+            model=self._cfg.agent_model,
+            max_tokens=self._cfg.agent_max_tokens,
+            system=SYSTEM_PROMPT,
+            tools=self._tools,
+            messages=turn,
+        )
+
+        reply = ""
+        for message in runner:
+            turn.append({"role": "assistant", "content": message.content})
+            tool_response = runner.generate_tool_call_response()
+            if tool_response is not None:
+                turn.append(tool_response)
+            # Keep the last thing it actually said. A message that only calls a
+            # tool has no text, and taking it as the answer would blank out a
+            # sentence the model had already written.
+            said = "".join(b.text for b in message.content if b.type == "text").strip()
+            if said:
+                reply = said
+
+        if not reply:
+            # It acted and then said nothing — most often after being told to go
+            # ahead past the guard. What it did is better than a blank screen,
+            # and the tools that report here are the ones that changed
+            # something, never a search full of passages it was withholding.
+            logger.warning("turn produced no text; answering with what it did")
+            reply = self._actions[-1] if self._actions else ""
+        self.messages = turn
+        return reply

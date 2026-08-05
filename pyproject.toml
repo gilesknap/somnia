@@ -20,6 +20,8 @@ dependencies = [
     "pysbd",
     "soundfile",
     "sqlite-vec",
+    "starlette",
+    "uvicorn",
 ]
 dynamic = ["version"]
 license.file = "LICENSE"
@@ -33,6 +35,9 @@ requires-python = ">=3.11,<3.14"
 [dependency-groups]
 dev = [
     "copier",
+    # starlette's TestClient deprecated httpx 0.x in 1.4; without httpx2 it
+    # raises on import, and our warning filter turns that into a test error.
+    "httpx2",
     "myst-parser",
     "pre-commit",
     "pydata-sphinx-theme>=0.12",
@@ -64,6 +69,10 @@ GitHub = "https://github.com/gilesknap/somnia"
 [[project.authors]] # Further authors may be added by duplicating this section
 email = "gilesknap@gmail.com"
 name = "Giles Knap"
+
+[tool.setuptools.package-data]
+# The PWA is served straight off the installed package.
+somnia = ["web/*"]
 
 [tool.setuptools_scm]
 version_file = "src/somnia/_version.py"

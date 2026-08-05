@@ -23,12 +23,18 @@ class Config:
     abs_library_id: str = ""
     voice: str = "af_heart"
     embed_model: str = "intfloat/e5-small-v2"
-    # Haiku is plenty for turning a mumbled description into a bookmark, and
-    # costs cents per conversation. Point this at Sonnet or Opus if the
-    # disambiguation ever needs more.
-    agent_model: str = "claude-haiku-4-5"
+    # Haiku was the first choice, on cost: cents per conversation, and enough
+    # to turn a mumbled description into a timestamp. It went back on that by
+    # reading a character's name as the title of a book somnia does not have
+    # and saying so. Sonnet is a few cents more a night and does not, which is
+    # the whole job. Set SOMNIA_AGENT_MODEL=claude-haiku-4-5 to go back.
+    agent_model: str = "claude-sonnet-5"
     agent_max_tokens: int = 4096
     anthropic_api_key: str = ""
+    # How long to wait before checking a move stuck, when a player was running.
+    # It costs nothing when nothing is playing, and a player that is going to
+    # reopen a session and report its own position takes a second or two.
+    move_settle_s: float = 2.0
     sentence_silence_ms: int = 120
     paragraph_silence_ms: int = 500
     window_sentences: int = 3

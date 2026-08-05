@@ -1,4 +1,5 @@
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -16,10 +17,13 @@ Text#,Type,Issued,Title,Language,Authors,Subjects,LoCC,Bookshelves
 
 
 @pytest.fixture
-def conn(tmp_path: Path) -> sqlite3.Connection:
+def conn(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     c = connect(tmp_path / "test.db")
-    update_catalog(c, csv_text=CSV)
-    return c
+    try:
+        update_catalog(c, csv_text=CSV)
+        yield c
+    finally:
+        c.close()
 
 
 def test_import_skips_non_text_entries(conn: sqlite3.Connection):

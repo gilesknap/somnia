@@ -31,6 +31,10 @@ def main(args: Sequence[str] | None = None) -> None:
     p_ask = sub.add_parser("ask", help="ask the agent about a book (2am surface)")
     p_ask.add_argument("question", nargs="?", help="omit for an interactive session")
 
+    p_serve = sub.add_parser("serve", help="serve the chat page (tailnet only)")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8721)
+
     sub.add_parser("libraries", help="list Audiobookshelf libraries (to get the id)")
 
     ns = parser.parse_args(args)
@@ -45,7 +49,7 @@ def main(args: Sequence[str] | None = None) -> None:
     from .db import connect  # noqa: PLC0415
 
     cfg = load_config()
-    conn = connect(cfg.db_path)
+    conn = connect(cfg.db_path, cross_thread=ns.command == "serve")
 
     if ns.command == "catalog-update":
         from .catalog import update_catalog  # noqa: PLC0415
@@ -81,19 +85,22 @@ def main(args: Sequence[str] | None = None) -> None:
             )
             print(f"    {p.text}\n")
     elif ns.command == "ask":
-        from .agent import ask  # noqa: PLC0415
+        from .agent import Conversation, open_library  # noqa: PLC0415
 
         # The agent's own logging would drown its one-line answers.
         logging.getLogger().setLevel(logging.WARNING)
-        history: list[object] = []
+        conversation = Conversation(cfg, open_library(cfg, conn))
         while True:
             question = ns.question or input("> ").strip()
             if not question:
                 break
-            reply, history = ask(cfg, conn, question, history)
-            print(reply)
+            print(conversation.ask(question))
             if ns.question:
                 break
+    elif ns.command == "serve":
+        from .server import serve  # noqa: PLC0415
+
+        serve(cfg, conn, ns.host, ns.port)
     elif ns.command == "libraries":
         from .abs import AbsClient  # noqa: PLC0415
 

@@ -1,54 +1,21 @@
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
-import numpy as np
 import pytest
 
+from fakes import FakeAbs, FakeEmbedder
 from somnia.abs import AbsClient
 from somnia.config import Config
-from somnia.db import EMBED_DIM, connect
+from somnia.db import connect
 from somnia.embed import Embedder
 from somnia.index import add_chunks
 from somnia.segment import Window
 from somnia.tools import Library, format_timestamp
 
 ITEM_ID = "abs-item-1"
-
-
-class FakeEmbedder:
-    """Deterministic one-hot vectors, so "nearest" is exactly predictable."""
-
-    def __init__(self) -> None:
-        self.axis_of: dict[str, int] = {}
-
-    def _vec(self, text: str) -> Any:
-        axis = self.axis_of.setdefault(text, len(self.axis_of))
-        v = np.zeros(EMBED_DIM, dtype=np.float32)
-        v[axis] = 1.0
-        return v
-
-    def encode_passages(self, texts: list[str]) -> Any:
-        return np.stack([self._vec(t) for t in texts])
-
-    def encode_query(self, text: str) -> Any:
-        return self._vec(text)
-
-
-class FakeAbs:
-    def __init__(self, current_time: float | None = None) -> None:
-        self._current_time = current_time
-        self.bookmarks: list[tuple[str, float, str]] = []
-
-    def progress(self, item_id: str) -> dict[str, Any] | None:
-        if self._current_time is None:
-            return None
-        return {"libraryItemId": item_id, "currentTime": self._current_time}
-
-    def create_bookmark(self, item_id: str, time_s: float, title: str) -> None:
-        self.bookmarks.append((item_id, time_s, title))
 
 
 CHAPTERS = [
@@ -76,8 +43,15 @@ class Fixture:
 
 
 @pytest.fixture
-def fixture(tmp_path: Path) -> Fixture:
+def fixture(tmp_path: Path) -> Iterator[Fixture]:
     conn = connect(tmp_path / "somnia.db")
+    try:
+        yield _seeded(conn, tmp_path)
+    finally:
+        conn.close()
+
+
+def _seeded(conn: sqlite3.Connection, tmp_path: Path) -> Fixture:
     embedder = FakeEmbedder()
     with conn:
         conn.execute(
@@ -100,7 +74,7 @@ def fixture(tmp_path: Path) -> Fixture:
             idx,
             [Window(text=text, start_ms=start, end_ms=start + 10_000)],
         )
-    cfg = Config(data_dir=tmp_path)
+    cfg = Config(data_dir=tmp_path, move_settle_s=0.0)
 
     def make_library(fake: FakeAbs) -> Library:
         return Library(cfg, conn, cast(AbsClient, fake), cast(Embedder, embedder))
@@ -156,19 +130,79 @@ def test_find_passage_finds_what_they_have_already_heard(fixture: Fixture) -> No
     assert search.better_ahead is None
 
 
-def test_plant_bookmark_uses_the_abs_item_and_seconds(fixture: Fixture) -> None:
-    message = fixture.library.plant_bookmark(271, 300_500, "where Rob Roy dies")
-    assert fixture.abs.bookmarks == [(ITEM_ID, 300.5, "where Rob Roy dies")]
+def test_move_to_uses_the_abs_item_and_seconds(fixture: Fixture) -> None:
+    message = fixture.library.move_to(271, 300_500)
+    assert fixture.abs.moves == [(ITEM_ID, 300.5)]
     assert "0:05:00" in message
 
 
-def test_plant_bookmark_explains_when_the_book_is_not_in_abs_yet(
-    fixture: Fixture,
-) -> None:
+def test_move_to_explains_when_the_book_is_not_in_abs_yet(fixture: Fixture) -> None:
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET abs_item_id = '' WHERE gid = 271")
     with pytest.raises(LookupError):
-        fixture.library.plant_bookmark(271, 1000, "nope")
+        fixture.library.move_to(271, 1000)
+
+
+def test_a_running_player_is_stopped_before_the_book_is_moved(fixture: Fixture) -> None:
+    """A live session syncs its own position back every few seconds.
+
+    Writing a new position underneath one is undone before the listener has
+    finished reading the reply that said it worked.
+    """
+    live = FakeAbs(300.0, playing=["session-a", "session-b"])
+    message = fixture.make_library(live).move_to(271, 300_500)
+
+    assert live.closed == ["session-a", "session-b"]
+    assert live.moves == [(ITEM_ID, 300.5)]
+    assert "was running" in message
+
+
+def test_moving_says_nothing_about_players_when_none_were_running(
+    fixture: Fixture,
+) -> None:
+    assert "was running" not in fixture.library.move_to(271, 300_500)
+
+
+def test_a_player_that_puts_the_position_back_is_tried_again(
+    fixture: Fixture,
+) -> None:
+    """The first move of the night was landing and then being undone.
+
+    A player whose session is closed underneath it opens another and reports
+    where it thinks the book is, so the move has to be checked, not assumed.
+    """
+    stubborn = FakeAbs(300.0, playing=["session-a"], stubborn=1)
+    message = fixture.make_library(stubborn).move_to(271, 60_000)
+
+    assert len(stubborn.moves) == 2  # first undone, second stuck
+    assert stubborn.current_time == 60.0
+    assert "Moved to 0:01:00" in message
+
+
+def test_a_player_that_will_not_give_up_is_reported_not_hidden(
+    fixture: Fixture,
+) -> None:
+    """Saying "moved" when nothing moved is the worst answer available."""
+    immovable = FakeAbs(300.0, playing=["session-a"], stubborn=99)
+    message = fixture.make_library(immovable).move_to(271, 60_000)
+
+    assert "Stop it and ask me again" in message
+    assert immovable.current_time == 300.0
+
+
+def test_being_moved_back_does_not_un_hear_the_rest(fixture: Fixture) -> None:
+    """The guard bounds searches by the furthest point ever reached.
+
+    Taking someone back to an earlier passage moves their position backwards.
+    If that also moved the spoiler bound, the whole stretch they had already
+    listened to would become unsearchable for the rest of the night.
+    """
+    fixture.library.find_passage(271, "anything")  # records 300s as heard
+    fixture.library.move_to(271, 10_000)
+
+    search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    assert search.searched_to_ms == 360_000
+    assert search.hits[0].start_ms == 300_000
 
 
 def test_format_timestamp_reads_as_a_listening_position() -> None:

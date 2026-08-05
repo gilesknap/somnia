@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#07070b" />
+    <meta name="color-scheme" content="dark" />
+    <title>somnia</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>somnia</h1>
+      <button id="restart" type="button" class="quiet">start over</button>
+    </header>
+
+    <main id="transcript" aria-live="polite">
+      <p class="said agent">Where do you want to be?</p>
+    </main>
+
+    <p id="status" aria-live="polite"></p>
+
+    <form id="composer" autocomplete="off">
+      <input
+        id="question"
+        type="text"
+        enterkeyhint="send"
+        placeholder="the bit where the horse dies"
+        aria-label="What are you looking for?"
+      />
+      <button id="talk" type="button" aria-label="Hold to talk">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"
+            fill="currentColor"
+          />
+          <path
+            d="M5 11a7 7 0 0 0 14 0M12 18v3"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </form>
+
+    <script src="app.js"></script>
+  </body>
+</html>

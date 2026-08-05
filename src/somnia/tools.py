@@ -13,6 +13,7 @@ import logging
 import sqlite3
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 
 from .abs import AbsClient
@@ -162,6 +163,7 @@ class Library:
         if progress is None:
             return None
         position_ms = int(float(progress.get("currentTime", 0.0)) * 1000)
+        self._remember_heard(gid, position_ms)
         chapter = self._conn.execute(
             "SELECT idx, title FROM chapters WHERE book_gid = ? AND start_ms <= ?"
             " ORDER BY start_ms DESC LIMIT 1",
@@ -181,21 +183,40 @@ class Library:
             finished=bool(progress.get("isFinished")),
         )
 
+    def _remember_heard(self, gid: int, position_ms: int) -> None:
+        """Record the furthest point reached, never letting it go backwards."""
+        with self._conn:
+            self._conn.execute(
+                "UPDATE books SET heard_to_ms = MAX(heard_to_ms, ?) WHERE gid = ?",
+                (position_ms, gid),
+            )
+
+    def heard_to_ms(self, gid: int) -> int:
+        row = self._conn.execute(
+            "SELECT heard_to_ms FROM books WHERE gid = ?", (gid,)
+        ).fetchone()
+        return int(row["heard_to_ms"]) if row else 0
+
     def find_passage(
         self, gid: int, query: str, k: int = 5, spoiler_free: bool = True
     ) -> Search:
         """Search a book for a passage — an event, a character, a moment.
 
-        With ``spoiler_free`` (the default) the search stops at how far the
-        listener has got, and reports separately whether a closer match lies
-        beyond that point. Pass False once they have said they don't mind.
+        With ``spoiler_free`` (the default) the search stops at the furthest
+        point they have ever reached, and reports separately whether a closer
+        match lies beyond it. Pass False once they have said they don't mind.
+
+        The bound is the high-water mark rather than the current position
+        because the agent can move them backwards: having been taken back to
+        chapter two must not un-hear chapters three to twenty.
         """
         before_ms: int | None = None
         if spoiler_free:
-            position = self.get_position(gid)
-            if position is not None and not position.finished:
+            position = self.get_position(gid)  # also records the high-water mark
+            heard = self.heard_to_ms(gid)
+            if heard and not (position is not None and position.finished):
                 # Include the sentence being spoken, not just what precedes it.
-                before_ms = position.position_ms + 60_000
+                before_ms = heard + 60_000
 
         hits = find_passage(
             self._conn, self.embedder, gid, query, k=k, before_ms=before_ms
@@ -209,12 +230,66 @@ class Library:
                 better_ahead = ahead[0]
         return Search(hits=hits, searched_to_ms=before_ms, better_ahead=better_ahead)
 
-    def plant_bookmark(self, gid: int, position_ms: int, title: str) -> str:
-        """Drop a named bookmark so the app is two taps from the passage."""
-        self._require_abs().create_bookmark(
-            self._abs_item_id(gid), position_ms / 1000, title
-        )
-        return f'Bookmarked "{title}" at {format_timestamp(position_ms)}.'
+    def move_to(self, gid: int, position_ms: int) -> str:
+        """Move the book to a point, so pressing play resumes there.
+
+        This replaced planting a bookmark. A bookmark is only a signpost: it
+        still has to be found in a list of every other bookmark, in the dark,
+        by someone who is half asleep. Moving the position means the next tap
+        on play is already in the right place.
+
+        Any player still holding an open session on this book is ended first.
+        A session is the authority on where the book is while it lasts, so
+        writing underneath a live one is silently undone a few seconds later.
+
+        Then it checks. A player whose session is closed underneath it opens a
+        new one and reports where *it* thinks the book is, which put the
+        position back and made the first attempt of the night look like it did
+        nothing at all. Losing that race once is normal; losing it three times
+        means something is playing that will not be talked out of it, and
+        saying so is more use at 2am than a confident lie.
+        """
+        abs_client = self._require_abs()
+        item_id = self._abs_item_id(gid)
+        target_s = position_ms / 1000
+        interrupted = False
+
+        for attempt in range(3):
+            live = abs_client.open_sessions(item_id)
+            interrupted = interrupted or bool(live)
+            for session_id in live:
+                abs_client.close_session(session_id)
+            abs_client.set_position(item_id, target_s)
+
+            # Nothing playing, nothing to argue with: don't make them wait for
+            # a race that cannot happen. A player that was running gets a
+            # couple of seconds to reopen a session and put the book back.
+            if live:
+                time.sleep(self._cfg.move_settle_s)
+            if self._is_at(item_id, target_s):
+                if attempt:
+                    logger.info("move to %d took %d tries", position_ms, attempt + 1)
+                break
+            logger.warning("position was put back after moving to %d", position_ms)
+        else:
+            return (
+                "Something is playing that keeps putting the book back where it"
+                " was. Stop it and ask me again."
+            )
+
+        moved = f"Moved to {format_timestamp(position_ms)}."
+        if interrupted:
+            # They will not have heard it stop: the audio already in flight
+            # keeps playing, and only the next press of play starts from here.
+            return f"{moved} A player was running, so it was stopped first."
+        return moved
+
+    def _is_at(self, item_id: str, target_s: float) -> bool:
+        """Did the move stick, or has a player already overwritten it?"""
+        progress = self._require_abs().progress(item_id)
+        if progress is None:
+            return False
+        return abs(float(progress.get("currentTime", 0.0)) - target_s) < 2.0
 
 
 def format_timestamp(ms: int) -> str:

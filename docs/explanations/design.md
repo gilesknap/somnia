@@ -77,30 +77,68 @@ dump** (~20MB, all ~75k books) into sqlite FTS5. Browsing is fully offline
 and deployment has no third-party API dependency. Refresh with
 `somnia catalog-update`.
 
-## Playback: Audiobookshelf is the player, bookmarks are the seek vector
+## Playback: Audiobookshelf is the player, position is the seek vector
 
 We deliberately do **not** build an audio player. The ABS Android app already
 has screen-off playback, Bluetooth controls, a sleep timer with
-shake-to-extend, fade-out, and smart rewind after pauses. "Seek to where the
-horse dies" is implemented as: create an ABS **bookmark** at the found
-timestamp, named after the passage — two taps in the app instead of scrubbing.
-ABS also records listening sessions, giving play/pause history (for inferring
-sleep onset) for free.
+shake-to-extend, fade-out, and smart rewind after pauses. ABS also records
+listening sessions, giving play/pause history (for inferring sleep onset) for
+free.
+
+"Seek to where the horse dies" is implemented as **setting the listening
+position** (`PATCH /api/me/progress/:id`), so the next tap on play starts
+there. This replaced bookmarks, which were the original design and did not
+survive contact with 2am: a bookmark is a signpost, and finding the new one
+among all the others, in a menu, in the dark, is most of the work the agent
+was supposed to remove.
+
+Two consequences follow:
+
+- **The spoiler guard cannot bound searches by the current position**, because
+  the agent can now move that position backwards. `books.heard_to_ms` records
+  the furthest point ever reached, and the guard uses that — being taken back
+  to chapter two must not un-hear chapters three to twenty.
+- **A running player owns the position, not the server.** While a client holds
+  an open playback session it syncs its own `currentTime` back every few
+  seconds, so a position written underneath it is silently undone. `move_to`
+  therefore ends any open session on that book first (`/api/users/online` →
+  `/api/session/:id/close`) and then writes the position. There is no way to
+  make an already-playing client seek: ABS has no such API, and the app has no
+  deep link. Audio already in flight keeps playing; the new position takes
+  effect at the next press of play.
 
 ## Agent surface
 
 - Tool layer is a plain Python library: `search_catalog`, `add_book`,
-  `find_passage`, `get_position` (reads ABS progress), `plant_bookmark`.
+  `find_passage`, `get_position` (reads ABS progress), `move_to` (writes it).
 - 2am surface: a small **PWA chat page** served from the VPS. The server runs
   the agent loop (Anthropic Python SDK tool runner) with an API key held
   server-side — no OAuth. Voice input via the browser's Web Speech API
   (push-to-talk button); Android keyboard dictation as fallback.
-- Model: **Haiku 4.5** default (cents per conversation), configurable up to
-  Sonnet for harder disambiguation.
+- Model: **Sonnet 5** default, `SOMNIA_AGENT_MODEL` to change it. Haiku 4.5 was
+  the original choice on cost, and mostly held up, but it read a character's
+  name as the title of a book somnia does not have and said so — a spoken
+  half-sentence at 2am is exactly the disambiguation this is here to do. The
+  difference is a few cents a night.
 - MCP server (FastMCP wrapper over the tool layer) is a dev-time convenience,
   not the primary surface. claude.ai custom connectors were rejected for v1:
   they require a publicly reachable MCP endpoint plus OAuth, which conflicts
   with the network model below.
+
+As built (`somnia serve`, Starlette + uvicorn, one `POST /api/ask`):
+
+- **Conversation state lives on the server**, keyed by a token the page mints
+  on load. The tool-runner history contains SDK content blocks, not JSON the
+  page could hold; keeping it server-side also means the agent's whole library
+  — including the loaded embedder — survives between questions instead of
+  paying seconds of torch startup on every search.
+- **Push-to-talk, not always-listening.** A bedroom is full of speech that was
+  not meant for somnia, and holding a button is the one gesture that survives
+  being half awake. Spoken questions get spoken answers (their eyes are shut);
+  typed ones don't.
+- **No login.** Reachability *is* the authentication: the server binds to
+  localhost and only `tailscale serve` can reach it. Adding a password would
+  mean typing one at 2am, in the dark, to ask where the horse dies.
 
 ## Network model
 
