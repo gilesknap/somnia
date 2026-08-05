@@ -3,8 +3,9 @@ from somnia.gutenberg import parse_book_html
 BOOK_HTML = """
 <html><head><title>Black Beauty | Project Gutenberg</title></head><body>
 <section id="pg-header"><p>The Project Gutenberg eBook of Black Beauty ***</p></section>
-<h2>CONTENTS</h2>
-<p>Chapter I. My Early Home</p>
+<h2>by Anna Sewell</h2>
+<p class="toc">CONTENTS</p>
+<p class="toc">Chapter I. My Early Home</p>
 <h2>Chapter I. My Early Home</h2>
 <p>The first place that I can well remember was a large pleasant meadow.</p>
 <p>While I was young I lived upon my mother's milk.</p>

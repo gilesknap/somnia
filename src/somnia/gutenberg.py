@@ -63,6 +63,12 @@ def parse_book_html(gid: int, html: str) -> Book:
         if isinstance(section, Tag):
             section.decompose()
 
+    # Gutenberg marks table-of-contents entries with class="toc". They sit under
+    # a front-matter heading (often the byline), so heading-name matching alone
+    # misses them and the whole contents list gets read aloud as chapter one.
+    for entry in soup.find_all(class_="toc"):
+        entry.decompose()
+
     title_tag = soup.find("title")
     doc_title = _clean(title_tag.get_text()) if title_tag else f"Gutenberg #{gid}"
     # Gutenberg <title> is usually "<book title> | Project Gutenberg".
