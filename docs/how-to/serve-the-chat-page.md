@@ -69,8 +69,17 @@ $ curl -s localhost:8721/api/health     # {"ok": true}
 ## Using it
 
 Type, or hold the button and speak — it listens only while held, because a
-bedroom is full of speech that was not meant for somnia. Spoken questions are
-answered out loud; typed ones are not.
+bedroom is full of speech that was not meant for somnia. Answers are read, not
+spoken: nothing on the page makes a sound.
+
+The button glows and pulses while it is listening, and the phone buzzes when it
+starts and stops. Android's own speech recogniser plays a start and stop tone
+that no web page can turn off; silencing it means muting system sounds on the
+phone.
+
+Ask to be taken somewhere and somnia moves your position in the book, so the
+next tap on play starts there. If the player is already open on that book it
+may put you back where you were — close it first, or reopen it afterwards.
 
 Conversations are held in memory, keyed by a token the page mints when it
 starts, and nothing is written to disk. *Start over* drops the history when the

@@ -86,6 +86,20 @@ h1 {
   color: #8c5a52;
 }
 
+/* The only feedback that the button is listening, or that an answer is on its
+   way. Android's speech recogniser plays its own start and stop tones and a
+   web page cannot silence them, so this has to stand on its own for anyone
+   with the phone muted. */
+#status {
+  margin: 0;
+  padding: 0 1.4rem;
+  height: 1.4rem;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--glow);
+  opacity: 0.75;
+}
+
 #composer {
   display: flex;
   align-items: center;
@@ -135,9 +149,27 @@ h1 {
 }
 
 #talk.listening {
-  background: #241a10;
-  color: #e0b673;
-  box-shadow: 0 0 0 0.6rem rgba(181, 138, 74, 0.07);
+  background: #3a2a16;
+  color: #f0cf95;
+  border-color: #6b512c;
+  transform: scale(1.06);
+  animation: listening 1.5s ease-out infinite;
+}
+
+@keyframes listening {
+  from {
+    box-shadow: 0 0 0 0 rgba(224, 182, 115, 0.3);
+  }
+  to {
+    box-shadow: 0 0 0 1.8rem rgba(224, 182, 115, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #talk.listening {
+    animation: none;
+    box-shadow: 0 0 0 0.7rem rgba(224, 182, 115, 0.12);
+  }
 }
 
 #talk[hidden] {

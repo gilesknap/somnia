@@ -3,7 +3,7 @@
 The model's job is disambiguation and phrasing, not retrieval — the tools do the
 work, and every answer is grounded in a passage that was actually rendered. The
 default model is Haiku, which costs cents per conversation and is more than
-enough to turn "the bit where the horse dies" into a bookmark.
+enough to turn "the bit where the horse dies" into a place in the book.
 """
 
 import logging
@@ -37,16 +37,19 @@ tool result — not to show you understood, not to offer them a choice, not even
 to ask a clarifying question. If you want to ask which of two moments they
 meant, describe only moments the tools actually returned.
 
-Only what somnia has rendered exists as audio, and only a passage the tools
-return can be bookmarked.
+Only what somnia has rendered exists as audio, and you can only move them to a
+passage the tools returned.
 
 A search always returns its closest matches, however poor they are, so read the
 passages and judge for yourself whether any is really the moment they meant. If
-none is, say you couldn't find it rather than bookmarking the least bad one.
+none is, say you couldn't find it rather than moving them to the least bad one.
 
-When they describe a moment they want to get back to, find it and plant a
-bookmark, then tell them the name you gave it and roughly where it falls. They
-jump to bookmarks from the app; you never play anything yourself.
+When they describe a moment they want to get back to, find it and move the book
+there, then tell them roughly where it now sits — "you're back at two hours in,
+in the chapter about X". Moving sets where the book resumes from; pressing play
+is theirs to do, and you never play anything yourself. If their player is
+already open on that book it may put them back where they were, so say to
+reopen it if nothing seems to have changed.
 
 Searches are limited to how far they have listened. When a search reports that
 a closer match lies further on, say that it is ahead of where they have got and
@@ -55,9 +58,12 @@ there until they accept.
 
 Once they accept, search again with allow_spoilers so you can read those
 passages and pick the right one. The timestamp alone is the top-ranked guess
-and the ranking is often a near miss; bookmarking it unread lands them minutes
-from the moment they asked for. Reading the passage does not oblige you to
-describe it — bookmark it and name the bookmark in their words.
+and the ranking is often a near miss; moving them there unread lands them
+minutes from the moment they asked for. Reading the passage does not oblige you
+to describe it — move them there and tell them only that you have.
+
+Moving them forward is a real jump: they will hear what is there. Never do it
+past where they have listened unless they have just asked you to.
 
 If it is ambiguous which book or which of several passages they mean, ask one
 short question. Otherwise just act.\
@@ -161,23 +167,25 @@ def build_tools(library: Library) -> list[Any]:
             lines.append(
                 "A closer match lies further on than they have listened, at"
                 f" {format_timestamp(search.better_ahead.start_ms)}. Tell them it is"
-                " ahead of where they are and offer to bookmark it or answer anyway."
-                " Do not say what happens there unless they accept."
+                " ahead of where they are. Offer to take them there or to answer"
+                " anyway, and do not say what happens there unless they accept."
             )
         return "\n\n".join(lines)
 
     @beta_tool
-    def plant_bookmark(gid: int, position_ms: int, title: str) -> str:
-        """Bookmark a moment so they can jump to it from the app.
+    def move_to(gid: int, position_ms: int) -> str:
+        """Move the book to a moment, so playing it resumes from there.
+
+        This is how they get taken to a passage: their position in the book
+        becomes the point you name, and the next tap on play starts there.
 
         Args:
             gid: The Gutenberg id of the book.
             position_ms: Milliseconds from the start of the book, as returned
                 by find_passage.
-            title: A short name for the bookmark, in their words.
         """
         try:
-            return library.plant_bookmark(gid, position_ms, title)
+            return library.move_to(gid, position_ms)
         except LookupError as exc:
             return str(exc)
 
@@ -187,7 +195,7 @@ def build_tools(library: Library) -> list[Any]:
         add_book,
         get_position,
         find_passage,
-        plant_bookmark,
+        move_to,
     ]
 
 

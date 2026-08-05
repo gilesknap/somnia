@@ -162,6 +162,7 @@ class Library:
         if progress is None:
             return None
         position_ms = int(float(progress.get("currentTime", 0.0)) * 1000)
+        self._remember_heard(gid, position_ms)
         chapter = self._conn.execute(
             "SELECT idx, title FROM chapters WHERE book_gid = ? AND start_ms <= ?"
             " ORDER BY start_ms DESC LIMIT 1",
@@ -181,21 +182,40 @@ class Library:
             finished=bool(progress.get("isFinished")),
         )
 
+    def _remember_heard(self, gid: int, position_ms: int) -> None:
+        """Record the furthest point reached, never letting it go backwards."""
+        with self._conn:
+            self._conn.execute(
+                "UPDATE books SET heard_to_ms = MAX(heard_to_ms, ?) WHERE gid = ?",
+                (position_ms, gid),
+            )
+
+    def heard_to_ms(self, gid: int) -> int:
+        row = self._conn.execute(
+            "SELECT heard_to_ms FROM books WHERE gid = ?", (gid,)
+        ).fetchone()
+        return int(row["heard_to_ms"]) if row else 0
+
     def find_passage(
         self, gid: int, query: str, k: int = 5, spoiler_free: bool = True
     ) -> Search:
         """Search a book for a passage — an event, a character, a moment.
 
-        With ``spoiler_free`` (the default) the search stops at how far the
-        listener has got, and reports separately whether a closer match lies
-        beyond that point. Pass False once they have said they don't mind.
+        With ``spoiler_free`` (the default) the search stops at the furthest
+        point they have ever reached, and reports separately whether a closer
+        match lies beyond it. Pass False once they have said they don't mind.
+
+        The bound is the high-water mark rather than the current position
+        because the agent can move them backwards: having been taken back to
+        chapter two must not un-hear chapters three to twenty.
         """
         before_ms: int | None = None
         if spoiler_free:
-            position = self.get_position(gid)
-            if position is not None and not position.finished:
+            position = self.get_position(gid)  # also records the high-water mark
+            heard = self.heard_to_ms(gid)
+            if heard and not (position is not None and position.finished):
                 # Include the sentence being spoken, not just what precedes it.
-                before_ms = position.position_ms + 60_000
+                before_ms = heard + 60_000
 
         hits = find_passage(
             self._conn, self.embedder, gid, query, k=k, before_ms=before_ms
@@ -209,12 +229,16 @@ class Library:
                 better_ahead = ahead[0]
         return Search(hits=hits, searched_to_ms=before_ms, better_ahead=better_ahead)
 
-    def plant_bookmark(self, gid: int, position_ms: int, title: str) -> str:
-        """Drop a named bookmark so the app is two taps from the passage."""
-        self._require_abs().create_bookmark(
-            self._abs_item_id(gid), position_ms / 1000, title
-        )
-        return f'Bookmarked "{title}" at {format_timestamp(position_ms)}.'
+    def move_to(self, gid: int, position_ms: int) -> str:
+        """Move the book to a point, so pressing play resumes there.
+
+        This replaced planting a bookmark. A bookmark is only a signpost: it
+        still has to be found in a list of every other bookmark, in the dark,
+        by someone who is half asleep. Moving the position means the next tap
+        on play is already in the right place.
+        """
+        self._require_abs().set_position(self._abs_item_id(gid), position_ms / 1000)
+        return f"Moved to {format_timestamp(position_ms)}."
 
 
 def format_timestamp(ms: int) -> str:

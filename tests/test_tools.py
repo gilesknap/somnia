@@ -39,16 +39,17 @@ class FakeEmbedder:
 
 class FakeAbs:
     def __init__(self, current_time: float | None = None) -> None:
-        self._current_time = current_time
-        self.bookmarks: list[tuple[str, float, str]] = []
+        self.current_time = current_time
+        self.moves: list[tuple[str, float]] = []
 
     def progress(self, item_id: str) -> dict[str, Any] | None:
-        if self._current_time is None:
+        if self.current_time is None:
             return None
-        return {"libraryItemId": item_id, "currentTime": self._current_time}
+        return {"libraryItemId": item_id, "currentTime": self.current_time}
 
-    def create_bookmark(self, item_id: str, time_s: float, title: str) -> None:
-        self.bookmarks.append((item_id, time_s, title))
+    def set_position(self, item_id: str, time_s: float) -> None:
+        self.moves.append((item_id, time_s))
+        self.current_time = time_s
 
 
 CHAPTERS = [
@@ -163,19 +164,32 @@ def test_find_passage_finds_what_they_have_already_heard(fixture: Fixture) -> No
     assert search.better_ahead is None
 
 
-def test_plant_bookmark_uses_the_abs_item_and_seconds(fixture: Fixture) -> None:
-    message = fixture.library.plant_bookmark(271, 300_500, "where Rob Roy dies")
-    assert fixture.abs.bookmarks == [(ITEM_ID, 300.5, "where Rob Roy dies")]
+def test_move_to_uses_the_abs_item_and_seconds(fixture: Fixture) -> None:
+    message = fixture.library.move_to(271, 300_500)
+    assert fixture.abs.moves == [(ITEM_ID, 300.5)]
     assert "0:05:00" in message
 
 
-def test_plant_bookmark_explains_when_the_book_is_not_in_abs_yet(
-    fixture: Fixture,
-) -> None:
+def test_move_to_explains_when_the_book_is_not_in_abs_yet(fixture: Fixture) -> None:
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET abs_item_id = '' WHERE gid = 271")
     with pytest.raises(LookupError):
-        fixture.library.plant_bookmark(271, 1000, "nope")
+        fixture.library.move_to(271, 1000)
+
+
+def test_being_moved_back_does_not_un_hear_the_rest(fixture: Fixture) -> None:
+    """The guard bounds searches by the furthest point ever reached.
+
+    Taking someone back to an earlier passage moves their position backwards.
+    If that also moved the spoiler bound, the whole stretch they had already
+    listened to would become unsearchable for the rest of the night.
+    """
+    fixture.library.find_passage(271, "anything")  # records 300s as heard
+    fixture.library.move_to(271, 10_000)
+
+    search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    assert search.searched_to_ms == 360_000
+    assert search.hits[0].start_ms == 300_000
 
 
 def test_format_timestamp_reads_as_a_listening_position() -> None:

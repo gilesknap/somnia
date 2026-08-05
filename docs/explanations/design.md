@@ -77,20 +77,35 @@ dump** (~20MB, all ~75k books) into sqlite FTS5. Browsing is fully offline
 and deployment has no third-party API dependency. Refresh with
 `somnia catalog-update`.
 
-## Playback: Audiobookshelf is the player, bookmarks are the seek vector
+## Playback: Audiobookshelf is the player, position is the seek vector
 
 We deliberately do **not** build an audio player. The ABS Android app already
 has screen-off playback, Bluetooth controls, a sleep timer with
-shake-to-extend, fade-out, and smart rewind after pauses. "Seek to where the
-horse dies" is implemented as: create an ABS **bookmark** at the found
-timestamp, named after the passage — two taps in the app instead of scrubbing.
-ABS also records listening sessions, giving play/pause history (for inferring
-sleep onset) for free.
+shake-to-extend, fade-out, and smart rewind after pauses. ABS also records
+listening sessions, giving play/pause history (for inferring sleep onset) for
+free.
+
+"Seek to where the horse dies" is implemented as **setting the listening
+position** (`PATCH /api/me/progress/:id`), so the next tap on play starts
+there. This replaced bookmarks, which were the original design and did not
+survive contact with 2am: a bookmark is a signpost, and finding the new one
+among all the others, in a menu, in the dark, is most of the work the agent
+was supposed to remove.
+
+Two consequences follow:
+
+- **The spoiler guard cannot bound searches by the current position**, because
+  the agent can now move that position backwards. `books.heard_to_ms` records
+  the furthest point ever reached, and the guard uses that — being taken back
+  to chapter two must not un-hear chapters three to twenty.
+- **A player already open on that book may push its own position back.** The
+  agent says so when it moves them; the change lands cleanly when the app is
+  closed or on another book.
 
 ## Agent surface
 
 - Tool layer is a plain Python library: `search_catalog`, `add_book`,
-  `find_passage`, `get_position` (reads ABS progress), `plant_bookmark`.
+  `find_passage`, `get_position` (reads ABS progress), `move_to` (writes it).
 - 2am surface: a small **PWA chat page** served from the VPS. The server runs
   the agent loop (Anthropic Python SDK tool runner) with an API key held
   server-side — no OAuth. Voice input via the browser's Web Speech API

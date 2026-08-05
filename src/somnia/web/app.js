@@ -9,6 +9,7 @@ const composer = document.getElementById("composer");
 const question = document.getElementById("question");
 const talk = document.getElementById("talk");
 const restart = document.getElementById("restart");
+const statusLine = document.getElementById("status");
 
 // One conversation per launch of the app. The server holds the history; this
 // is only the name it goes by.
@@ -27,21 +28,27 @@ function say(text, kind) {
   return line;
 }
 
-// Spoken questions get spoken answers: their eyes are shut. Typed ones don't.
-function speak(text) {
-  if (!window.speechSynthesis) return;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 0.95;
-  utterance.volume = 0.7;
-  speechSynthesis.speak(utterance);
+// Answers are read, never spoken. Nothing here makes a sound: the phone is on
+// a bedside table next to someone who may be asleep again by the time the
+// answer lands.
+function setStatus(text) {
+  statusLine.textContent = text;
 }
 
-async function ask(text, aloud) {
+// A short buzz confirms the button caught the press, for a listener who can't
+// see much and shouldn't be listening for a beep. Android honours this; iOS
+// ignores it, which is why the button also changes colour and pulses.
+function buzz(ms) {
+  navigator.vibrate?.(ms);
+}
+
+async function ask(text) {
   if (!text) return;
   say(text, "you");
   question.value = "";
   const pending = say("…", "agent pending");
   const asked = token;
+  setStatus("thinking…");
   try {
     const response = await fetch("api/ask", {
       method: "POST",
@@ -56,18 +63,18 @@ async function ask(text, aloud) {
     if (!response.ok) throw new Error(body.error || "no answer");
     pending.className = "said agent";
     pending.textContent = body.reply || "…nothing to say.";
-    if (aloud) speak(pending.textContent);
   } catch (error) {
     pending.className = "said failed";
     pending.textContent = "Couldn't reach somnia. Still here?";
     console.error(error);
   }
+  setStatus("");
   transcript.scrollTop = transcript.scrollHeight;
 }
 
 composer.addEventListener("submit", (event) => {
   event.preventDefault();
-  ask(question.value.trim(), false);
+  ask(question.value.trim());
 });
 
 restart.addEventListener("click", async () => {
@@ -79,8 +86,8 @@ restart.addEventListener("click", async () => {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ token: stale }),
   }).catch(() => {});
-  speechSynthesis?.cancel();
   transcript.replaceChildren();
+  setStatus("");
   say("Where do you want to be?", "agent");
   question.focus();
 });
@@ -113,9 +120,11 @@ if (!Recognition) {
   recognition.addEventListener("end", () => {
     listening = false;
     talk.classList.remove("listening");
+    setStatus("");
+    buzz(10);
     const said = (heard || question.value).trim();
     heard = "";
-    ask(said, true);
+    ask(said);
   });
 
   recognition.addEventListener("error", (event) => {
@@ -125,18 +134,20 @@ if (!Recognition) {
     }
     heard = "";
     question.value = "";
+    setStatus("");
   });
 
   const start = (event) => {
     event.preventDefault();
     if (listening) return;
-    speechSynthesis?.cancel(); // they are interrupting; stop talking over them
     heard = "";
     question.value = "";
     try {
       recognition.start();
       listening = true;
       talk.classList.add("listening");
+      setStatus("listening…");
+      buzz(15);
     } catch {
       // Already starting — the previous session hasn't finished releasing.
     }

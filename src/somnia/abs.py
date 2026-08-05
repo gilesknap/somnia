@@ -64,11 +64,20 @@ class AbsClient:
                 return entry
         return None
 
-    def create_bookmark(self, item_id: str, time_s: float, title: str) -> None:
-        """Plant a named bookmark — the seek vector the app can jump to."""
-        resp = self._client.post(
-            f"/api/me/item/{item_id}/bookmark",
-            json={"time": round(time_s, 3), "title": title},
+    def set_position(self, item_id: str, time_s: float) -> None:
+        """Move the listener to a point in the book.
+
+        This is the same progress record the app writes while you listen, so
+        setting it is indistinguishable from having listened up to there: the
+        app resumes from this point instead of where it left off. ABS
+        recalculates the percentage itself from the item's duration.
+
+        A player that is open and holding its own idea of the position may
+        push that back afterwards — this lands cleanly when the app is closed
+        or the book is not the one currently loaded.
+        """
+        resp = self._client.patch(
+            f"/api/me/progress/{item_id}", json={"currentTime": round(time_s, 3)}
         )
         resp.raise_for_status()
 

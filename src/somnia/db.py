@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS books (
     status TEXT NOT NULL DEFAULT 'pending',
     total_ms INTEGER NOT NULL DEFAULT 0,
     abs_item_id TEXT NOT NULL DEFAULT '',
+    heard_to_ms INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -60,7 +61,13 @@ CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
 
 # Columns added after the first release. CREATE TABLE IF NOT EXISTS silently
 # leaves an existing table alone, so new columns have to be added by hand.
-_ADDED_COLUMNS = (("books", "abs_item_id", "TEXT NOT NULL DEFAULT ''"),)
+_ADDED_COLUMNS = (
+    ("books", "abs_item_id", "TEXT NOT NULL DEFAULT ''"),
+    # The furthest point ever reached, which is not the same as where they are
+    # now: the agent can move them backwards, and doing so must not shrink what
+    # the spoiler guard is willing to search.
+    ("books", "heard_to_ms", "INTEGER NOT NULL DEFAULT 0"),
+)
 
 
 def _migrate(conn: sqlite3.Connection) -> None:

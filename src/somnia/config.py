@@ -23,7 +23,7 @@ class Config:
     abs_library_id: str = ""
     voice: str = "af_heart"
     embed_model: str = "intfloat/e5-small-v2"
-    # Haiku is plenty for turning a mumbled description into a bookmark, and
+    # Haiku is plenty for turning a mumbled description into a timestamp, and
     # costs cents per conversation. Point this at Sonnet or Opus if the
     # disambiguation ever needs more.
     agent_model: str = "claude-haiku-4-5"
