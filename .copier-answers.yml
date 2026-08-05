@@ -1,0 +1,18 @@
+# Changes here will be overwritten by Copier
+_commit: 5.1.0-1-gebc7d51
+_src_path: /home/giles/code/python-copier-template
+author_email: gilesknap@gmail.com
+author_name: Giles Knap
+description: 'Bedtime audiobook reader with semantic seek: TTS-rendered public-domain
+    books plus a conversational agent that finds your place again'
+distribution_name: somnia
+docker: true
+docker_debug: false
+docs_type: sphinx
+git_platform: github.com
+github_org: gilesknap
+package_name: somnia
+pypi: false
+repo_name: somnia
+strict_typing: true
+type_checker: pyright
