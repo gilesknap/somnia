@@ -70,10 +70,15 @@ def _migrate(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
 
-def connect(db_path: Path) -> sqlite3.Connection:
-    """Open (creating if needed) the somnia database."""
+def connect(db_path: Path, *, cross_thread: bool = False) -> sqlite3.Connection:
+    """Open (creating if needed) the somnia database.
+
+    ``cross_thread`` lifts sqlite's same-thread check for the server, whose
+    request handlers run in a threadpool. The caller then owes it serialised
+    access — :class:`somnia.server.Conversations` holds a lock for exactly this.
+    """
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=not cross_thread)
     conn.row_factory = sqlite3.Row
     conn.enable_load_extension(True)
     sqlite_vec.load(conn)

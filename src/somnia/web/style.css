@@ -1,0 +1,149 @@
+/* Read in a dark bedroom by someone half asleep: as little light as the page
+   can get away with, text large enough to read without glasses, and one
+   target big enough to hit without aiming. */
+
+:root {
+  --ink: #c8bda8;
+  --dim: #6d6558;
+  --page: #07070b;
+  --raised: #12121a;
+  --glow: #b58a4a;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--page);
+  color: var(--ink);
+  font: 400 1.25rem/1.55 ui-serif, Georgia, serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-text-size-adjust: 100%;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.9rem 1.2rem 0.2rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.4em;
+  color: var(--dim);
+  text-transform: lowercase;
+}
+
+.quiet {
+  background: none;
+  border: 0;
+  color: var(--dim);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem;
+}
+
+#transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.2rem 0;
+  overscroll-behavior: contain;
+}
+
+.said {
+  margin: 0 0 1.5rem;
+  max-width: 34rem;
+}
+
+.said.you {
+  color: var(--dim);
+}
+
+.said.you::before {
+  content: "— ";
+}
+
+.said.pending {
+  color: var(--dim);
+  font-style: italic;
+}
+
+.said.failed {
+  color: #8c5a52;
+}
+
+#composer {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.8rem 1.2rem calc(0.8rem + env(safe-area-inset-bottom));
+}
+
+#question {
+  flex: 1;
+  min-width: 0;
+  background: var(--raised);
+  border: 1px solid #1e1e2a;
+  border-radius: 999px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.05rem;
+  padding: 0.85rem 1.1rem;
+}
+
+#question::placeholder {
+  color: #453f36;
+}
+
+#question:focus {
+  outline: none;
+  border-color: #2c2c3c;
+}
+
+#talk {
+  flex: none;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  border: 1px solid #24242f;
+  background: var(--raised);
+  color: var(--glow);
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#talk svg {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+#talk.listening {
+  background: #241a10;
+  color: #e0b673;
+  box-shadow: 0 0 0 0.6rem rgba(181, 138, 74, 0.07);
+}
+
+#talk[hidden] {
+  display: none;
+}
+
+button:disabled {
+  opacity: 0.4;
+}

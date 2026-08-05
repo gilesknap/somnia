@@ -102,6 +102,21 @@ sleep onset) for free.
   they require a publicly reachable MCP endpoint plus OAuth, which conflicts
   with the network model below.
 
+As built (`somnia serve`, Starlette + uvicorn, one `POST /api/ask`):
+
+- **Conversation state lives on the server**, keyed by a token the page mints
+  on load. The tool-runner history contains SDK content blocks, not JSON the
+  page could hold; keeping it server-side also means the agent's whole library
+  — including the loaded embedder — survives between questions instead of
+  paying seconds of torch startup on every search.
+- **Push-to-talk, not always-listening.** A bedroom is full of speech that was
+  not meant for somnia, and holding a button is the one gesture that survives
+  being half awake. Spoken questions get spoken answers (their eyes are shut);
+  typed ones don't.
+- **No login.** Reachability *is* the authentication: the server binds to
+  localhost and only `tailscale serve` can reach it. Adding a password would
+  mean typing one at 2am, in the dark, to ask where the horse dies.
+
 ## Network model
 
 The VPS is treated as untrusted-ish (it runs experiments). It joins the

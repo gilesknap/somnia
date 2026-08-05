@@ -16,7 +16,7 @@ from .abs import AbsClient
 from .config import Config
 from .tools import Library, format_timestamp
 
-__all__ = ["SYSTEM_PROMPT", "ask", "build_tools"]
+__all__ = ["SYSTEM_PROMPT", "Conversation", "build_tools", "open_library"]
 
 logger = logging.getLogger(__name__)
 
@@ -191,31 +191,49 @@ def build_tools(library: Library) -> list[Any]:
     ]
 
 
-def ask(
-    cfg: Config,
-    conn: sqlite3.Connection,
-    question: str,
-    history: list[Any] | None = None,
-) -> tuple[str, list[Any]]:
-    """Run one turn of the conversation. Returns (reply, updated history)."""
+def open_library(cfg: Config, conn: sqlite3.Connection) -> Library:
+    """The tool layer, wired to Audiobookshelf if a token is configured."""
     abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
-    library = Library(cfg, conn, abs_client)
-    client = Anthropic(api_key=cfg.anthropic_api_key or None)
+    return Library(cfg, conn, abs_client)
 
-    messages: list[Any] = [*(history or []), {"role": "user", "content": question}]
-    runner = client.beta.messages.tool_runner(
-        model=cfg.agent_model,
-        max_tokens=cfg.agent_max_tokens,
-        system=SYSTEM_PROMPT,
-        tools=build_tools(library),
-        messages=messages,
-    )
 
-    reply = ""
-    for message in runner:
-        messages.append({"role": "assistant", "content": message.content})
-        tool_response = runner.generate_tool_call_response()
-        if tool_response is not None:
-            messages.append(tool_response)
-        reply = "".join(b.text for b in message.content if b.type == "text")
-    return reply, messages
+class Conversation:
+    """One exchange with the agent, held open across turns.
+
+    The library outlives the turn deliberately: its embedder loads torch and
+    a sentence-transformer model, which takes seconds. Building it per question
+    would put that wait between "where does the horse die" and the answer.
+    """
+
+    def __init__(
+        self,
+        cfg: Config,
+        library: Library,
+        client: Anthropic | None = None,
+    ) -> None:
+        self._cfg = cfg
+        self._client = client or Anthropic(api_key=cfg.anthropic_api_key or None)
+        self._tools = build_tools(library)
+        self.messages: list[Any] = []
+
+    def ask(self, question: str) -> str:
+        """Run one turn: the tools do the work, the model does the talking."""
+        self.messages.append({"role": "user", "content": question})
+        # The runner copies the list it is given, so mirroring its turns back
+        # into ours is what carries the history to the next question.
+        runner = self._client.beta.messages.tool_runner(
+            model=self._cfg.agent_model,
+            max_tokens=self._cfg.agent_max_tokens,
+            system=SYSTEM_PROMPT,
+            tools=self._tools,
+            messages=self.messages,
+        )
+
+        reply = ""
+        for message in runner:
+            self.messages.append({"role": "assistant", "content": message.content})
+            tool_response = runner.generate_tool_call_response()
+            if tool_response is not None:
+                self.messages.append(tool_response)
+            reply = "".join(b.text for b in message.content if b.type == "text")
+        return reply
