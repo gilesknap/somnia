@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS books (
     total_ms INTEGER NOT NULL DEFAULT 0,
     abs_item_id TEXT NOT NULL DEFAULT '',
     heard_to_ms INTEGER NOT NULL DEFAULT 0,
+    position_ms INTEGER,
+    position_seq INTEGER NOT NULL DEFAULT 0,
+    position_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -67,6 +70,22 @@ _ADDED_COLUMNS = (
     # now: the agent can move them backwards, and doing so must not shrink what
     # the spoiler guard is willing to search.
     ("books", "heard_to_ms", "INTEGER NOT NULL DEFAULT 0"),
+    # Where they are now, as against how far they have ever got. Nullable on
+    # purpose: "never started" and "at the very beginning" are different answers
+    # to "where am I?", and only NULL can give the first one.
+    ("books", "position_ms", "INTEGER"),
+    # How many times the agent has moved this book. Not a write counter and not
+    # a timestamp: the page's own saves leave it alone. That asymmetry is what
+    # lets a refused save be applied unconditionally — a higher number can only
+    # be a move the page has not seen — so a dropped reply costs nothing instead
+    # of dragging the listener backwards fifteen seconds later.
+    ("books", "position_seq", "INTEGER NOT NULL DEFAULT 0"),
+    # Which book to open on a cold launch. Asking someone at 2am which book they
+    # were listening to is the question this whole project exists to not ask.
+    # No default: sqlite refuses to add a column whose default is not constant,
+    # so datetime('now') would fail on every database that already has books in
+    # it. Every write that touches position_ms sets this explicitly instead.
+    ("books", "position_at", "TEXT"),
 )
 
 
@@ -87,6 +106,14 @@ def connect(db_path: Path, *, cross_thread: bool = False) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, check_same_thread=not cross_thread)
     conn.row_factory = sqlite3.Row
+    # Two connections now open this file — a turn's, and the player's fast lane
+    # — and `somnia add` is a third process entirely. WAL so a reader never
+    # blocks on the writer, and a timeout so a collision waits instead of
+    # raising "database is locked" at 2am while a book renders. Order matters:
+    # switching journal mode needs a brief exclusive lock, and the renderer may
+    # be holding the file.
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
     conn.enable_load_extension(True)
     sqlite_vec.load(conn)
     conn.enable_load_extension(False)

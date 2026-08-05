@@ -8,7 +8,7 @@
 // it. This page is a few kilobytes on a tailnet: fetching it is not the slow
 // part of anything.
 
-const CACHE = "somnia-v2";
+const CACHE = "somnia-v3";
 const SHELL = [
   ".",
   "index.html",
@@ -43,7 +43,17 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   // `includes` rather than `startsWith`: the app may be mounted under a path.
-  if (event.request.method !== "GET" || url.pathname.includes("/api/")) return;
+  //
+  // A ranged reply is a 206, `response.ok` is true for a 206, and the Cache API
+  // refuses to store one — so a cached seek is an unhandled rejection on every
+  // scrub. The audio lives under /api/ and is skipped by the test above; the
+  // range check catches anything that asks for part of a file by another route.
+  if (
+    event.request.method !== "GET" ||
+    url.pathname.includes("/api/") ||
+    event.request.headers.has("range")
+  )
+    return;
 
   event.respondWith(
     fetch(event.request)

@@ -9,24 +9,33 @@ docs/explanations/design.md.
 Conversations live in memory, keyed by a token the page mints on load. That is
 enough for one listener with one phone, and it means a night's chat leaves
 nothing behind on disk.
+
+The audio somnia rendered is served from here too, because the page is the
+player now. That work is deliberately kept away from the agent: it goes through
+:class:`somnia.player.Player`, which has its own connection, so a seek is never
+stuck behind a model turn.
 """
 
 import logging
 import sqlite3
 import threading
 from collections import OrderedDict
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
 
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from .agent import Conversation, open_library
 from .config import Config
+from .player import Player
 from .tools import Library
 
 __all__ = ["Conversations", "create_app", "serve"]
@@ -71,8 +80,9 @@ class Conversations:
 
 
 def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
-    """The PWA and the one endpoint behind it."""
+    """The PWA, the agent behind it, and the book it plays."""
     conversations = Conversations(cfg, open_library(cfg, conn))
+    player = Player(cfg)
 
     async def ask(request: Request) -> Response:
         payload = await _payload(request)
@@ -97,13 +107,52 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
     async def health(request: Request) -> Response:
         return JSONResponse({"ok": True})
 
+    async def books(request: Request) -> Response:
+        return JSONResponse(asdict(await run_in_threadpool(player.books)))
+
+    async def book(request: Request) -> Response:
+        gid = int(request.path_params["gid"])
+        manifest = await run_in_threadpool(player.manifest, gid)
+        if manifest is None:
+            return JSONResponse({"error": "no such book"}, 404)
+        return JSONResponse(asdict(manifest))
+
+    async def audio(request: Request) -> Response:
+        gid = int(request.path_params["gid"])
+        idx = int(request.path_params["idx"])
+        path = await run_in_threadpool(player.chapter_file, gid, idx)
+        if path is None:
+            return JSONResponse({"error": "no such chapter"}, 404)
+        # Pin the media type. Python's mimetypes does not know .m4a, and the
+        # runtime image has no /etc/mime.types either, so letting it guess
+        # gives application/octet-stream and Safari refuses to play the book —
+        # a bug that cannot reproduce on a development machine. No filename=,
+        # which would make it a download rather than something to play.
+        # Range, If-Range and 416 are Starlette's own, and seeking depends on
+        # them, so nothing here touches the request headers.
+        return FileResponse(path, media_type="audio/mp4")
+
+    @asynccontextmanager
+    async def lifespan(app: Starlette) -> AsyncGenerator[None, None]:
+        """Hand the player's connection back when the server stops."""
+        yield
+        player.close()
+
     return Starlette(
+        # Every route the page uses is under /api/, which is not cosmetic: the
+        # service worker skips that prefix, and the Cache API throws if asked
+        # to store the 206 that a seek produces. It also keeps them ahead of
+        # the StaticFiles mount, which otherwise swallows everything.
         routes=[
             Route("/api/ask", ask, methods=["POST"]),
             Route("/api/forget", forget, methods=["POST"]),
             Route("/api/health", health),
+            Route("/api/books", books),
+            Route("/api/book/{gid:int}", book),
+            Route("/api/audio/{gid:int}/{idx:int}", audio),
             Mount("/", StaticFiles(directory=WEB_DIR, html=True)),
-        ]
+        ],
+        lifespan=lifespan,
     )
 
 
