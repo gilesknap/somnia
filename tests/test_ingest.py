@@ -35,6 +35,13 @@ class FakeAbs:
 @pytest.fixture
 def conn(tmp_path: Path) -> Iterator[Any]:
     conn = connect(tmp_path / "somnia.db")
+    try:
+        yield _seeded(conn)
+    finally:
+        conn.close()
+
+
+def _seeded(conn: Any) -> Any:
     conn.execute(
         "INSERT INTO books (gid, title, voice) VALUES (271, 'Black Beauty', 'af_heart')"
     )
@@ -47,10 +54,7 @@ def conn(tmp_path: Path) -> Iterator[Any]:
             (idx, title, start, end),
         )
     conn.commit()
-    try:
-        yield conn
-    finally:
-        conn.close()
+    return conn
 
 
 def _cfg(tmp_path: Path) -> Config:

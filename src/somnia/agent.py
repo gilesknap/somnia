@@ -217,23 +217,30 @@ class Conversation:
         self.messages: list[Any] = []
 
     def ask(self, question: str) -> str:
-        """Run one turn: the tools do the work, the model does the talking."""
-        self.messages.append({"role": "user", "content": question})
+        """Run one turn: the tools do the work, the model does the talking.
+
+        The turn is built on a copy and only kept if it finishes. A turn that
+        dies part-way leaves an assistant tool call with no result behind it,
+        and every later question in that conversation would be rejected —
+        which, at 2am, looks like an app that has simply stopped working.
+        """
         # The runner copies the list it is given, so mirroring its turns back
         # into ours is what carries the history to the next question.
+        turn: list[Any] = [*self.messages, {"role": "user", "content": question}]
         runner = self._client.beta.messages.tool_runner(
             model=self._cfg.agent_model,
             max_tokens=self._cfg.agent_max_tokens,
             system=SYSTEM_PROMPT,
             tools=self._tools,
-            messages=self.messages,
+            messages=turn,
         )
 
         reply = ""
         for message in runner:
-            self.messages.append({"role": "assistant", "content": message.content})
+            turn.append({"role": "assistant", "content": message.content})
             tool_response = runner.generate_tool_call_response()
             if tool_response is not None:
-                self.messages.append(tool_response)
+                turn.append(tool_response)
             reply = "".join(b.text for b in message.content if b.type == "text")
+        self.messages = turn
         return reply

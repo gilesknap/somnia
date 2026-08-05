@@ -78,6 +78,13 @@ class Fixture:
 @pytest.fixture
 def fixture(tmp_path: Path) -> Iterator[Fixture]:
     conn = connect(tmp_path / "somnia.db")
+    try:
+        yield _seeded(conn, tmp_path)
+    finally:
+        conn.close()
+
+
+def _seeded(conn: sqlite3.Connection, tmp_path: Path) -> Fixture:
     embedder = FakeEmbedder()
     with conn:
         conn.execute(
@@ -106,15 +113,12 @@ def fixture(tmp_path: Path) -> Iterator[Fixture]:
         return Library(cfg, conn, cast(AbsClient, fake), cast(Embedder, embedder))
 
     fake_abs = FakeAbs(300.0)
-    try:
-        yield Fixture(
-            library=make_library(fake_abs),
-            conn=conn,
-            abs=fake_abs,
-            make_library=make_library,
-        )
-    finally:
-        conn.close()
+    return Fixture(
+        library=make_library(fake_abs),
+        conn=conn,
+        abs=fake_abs,
+        make_library=make_library,
+    )
 
 
 def test_books_reports_rendered_chapter_count(fixture: Fixture) -> None:

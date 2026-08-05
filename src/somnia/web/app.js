@@ -41,6 +41,7 @@ async function ask(text, aloud) {
   say(text, "you");
   question.value = "";
   const pending = say("…", "agent pending");
+  const asked = token;
   try {
     const response = await fetch("api/ask", {
       method: "POST",
@@ -48,6 +49,10 @@ async function ask(text, aloud) {
       body: JSON.stringify({ token, question: text }),
     });
     const body = await response.json();
+    // They started over while this was in flight: the answer belongs to a
+    // conversation that no longer exists, and appearing now would be a reply
+    // to a question no longer on the screen.
+    if (token !== asked) return;
     if (!response.ok) throw new Error(body.error || "no answer");
     pending.className = "said agent";
     pending.textContent = body.reply || "…nothing to say.";
@@ -66,10 +71,13 @@ composer.addEventListener("submit", (event) => {
 });
 
 restart.addEventListener("click", async () => {
-  await fetch("api/forget", {
+  const stale = token;
+  token = crypto.randomUUID();
+  sessionStorage.setItem("somnia-token", token);
+  fetch("api/forget", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ token: stale }),
   }).catch(() => {});
   speechSynthesis?.cancel();
   transcript.replaceChildren();

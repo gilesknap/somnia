@@ -19,8 +19,8 @@ Text#,Type,Issued,Title,Language,Authors,Subjects,LoCC,Bookshelves
 @pytest.fixture
 def conn(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     c = connect(tmp_path / "test.db")
-    update_catalog(c, csv_text=CSV)
     try:
+        update_catalog(c, csv_text=CSV)
         yield c
     finally:
         c.close()
