@@ -49,6 +49,29 @@ class AbsClient:
         )
         resp.raise_for_status()
 
+    def progress(self, item_id: str) -> dict[str, Any] | None:
+        """Where the listener is in this book, or None if never played.
+
+        ``currentTime`` is seconds on the same global timeline as somnia's
+        stored millisecond offsets, because ABS presents a multi-file book as
+        one continuous track.
+        """
+        resp = self._client.get("/api/me")
+        resp.raise_for_status()
+        entries: list[dict[str, Any]] = resp.json().get("mediaProgress", [])
+        for entry in entries:
+            if entry.get("libraryItemId") == item_id:
+                return entry
+        return None
+
+    def create_bookmark(self, item_id: str, time_s: float, title: str) -> None:
+        """Plant a named bookmark — the seek vector the app can jump to."""
+        resp = self._client.post(
+            f"/api/me/item/{item_id}/bookmark",
+            json={"time": round(time_s, 3), "title": title},
+        )
+        resp.raise_for_status()
+
     def ping(self) -> bool:
         try:
             return self._client.get("/healthcheck").status_code == 200

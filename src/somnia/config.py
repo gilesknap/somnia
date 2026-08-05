@@ -23,6 +23,12 @@ class Config:
     abs_library_id: str = ""
     voice: str = "af_heart"
     embed_model: str = "intfloat/e5-small-v2"
+    # Haiku is plenty for turning a mumbled description into a bookmark, and
+    # costs cents per conversation. Point this at Sonnet or Opus if the
+    # disambiguation ever needs more.
+    agent_model: str = "claude-haiku-4-5"
+    agent_max_tokens: int = 4096
+    anthropic_api_key: str = ""
     sentence_silence_ms: int = 120
     paragraph_silence_ms: int = 500
     window_sentences: int = 3
@@ -51,5 +57,11 @@ def load_config() -> Config:
         cfg.voice = v
     if v := os.environ.get("SOMNIA_EMBED_MODEL"):
         cfg.embed_model = v
+    if v := os.environ.get("SOMNIA_AGENT_MODEL"):
+        cfg.agent_model = v
+    # ANTHROPIC_API_KEY is the SDK's own variable; honour it so the key can be
+    # set the way every other Anthropic tool expects.
+    if v := os.environ.get("ANTHROPIC_API_KEY"):
+        cfg.anthropic_api_key = v
     cfg.data_dir.mkdir(parents=True, exist_ok=True)
     return cfg

@@ -28,6 +28,9 @@ def main(args: Sequence[str] | None = None) -> None:
     p_find.add_argument("gid", type=int)
     p_find.add_argument("query")
 
+    p_ask = sub.add_parser("ask", help="ask the agent about a book (2am surface)")
+    p_ask.add_argument("question", nargs="?", help="omit for an interactive session")
+
     sub.add_parser("libraries", help="list Audiobookshelf libraries (to get the id)")
 
     ns = parser.parse_args(args)
@@ -77,6 +80,20 @@ def main(args: Sequence[str] | None = None) -> None:
                 f"[{mins // 60}:{mins % 60:02d}h  d={p.distance:.3f}] {p.chapter_title}"
             )
             print(f"    {p.text}\n")
+    elif ns.command == "ask":
+        from .agent import ask  # noqa: PLC0415
+
+        # The agent's own logging would drown its one-line answers.
+        logging.getLogger().setLevel(logging.WARNING)
+        history: list[object] = []
+        while True:
+            question = ns.question or input("> ").strip()
+            if not question:
+                break
+            reply, history = ask(cfg, conn, question, history)
+            print(reply)
+            if ns.question:
+                break
     elif ns.command == "libraries":
         from .abs import AbsClient  # noqa: PLC0415
 

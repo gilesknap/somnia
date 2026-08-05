@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS books (
     voice TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     total_ms INTEGER NOT NULL DEFAULT 0,
+    abs_item_id TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -57,6 +58,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
 """
 
 
+# Columns added after the first release. CREATE TABLE IF NOT EXISTS silently
+# leaves an existing table alone, so new columns have to be added by hand.
+_ADDED_COLUMNS = (("books", "abs_item_id", "TEXT NOT NULL DEFAULT ''"),)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, column, decl in _ADDED_COLUMNS:
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 def connect(db_path: Path) -> sqlite3.Connection:
     """Open (creating if needed) the somnia database."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,4 +80,6 @@ def connect(db_path: Path) -> sqlite3.Connection:
     conn.enable_load_extension(False)
     conn.executescript(_SCHEMA)
     conn.executescript(_VEC_SCHEMA)
+    with conn:
+        _migrate(conn)
     return conn

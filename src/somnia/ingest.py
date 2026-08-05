@@ -78,6 +78,11 @@ def publish_chapters(
     while True:
         item = abs_client.find_item(cfg.abs_library_id, rel_path)
         if item is not None and item["media"]["duration"] * 1000 >= expect_ms - 1000:
+            with conn:
+                conn.execute(
+                    "UPDATE books SET abs_item_id = ? WHERE gid = ?",
+                    (item["id"], gid),
+                )
             rows = conn.execute(
                 "SELECT idx, title, start_ms, end_ms FROM chapters"
                 " WHERE book_gid = ? ORDER BY idx",

@@ -13,6 +13,7 @@ classifiers = [
 ]
 description = "Bedtime audiobook reader with semantic seek: TTS-rendered public-domain books plus a conversational agent that finds your place again"
 dependencies = [
+    "anthropic",
     "beautifulsoup4",
     "httpx",
     "numpy",
