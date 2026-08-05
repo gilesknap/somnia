@@ -26,6 +26,28 @@
 
     <p id="status" aria-live="polite"></p>
 
+    <!-- One element for the whole life of the page. It is never removed, never
+         given an empty src and never loaded on nothing: emptying it is the
+         documented way to dismiss the media notification, and doing that with
+         the screen off in a pocket is not recoverable from. -->
+    <audio id="player" preload="metadata"></audio>
+
+    <section id="player-bar" hidden>
+      <p id="now-playing">
+        <span id="chapter-title"></span>
+        <span id="clock"></span>
+      </p>
+      <div class="transport">
+        <button id="back30" type="button" aria-label="Back thirty seconds">
+          −30
+        </button>
+        <button id="playpause" type="button" aria-label="Play">▶</button>
+        <button id="fwd30" type="button" aria-label="Forward thirty seconds">
+          +30
+        </button>
+      </div>
+    </section>
+
     <form id="composer" autocomplete="off">
       <input
         id="question"

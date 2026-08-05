@@ -107,6 +107,57 @@ h1 {
   opacity: 0.75;
 }
 
+/* Where they are, and the three things they might want to do about it. Aiming
+   is not a skill a half-asleep listener has, so the transport is three wide
+   targets in a row rather than anything smaller and prettier. */
+#player-bar {
+  padding: 0.2rem 1.2rem 0;
+}
+
+#now-playing {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  color: var(--dim);
+}
+
+#chapter-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#clock {
+  flex: none;
+  /* So the line does not twitch as the digits change. */
+  font-variant-numeric: tabular-nums;
+}
+
+.transport {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.transport button {
+  flex: 1;
+  /* 52px at the default root size: a thumb in the dark, not a mouse. */
+  min-height: 3.25rem;
+  border: 1px solid #24242f;
+  border-radius: 0.9rem;
+  background: var(--raised);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.15rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#playpause {
+  flex: 1.5;
+  color: var(--glow);
+}
+
 #composer {
   display: flex;
   align-items: center;
