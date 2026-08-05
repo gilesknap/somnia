@@ -19,7 +19,10 @@ jobs:
     strategy:
       matrix:
         runs-on: ["ubuntu-latest"] # can add windows-latest, macos-latest
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        # No 3.14: pysbd (unmaintained since 2021) has invalid escape sequences
+        # in non-raw strings, a hard SyntaxError from 3.14 on. See pyproject's
+        # requires-python.
+        python-version: ["3.11", "3.12", "3.13"]
       fail-fast: false
     uses: ./.github/workflows/_test.yml
     with:
