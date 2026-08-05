@@ -13,6 +13,7 @@ import logging
 import sqlite3
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 
 from .abs import AbsClient
@@ -240,19 +241,51 @@ class Library:
         Any player still holding an open session on this book is ended first.
         A session is the authority on where the book is while it lasts, so
         writing underneath a live one is silently undone a few seconds later.
+
+        Then it checks. A player whose session is closed underneath it opens a
+        new one and reports where *it* thinks the book is, which put the
+        position back and made the first attempt of the night look like it did
+        nothing at all. Losing that race once is normal; losing it three times
+        means something is playing that will not be talked out of it, and
+        saying so is more use at 2am than a confident lie.
         """
         abs_client = self._require_abs()
         item_id = self._abs_item_id(gid)
-        live = abs_client.open_sessions(item_id)
-        for session_id in live:
-            abs_client.close_session(session_id)
-        abs_client.set_position(item_id, position_ms / 1000)
+        target_s = position_ms / 1000
+        interrupted = False
+
+        for attempt in range(3):
+            live = abs_client.open_sessions(item_id)
+            interrupted = interrupted or bool(live)
+            for session_id in live:
+                abs_client.close_session(session_id)
+            abs_client.set_position(item_id, target_s)
+
+            time.sleep(self._cfg.move_settle_s)  # a player fights back at once
+            if self._is_at(item_id, target_s):
+                if attempt:
+                    logger.info("move to %d took %d tries", position_ms, attempt + 1)
+                break
+            logger.warning("position was put back after moving to %d", position_ms)
+        else:
+            return (
+                "Something is playing that keeps putting the book back where it"
+                " was. Stop it and ask me again."
+            )
+
         moved = f"Moved to {format_timestamp(position_ms)}."
-        if live:
+        if interrupted:
             # They will not have heard it stop: the audio already in flight
             # keeps playing, and only the next press of play starts from here.
             return f"{moved} A player was running, so it was stopped first."
         return moved
+
+    def _is_at(self, item_id: str, target_s: float) -> bool:
+        """Did the move stick, or has a player already overwritten it?"""
+        progress = self._require_abs().progress(item_id)
+        if progress is None:
+            return False
+        return abs(float(progress.get("currentTime", 0.0)) - target_s) < 2.0
 
 
 def format_timestamp(ms: int) -> str:

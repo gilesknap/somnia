@@ -115,8 +115,11 @@ Two consequences follow:
   the agent loop (Anthropic Python SDK tool runner) with an API key held
   server-side — no OAuth. Voice input via the browser's Web Speech API
   (push-to-talk button); Android keyboard dictation as fallback.
-- Model: **Haiku 4.5** default (cents per conversation), configurable up to
-  Sonnet for harder disambiguation.
+- Model: **Sonnet 5** default, `SOMNIA_AGENT_MODEL` to change it. Haiku 4.5 was
+  the original choice on cost, and mostly held up, but it read a character's
+  name as the title of a book somnia does not have and said so — a spoken
+  half-sentence at 2am is exactly the disambiguation this is here to do. The
+  difference is a few cents a night.
 - MCP server (FastMCP wrapper over the tool layer) is a dev-time convenience,
   not the primary surface. claude.ai custom connectors were rejected for v1:
   they require a publicly reachable MCP endpoint plus OAuth, which conflicts

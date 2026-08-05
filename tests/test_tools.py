@@ -74,7 +74,7 @@ def _seeded(conn: sqlite3.Connection, tmp_path: Path) -> Fixture:
             idx,
             [Window(text=text, start_ms=start, end_ms=start + 10_000)],
         )
-    cfg = Config(data_dir=tmp_path)
+    cfg = Config(data_dir=tmp_path, move_settle_s=0.0)
 
     def make_library(fake: FakeAbs) -> Library:
         return Library(cfg, conn, cast(AbsClient, fake), cast(Embedder, embedder))
@@ -161,6 +161,33 @@ def test_moving_says_nothing_about_players_when_none_were_running(
     fixture: Fixture,
 ) -> None:
     assert "was running" not in fixture.library.move_to(271, 300_500)
+
+
+def test_a_player_that_puts_the_position_back_is_tried_again(
+    fixture: Fixture,
+) -> None:
+    """The first move of the night was landing and then being undone.
+
+    A player whose session is closed underneath it opens another and reports
+    where it thinks the book is, so the move has to be checked, not assumed.
+    """
+    stubborn = FakeAbs(300.0, playing=["session-a"], stubborn=1)
+    message = fixture.make_library(stubborn).move_to(271, 60_000)
+
+    assert len(stubborn.moves) == 2  # first undone, second stuck
+    assert stubborn.current_time == 60.0
+    assert "Moved to 0:01:00" in message
+
+
+def test_a_player_that_will_not_give_up_is_reported_not_hidden(
+    fixture: Fixture,
+) -> None:
+    """Saying "moved" when nothing moved is the worst answer available."""
+    immovable = FakeAbs(300.0, playing=["session-a"], stubborn=99)
+    message = fixture.make_library(immovable).move_to(271, 60_000)
+
+    assert "Stop it and ask me again" in message
+    assert immovable.current_time == 300.0
 
 
 def test_being_moved_back_does_not_un_hear_the_rest(fixture: Fixture) -> None:

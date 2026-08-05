@@ -34,12 +34,18 @@ class FakeAbs:
     """Audiobookshelf, remembering only what somnia asks of it."""
 
     def __init__(
-        self, current_time: float | None = None, playing: list[str] | None = None
+        self,
+        current_time: float | None = None,
+        playing: list[str] | None = None,
+        stubborn: int = 0,
     ) -> None:
         self.current_time = current_time
         self.moves: list[tuple[str, float]] = []
         self.sessions = list(playing or [])
         self.closed: list[str] = []
+        # A player that re-opens a session and reports its own position back,
+        # undoing this many moves before giving up.
+        self.stubborn = stubborn
 
     def progress(self, item_id: str) -> dict[str, Any] | None:
         if self.current_time is None:
@@ -58,5 +64,12 @@ class FakeAbs:
         # record what the position becomes only once nothing is playing.
         if self.sessions:
             raise AssertionError("wrote a position underneath a live session")
+        was = self.current_time
         self.moves.append((item_id, time_s))
         self.current_time = time_s
+        if self.stubborn:
+            # The player noticed its session close, opened another, and put
+            # the book back where it thought it was.
+            self.stubborn -= 1
+            self.sessions.append(f"reopened-{self.stubborn}")
+            self.current_time = was

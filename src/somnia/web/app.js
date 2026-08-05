@@ -164,6 +164,23 @@ if (!Recognition) {
   talk.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 
+// ------------------------------------------------------------------ keyboard
+
+// Not every browser shrinks the page for the on-screen keyboard, and the ones
+// that do disagree about when. Following the visual viewport keeps the
+// composer above the keyboard and the transcript scrollable to both ends.
+const viewport = window.visualViewport;
+if (viewport) {
+  const fit = () => {
+    document.body.style.height = `${viewport.height}px`;
+    transcript.scrollTop = transcript.scrollHeight;
+  };
+  viewport.addEventListener("resize", fit);
+  // The keyboard animates in, so measure after it has settled.
+  question.addEventListener("focus", () => setTimeout(fit, 250));
+  question.addEventListener("blur", () => setTimeout(fit, 250));
+}
+
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
