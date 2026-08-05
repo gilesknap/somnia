@@ -10,7 +10,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
 ]
 description = "Bedtime audiobook reader with semantic seek: TTS-rendered public-domain books plus a conversational agent that finds your place again"
 dependencies = [
@@ -24,7 +23,11 @@ dependencies = [
 dynamic = ["version"]
 license.file = "LICENSE"
 readme = "README.md"
-requires-python = ">=3.11"
+# Upper bound is pysbd: unmaintained since 2021, and its non-raw-string escape
+# sequences are a hard SyntaxError from Python 3.14 on. Lift this if pysbd is
+# ever revived or we deliberately swap sentence splitters (which would change
+# sentence boundaries, and therefore audio, for newly rendered books).
+requires-python = ">=3.11,<3.14"
 
 [dependency-groups]
 dev = [
