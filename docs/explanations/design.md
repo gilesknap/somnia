@@ -98,9 +98,14 @@ Two consequences follow:
   the agent can now move that position backwards. `books.heard_to_ms` records
   the furthest point ever reached, and the guard uses that — being taken back
   to chapter two must not un-hear chapters three to twenty.
-- **A player already open on that book may push its own position back.** The
-  agent says so when it moves them; the change lands cleanly when the app is
-  closed or on another book.
+- **A running player owns the position, not the server.** While a client holds
+  an open playback session it syncs its own `currentTime` back every few
+  seconds, so a position written underneath it is silently undone. `move_to`
+  therefore ends any open session on that book first (`/api/users/online` →
+  `/api/session/:id/close`) and then writes the position. There is no way to
+  make an already-playing client seek: ABS has no such API, and the app has no
+  deep link. Audio already in flight keeps playing; the new position takes
+  effect at the next press of play.
 
 ## Agent surface
 

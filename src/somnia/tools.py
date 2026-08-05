@@ -236,9 +236,23 @@ class Library:
         still has to be found in a list of every other bookmark, in the dark,
         by someone who is half asleep. Moving the position means the next tap
         on play is already in the right place.
+
+        Any player still holding an open session on this book is ended first.
+        A session is the authority on where the book is while it lasts, so
+        writing underneath a live one is silently undone a few seconds later.
         """
-        self._require_abs().set_position(self._abs_item_id(gid), position_ms / 1000)
-        return f"Moved to {format_timestamp(position_ms)}."
+        abs_client = self._require_abs()
+        item_id = self._abs_item_id(gid)
+        live = abs_client.open_sessions(item_id)
+        for session_id in live:
+            abs_client.close_session(session_id)
+        abs_client.set_position(item_id, position_ms / 1000)
+        moved = f"Moved to {format_timestamp(position_ms)}."
+        if live:
+            # They will not have heard it stop: the audio already in flight
+            # keeps playing, and only the next press of play starts from here.
+            return f"{moved} A player was running, so it was stopped first."
+        return moved
 
 
 def format_timestamp(ms: int) -> str:

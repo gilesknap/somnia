@@ -38,16 +38,31 @@ class FakeEmbedder:
 
 
 class FakeAbs:
-    def __init__(self, current_time: float | None = None) -> None:
+    def __init__(
+        self, current_time: float | None = None, playing: list[str] | None = None
+    ) -> None:
         self.current_time = current_time
         self.moves: list[tuple[str, float]] = []
+        self.sessions = list(playing or [])
+        self.closed: list[str] = []
 
     def progress(self, item_id: str) -> dict[str, Any] | None:
         if self.current_time is None:
             return None
         return {"libraryItemId": item_id, "currentTime": self.current_time}
 
+    def open_sessions(self, item_id: str) -> list[str]:
+        return list(self.sessions)
+
+    def close_session(self, session_id: str) -> None:
+        self.closed.append(session_id)
+        self.sessions.remove(session_id)
+
     def set_position(self, item_id: str, time_s: float) -> None:
+        # A live session would overwrite this the moment it next syncs, so
+        # record what the position becomes only once nothing is playing.
+        if self.sessions:
+            raise AssertionError("wrote a position underneath a live session")
         self.moves.append((item_id, time_s))
         self.current_time = time_s
 
@@ -175,6 +190,26 @@ def test_move_to_explains_when_the_book_is_not_in_abs_yet(fixture: Fixture) -> N
         fixture.conn.execute("UPDATE books SET abs_item_id = '' WHERE gid = 271")
     with pytest.raises(LookupError):
         fixture.library.move_to(271, 1000)
+
+
+def test_a_running_player_is_stopped_before_the_book_is_moved(fixture: Fixture) -> None:
+    """A live session syncs its own position back every few seconds.
+
+    Writing a new position underneath one is undone before the listener has
+    finished reading the reply that said it worked.
+    """
+    live = FakeAbs(300.0, playing=["session-a", "session-b"])
+    message = fixture.make_library(live).move_to(271, 300_500)
+
+    assert live.closed == ["session-a", "session-b"]
+    assert live.moves == [(ITEM_ID, 300.5)]
+    assert "was running" in message
+
+
+def test_moving_says_nothing_about_players_when_none_were_running(
+    fixture: Fixture,
+) -> None:
+    assert "was running" not in fixture.library.move_to(271, 300_500)
 
 
 def test_being_moved_back_does_not_un_hear_the_rest(fixture: Fixture) -> None:

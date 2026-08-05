@@ -78,8 +78,14 @@ that no web page can turn off; silencing it means muting system sounds on the
 phone.
 
 Ask to be taken somewhere and somnia moves your position in the book, so the
-next tap on play starts there. If the player is already open on that book it
-may put you back where you were — close it first, or reopen it afterwards.
+next tap on play starts there.
+
+If a player is running it is stopped first, because a live playback session
+syncs its own position back and would undo the move within seconds. Audio
+already buffered keeps playing for a moment either way — nothing can make an
+already-playing client jump, so **press play again** to hear the new place.
+Two players open at once (say a phone and a desktop) will also overwrite each
+other's position, with or without somnia.
 
 Conversations are held in memory, keyed by a token the page mints when it
 starts, and nothing is written to disk. *Start over* drops the history when the
