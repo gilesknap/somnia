@@ -9,6 +9,11 @@
 // counts in global milliseconds, the same clock the search results and the
 // agent speak, and which file that lands in is an implementation detail kept
 // to three functions.
+//
+// Most of the controls are not on this page at all. With the screen off the
+// book is driven from the lock screen and from whatever is paired over
+// Bluetooth, so the media session below is not decoration — for most of the
+// night it is the only transport there is.
 
 const transcript = document.getElementById("transcript");
 const composer = document.getElementById("composer");
@@ -117,6 +122,21 @@ const SWAP_LEAD_S = 0.4;
 // What "back a bit" means, in the absence of anyone able to say.
 const SEEK_STEP_S = 30;
 
+// The lock screen, the notification shade and whatever is paired over
+// Bluetooth all reach the page through this one object, so it is the whole of
+// what somnia can be controlled by while the phone is face down. It is still
+// only a courtesy: a browser without one plays the book perfectly well, and
+// so every use of it below is guarded rather than assumed.
+const session = navigator.mediaSession ?? null;
+
+// Both sizes the installed app ships, so the platform takes the one that fits
+// its slot rather than scaling the other. What appears on the lock screen at
+// 2am should look like the thing they pressed to get there.
+const ARTWORK = [
+  { src: "icon-192.png", sizes: "192x192", type: "image/png" },
+  { src: "icon-512.png", sizes: "512x512", type: "image/png" },
+];
+
 let manifest = null;
 let current = null; // {idx, chapter} — which file the element is holding
 let positionMs = 0;
@@ -127,6 +147,7 @@ let positionMs = 0;
 let pendingOffsetMs = null;
 let swapping = false; // a chapter change is in flight
 let weArePausing = false; // tell our own pause from the platform's
+let lastPublishedAt = 0; // when the lock screen was last told the time
 
 // Global milliseconds -> the chapter that owns them, and how far into its file.
 // A linear scan: a book is a few hundred chapters and this runs once per seek.
@@ -176,11 +197,66 @@ function drawPlayer() {
   playpause.setAttribute("aria-label", player.paused ? "Play" : "Pause");
 }
 
+// What the notification says. The chapter is the title because it is the part
+// that changes and the part they are in; the book is the album, which is where
+// a phone expects to find the name that stays the same all night.
+function announceChapter(chapter) {
+  if (!session || typeof MediaMetadata !== "function") return;
+  session.metadata = new MediaMetadata({
+    title: chapter.title,
+    artist: manifest?.authors || "",
+    album: manifest?.title || "",
+    artwork: ARTWORK,
+  });
+}
+
+function reportPlaybackState(state) {
+  if (session) session.playbackState = state;
+}
+
+// The lock screen scrubber, kept honest by the book's own clock.
+//
+// It is chapter-scale on purpose. A whole-book scrubber on a twelve-hour novel
+// gives three minutes to the pixel: useless for the nudge someone actually
+// wants, and one sleepy thumb away from flinging them past the spoiler guard
+// into the ending. Where they are in the book is the agent's business and the
+// API's; what the notification owes them is the chapter, and it names it.
+//
+// Both numbers are derived from the chapter row and positionMs — the render
+// clock, the one the search results and the saved position speak — and not
+// from the element. That keeps the arithmetic on `duration` where it belongs,
+// in the three conversion functions above, and it means the pair can never be
+// the NaN-and-stale-currentTime that setPositionState throws on.
+function publishPosition() {
+  if (!session?.setPositionState || !current) return;
+  const span = (current.chapter.end_ms - current.chapter.start_ms) / 1000;
+  if (!(span > 0)) return;
+  const into = (positionMs - current.chapter.start_ms) / 1000;
+  session.setPositionState({
+    duration: span,
+    // Clamped rather than trusted: for the few milliseconds between a boundary
+    // starting and its metadata arriving, positionMs still belongs to the
+    // chapter being left. A throw here would leave the PREVIOUS chapter's
+    // state up rather than clearing it, and a scrubber showing the wrong place
+    // with complete confidence is worse than one showing nothing.
+    position: Math.min(Math.max(into, 0), span),
+    playbackRate: player.playbackRate || 1,
+  });
+}
+
 // A chapter boundary and a seek into another chapter are the same thing, so
 // they are the same code path.
 function showChapter({ idx, chapter, offset_ms }, { play }) {
   swapping = true;
   current = { idx, chapter };
+  // Before the source, and so before play(): the metadata current at the
+  // moment playback starts is the one the notification adopts, so setting it
+  // afterwards labels the new chapter with the old one's title. Nothing else
+  // here is allowed to touch the session during a swap — no pause, no
+  // playbackState, no second element — because handing audio focus back even
+  // for an instant is what tears the notification down, and once it is gone
+  // nothing in this page can get it back.
+  announceChapter(chapter);
   pendingOffsetMs = offset_ms; // applied at loadedmetadata, when there is
   player.src = chapter.url; // a duration to clamp against
   if (play) player.play().catch(onPlayRejected);
@@ -242,6 +318,7 @@ player.addEventListener("loadedmetadata", () => {
   }
   swapping = false;
   drawPlayer();
+  publishPosition();
 });
 
 player.addEventListener("timeupdate", () => {
@@ -250,6 +327,15 @@ player.addEventListener("timeupdate", () => {
   if (swapping || !current) return;
   positionMs = toGlobalMs(current.chapter, player.currentTime);
   drawPlayer();
+
+  // At most once a second. The platform interpolates between these from the
+  // playback rate it was given, so telling it more often buys nothing and
+  // every one of them is a hop out of the page.
+  const now = Date.now();
+  if (now - lastPublishedAt >= 1000) {
+    lastPublishedAt = now;
+    publishPosition();
+  }
 
   const next = manifest.chapters[current.idx + 1];
   const left = player.duration - player.currentTime;
@@ -262,9 +348,19 @@ player.addEventListener("seeked", () => {
   if (swapping || !current) return;
   positionMs = toGlobalMs(current.chapter, player.currentTime);
   drawPlayer();
+  publishPosition();
 });
 
-player.addEventListener("play", drawPlayer);
+player.addEventListener("play", () => {
+  reportPlaybackState("playing");
+  drawPlayer();
+  publishPosition();
+});
+
+// Nothing changes the rate yet. The handler is here because the platform
+// interpolates the scrubber from the rate it was last given, so the one thing
+// that must never happen is a rate change it never hears about.
+player.addEventListener("ratechange", publishPosition);
 
 player.addEventListener("pause", () => {
   // A pause means four different things and only one of them is theirs.
@@ -274,8 +370,15 @@ player.addEventListener("pause", () => {
   // Treating any of those as the listener stopping announces that something
   // took the sound at every chapter boundary, and writes that over the true
   // reason in the one case where there is a true reason to give.
+  //
+  // The guard is also what keeps the notification whole across a boundary:
+  // reporting "paused" mid-swap is the platform's cue that the book stopped,
+  // and it redraws the button, or worse decides the page is finished with the
+  // sound. The state only ever changes here for a pause that really happened.
   if (swapping || player.ended || player.error) return;
+  reportPlaybackState("paused");
   drawPlayer();
+  publishPosition();
   if (!weArePausing) {
     // Audio focus went elsewhere: a call, an alarm, another app. Do not
     // resume. An alarm should stop the book, not be talked over.
@@ -298,6 +401,10 @@ player.addEventListener("ended", () => {
     return;
   }
   setStatus("that is the end of the book");
+  // The pause that preceded this one was swallowed as spurious, quite rightly,
+  // so this is the only place left to say that the sound has stopped. Without
+  // it the lock screen offers a pause button for a book that finished.
+  reportPlaybackState("paused");
   drawPlayer();
 });
 
@@ -307,6 +414,10 @@ player.addEventListener("error", () => {
   swapping = false;
   pendingOffsetMs = null;
   setStatus("that chapter didn't arrive");
+  // Same reason as at the end of the book: the pause that follows an error is
+  // swallowed, and a notification still showing a pause button for silence is
+  // a lie they would have to unlock the phone to see through.
+  reportPlaybackState("paused");
   drawPlayer();
   console.error(player.error);
 });
@@ -318,6 +429,59 @@ playpause.addEventListener("click", () => {
 const nudge = (seconds) => seekGlobal(positionMs + seconds * 1000);
 back30.addEventListener("click", () => nudge(-SEEK_STEP_S));
 fwd30.addEventListener("click", () => nudge(SEEK_STEP_S));
+
+// All eight of them, whether or not this phone has anything to press. Android
+// only surfaces the buttons it has a handler for, so an unregistered nexttrack
+// is a pillow speaker whose skip button does nothing at all, and finding that
+// out means being awake enough to test it.
+function listenForRemoteControls() {
+  if (!session?.setActionHandler) return;
+  const handle = (action, fn) => {
+    try {
+      session.setActionHandler(action, fn);
+    } catch {
+      // A browser that has never heard of this action refuses to take it.
+      // That is one button that will not appear, not a reason to stop.
+    }
+  };
+  handle("play", () => ensurePlaying());
+  handle("pause", () => pauseHere());
+  // Stop pauses, and does nothing else. The obvious reading — release the
+  // sound, clear the element — is the documented way to dismiss the media
+  // notification, and dismissing it face down in a pocket is the one state
+  // this page cannot recover from.
+  handle("stop", () => pauseHere());
+  // The platform says how far it wants to go, and only falls back to our idea
+  // of "a bit" when it has no opinion. Both go through the global timeline, so
+  // a nudge back from the first seconds of a chapter lands in the one before,
+  // which is what "back a bit" means to someone who is listening to a book and
+  // not to a pile of files.
+  handle("seekbackward", (d) => nudge(-(d?.seekOffset ?? SEEK_STEP_S)));
+  handle("seekforward", (d) => nudge(d?.seekOffset ?? SEEK_STEP_S));
+  // seekTime comes back on the scale we published, which is this chapter's.
+  // This is the one place it is put back on the book's clock.
+  handle("seekto", (d) => {
+    if (!current || typeof d?.seekTime !== "number") return;
+    seekGlobal(current.chapter.start_ms + d.seekTime * 1000);
+  });
+  handle("previoustrack", () => {
+    if (!current) return;
+    // Five seconds in, "previous" means the start of this chapter — what it
+    // means on every music player anyone has used, and the more forgiving of
+    // the two answers for a thumb that missed.
+    const previous = manifest.chapters[current.idx - 1];
+    const into = positionMs - current.chapter.start_ms;
+    seekGlobal(
+      into > 5000 || !previous ? current.chapter.start_ms : previous.start_ms,
+    );
+  });
+  handle("nexttrack", () => {
+    const next = current && manifest.chapters[current.idx + 1];
+    if (next) seekGlobal(next.start_ms);
+  });
+}
+
+listenForRemoteControls();
 
 async function openBook(id) {
   const response = await fetch(`api/book/${id}`);
