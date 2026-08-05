@@ -2,69 +2,20 @@ import sqlite3
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
-import numpy as np
 import pytest
 
+from fakes import FakeAbs, FakeEmbedder
 from somnia.abs import AbsClient
 from somnia.config import Config
-from somnia.db import EMBED_DIM, connect
+from somnia.db import connect
 from somnia.embed import Embedder
 from somnia.index import add_chunks
 from somnia.segment import Window
 from somnia.tools import Library, format_timestamp
 
 ITEM_ID = "abs-item-1"
-
-
-class FakeEmbedder:
-    """Deterministic one-hot vectors, so "nearest" is exactly predictable."""
-
-    def __init__(self) -> None:
-        self.axis_of: dict[str, int] = {}
-
-    def _vec(self, text: str) -> Any:
-        axis = self.axis_of.setdefault(text, len(self.axis_of))
-        v = np.zeros(EMBED_DIM, dtype=np.float32)
-        v[axis] = 1.0
-        return v
-
-    def encode_passages(self, texts: list[str]) -> Any:
-        return np.stack([self._vec(t) for t in texts])
-
-    def encode_query(self, text: str) -> Any:
-        return self._vec(text)
-
-
-class FakeAbs:
-    def __init__(
-        self, current_time: float | None = None, playing: list[str] | None = None
-    ) -> None:
-        self.current_time = current_time
-        self.moves: list[tuple[str, float]] = []
-        self.sessions = list(playing or [])
-        self.closed: list[str] = []
-
-    def progress(self, item_id: str) -> dict[str, Any] | None:
-        if self.current_time is None:
-            return None
-        return {"libraryItemId": item_id, "currentTime": self.current_time}
-
-    def open_sessions(self, item_id: str) -> list[str]:
-        return list(self.sessions)
-
-    def close_session(self, session_id: str) -> None:
-        self.closed.append(session_id)
-        self.sessions.remove(session_id)
-
-    def set_position(self, item_id: str, time_s: float) -> None:
-        # A live session would overwrite this the moment it next syncs, so
-        # record what the position becomes only once nothing is playing.
-        if self.sessions:
-            raise AssertionError("wrote a position underneath a live session")
-        self.moves.append((item_id, time_s))
-        self.current_time = time_s
 
 
 CHAPTERS = [

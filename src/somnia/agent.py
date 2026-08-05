@@ -8,6 +8,7 @@ enough to turn "the bit where the horse dies" into a place in the book.
 
 import logging
 import sqlite3
+from collections.abc import Callable
 from typing import Any
 
 from anthropic import Anthropic, beta_tool
@@ -47,9 +48,9 @@ none is, say you couldn't find it rather than moving them to the least bad one.
 When they describe a moment they want to get back to, find it and move the book
 there, then tell them roughly where it now sits — "you're back at two hours in,
 in the chapter about X". Moving sets where the book resumes from; pressing play
-is theirs to do, and you never play anything yourself. If their player is
-already open on that book it may put them back where they were, so say to
-reopen it if nothing seems to have changed.
+is theirs to do, and you never play anything yourself. When the tool says a
+player was running, tell them to press play again: audio already going carries
+on for a moment and will not jump by itself.
 
 Searches are limited to how far they have listened. When a search reports that
 a closer match lies further on, say that it is ahead of where they have got and
@@ -66,12 +67,26 @@ Moving them forward is a real jump: they will hear what is there. Never do it
 past where they have listened unless they have just asked you to.
 
 If it is ambiguous which book or which of several passages they mean, ask one
-short question. Otherwise just act.\
+short question. Otherwise just act.
+
+Never end your turn without saying something. Every action needs a sentence
+after it, even when the answer is only "you're there now" — a silent reply is
+indistinguishable from a broken app to someone half asleep in the dark. This
+matters most just after they have told you to go ahead: say that you have
+moved them and where to, and nothing about what happens there.\
 """
 
 
-def build_tools(library: Library) -> list[Any]:
-    """Wrap the tool layer for the runner, as text the model can read."""
+def build_tools(
+    library: Library, note: Callable[[str], None] = lambda _: None
+) -> list[Any]:
+    """Wrap the tool layer for the runner, as text the model can read.
+
+    ``note`` is told about anything that changed the world — moving the book,
+    starting a render. It is what the conversation falls back on when the model
+    acts and then says nothing, and it deliberately never sees search results,
+    which are full of the passages the spoiler guard exists to withhold.
+    """
 
     @beta_tool
     def list_books() -> str:
@@ -108,7 +123,9 @@ def build_tools(library: Library) -> list[Any]:
         Args:
             gid: The Gutenberg id, from search_catalog.
         """
-        return library.add_book(gid)
+        started = library.add_book(gid)
+        note(started)
+        return started
 
     @beta_tool
     def get_position(gid: int) -> str:
@@ -185,9 +202,11 @@ def build_tools(library: Library) -> list[Any]:
                 by find_passage.
         """
         try:
-            return library.move_to(gid, position_ms)
+            moved = library.move_to(gid, position_ms)
         except LookupError as exc:
             return str(exc)
+        note(moved)
+        return moved
 
     return [
         list_books,
@@ -221,7 +240,8 @@ class Conversation:
     ) -> None:
         self._cfg = cfg
         self._client = client or Anthropic(api_key=cfg.anthropic_api_key or None)
-        self._tools = build_tools(library)
+        self._actions: list[str] = []
+        self._tools = build_tools(library, self._actions.append)
         self.messages: list[Any] = []
 
     def ask(self, question: str) -> str:
@@ -234,6 +254,7 @@ class Conversation:
         """
         # The runner copies the list it is given, so mirroring its turns back
         # into ours is what carries the history to the next question.
+        self._actions.clear()
         turn: list[Any] = [*self.messages, {"role": "user", "content": question}]
         runner = self._client.beta.messages.tool_runner(
             model=self._cfg.agent_model,
@@ -249,6 +270,19 @@ class Conversation:
             tool_response = runner.generate_tool_call_response()
             if tool_response is not None:
                 turn.append(tool_response)
-            reply = "".join(b.text for b in message.content if b.type == "text")
+            # Keep the last thing it actually said. A message that only calls a
+            # tool has no text, and taking it as the answer would blank out a
+            # sentence the model had already written.
+            said = "".join(b.text for b in message.content if b.type == "text").strip()
+            if said:
+                reply = said
+
+        if not reply:
+            # It acted and then said nothing — most often after being told to go
+            # ahead past the guard. What it did is better than a blank screen,
+            # and the tools that report here are the ones that changed
+            # something, never a search full of passages it was withholding.
+            logger.warning("turn produced no text; answering with what it did")
+            reply = self._actions[-1] if self._actions else ""
         self.messages = turn
         return reply
