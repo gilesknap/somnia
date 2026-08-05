@@ -139,19 +139,21 @@ def test_find_passage_will_not_search_past_where_they_are(fixture: Fixture) -> N
     Nearest-neighbour search has no relevance floor, so the guarantee is not
     "no results" — it is that the unheard passage is never among them.
     """
-    heard = fixture.library.find_passage(271, "a later scene the listener has not reached")
-    assert 700_000 not in [p.start_ms for p in heard]
+    query = "a later scene the listener has not reached"
+    heard = fixture.library.find_passage(271, query)
+    assert 700_000 not in [p.start_ms for p in heard.hits]
+    assert heard.searched_to_ms == 360_000
 
-    spoiled = fixture.library.find_passage(
-        271, "a later scene the listener has not reached", spoiler_free=False
-    )
-    assert spoiled[0].start_ms == 700_000
+    spoiled = fixture.library.find_passage(271, query, spoiler_free=False)
+    assert spoiled.hits[0].start_ms == 700_000
+    assert spoiled.searched_to_ms is None
 
 
 def test_find_passage_finds_what_they_have_already_heard(fixture: Fixture) -> None:
-    hits = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
-    assert hits[0].start_ms == 300_000
-    assert hits[0].chapter_title == "02 The Hunt"
+    search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    assert search.hits[0].start_ms == 300_000
+    assert search.hits[0].chapter_title == "02 The Hunt"
+    assert search.better_ahead is None
 
 
 def test_plant_bookmark_uses_the_abs_item_and_seconds(fixture: Fixture) -> None:
@@ -160,7 +162,9 @@ def test_plant_bookmark_uses_the_abs_item_and_seconds(fixture: Fixture) -> None:
     assert "0:05:00" in message
 
 
-def test_plant_bookmark_explains_when_the_book_is_not_in_abs_yet(fixture: Fixture) -> None:
+def test_plant_bookmark_explains_when_the_book_is_not_in_abs_yet(
+    fixture: Fixture,
+) -> None:
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET abs_item_id = '' WHERE gid = 271")
     with pytest.raises(LookupError):
@@ -170,3 +174,12 @@ def test_plant_bookmark_explains_when_the_book_is_not_in_abs_yet(fixture: Fixtur
 def test_format_timestamp_reads_as_a_listening_position() -> None:
     assert format_timestamp(0) == "0:00:00"
     assert format_timestamp(8_412_000) == "2:20:12"
+
+
+def test_find_passage_says_when_the_answer_lies_ahead(fixture: Fixture) -> None:
+    search = fixture.library.find_passage(
+        271, "a later scene the listener has not reached"
+    )
+    assert search.better_ahead is not None
+    assert search.better_ahead.start_ms == 700_000
+    assert 700_000 not in [p.start_ms for p in search.hits]

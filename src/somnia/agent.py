@@ -79,9 +79,7 @@ def build_tools(library: Library) -> list[Any]:
         entries = library.search_catalog(query)
         if not entries:
             return f"Nothing in the Gutenberg catalog matches {query!r}."
-        return "\n".join(
-            f"gid {e.gid}: {e.title} — {e.authors}" for e in entries[:10]
-        )
+        return "\n".join(f"gid {e.gid}: {e.title} — {e.authors}" for e in entries[:10])
 
     @beta_tool
     def add_book(gid: int) -> str:
@@ -128,16 +126,31 @@ def build_tools(library: Library) -> list[Any]:
                 they have heard. Only set this if they have said they don't
                 mind being spoiled.
         """
-        passages = library.find_passage(
-            gid, description, spoiler_free=not allow_spoilers
-        )
-        if not passages:
-            return "No matching passage in what they have heard so far."
-        return "\n\n".join(
-            f"[{format_timestamp(p.start_ms)} in {p.chapter_title!r},"
-            f" position_ms={p.start_ms}] {p.text}"
-            for p in passages
-        )
+        search = library.find_passage(gid, description, spoiler_free=not allow_spoilers)
+        lines: list[str] = []
+        if search.searched_to_ms is not None:
+            lines.append(
+                f"Searched the first {format_timestamp(search.searched_to_ms)},"
+                " which is as far as they have listened."
+            )
+        if search.hits:
+            lines.append(
+                "\n\n".join(
+                    f"[{format_timestamp(p.start_ms)} in {p.chapter_title!r},"
+                    f" position_ms={p.start_ms}] {p.text}"
+                    for p in search.hits
+                )
+            )
+        else:
+            lines.append("Nothing in that stretch.")
+        if search.better_ahead is not None:
+            lines.append(
+                "A closer match lies further on than they have listened, at"
+                f" {format_timestamp(search.better_ahead.start_ms)}. Tell them it is"
+                " ahead of where they are and offer to bookmark it or answer anyway."
+                " Do not say what happens there unless they accept."
+            )
+        return "\n\n".join(lines)
 
     @beta_tool
     def plant_bookmark(gid: int, position_ms: int, title: str) -> str:

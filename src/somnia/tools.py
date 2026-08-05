@@ -37,6 +37,22 @@ class Book:
 
 
 @dataclass
+class Search:
+    """Search results, plus what the spoiler guard held back.
+
+    ``better_ahead`` is the crux: without it, a spoiler-bounded search that
+    excludes the answer is indistinguishable from a book that never contained
+    it, and the only honest thing left to say is "not found". Knowing that a
+    closer match lies ahead lets the answer be "that is further on than you
+    have got — shall I take you there anyway?", which is the true one.
+    """
+
+    hits: list[Passage]
+    searched_to_ms: int | None
+    better_ahead: Passage | None
+
+
+@dataclass
 class Position:
     """Where the listener is, and what is happening there."""
 
@@ -167,11 +183,12 @@ class Library:
 
     def find_passage(
         self, gid: int, query: str, k: int = 5, spoiler_free: bool = True
-    ) -> list[Passage]:
+    ) -> Search:
         """Search a book for a passage — an event, a character, a moment.
 
         With ``spoiler_free`` (the default) the search stops at how far the
-        listener has got. Pass False only when they have said they don't mind.
+        listener has got, and reports separately whether a closer match lies
+        beyond that point. Pass False once they have said they don't mind.
         """
         before_ms: int | None = None
         if spoiler_free:
@@ -179,9 +196,18 @@ class Library:
             if position is not None and not position.finished:
                 # Include the sentence being spoken, not just what precedes it.
                 before_ms = position.position_ms + 60_000
-        return find_passage(
+
+        hits = find_passage(
             self._conn, self.embedder, gid, query, k=k, before_ms=before_ms
         )
+        better_ahead: Passage | None = None
+        if before_ms is not None:
+            whole_book = find_passage(self._conn, self.embedder, gid, query, k=k)
+            ahead = [p for p in whole_book if p.start_ms > before_ms]
+            floor = hits[0].distance if hits else float("inf")
+            if ahead and ahead[0].distance < floor:
+                better_ahead = ahead[0]
+        return Search(hits=hits, searched_to_ms=before_ms, better_ahead=better_ahead)
 
     def plant_bookmark(self, gid: int, position_ms: int, title: str) -> str:
         """Drop a named bookmark so the app is two taps from the passage."""
