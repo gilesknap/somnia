@@ -1,8 +1,14 @@
-// Just enough service worker to make the page installable, and to open
-// instantly when the VPS is slow to answer. Answers are never cached: a stale
-// reply about where you are in a book is worse than no reply.
+// Just enough service worker to make the page installable and to open when
+// the server is unreachable. Answers are never cached: a stale reply about
+// where you are in a book is worse than no reply.
+//
+// The network comes first and the cache is only the fallback. Serving the
+// cache first and refreshing behind it — the usual advice — meant every
+// deployment took two reloads to appear, one to fetch it and another to show
+// it. This page is a few kilobytes on a tailnet: fetching it is not the slow
+// part of anything.
 
-const CACHE = "somnia-v1";
+const CACHE = "somnia-v2";
 const SHELL = [
   ".",
   "index.html",
@@ -39,20 +45,17 @@ self.addEventListener("fetch", (event) => {
   // `includes` rather than `startsWith`: the app may be mounted under a path.
   if (event.request.method !== "GET" || url.pathname.includes("/api/")) return;
 
-  // Serve the shell from cache, then refresh it in the background so a
-  // redeployed page is picked up on the next launch.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fresh = fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || fresh;
-    }),
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      // Offline, or the VPS is down: whatever was cached last is better than
+      // the browser's own error page.
+      .catch(() => caches.match(event.request)),
   );
 });
