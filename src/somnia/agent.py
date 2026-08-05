@@ -53,6 +53,12 @@ a closer match lies further on, say that it is ahead of where they have got and
 offer to take them there or answer anyway — and say nothing about what happens
 there until they accept.
 
+Once they accept, search again with allow_spoilers so you can read those
+passages and pick the right one. The timestamp alone is the top-ranked guess
+and the ranking is often a near miss; bookmarking it unread lands them minutes
+from the moment they asked for. Reading the passage does not oblige you to
+describe it — bookmark it and name the bookmark in their words.
+
 If it is ambiguous which book or which of several passages they mean, ask one
 short question. Otherwise just act.\
 """
