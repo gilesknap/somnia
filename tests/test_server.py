@@ -6,6 +6,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from conftest import ToneBook
+from fakes import RecordingAbs
 from somnia import server
 from somnia.config import Config
 from somnia.db import connect
@@ -251,3 +252,107 @@ def test_the_book_list_says_what_there_is_to_play(tone_client: TestClient) -> No
     body = tone_client.get("/api/books").json()
     assert body["last_gid"] is None
     assert [(b["gid"], b["chapters"]) for b in body["books"]] == [(GID, len(CHAPTERS))]
+
+
+# ------------------------------------------------------ where they have got to
+
+
+def report(client: TestClient, **body: Any) -> Any:
+    payload = {"token": TOKEN, "gid": GID, "seq": 0, "playing": True, "reason": "tick"}
+    payload.update(body)
+    response = client.post("/api/position", json=payload)
+    return response.status_code, response.json()
+
+
+def test_the_page_can_say_where_it_has_got_to(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    status, body = report(tone_client, position_ms=12_500)
+    assert (status, body["accepted"], body["position_ms"]) == (200, True, 12_500)
+    assert tone_client.get(f"/api/book/{GID}").json()["position_ms"] == 12_500
+
+
+def test_a_position_report_is_answered_two_hundred_even_when_refused(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """A refusal is the protocol working, not an error.
+
+    A 409 would put a red line in the console at 2am for something behaving
+    exactly as designed, invite a throw in the fetch wrapper that skipped the
+    one line that mattered, and be unreadable to a beacon, which is how the
+    last position of the night is sent.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET position_seq = 4, position_ms = 20000 WHERE gid = ?",
+            (GID,),
+        )
+    status, body = report(tone_client, position_ms=1_000, seq=0)
+    assert status == 200
+    assert body == {
+        "accepted": False,
+        "gid": GID,
+        "position_ms": 20_000,
+        "seq": 4,
+        "heard_to_ms": 24_000,
+        "reason": "moved",
+    }
+
+
+def test_a_report_about_a_book_that_is_gone_is_not_an_error_either(
+    tone_client: TestClient,
+) -> None:
+    status, body = report(tone_client, gid=404_404, position_ms=1_000)
+    assert status == 200
+    assert body == {"accepted": False, "gid": 404_404, "reason": "gone"}
+
+
+def test_a_report_with_nothing_in_it_is_refused_outright(
+    tone_client: TestClient,
+) -> None:
+    """The one case worth a 400: there is nothing here to write."""
+    assert tone_client.post("/api/position", json={"token": TOKEN}).status_code == 400
+    assert (
+        tone_client.post(
+            "/api/position", json={"gid": GID, "position_ms": "somewhere"}
+        ).status_code
+        == 400
+    )
+
+
+def test_a_report_of_an_unknown_kind_is_taken_as_a_tick(
+    tone_client: TestClient,
+) -> None:
+    """A garbled 2am request is not news, and dropping the position would be."""
+    status, body = report(tone_client, position_ms=3_000, reason="sleepwalking")
+    assert (status, body["accepted"]) == (200, True)
+
+
+def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
+    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ABS is right whenever someone next opens it, for a few writes a night.
+
+    Telling it every fifteen seconds would be hundreds of requests to a server
+    nothing is reading, on a link that may not be there.
+    """
+    recorder = RecordingAbs()
+
+    def one_abs_client(base_url: str, token: str) -> RecordingAbs:
+        """create_app builds its own, so this is how a test gets a look at it."""
+        return recorder
+
+    monkeypatch.setattr(server, "Conversation", FakeConversation)
+    monkeypatch.setattr(server, "AbsClient", one_abs_client)
+    tone_book.cfg.abs_token = "a-token"
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET abs_item_id = 'abs-item-1' WHERE gid = ?", (GID,)
+        )
+
+    with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
+        report(client, position_ms=1_000, reason="tick")
+        assert recorder.moves == []
+        report(client, position_ms=2_000, reason="pause")
+        report(client, position_ms=3_000, reason="unload")
+    assert recorder.moves == [("abs-item-1", 2.0), ("abs-item-1", 3.0)]

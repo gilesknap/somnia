@@ -30,6 +30,23 @@ class FakeEmbedder:
         return self._vec(text)
 
 
+class RecordingAbs:
+    """Audiobookshelf as the player now uses it: written to, never read."""
+
+    def __init__(self) -> None:
+        self.moves: list[tuple[str, float]] = []
+
+    def set_position(self, item_id: str, time_s: float) -> None:
+        self.moves.append((item_id, time_s))
+
+
+class BrokenAbs:
+    """An Audiobookshelf that is down, or behind a tailnet that just dropped."""
+
+    def set_position(self, item_id: str, time_s: float) -> None:
+        raise RuntimeError("connection refused")
+
+
 class FakeAbs:
     """Audiobookshelf, remembering only what somnia asks of it."""
 

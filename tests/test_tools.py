@@ -54,10 +54,14 @@ def fixture(tmp_path: Path) -> Iterator[Fixture]:
 def _seeded(conn: sqlite3.Connection, tmp_path: Path) -> Fixture:
     embedder = FakeEmbedder()
     with conn:
+        # Five minutes in, and five minutes is the furthest they have got. Both
+        # are seeded because the page writes them now — it reports where it has
+        # reached every few seconds — so a library test starts from a listener
+        # who has been listening rather than from one who has not.
         conn.execute(
             "INSERT INTO books (gid, title, authors, voice, status, total_ms,"
-            " abs_item_id) VALUES (271, 'Black Beauty', 'Sewell, Anna',"
-            " 'af_heart', 'done', 900000, ?)",
+            " abs_item_id, position_ms, heard_to_ms) VALUES (271, 'Black Beauty',"
+            " 'Sewell, Anna', 'af_heart', 'done', 900000, ?, 300000, 300000)",
             (ITEM_ID,),
         )
         for idx, (title, start, end) in enumerate(CHAPTERS):
@@ -103,8 +107,56 @@ def test_get_position_names_the_chapter_and_the_text_there(fixture: Fixture) -> 
 
 
 def test_get_position_is_none_before_they_start(fixture: Fixture) -> None:
-    unplayed = fixture.make_library(FakeAbs(current_time=None))
-    assert unplayed.get_position(271) is None
+    """Nobody is at 0:00:00 — they have not begun, which is a different answer.
+
+    Only a null position can tell the two apart, which is why the column is
+    nullable rather than defaulting to zero like everything beside it.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = NULL WHERE gid = 271")
+    assert fixture.library.get_position(271) is None
+
+
+def test_get_position_reads_somnias_own_record_not_audiobookshelf(
+    fixture: Fixture,
+) -> None:
+    """The page is the player, so ABS only ever hears about a position later.
+
+    Asking it where the book is would answer with whatever it was last told,
+    which on a book played entirely from the page is a whole night out of date.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = 42000 WHERE gid = 271")
+    stale = fixture.make_library(FakeAbs(current_time=888.0))
+
+    position = stale.get_position(271)
+    assert position is not None
+    assert position.position_ms == 42_000
+
+
+def test_a_book_still_rendering_is_not_called_finished_at_the_frontier(
+    fixture: Fixture,
+) -> None:
+    """total_ms covers only what exists, so catching up is not the ending.
+
+    find_passage switches the spoiler guard off for a finished book. Calling a
+    book finished the moment they reach the end of what has been rendered would
+    turn the guard off on the one book most able to spoil itself.
+    """
+    with fixture.conn:
+        fixture.conn.execute(
+            "UPDATE books SET status = 'rendering', position_ms = 900000"
+            " WHERE gid = 271"
+        )
+    growing = fixture.library.get_position(271)
+    assert growing is not None
+    assert not growing.finished
+
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET status = 'done' WHERE gid = 271")
+    done = fixture.library.get_position(271)
+    assert done is not None
+    assert done.finished
 
 
 def test_find_passage_will_not_search_past_where_they_are(fixture: Fixture) -> None:
@@ -134,6 +186,36 @@ def test_move_to_uses_the_abs_item_and_seconds(fixture: Fixture) -> None:
     message = fixture.library.move_to(271, 300_500)
     assert fixture.abs.moves == [(ITEM_ID, 300.5)]
     assert "0:05:00" in message
+
+
+def test_moving_writes_the_position_the_page_will_read(fixture: Fixture) -> None:
+    """Where the book resumes is somnia's own record now, not a remote one."""
+    fixture.library.move_to(271, 123_000)
+    row = fixture.conn.execute(
+        "SELECT position_ms FROM books WHERE gid = 271"
+    ).fetchone()
+    assert row["position_ms"] == 123_000
+
+
+def test_moving_counts_up_so_the_page_can_tell_it_happened(fixture: Fixture) -> None:
+    """The count is how a page tells an agent move from its own heartbeat.
+
+    Its own reports leave the count alone, so a number higher than the one it
+    holds can only be a move it has not applied — and it can act on that
+    without asking anything else.
+    """
+
+    def seq() -> int:
+        row = fixture.conn.execute(
+            "SELECT position_seq FROM books WHERE gid = 271"
+        ).fetchone()
+        return int(row["position_seq"])
+
+    assert seq() == 0
+    fixture.library.move_to(271, 10_000)
+    assert seq() == 1
+    fixture.library.move_to(271, 20_000)
+    assert seq() == 2
 
 
 def test_move_to_explains_when_the_book_is_not_in_abs_yet(fixture: Fixture) -> None:

@@ -122,6 +122,15 @@ const SWAP_LEAD_S = 0.4;
 // What "back a bit" means, in the absence of anyone able to say.
 const SEEK_STEP_S = 30;
 
+// How often a playing book says where it has got to. Fifteen seconds is what a
+// phone dying costs: few enough writes that a night is a few hundred of them,
+// close enough together that waking up never means hearing a chapter twice.
+// It is counted on timeupdate rather than by a timer on purpose — a hidden
+// page's setInterval is throttled to roughly one wake a minute, so anything
+// hung off a timer misbehaves exactly when nobody is watching, whereas
+// timeupdate comes off the media pipeline and keeps firing with the screen off.
+const HEARTBEAT_MS = 15_000;
+
 // The lock screen, the notification shade and whatever is paired over
 // Bluetooth all reach the page through this one object, so it is the whole of
 // what somnia can be controlled by while the phone is face down. It is still
@@ -138,8 +147,21 @@ const ARTWORK = [
 ];
 
 let manifest = null;
+let gid = null; // which book, once the manifest has said
 let current = null; // {idx, chapter} — which file the element is holding
 let positionMs = 0;
+// How many times the agent has moved this book, as of the last thing we heard
+// from the server. Our own reports never raise it, so a higher number coming
+// back can only be a move this page has not applied.
+let seq = 0;
+// Nothing is written until something happens. Opening the app at 2am to ask a
+// question is not listening, and a book they only opened must keep its null
+// position: "never started" and "at the very beginning" are different answers
+// to "where am I?", and only one of them would be true.
+let untouched = true;
+let sending = false; // one report in flight at a time
+let owed = null; // a report that arrived while one was in flight
+let lastSentAt = 0;
 // Where to land once the file has a duration to clamp against. It stays set
 // until it is applied, so a loadedmetadata that arrives four minutes late —
 // after the tailnet came back — still lands in the right place instead of
@@ -270,6 +292,9 @@ function showChapter({ idx, chapter, offset_ms }, { play }) {
 // bit" in a book that only happens to be stored as separate files.
 function seekGlobal(ms, { play = null } = {}) {
   if (!manifest) return;
+  // Somebody meant this — a thumb, a lock screen, or the agent. Whatever
+  // happens next is worth recording, even if they never press play.
+  untouched = false;
   const at = locate(ms);
   positionMs = Math.max(0, Math.min(ms, manifest.total_ms));
   if (current && at.idx === current.idx && player.readyState > 0) {
@@ -319,6 +344,10 @@ player.addEventListener("loadedmetadata", () => {
   swapping = false;
   drawPlayer();
   publishPosition();
+  // A boundary is a good place to be interrupted at, and the position either
+  // side of one differs by a whole chapter. At boot this says nothing, because
+  // opening the app has not moved anything.
+  sendPosition("chapter");
 });
 
 player.addEventListener("timeupdate", () => {
@@ -336,6 +365,7 @@ player.addEventListener("timeupdate", () => {
     lastPublishedAt = now;
     publishPosition();
   }
+  if (!player.paused && now - lastSentAt >= HEARTBEAT_MS) sendPosition("tick");
 
   const next = manifest.chapters[current.idx + 1];
   const left = player.duration - player.currentTime;
@@ -349,9 +379,13 @@ player.addEventListener("seeked", () => {
   positionMs = toGlobalMs(current.chapter, player.currentTime);
   drawPlayer();
   publishPosition();
+  // A jump is the one thing the fifteen-second heartbeat cannot approximate:
+  // between one tick and the next they may be an hour away.
+  sendPosition("seek");
 });
 
 player.addEventListener("play", () => {
+  untouched = false;
   reportPlaybackState("playing");
   drawPlayer();
   publishPosition();
@@ -379,6 +413,10 @@ player.addEventListener("pause", () => {
   reportPlaybackState("paused");
   drawPlayer();
   publishPosition();
+  // Someone who pauses at 2am may not touch the phone again for a week, so
+  // this is the position that has to be right, and it is worth a request of
+  // its own however recently the last one went.
+  sendPosition("pause");
   if (!weArePausing) {
     // Audio focus went elsewhere: a call, an alarm, another app. Do not
     // resume. An alarm should stop the book, not be talked over.
@@ -406,6 +444,7 @@ player.addEventListener("ended", () => {
   // it the lock screen offers a pause button for a book that finished.
   reportPlaybackState("paused");
   drawPlayer();
+  sendPosition("ended");
 });
 
 player.addEventListener("error", () => {
@@ -483,6 +522,110 @@ function listenForRemoteControls() {
 
 listenForRemoteControls();
 
+// ------------------------------------------------------- where they have got to
+
+// The page is the only thing that knows where the sound is while it plays, so
+// saying so is not bookkeeping — it is the whole of somnia's memory of the
+// night. Everything below is driven by media events for the reason given at
+// HEARTBEAT_MS: with the screen off, they are the only events still arriving.
+
+function positionBody(reason) {
+  return {
+    // Not authentication — there is none here by design. It is so the journal
+    // can say which page wrote what.
+    token,
+    gid,
+    position_ms: Math.round(positionMs),
+    seq,
+    playing: !player.paused && !player.ended,
+    reason,
+  };
+}
+
+// One at a time, and never retried. A retry delivers a stale position over a
+// newer one, and the next heartbeat carries better truth anyway; what must not
+// happen is the LAST position being the one that got dropped, which is what
+// `owed` is for. It remembers only that something is owed, and the body is
+// built afresh when it goes out, so what lands is where they are now.
+function sendPosition(reason) {
+  if (untouched || !manifest || gid === null) return;
+  if (sending) {
+    owed = reason;
+    return;
+  }
+  sending = true;
+  // Counted from when it went out, not from when it came back: gating the
+  // heartbeat on the reply would turn a phone with no signal into a request
+  // every few hundred milliseconds, which is the one thing a battery cannot
+  // afford at 4am.
+  lastSentAt = Date.now();
+  fetch("api/position", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(positionBody(reason)),
+    // Backgrounded, and the page may be frozen a moment later. keepalive is
+    // what lets the request finish without one.
+    keepalive: reason === "hidden",
+  })
+    .then((response) => response.json())
+    .then(applyReply)
+    .catch((error) => console.error(error))
+    .finally(() => {
+      sending = false;
+      const next = owed;
+      owed = null;
+      if (next) sendPosition(next);
+    });
+}
+
+function applyReply(body) {
+  if (!body || body.accepted) return;
+  // The agent moved the book while this page was not looking. That is the only
+  // thing that can refuse a report, and the refusal says where to go.
+  if (body.reason === "moved") follow(body);
+  if (body.reason === "gone") {
+    // The book is not in the database any more. Whatever is still in the
+    // element can play out, but there is nothing left to write to.
+    setStatus("that book isn't here any more");
+    gid = null;
+  }
+}
+
+// Somewhere else decided where the book should be. Until a reply to a question
+// carries the move itself, this is the one route it arrives by: the refusal of
+// the next heartbeat. Both routes are meant to end up here, and applying a move
+// twice is a no-op, so whichever gets here first wins and losing one costs
+// nothing.
+function follow(move) {
+  if (!move || typeof move.seq !== "number" || move.seq <= seq) return;
+  seq = move.seq;
+  if (move.gid !== gid || typeof move.position_ms !== "number") return;
+  // They asked to be taken somewhere, so take them there and play it.
+  // Reproducing "now press play yourself" in JavaScript would be a joke.
+  seekGlobal(move.position_ms, { play: true });
+}
+
+// Told once, as the page dies. fetch does not survive teardown — the document
+// is gone before the connection is made — but a beacon is the browser's promise
+// to deliver after the page has stopped existing. It is JSON in a Blob because
+// that is the only way to give a beacon a content type, and it can read no
+// reply at all, which is the other reason a refusal is a 200 with a body.
+window.addEventListener("pagehide", () => {
+  if (untouched || !manifest || gid === null) return;
+  const body = JSON.stringify(positionBody("unload"));
+  navigator.sendBeacon?.(
+    "api/position",
+    new Blob([body], { type: "application/json" }),
+  );
+});
+
+document.addEventListener("visibilitychange", () => {
+  // Backgrounded, which on a phone is most of the night. Say so now: from here
+  // on the page can be frozen or discarded without warning, and this is the
+  // last moment a normal request is certain to be allowed out.
+  if (document.visibilityState === "hidden") sendPosition("hidden");
+});
+
 async function openBook(id) {
   const response = await fetch(`api/book/${id}`);
   if (!response.ok) throw new Error(`no book ${id}`);
@@ -492,6 +635,8 @@ async function openBook(id) {
     setStatus("nothing to play yet");
     return;
   }
+  gid = manifest.gid;
+  seq = manifest.seq ?? 0;
   positionMs = manifest.position_ms ?? 0;
   playerBar.hidden = false;
   // Never play on load. Opening the app at 2am to ask a question must not

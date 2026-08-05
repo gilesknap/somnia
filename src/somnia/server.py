@@ -27,12 +27,14 @@ from pathlib import Path
 from typing import Any, cast
 
 from starlette.applications import Starlette
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from .abs import AbsClient
 from .agent import Conversation, open_library
 from .config import Config
 from .player import Player
@@ -47,6 +49,13 @@ WEB_DIR = Path(__file__).parent / "web"
 # One listener, one phone — but a reloaded page mints a fresh token, so a few
 # nights of tabs can accumulate. Old ones are dropped, not remembered.
 MAX_CONVERSATIONS = 8
+
+# Why the page is telling us where it is. The four below mean they have stopped,
+# and so are the moments Audiobookshelf is worth telling: it is right whenever
+# someone might next open it, at the cost of a handful of writes a night rather
+# than one every fifteen seconds.
+STOPPED = frozenset({"pause", "hidden", "unload", "ended"})
+REASONS = STOPPED | frozenset({"load", "tick", "seek", "chapter"})
 
 
 class Conversations:
@@ -82,7 +91,11 @@ class Conversations:
 def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
     """The PWA, the agent behind it, and the book it plays."""
     conversations = Conversations(cfg, open_library(cfg, conn))
-    player = Player(cfg)
+    # The player gets its own client rather than the library's. The point of
+    # the fast lane is that nothing on it waits on the lane a model turn is
+    # using, and that goes for the socket as much as for the connection.
+    abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
+    player = Player(cfg, abs_client)
 
     async def ask(request: Request) -> Response:
         payload = await _payload(request)
@@ -132,6 +145,47 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         # them, so nothing here touches the request headers.
         return FileResponse(path, media_type="audio/mp4")
 
+    async def position(request: Request) -> Response:
+        """Where the page has got to — the only position write it makes.
+
+        Answered 200 whatever happens, in one of three shapes. A refusal is not
+        an error: it is how the page is told the agent moved the book while it
+        was not looking, and it carries where to go instead. A 409 would put a
+        red line in the console at 2am for something working exactly as
+        designed, invite a throw in the fetch wrapper that skipped the one line
+        that mattered, and be unreadable to the beacon sent as the page dies.
+        """
+        payload = await _payload(request)
+        gid = _number(payload.get("gid"))
+        position_ms = _number(payload.get("position_ms"))
+        if gid < 0 or position_ms < 0:
+            return JSONResponse({"error": "gid and position_ms are required"}, 400)
+        reason = str(payload.get("reason") or "tick")
+        if reason not in REASONS:
+            # Taken as a tick and carried on with. A garbled 2am request is not
+            # news, but it should be findable in the journal afterwards.
+            logger.info("position reported for an unknown reason %r", reason)
+        report = await run_in_threadpool(
+            player.report,
+            gid,
+            position_ms,
+            _number(payload.get("seq")),
+            bool(payload.get("playing")),
+        )
+        # Nulls dropped rather than sent: a report about a book that is gone
+        # has no position to talk about, and saying "position_ms": null would
+        # read as one.
+        body = {k: v for k, v in asdict(report).items() if v is not None}
+        told = report.accepted and reason in STOPPED
+        return JSONResponse(
+            body,
+            # After the reply is on the wire, never before it. Audiobookshelf is
+            # a courtesy and the page is waiting.
+            background=BackgroundTask(player.tell_abs, gid, position_ms)
+            if told
+            else None,
+        )
+
     @asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncGenerator[None, None]:
         """Hand the player's connection back when the server stops."""
@@ -150,6 +204,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/books", books),
             Route("/api/book/{gid:int}", book),
             Route("/api/audio/{gid:int}/{idx:int}", audio),
+            Route("/api/position", position, methods=["POST"]),
             Mount("/", StaticFiles(directory=WEB_DIR, html=True)),
         ],
         lifespan=lifespan,
@@ -163,6 +218,19 @@ async def _payload(request: Request) -> dict[str, Any]:
     except ValueError:
         return {}
     return cast(dict[str, Any], body) if isinstance(body, dict) else {}
+
+
+def _number(value: Any) -> int:
+    """A whole number from the page, or -1 for anything that is not one.
+
+    Every number the page sends is a count of milliseconds or of moves, so
+    negative is already impossible and one sentinel does for missing, garbled
+    and nonsensical alike.
+    """
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return -1
 
 
 def serve(cfg: Config, conn: sqlite3.Connection, host: str, port: int) -> None:

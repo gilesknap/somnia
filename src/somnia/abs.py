@@ -97,8 +97,14 @@ class AbsClient:
         or a player that is still running will sync its own position back over
         this within seconds.
         """
+        # A short timeout of its own. This is a courtesy write now — the page is
+        # the player, and nothing waits on ABS agreeing — so an ABS that is down
+        # rather than absent must not hold a turn, or a reply to a question, for
+        # the thirty seconds the client otherwise allows.
         resp = self._client.patch(
-            f"/api/me/progress/{item_id}", json={"currentTime": round(time_s, 3)}
+            f"/api/me/progress/{item_id}",
+            json={"currentTime": round(time_s, 3)},
+            timeout=5,
         )
         resp.raise_for_status()
 

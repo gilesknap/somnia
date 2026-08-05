@@ -155,15 +155,27 @@ class Library:
         return self._abs
 
     def get_position(self, gid: int) -> Position | None:
-        """Where the listener left off, and the text at that point."""
+        """Where the listener left off, and the text at that point.
+
+        Read from somnia's own record, not from Audiobookshelf. The page is the
+        player now and reports here every few seconds while it plays; ABS only
+        ever hears about a position afterwards, as a courtesy, so asking it
+        would answer with whatever it was last told — seconds out at best, and
+        a whole night out on a book played entirely from the page.
+
+        A NULL position means they have never started this book. Nobody is at
+        0:00:00, and collapsing the two would make "you haven't begun this one"
+        unsayable.
+        """
         book = self.book(gid)
         if book is None:
             return None
-        progress = self._require_abs().progress(self._abs_item_id(gid))
-        if progress is None:
+        row = self._conn.execute(
+            "SELECT position_ms FROM books WHERE gid = ?", (gid,)
+        ).fetchone()
+        if row is None or row["position_ms"] is None:
             return None
-        position_ms = int(float(progress.get("currentTime", 0.0)) * 1000)
-        self._remember_heard(gid, position_ms)
+        position_ms = int(row["position_ms"])
         chapter = self._conn.execute(
             "SELECT idx, title FROM chapters WHERE book_gid = ? AND start_ms <= ?"
             " ORDER BY start_ms DESC LIMIT 1",
@@ -180,16 +192,13 @@ class Library:
             chapter_idx=chapter["idx"] if chapter else 0,
             chapter_title=chapter["title"] if chapter else "",
             text=chunk["text"] if chunk else "",
-            finished=bool(progress.get("isFinished")),
+            # Not the naive `>= total_ms`. A book still rendering has a
+            # total_ms that covers only what exists so far, so that form would
+            # call it finished the moment they caught up with the renderer —
+            # and find_passage switches the spoiler guard *off* for a finished
+            # book, on precisely the book most able to spoil itself.
+            finished=book.status == "done" and position_ms >= book.total_ms - 1000,
         )
-
-    def _remember_heard(self, gid: int, position_ms: int) -> None:
-        """Record the furthest point reached, never letting it go backwards."""
-        with self._conn:
-            self._conn.execute(
-                "UPDATE books SET heard_to_ms = MAX(heard_to_ms, ?) WHERE gid = ?",
-                (position_ms, gid),
-            )
 
     def heard_to_ms(self, gid: int) -> int:
         row = self._conn.execute(
@@ -212,7 +221,7 @@ class Library:
         """
         before_ms: int | None = None
         if spoiler_free:
-            position = self.get_position(gid)  # also records the high-water mark
+            position = self.get_position(gid)
             heard = self.heard_to_ms(gid)
             if heard and not (position is not None and position.finished):
                 # Include the sentence being spoken, not just what precedes it.
@@ -237,6 +246,10 @@ class Library:
         still has to be found in a list of every other bookmark, in the dark,
         by someone who is half asleep. Moving the position means the next tap
         on play is already in the right place.
+
+        Where it lands is written into somnia's own database, which is what the
+        page reads and what the page is refused against; Audiobookshelf gets the
+        same number because the app there should not be left behind.
 
         Any player still holding an open session on this book is ended first.
         A session is the authority on where the book is while it lasts, so
@@ -277,12 +290,33 @@ class Library:
                 " was. Stop it and ask me again."
             )
 
+        self._write_position(gid, position_ms)
         moved = f"Moved to {format_timestamp(position_ms)}."
         if interrupted:
             # They will not have heard it stop: the audio already in flight
             # keeps playing, and only the next press of play starts from here.
             return f"{moved} A player was running, so it was stopped first."
         return moved
+
+    def _write_position(self, gid: int, position_ms: int) -> None:
+        """Record a move where the page will find it, and count it.
+
+        The count is the only thing that tells an agent move apart from the
+        page's own reports of where it has got to, which leave it alone. A
+        number higher than the one the page holds can therefore only be a move
+        it has not applied, which is what lets it act on one unconditionally.
+
+        ``heard_to_ms`` is deliberately untouched. Being taken back to chapter
+        two must not un-hear chapters three to twenty, or the whole stretch
+        they had already listened to becomes unsearchable for the rest of the
+        night.
+        """
+        with self._conn:
+            self._conn.execute(
+                "UPDATE books SET position_ms = ?, position_seq = position_seq + 1,"
+                " position_at = datetime('now') WHERE gid = ?",
+                (position_ms, gid),
+            )
 
     def _is_at(self, item_id: str, target_s: float) -> bool:
         """Did the move stick, or has a player already overwritten it?"""
