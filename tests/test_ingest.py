@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
 
@@ -32,7 +33,7 @@ class FakeAbs:
 
 
 @pytest.fixture
-def conn(tmp_path: Path) -> Any:
+def conn(tmp_path: Path) -> Iterator[Any]:
     conn = connect(tmp_path / "somnia.db")
     conn.execute(
         "INSERT INTO books (gid, title, voice) VALUES (271, 'Black Beauty', 'af_heart')"
@@ -46,7 +47,10 @@ def conn(tmp_path: Path) -> Any:
             (idx, title, start, end),
         )
     conn.commit()
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _cfg(tmp_path: Path) -> Config:

@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -24,11 +25,17 @@ class FakeConversation:
 
 
 @pytest.fixture
-def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(server, "Conversation", FakeConversation)
     cfg = Config(data_dir=tmp_path)
     conn = connect(cfg.db_path, cross_thread=True)
-    return TestClient(server.create_app(cfg, conn))
+    try:
+        yield TestClient(server.create_app(cfg, conn))
+    finally:
+        # An unclosed connection surfaces as a ResourceWarning whenever the
+        # garbage collector gets to it, which pytest raises as an error in
+        # whichever test happened to be running at the time.
+        conn.close()
 
 
 def ask(client: TestClient, question: str, token: str = TOKEN) -> Any:
