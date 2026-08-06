@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Contribute to the project &#8212; somnia 0.1.dev48+g6a9fc077f documentation</title>
+    <title>Add a book and ask it something &#8212; somnia 0.1.dev48+g6a9fc077f documentation</title>
   
   
   
@@ -47,7 +47,7 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=30646c52"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/contribute';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/first-book';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://gilesknap.github.io/somnia/switcher.json';
@@ -59,8 +59,8 @@
     <link rel="icon" href="../_static/dls-logo.svg"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Run in a container" href="run-container.html" />
-    <link rel="prev" title="How-to Guides" href="../how-to.html" />
+    <link rel="next" title="How-to Guides" href="../how-to.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -153,14 +153,14 @@
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="../tutorials.html">
     Tutorials
   </a>
 </li>
 
 
-<li class="nav-item current active">
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="../how-to.html">
     How-to Guides
   </a>
@@ -306,14 +306,14 @@
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="../tutorials.html">
     Tutorials
   </a>
 </li>
 
 
-<li class="nav-item current active">
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="../how-to.html">
     How-to Guides
   </a>
@@ -422,9 +422,8 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Contribute to the project</a></li>
-<li class="toctree-l1"><a class="reference internal" href="run-container.html">Run in a container</a></li>
-<li class="toctree-l1"><a class="reference internal" href="serve-the-chat-page.html">Serve the page that plays the book</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Add a book and ask it something</a></li>
 </ul>
 </div>
 </nav></div>
@@ -466,9 +465,9 @@
       </a>
     </li>
     
-    <li class="breadcrumb-item"><a href="../how-to.html" class="nav-link">How-to Guides</a></li>
+    <li class="breadcrumb-item"><a href="../tutorials.html" class="nav-link">Tutorials</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Contribute to the project</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Add a book and ask it something</span></li>
   </ul>
 </nav>
 </div>
@@ -485,46 +484,108 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="contribute-to-the-project">
-<h1>Contribute to the project<a class="headerlink" href="#contribute-to-the-project" title="Link to this heading">#</a></h1>
-<p>Contributions and issues are most welcome! All issues and pull requests are
-handled through <a class="reference external" href="https://github.com/gilesknap/somnia/issues">GitHub</a>. Also, please check for any existing issues before
-filing a new one. If you have a great idea but it involves big changes, please
-file a ticket before making a pull request! We want to make sure you don’t spend
-your time coding something that might not fit the scope of the project.</p>
-<section id="issue-or-discussion">
-<h2>Issue or Discussion?<a class="headerlink" href="#issue-or-discussion" title="Link to this heading">#</a></h2>
-<p>Github also offers <a class="reference external" href="https://github.com/gilesknap/somnia/discussions">discussions</a> as a place to ask questions and share ideas. If
-your issue is open ended and it is not obvious when it can be “closed”, please
-raise it as a discussion instead.</p>
-</section>
-<section id="code-coverage">
-<h2>Code Coverage<a class="headerlink" href="#code-coverage" title="Link to this heading">#</a></h2>
-<p>While 100% code coverage does not make a library bug-free, it significantly
-reduces the number of easily caught bugs! Please make sure coverage remains the
-same or is improved by a pull request!</p>
-</section>
-<section id="the-page-has-tests-of-its-own">
-<h2>The page has tests of its own<a class="headerlink" href="#the-page-has-tests-of-its-own" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">tox</span></code> runs pytest, and pytest cannot see a line of <code class="docutils literal notranslate"><span class="pre">src/somnia/web/app.js</span></code> —
-which is where most of somnia’s behaviour now lives, because the page is the
-player. That code has its own suite under <code class="docutils literal notranslate"><span class="pre">tests/web/</span></code>, written against node’s
-built-in test runner and a fake media element, so it needs no npm install and
-no browser:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ node --test                    # every *.test.mjs in the repo, in under a second
+  <section id="add-a-book-and-ask-it-something">
+<h1>Add a book and ask it something<a class="headerlink" href="#add-a-book-and-ask-it-something" title="Link to this heading">#</a></h1>
+<p>Fifteen minutes, most of which is waiting for a chapter to be read aloud. By
+the end you will have a book rendering, an index you can search, and a page on
+your phone that plays it.</p>
+<p>This assumes you have <a class="reference internal" href="installation.html"><span class="std std-doc">installed somnia</span></a> and that
+<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">search</span></code> finds things.</p>
+<section id="pick-a-book">
+<h2>Pick a book<a class="headerlink" href="#pick-a-book" title="Link to this heading">#</a></h2>
+<p>somnia reads Project Gutenberg. Search the local catalog for a Gutenberg id —
+the <code class="docutils literal notranslate"><span class="pre">gid</span></code> is the only handle anything else uses:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;black beauty&quot;</span>
+<span class="go">   271  Black Beauty — Sewell, Anna</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">pre-commit</span></code> runs it whenever the page or those tests change, so <code class="docutils literal notranslate"><span class="pre">tox</span> <span class="pre">-e</span> <span class="pre">pre-commit</span></code> covers it too and CI runs it on every pull request. What it cannot
-tell you is whether the audio decodes, whether a Range request really comes
-back 206, or whether the lock screen follows a chapter boundary. Those are
-properties of a handset and are checked in a real browser against a real
-<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code> — the how-to guide <em>Serve the chat page</em> ends with how.</p>
 </section>
-<section id="developer-information">
-<h2>Developer Information<a class="headerlink" href="#developer-information" title="Link to this heading">#</a></h2>
-<p>It is recommended that developers use a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">vscode devcontainer</a>. This repository contains configuration to set up a containerized development environment that suits its own needs.</p>
-<p>This project was created using the <a class="reference external" href="https://github.com/DiamondLightSource/python-copier-template">Diamond Light Source Copier Template</a> for Python projects.</p>
-<p>For more information on common tasks like setting up a developer environment, running the tests, and setting a pre-commit hook, see the template’s <a class="reference external" href="https://diamondlightsource.github.io/python-copier-template/5.1.0/how-to.html">How-to guides</a>.</p>
+<section id="render-it">
+<h2>Render it<a class="headerlink" href="#render-it" title="Link to this heading">#</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>add<span class="w"> </span><span class="m">271</span>
+<span class="go">2026-08-06 21:04:11 INFO rendering chapter 1/49: 01. My Early Home</span>
+<span class="go">2026-08-06 21:09:38 INFO rendering chapter 2/49: 02. The Hunt</span>
+<span class="go">...</span>
+</pre></div>
+</div>
+<p>This takes hours — Kokoro runs at about 1.15× realtime, so a six-hour book is
+roughly a five-hour render — but <strong>you do not wait for it</strong>. Each chapter is
+written to the library folder and indexed the moment it finishes, so chapter
+one is listenable within a few minutes and the rest arrives while you sleep.</p>
+<p>Leave it running in a <code class="docutils literal notranslate"><span class="pre">tmux</span></code> session, or let the agent start it for you later
+(<code class="docutils literal notranslate"><span class="pre">add_book</span></code> spawns exactly this command in the background).</p>
+<p>One rule: never re-render a book with a different voice. Every timestamp in the
+database — chapter marks, index entries, the place you fell asleep — is tied to
+the audio that was actually produced.</p>
+</section>
+<section id="search-what-has-been-rendered">
+<h2>Search what has been rendered<a class="headerlink" href="#search-what-has-been-rendered" title="Link to this heading">#</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>find<span class="w"> </span><span class="m">271</span><span class="w"> </span><span class="s2">&quot;the horse is beaten in the street&quot;</span>
+<span class="go">[2:47h  d=0.284] 32. A Horse Fair</span>
+<span class="go">    A poor old brown horse was there... he was being beaten about the head</span>
+<span class="go">    while the crowd looked on.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">d</span></code> is the distance — smaller is closer. Concrete events, characters and places
+search well; atmosphere (“the bit that felt strange”) does not, and that is a
+known limitation rather than a bug.</p>
+<p><code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">find</span></code> searches the whole book. The agent, in the next step, does not.</p>
+</section>
+<section id="ask-it-in-words">
+<h2>Ask it in words<a class="headerlink" href="#ask-it-in-words" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>~/somnia.env
+somnia<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;which chapter is the one with the horse fair?&quot;</span>
+</pre></div>
+</div>
+<p>The key lives in <code class="docutils literal notranslate"><span class="pre">~/somnia.env</span></code> rather than in the command, which keeps it out
+of your shell history and out of <code class="docutils literal notranslate"><span class="pre">ps</span></code> — it is the same file the systemd units
+read. Give no question and you get an interactive prompt; a blank line ends it.</p>
+<p>The first thing you will probably see is the agent telling you that the passage
+is further on than you have got, and offering to take you there. That is the
+spoiler guard working. It bounds every search at the furthest point somnia has
+actually <em>played</em> — and from the command line, nothing has played anything, so
+the bound is the first minute of the book. Say yes and it will search the whole
+thing.</p>
+<p>The guard is why the agent exists in this shape at all: a question at 2am must
+never be answered with something you have not heard yet.</p>
+</section>
+<section id="play-it-from-your-phone">
+<h2>Play it from your phone<a class="headerlink" href="#play-it-from-your-phone" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>serve
+</pre></div>
+</div>
+<p>That serves the page, the agent behind it, and the book itself, on
+<code class="docutils literal notranslate"><span class="pre">127.0.0.1:8721</span></code>. <strong>Leave it on localhost.</strong> There is no login of any kind; the
+only thing protecting it is that nothing but <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach the
+port. Publish it, and install it on the phone, by following
+<a class="reference internal" href="../how-to/serve-the-chat-page.html"><span class="std std-doc">Serve the page that plays the book</span></a>.</p>
+<p>Once it is on your phone, a night looks like this:</p>
+<ul class="simple">
+<li><p>The page opens the book you were last in, at the place you left it, and does
+<strong>not</strong> start it. Opening the app to ask a question is not the same as asking
+for the book.</p></li>
+<li><p>Press play, then lock the phone. From there the book is driven from the lock
+screen, the notification and anything paired over Bluetooth.</p></li>
+<li><p>Tap <strong>sleep</strong> to walk the timer through 15, 30, 45, 60 minutes and the end of
+the chapter. It counts listening time, so pausing to ask a question does not
+spend it, and it ends in a twenty-second fade.</p></li>
+<li><p>Half asleep, hold the talk button and say <em>“go back to where the horse gets
+hurt”</em>. The book goes there and plays from there. There is nothing to press
+afterwards.</p></li>
+</ul>
+</section>
+<section id="if-you-already-listened-in-audiobookshelf">
+<h2>If you already listened in Audiobookshelf<a class="headerlink" href="#if-you-already-listened-in-audiobookshelf" title="Link to this heading">#</a></h2>
+<p>Run this once, before the first night:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>seed-positions
+<span class="go">   271  Black Beauty: seeded at 3:12:40 (2026-08-01 22:41:03); heard to 3:12:40</span>
+<span class="go">1 of 1 books changed.</span>
+</pre></div>
+</div>
+<p>It is the only thing that ever reads Audiobookshelf. Without it, somnia thinks
+you have heard nothing, opens the wrong book, and bounds every search at the
+first minute. It never moves a position backwards and running it twice changes
+nothing.</p>
 </section>
 </section>
 
@@ -539,20 +600,20 @@ properties of a handset and are checked in a real browser against a real
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../how-to.html"
+       href="installation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">How-to Guides</p>
+        <p class="prev-next-title">Installation</p>
       </div>
     </a>
     <a class="right-next"
-       href="run-container.html"
+       href="../how-to.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Run in a container</p>
+        <p class="prev-next-title">How-to Guides</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -575,10 +636,12 @@ properties of a handset and are checked in a real browser against a real
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#issue-or-discussion">Issue or Discussion?</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-coverage">Code Coverage</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-page-has-tests-of-its-own">The page has tests of its own</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#developer-information">Developer Information</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pick-a-book">Pick a book</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#render-it">Render it</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#search-what-has-been-rendered">Search what has been rendered</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ask-it-in-words">Ask it in words</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#play-it-from-your-phone">Play it from your phone</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#if-you-already-listened-in-audiobookshelf">If you already listened in Audiobookshelf</a></li>
 </ul>
   </nav></div>
 
@@ -586,7 +649,7 @@ properties of a handset and are checked in a real browser against a real
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/gilesknap/somnia/edit/main/docs/how-to/contribute.md">
+    <a href="https://github.com/gilesknap/somnia/edit/main/docs/tutorials/first-book.md">
       <i class="fa-solid fa-pencil"></i>
       
       
@@ -601,7 +664,7 @@ properties of a handset and are checked in a real browser against a real
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../_sources/how-to/contribute.md.txt">
+    <a href="../_sources/tutorials/first-book.md.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

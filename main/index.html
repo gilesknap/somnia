@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>somnia &#8212; somnia 0.1.dev44+gde6cf8d2a documentation</title>
+    <title>somnia &#8212; somnia 0.1.dev48+g6a9fc077f documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="_static/documentation_options.js?v=2cc5eede"></script>
+    <script src="_static/documentation_options.js?v=bbc39769"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
@@ -439,8 +439,23 @@
 <section id="somnia">
 <h1>somnia<a class="headerlink" href="#somnia" title="Link to this heading">#</a></h1>
 <p>Bedtime audiobook reader with semantic seek: TTS-rendered public-domain books plus a conversational agent that finds your place again</p>
-<p>This is where you should write a short paragraph that describes what your module does,
-how it does it, and why people should use it.</p>
+<p>You fall asleep to an audiobook, wake at 2am somewhere unfamiliar, and have no
+idea how far back the last thing you remember was. somnia renders Project
+Gutenberg books to audio itself — which means it knows exactly which span of
+audio every sentence occupies — and puts a conversation in front of that index.
+Say <em>“go back to where the horse gets hurt”</em>, half asleep and in the dark, and
+the book goes there and plays from there. Nothing to press afterwards.</p>
+<p>It will not tell you anything from a part of the book you have not heard yet.
+That bound is measured from audio that really came out of the speaker, so being
+carried forward does not unlock the ending.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>add<span class="w"> </span><span class="m">271</span><span class="w">                      </span><span class="c1"># render + index a Gutenberg book</span>
+somnia<span class="w"> </span>find<span class="w"> </span><span class="m">271</span><span class="w"> </span><span class="s2">&quot;the horse is beaten in the street&quot;</span>
+somnia<span class="w"> </span>serve<span class="w">                        </span><span class="c1"># the page that plays it, and the agent</span>
+</pre></div>
+</div>
+<p>The page is the player: an installable PWA served over your tailnet, with a
+sleep timer, lock-screen controls and a rewind sized by how long the sound was
+off. There is no login — reachability is the authentication.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head text-center"><p>What</p></th>
@@ -463,18 +478,6 @@ how it does it, and why people should use it.</p>
 </tbody>
 </table>
 </div>
-<p>This is where you should put some images or code snippets that illustrate
-some relevant examples. If it is a library then you might put some
-introductory code here:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">somnia</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello somnia </span><span class="si">{</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Or if it is a commandline tool then you might put some example commands here:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">somnia</span> <span class="o">--</span><span class="n">version</span>
-</pre></div>
-</div>
 <section id="how-the-documentation-is-structured">
 <h2>How the documentation is structured<a class="headerlink" href="#how-the-documentation-is-structured" title="Link to this heading">#</a></h2>
 <p>Documentation is split into <a class="reference external" href="https://diataxis.fr">four categories</a>, also accessible from links in the top bar.</p>
@@ -490,6 +493,7 @@ introductory code here:</p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/first-book.html">Add a book and ask it something</a></li>
 </ul>
 </li>
 </ul>
@@ -529,6 +533,7 @@ introductory code here:</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="explanations.html">Explanations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="explanations/architecture.html">Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanations/decisions.html">Architectural Decision Records</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanations/design.html">Design decisions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanations/original-brief.html">Bedtime reader — scratch brief</a></li>
