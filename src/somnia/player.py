@@ -22,7 +22,7 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from .abs import AbsClient
+from .abs import AbsClient, tell_abs
 from .config import Config
 from .db import connect
 
@@ -330,29 +330,24 @@ class Player:
         )
 
     def tell_abs(self, gid: int, position_ms: int) -> None:
-        """Keep Audiobookshelf's idea of the position in step, if it has one.
+        """Look the item up, then hand the position to the courtesy write.
 
-        Best effort, and off the critical path: the reply has already gone out
-        by the time this runs. The ABS app is not the player any more, so a
-        write that fails costs nothing tonight, and a book somnia rendered
-        before ABS ever scanned it has no item to write to at all. What it buys
-        is that the position is right at the moment someone next opens ABS
-        somewhere else — which is why it is only worth doing when they have
-        stopped, and never on a tick.
+        Off the critical path: the reply has already gone out by the time this
+        runs, and what it buys is that the position is right at the moment
+        someone next opens ABS somewhere else — which is why it is only worth
+        doing when they have stopped, and never on a tick.
+
+        The lookup is here rather than inside :func:`somnia.abs.tell_abs`
+        because this connection is shared with every audio request and is only
+        safe under ``_lock``. The lock is given back before the write goes out:
+        held across it, an ABS that hangs for its five seconds would stall the
+        chapter swap this exists to stay out of the way of.
         """
-        if self._abs is None:
-            return
         with self._lock:
             row = self._conn.execute(
                 "SELECT abs_item_id FROM books WHERE gid = ?", (gid,)
             ).fetchone()
-        item_id: str = row["abs_item_id"] if row else ""
-        if not item_id:
-            return
-        try:
-            self._abs.set_position(item_id, position_ms / 1000)
-        except Exception:
-            logger.warning("ABS position write failed; continuing", exc_info=True)
+        tell_abs(self._abs, row["abs_item_id"] if row else "", position_ms)
 
     def sentence_start(self, gid: int, ms: int) -> int | None:
         """Where the sentence being spoken at ``ms`` began, if anything knows.

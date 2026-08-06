@@ -140,9 +140,18 @@ or listening statistics. The page opens the book they were last listening to;
 changing books is done by asking. ABS's listening sessions are gone as a data
 source too, so the play/pause history the design hoped to infer sleep onset
 from no longer exists — what is left is `position_at` and the reasons the page
-gives when it reports. Nothing seeds the spoiler guard from ABS any more
-either, so every book starts at a high-water mark of zero and is searched no
-further than its opening minute until the page has played some of it.
+gives when it reports. Nothing seeds the spoiler guard from ABS while a night
+is running either, so a book somnia has never been played from stands at a
+high-water mark of zero and is searched no further than its opening minute
+until the page has played some of it.
+
+The exception is `somnia seed-positions`, which is run once by hand and is the
+only thing left that reads Audiobookshelf. Every book rendered before the pivot
+has its position and its listening history there and nowhere else, so without
+it the first night opens the book most recently added, at 0:00, and answers
+questions about the rest from the first minute of it. It never lowers a mark
+and never overwrites a position somnia already holds, so running it twice is
+harmless — and after it, ABS is write-only again.
 
 None of this is one-way. The library is still on disk in ABS's own layout, the
 ABS app still works, and position write-through stays, so opening ABS somewhere

@@ -1,10 +1,13 @@
 """Minimal Audiobookshelf API client (only what somnia needs)."""
 
+import logging
 from typing import Any
 
 import httpx
 
-__all__ = ["AbsClient"]
+__all__ = ["AbsClient", "tell_abs"]
+
+logger = logging.getLogger(__name__)
 
 
 class AbsClient:
@@ -52,9 +55,18 @@ class AbsClient:
     def progress(self, item_id: str) -> dict[str, Any] | None:
         """Where the listener is in this book, or None if never played.
 
+        The only read somnia still makes of Audiobookshelf, and it exists for
+        :func:`somnia.seed.seed_positions` and nothing else. The page is the
+        player and the position is somnia's own, so anything on a listening
+        path that asked ABS where the book is would get back whatever it was
+        last told as a courtesy — seconds out at best, a whole night out on a
+        book played from the page. What it is for is the one thing sqlite
+        cannot know: where they had got to before any of this existed.
+
         ``currentTime`` is seconds on the same global timeline as somnia's
         stored millisecond offsets, because ABS presents a multi-file book as
-        one continuous track.
+        one continuous track. ``lastUpdate`` is epoch milliseconds, and is the
+        only record of *which* book they were in most recently.
         """
         resp = self._client.get("/api/me")
         resp.raise_for_status()
@@ -94,3 +106,25 @@ class AbsClient:
             return self._client.get("/healthcheck").status_code == 200
         except httpx.HTTPError:
             return False
+
+
+def tell_abs(client: AbsClient | None, item_id: str, position_ms: int) -> None:
+    """Say where the book has got to, if there is anywhere to say it.
+
+    Both routes to a position end here — the agent moving the book, and the
+    page reporting that it has stopped — because they are one thing: a courtesy
+    write to a server nothing is listening to. It is best effort by design and
+    never raises. A write that fails costs nothing tonight, and a book somnia
+    rendered before ABS last scanned the library has no item to write to at
+    all; an empty ``item_id`` is that absence, not an error.
+
+    The caller passes the item id rather than a book id because the two callers
+    reach the database differently, and one of them holds a lock it must not
+    still be holding while this waits on the network.
+    """
+    if client is None or not item_id:
+        return
+    try:
+        client.set_position(item_id, position_ms / 1000)
+    except Exception:
+        logger.warning("ABS position write failed; continuing", exc_info=True)

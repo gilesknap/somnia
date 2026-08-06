@@ -15,7 +15,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-from .abs import AbsClient
+from .abs import AbsClient, tell_abs
 from .catalog import CatalogEntry, search_catalog
 from .config import Config
 from .embed import Embedder
@@ -301,7 +301,7 @@ class Library:
             # at 2am than a traceback, and there is no move for the page to
             # follow — which a seq of zero is exactly how to say.
             return Moved(gid, position_ms, 0, f"There is no book {gid} here.")
-        self._tell_abs(gid, position_ms)
+        tell_abs(self._abs, self._abs_item_id(gid), position_ms)
         return Moved(
             gid=gid,
             position_ms=position_ms,
@@ -336,22 +336,6 @@ class Library:
                 (position_ms, gid),
             ).fetchone()
         return int(row["position_seq"]) if row is not None else None
-
-    def _tell_abs(self, gid: int, position_ms: int) -> None:
-        """Keep Audiobookshelf's idea of the position in step, if it has one.
-
-        Best effort on purpose. The ABS app is not the player any more, so a
-        write that fails costs nothing tonight, and a book somnia rendered
-        before ABS ever scanned it has no item to write to at all. This must
-        never turn a move that worked into an error at 2am.
-        """
-        item_id = self._abs_item_id(gid)
-        if self._abs is None or not item_id:
-            return
-        try:
-            self._abs.set_position(item_id, position_ms / 1000)
-        except Exception:
-            logger.warning("ABS position write failed; continuing", exc_info=True)
 
 
 def format_timestamp(ms: int) -> str:

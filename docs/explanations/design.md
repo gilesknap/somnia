@@ -119,11 +119,34 @@ is also the instruction to jump. That is why a refusal is a 200 with a body and
 not a 409: the last report of the night is a beacon, and a beacon can read
 nothing else.
 
+Nothing else in somnia may write those four columns. Ingest upserts the `books`
+row rather than replacing it, and updates only what a render knows — title,
+authors, voice, and that it is running. It used to be `INSERT OR REPLACE`,
+which is `DELETE` then `INSERT`, so restarting a render that died wiped the
+position and the mark, and left the count below the one a still-open page was
+holding: every report that page made for the rest of the night was refused, and
+nothing was written again until it was reloaded.
+
 **Audiobookshelf is written to and never read.** The write is best effort, off
 the critical path, and only when they have stopped: it costs a handful of
 requests a night and means the book is in roughly the right place if they open
 ABS somewhere else. A failure is logged and ignored — the app is not the player
-any more, so nothing tonight depends on it.
+any more, so nothing tonight depends on it. Both routes to a position — an
+agent move, and the page saying it has stopped — end in the same
+`somnia.abs.tell_abs`, because they are one thing said twice.
+
+There is exactly one read left, and it is not on a listening path.
+`somnia seed-positions` runs once, by hand, and takes each book's
+`currentTime` and `lastUpdate` out of ABS's progress records. Without it the
+first night of the pivot opens the most recently *added* book at 0:00 and
+bounds every search at the first minute, because the position they have really
+reached lives on the other server and nothing here has ever heard of it. It
+never lowers anything: a position somnia already holds is left alone (the page
+is the player, so the row is the newer of the two) and the high-water mark only
+rises. `position_at` comes from ABS's `lastUpdate` rather than from the moment
+the seed ran — stamping every book with the same second would hand the choice
+of which book to open back to `created_at`, which is the failure it is there
+to fix.
 
 **The spoiler guard is bounded by the furthest point ever played through**, not
 by the current position, because the agent can move that position anywhere:

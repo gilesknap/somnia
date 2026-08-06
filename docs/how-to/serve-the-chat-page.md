@@ -40,6 +40,14 @@ stop, as a courtesy, so the ABS app finds roughly the right place if you open
 it somewhere else — but it is never read, and a write that fails is logged and
 forgotten. Leave `SOMNIA_ABS_TOKEN` unset and no ABS client is built at all.
 
+Run `somnia seed-positions` once before the first night, if you have been
+listening in Audiobookshelf. It is the only thing that reads ABS: it takes
+where you had got to in each book, and how far you had heard, and puts them in
+somnia's own database, so the page opens the book you were actually in rather
+than the one added most recently, at the beginning. It says what it did for
+every book, it never moves a position backwards, and running it again changes
+nothing — so if you are unsure whether it worked, run it again.
+
 `SOMNIA_AGENT_MODEL` overrides Sonnet 5. Haiku was the first choice, on cost,
 and mostly held up; set `SOMNIA_AGENT_MODEL=claude-haiku-4-5` to go back to it.
 
