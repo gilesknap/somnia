@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>3. Play the book in the page, not in Audiobookshelf &#8212; somnia 0.1.dev42+g08d558f75 documentation</title>
+    <title>3. Play the book in the page, not in Audiobookshelf &#8212; somnia 0.1.dev44+gde6cf8d2a documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=68ffa3c5"></script>
+    <script src="../../_static/documentation_options.js?v=2cc5eede"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -657,10 +657,16 @@ else finds roughly the right place. The asymmetry is worth stating plainly:
 somnia writes to ABS and never reads it, so a night spent listening in the ABS
 app is a night somnia does not learn about. If offline listening turns out to
 matter more than being moved to the passage, the app is still there to do it.</p>
-<p>Finally, this rests on an assumption that has to be checked on the handset and
-cannot be checked from a desk: that an installed PWA keeps playing with the
-screen off on Android Chrome, and that its media notification survives a
-chapter boundary. There is a spike page for exactly this, and
+<p>Finally, this rested on an assumption that could only be checked on the handset:
+that an installed PWA keeps playing with the screen off on Android Chrome, and
+that its media notification survives a chapter boundary. <strong>Checked on 2026-08-06,
+and both halves hold</strong> — it played on with the phone locked, and it crossed a
+chapter while locked. That is the ground the rest of this decision stands on, so
+it is written here rather than left in a night’s memory.</p>
+<p>The spike page that answers it stays served, because the property belongs to the
+handset and not to this code: a future Chrome, a battery-saver setting or a new
+phone can take it away again, and the failure would arrive as a night that went
+quiet rather than as anything in a log.
 <a class="reference internal" href="../../how-to/serve-the-chat-page.html"><span class="std std-doc">how-to/serve-the-chat-page.md</span></a> says how to
 run it.</p>
 </section>

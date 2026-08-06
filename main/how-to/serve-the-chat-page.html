@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.1.dev42+g08d558f75 documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.1.dev44+gde6cf8d2a documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=68ffa3c5"></script>
+    <script src="../_static/documentation_options.js?v=2cc5eede"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -689,9 +689,12 @@ again at once, so there is nothing to press.</p>
 <section id="check-screen-off-playback-before-you-trust-a-night-to-it">
 <h2>Check screen-off playback before you trust a night to it<a class="headerlink" href="#check-screen-off-playback-before-you-trust-a-night-to-it" title="Link to this heading">#</a></h2>
 <p>Everything above rests on an installed PWA being allowed to keep playing with
-the screen off, and on its notification surviving a chapter boundary. That is a
-property of the handset, not of this code, and it cannot be tested from a desk.
-It is checked with a page of its own, which generates its own audio so it needs
+the screen off, and on its notification surviving a chapter boundary. Both were
+confirmed on 2026-08-06 — so this is not an open question, it is the check to
+run again on a new phone, after an Android update, or on the first night that
+goes quiet. It is a property of the handset, not of this code, and it cannot be
+tested from a desk.</p>
+<p>It is checked with a page of its own, which generates its own audio so it needs
 no library, swaps chapters the way the player does, and writes every
 media-session event to a log held in local storage — so the evidence survives
 the page being discarded, which is one of the things being tested for.</p>
