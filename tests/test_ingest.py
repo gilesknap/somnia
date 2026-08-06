@@ -1,4 +1,5 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -13,7 +14,7 @@ from somnia.config import Config
 from somnia.db import connect
 from somnia.embed import Embedder
 from somnia.gutenberg import Book, Chapter
-from somnia.ingest import ingest_book, publish_chapters
+from somnia.ingest import RenderStopped, ingest_book, publish_chapters
 from somnia.tts import TTSEngine
 
 REL_PATH = "Sewell, Anna/Black Beauty"
@@ -133,16 +134,41 @@ class SilentEngine:
         return np.zeros(10 * len(text), dtype=np.float32)
 
 
-BOOK = Book(
-    gid=271,
-    title="Black Beauty",
-    authors="Sewell, Anna",
-    chapters=[Chapter(title="01 My Early Home", paragraphs=["The first place."])],
-)
+def _book(*titles: str) -> Book:
+    """Black Beauty with as many chapters as the test needs, one line each.
+
+    Three is the useful default: the ``conn`` fixture already has two chapters
+    rendered, so a resume has exactly one chapter left to do and there is a
+    boundary to check it started at.
+    """
+    return Book(
+        gid=271,
+        title="Black Beauty",
+        authors="Sewell, Anna",
+        chapters=[
+            Chapter(title=title, paragraphs=[f"Something happened in {title}."])
+            for title in titles
+        ],
+    )
+
+
+BOOK = _book("01 My Early Home", "02 The Hunt", "03 My Breaking In")
+
+
+@dataclass
+class Fetched:
+    """What Gutenberg is pretending to hold, so a test can change its mind.
+
+    A book whose text changed between one render and the next is a real case
+    and an ugly one — the chapter indices stop meaning the same thing — so a
+    test has to be able to hand back a different book on the second fetch.
+    """
+
+    book: Book
 
 
 @pytest.fixture
-def unrendered(monkeypatch: pytest.MonkeyPatch) -> None:
+def unrendered(monkeypatch: pytest.MonkeyPatch) -> Fetched:
     """Write each chapter as an empty file rather than shelling out to ffmpeg.
 
     ffmpeg is a system package on the render host, and a test run should not
@@ -150,26 +176,83 @@ def unrendered(monkeypatch: pytest.MonkeyPatch) -> None:
     stubs the single step that leaves the process; the rest of the pipeline,
     including every row it writes, is the real thing.
     """
+    fetched = Fetched(book=BOOK)
 
     def encode(self: ChapterAudio, out_path: Path, bitrate: str = "64k") -> None:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.touch()
 
     def fetch_book(gid: int) -> Book:
-        return BOOK
+        return fetched.book
 
     monkeypatch.setattr(ChapterAudio, "encode", encode)
     monkeypatch.setattr(ingest, "fetch_book", fetch_book)
+    return fetched
 
 
-def _ingest(conn: Any, tmp_path: Path) -> None:
+def _ingest(
+    conn: Any,
+    tmp_path: Path,
+    *,
+    should_stop: Callable[[], bool] | None = None,
+    on_chapter: Callable[[int], None] | None = None,
+) -> None:
     ingest_book(
         _cfg(tmp_path),
         conn,
         cast(TTSEngine, SilentEngine()),
         cast(Embedder, FakeEmbedder()),
         271,
+        should_stop=should_stop,
+        on_chapter=on_chapter,
     )
+
+
+def chapters(conn: Any) -> list[tuple[int, int, int]]:
+    """Every chapter row, as (idx, start_ms, end_ms) — the book's timeline."""
+    return [
+        (r["idx"], r["start_ms"], r["end_ms"])
+        for r in conn.execute(
+            "SELECT idx, start_ms, end_ms FROM chapters WHERE book_gid = 271"
+            " ORDER BY idx"
+        )
+    ]
+
+
+def indexed_chapters(conn: Any) -> list[int]:
+    """Which chapters have passages in the index, and how many each."""
+    return [
+        r["n"]
+        for r in conn.execute(
+            "SELECT chapter_idx, COUNT(*) AS n FROM chunks WHERE book_gid = 271"
+            " GROUP BY chapter_idx ORDER BY chapter_idx"
+        )
+    ]
+
+
+def rendered_files(tmp_path: Path) -> list[str]:
+    return sorted(p.name for p in (tmp_path / "library").rglob("*.m4a"))
+
+
+def book_row(conn: Any) -> Any:
+    return conn.execute("SELECT * FROM books WHERE gid = 271").fetchone()
+
+
+def stop_after(conn: Any, chapter_count: int) -> Callable[[], bool]:
+    """A stop that asks to be let go once that many chapters are safely done.
+
+    It reads the database rather than counting calls because that is what the
+    worker's callback will do too — the answer has to come from outside this
+    process, since the thing that will really be asked is a heartbeat.
+    """
+
+    def should_stop() -> bool:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM chapters WHERE book_gid = 271"
+        ).fetchone()
+        return int(row["n"]) >= chapter_count
+
+    return should_stop
 
 
 @pytest.mark.usefixtures("unrendered")
@@ -184,6 +267,11 @@ def test_re_rendering_a_book_keeps_where_they_had_got_to(
     shrink, and losing it was not even the worst of it — a page still open held
     a count the new row could never match, so every report it made for the rest
     of the night was refused and nothing more was ever written.
+
+    The book here has two of its three chapters already, so this is now also
+    the ordinary resume — the same four columns have to come through that
+    untouched, and the chapter count arriving beside them must not disturb them
+    either.
     """
     with conn:
         conn.execute(
@@ -218,3 +306,220 @@ def test_rendering_a_book_for_the_first_time_creates_its_row(tmp_path: Path) -> 
     assert (row["title"], row["status"]) == ("Black Beauty", "done")
     assert (row["position_ms"], row["heard_to_ms"]) == (None, 0)
     assert row["total_ms"] > 0
+    # And how many chapters it has, which is the only honest denominator there
+    # is: total_ms cannot serve, because while a book renders it means "how much
+    # audio exists so far" and get_position leans on it meaning exactly that.
+    assert row["chapters_total"] == 3
+
+
+# ------------------------------------------------------- counting, stopping, resuming
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_the_chapter_count_is_written_down_before_a_word_is_rendered(
+    tmp_path: Path,
+) -> None:
+    """The denominator has to exist while it is still worth having.
+
+    "Chapter 4 of 39" is only sayable if 39 was written down, and it is wanted
+    most in the hours before the render finishes. Parsing the book already
+    knows the number, and parsing is the fast part, so it is written with the
+    books row rather than at the end — a stop before the first sentence still
+    leaves the count behind.
+    """
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        with pytest.raises(RenderStopped):
+            _ingest(conn, tmp_path, should_stop=lambda: True)
+        row = book_row(conn)
+        assert row["chapters_total"] == 3
+        assert chapters(conn) == []
+    finally:
+        conn.close()
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_rendering_the_whole_book_twice_leaves_one_copy_of_it(tmp_path: Path) -> None:
+    """Issue #11, at the level a listener would have met it.
+
+    The second run re-renders nothing, because every chapter is already there —
+    but even where it does render again, the chapter's passages replace
+    themselves rather than doubling.
+    """
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        _ingest(conn, tmp_path)
+        first = (chapters(conn), indexed_chapters(conn), book_row(conn)["total_ms"])
+        _ingest(conn, tmp_path)
+        assert (chapters(conn), indexed_chapters(conn), book_row(conn)["total_ms"]) == (
+            first
+        )
+    finally:
+        conn.close()
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_a_render_picks_up_at_the_chapter_after_the_last_finished_one(
+    conn: Any, tmp_path: Path
+) -> None:
+    """Two chapters are already done, so only the third is rendered.
+
+    And it starts where chapter two ended: the timestamps are global across the
+    whole book, so a resume that began the clock again at zero would put every
+    later chapter on top of an earlier one and break every saved position.
+    """
+    done: list[int] = []
+    _ingest(conn, tmp_path, on_chapter=done.append)
+
+    assert done == [2]
+    assert rendered_files(tmp_path) == ["003 - 03 My Breaking In.m4a"]
+    timeline = chapters(conn)
+    assert [idx for idx, _, _ in timeline] == [0, 1, 2]
+    assert timeline[2][1] == timeline[1][2] == 549_425
+    assert book_row(conn)["total_ms"] == timeline[2][2]
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_a_hole_in_the_middle_is_filled_rather_than_stepped_over(
+    conn: Any, tmp_path: Path
+) -> None:
+    """The resume point is the first chapter missing, not the highest present.
+
+    A book can have a hole in it — one chapter whose write was interrupted
+    between its audio and its row — and resuming from the highest index would
+    leave that hole there for good, silent and unsearchable.
+    """
+    with conn:
+        conn.execute("DELETE FROM chapters WHERE book_gid = 271 AND idx = 0")
+
+    done: list[int] = []
+    _ingest(conn, tmp_path, on_chapter=done.append)
+
+    assert done == [0, 1, 2]
+    assert [idx for idx, _, _ in chapters(conn)] == [0, 1, 2]
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_a_stop_lands_exactly_on_a_chapter_boundary(tmp_path: Path) -> None:
+    """Nothing half-written anywhere: no stray m4a, no chunks without a chapter.
+
+    The stop is asked for between sentences, and a chapter is encoded on the
+    last line of rendering it, so the chapter being worked on when the answer
+    comes back leaves no trace at all. That is what makes the window between
+    indexing a chapter and writing its row unreachable — passages the player's
+    manifest cannot see would send a chosen candidate past the end of its own
+    timeline.
+    """
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        with pytest.raises(RenderStopped):
+            _ingest(conn, tmp_path, should_stop=stop_after(conn, 2))
+
+        assert len(rendered_files(tmp_path)) == 2
+        timeline = chapters(conn)
+        assert [idx for idx, _, _ in timeline] == [0, 1]
+        assert indexed_chapters(conn) == [1, 1]
+        row = book_row(conn)
+        assert row["total_ms"] == timeline[1][2]
+        # Not 'rendering', which is a claim that work is going on, and not
+        # 'done', which is a claim the book is all there. 'pending' is the
+        # schema's own default and has never been written by anything, so it is
+        # free to mean what it plainly says: not growing, and not finished.
+        assert row["status"] == "pending"
+    finally:
+        conn.close()
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_a_stop_and_a_resume_leave_the_listener_exactly_where_they_were(
+    tmp_path: Path,
+) -> None:
+    """The high-water mark and the place they are in the book are not ours.
+
+    A render knows the title, the authors, the voice and how far it has got. It
+    knows nothing about where anybody is, so neither a stop nor the resume that
+    follows may touch those four columns — and a page still open holds a count
+    that a reset row could never match, so getting this wrong wedges the night
+    rather than just losing a number.
+    """
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        with pytest.raises(RenderStopped):
+            _ingest(conn, tmp_path, should_stop=stop_after(conn, 1))
+        with conn:
+            conn.execute(
+                "UPDATE books SET position_ms = 4000, position_seq = 3,"
+                " position_at = '2026-08-05 23:40:00', heard_to_ms = 3500"
+                " WHERE gid = 271"
+            )
+        night = dict(book_row(conn))
+
+        with pytest.raises(RenderStopped):
+            _ingest(conn, tmp_path, should_stop=stop_after(conn, 2))
+        after_stop = dict(book_row(conn))
+
+        _ingest(conn, tmp_path)
+        after_resume = dict(book_row(conn))
+    finally:
+        conn.close()
+
+    for row in (after_stop, after_resume):
+        assert [row[c] for c in ("position_ms", "position_seq", "heard_to_ms")] == [
+            4000,
+            3,
+            3500,
+        ]
+        assert row["position_at"] == night["position_at"]
+    assert (after_stop["status"], after_resume["status"]) == ("pending", "done")
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_a_failure_leaves_the_book_saying_it_is_not_being_rendered(
+    tmp_path: Path,
+) -> None:
+    """A row stuck on 'rendering' for ever is the state this feature exists to end.
+
+    The traceback still goes to whoever called — it belongs in the journal —
+    but the database stops claiming that work is going on.
+    """
+
+    def explode() -> bool:
+        raise RuntimeError("the box fell over")
+
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        with pytest.raises(RuntimeError, match="the box fell over"):
+            _ingest(conn, tmp_path, should_stop=explode)
+        assert book_row(conn)["status"] == "pending"
+    finally:
+        conn.close()
+
+
+def test_a_book_whose_text_changed_underneath_us_is_rendered_again_from_zero(
+    unrendered: Fetched, tmp_path: Path
+) -> None:
+    """Chapter four of one edition is not chapter four of another.
+
+    Gutenberg does re-issue texts. If the chapter count has moved, the indices
+    no longer mean the same thing, and splicing the two editions into one
+    timeline would leave every saved position pointing at the wrong words. So
+    the old rows go and the book is rendered from the start — expensive, and
+    the only honest answer.
+    """
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        _ingest(conn, tmp_path)
+        unrendered.book = _book("01 My Early Home", "02 The Hunt")
+
+        done: list[int] = []
+        _ingest(conn, tmp_path, on_chapter=done.append)
+
+        assert done == [0, 1]
+        timeline = chapters(conn)
+        assert [idx for idx, _, _ in timeline] == [0, 1]
+        assert timeline[0][1] == 0
+        assert indexed_chapters(conn) == [1, 1]
+        row = book_row(conn)
+        assert (row["chapters_total"], row["total_ms"]) == (2, timeline[1][2])
+    finally:
+        conn.close()

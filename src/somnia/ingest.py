@@ -11,6 +11,7 @@ import logging
 import re
 import sqlite3
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from .abs import AbsClient
@@ -22,9 +23,20 @@ from .index import add_chunks
 from .segment import TimedSentence, sentences, windows
 from .tts import TTSEngine
 
-__all__ = ["ingest_book", "publish_chapters"]
+__all__ = ["RenderStopped", "ingest_book", "publish_chapters"]
 
 logger = logging.getLogger(__name__)
+
+
+class RenderStopped(Exception):  # noqa: N818
+    """Somebody asked for this render to stop, and it did.
+
+    Not an error, which is why it has no Error on the end of it and why the
+    naming rule is waived here. It is raised so the stack unwinds to whoever
+    started the render and they can say so plainly — a render somebody stopped
+    is a thing that worked. It always leaves the book on a chapter boundary,
+    which is what makes it safe to raise at all.
+    """
 
 
 def _safe_name(text: str, fallback: str) -> str:
@@ -38,15 +50,31 @@ def _render_chapter(
     chapter: Chapter,
     offset_ms: int,
     out_path: Path,
+    should_stop: Callable[[], bool] | None = None,
 ) -> tuple[int, list[TimedSentence]]:
     """Render one chapter to ``out_path``.
 
     Returns (duration_ms, timed sentences with global timestamps).
+
+    ``should_stop`` is asked between sentences and nowhere else. A sentence is
+    the smallest thing Kokoro will render and takes a second or so, which is why
+    a stop can take twenty: it is one interval of whatever the caller does in
+    there, plus the sentence in flight. The alternative was a signal, and a
+    signal can land anywhere — including the two lines between a chapter's
+    passages being indexed and its row being written, which would leave the
+    index holding words the player's manifest cannot see, so a place the
+    listener chose would send them past the end of their own book.
+
+    Every write this function does is on its last line: the encode. So a stop
+    here leaves no m4a, no chunks and no chapters row — nothing at all, which is
+    a state a resume already knows how to read.
     """
     audio = ChapterAudio(engine.sample_rate)
     timed: list[TimedSentence] = []
     for paragraph in chapter.paragraphs:
         for sent in sentences(paragraph):
+            if should_stop is not None and should_stop():
+                raise RenderStopped(f"stopped during {chapter.title}")
             start = offset_ms + audio.position_ms
             audio.append(engine.render(sent))
             end = offset_ms + audio.position_ms
@@ -109,6 +137,46 @@ def publish_chapters(
         time.sleep(2)
 
 
+def _forget_the_old_edition(conn: sqlite3.Connection, gid: int) -> None:
+    """Take away everything a previous render of this book wrote to the database.
+
+    Not the audio: the m4a files are numbered by chapter, so re-rendering
+    overwrites them one for one, and the only ones left behind are the surplus
+    from an edition that got shorter. They are orphans in the library folder
+    rather than in the timeline — nothing points at them, and deleting files
+    somebody may be listening to right now is a worse thing to be wrong about.
+    """
+    with conn:
+        conn.execute(
+            "DELETE FROM vec_chunks WHERE rowid IN"
+            " (SELECT id FROM chunks WHERE book_gid = ?)",
+            (gid,),
+        )
+        conn.execute("DELETE FROM chunks WHERE book_gid = ?", (gid,))
+        conn.execute("DELETE FROM chapters WHERE book_gid = ?", (gid,))
+
+
+def _resume_from(conn: sqlite3.Connection, gid: int) -> tuple[int, int]:
+    """Where a render of this book should pick up: (chapter index, offset_ms).
+
+    The first chapter with no row, not the one after the highest — a render can
+    leave a hole in the middle, and stepping over it would leave that chapter
+    silent and unsearchable for good. Everything from the hole onwards is
+    rendered again, because the chapters after it sit at offsets computed from a
+    duration that is about to change.
+    """
+    ends = {
+        int(r["idx"]): int(r["end_ms"])
+        for r in conn.execute(
+            "SELECT idx, end_ms FROM chapters WHERE book_gid = ? ORDER BY idx", (gid,)
+        )
+    }
+    start_at = 0
+    while start_at in ends:
+        start_at += 1
+    return start_at, ends[start_at - 1] if start_at else 0
+
+
 def ingest_book(
     cfg: Config,
     conn: sqlite3.Connection,
@@ -116,13 +184,46 @@ def ingest_book(
     embedder: Embedder,
     gid: int,
     abs_client: AbsClient | None = None,
+    *,
+    should_stop: Callable[[], bool] | None = None,
+    on_chapter: Callable[[int], None] | None = None,
 ) -> None:
-    """Fetch, render, and index a book, streaming chapter by chapter."""
+    """Fetch, render, and index a book, streaming chapter by chapter.
+
+    Rendering a book takes hours, so this can be interrupted and taken up again:
+    it starts at the first chapter that has no row and carries the clock on from
+    where that one ended. ``should_stop`` is asked between sentences and stops
+    the render on the next chapter boundary by raising :class:`RenderStopped`;
+    ``on_chapter`` is told each chapter index as its row is written, which is
+    the only moment anything outside this process can know a chapter is real.
+    Both are optional, and with neither of them this behaves as it always did.
+    """
     book = fetch_book(gid)
+    total = len(book.chapters)
     row = conn.execute(
         "SELECT authors FROM catalog WHERE gid = ?", (str(gid),)
     ).fetchone()
     authors: str = row["authors"] if row else ""
+
+    # Read what we knew about this book before the upsert overwrites it. If the
+    # chapter count has moved, Gutenberg has re-issued the text under us and
+    # chapter four of one edition is not chapter four of the other: the indices
+    # no longer mean the same thing, so splicing the two into one timeline would
+    # leave every saved position pointing at the wrong words. Expensive, and the
+    # only honest answer. A stored 0 is every book rendered before the column
+    # existed, and says nothing either way, so it cannot condemn anything.
+    known = conn.execute(
+        "SELECT chapters_total FROM books WHERE gid = ?", (gid,)
+    ).fetchone()
+    stored_total = int(known["chapters_total"]) if known else 0
+    if stored_total and stored_total != total:
+        logger.warning(
+            "book %d now has %d chapters, not %d: rendering it again from the start",
+            gid,
+            total,
+            stored_total,
+        )
+        _forget_the_old_edition(conn, gid)
 
     # Upsert, not INSERT OR REPLACE. REPLACE is DELETE followed by INSERT, so
     # re-running a render — which is the normal way to restart one that died —
@@ -130,16 +231,22 @@ def ingest_book(
     # their defaults. That was the one way the high-water mark could shrink, and
     # it wedged any page still open: it holds a count the reset row cannot
     # match, so every report it made for the rest of the night was refused.
-    # A render knows the title, the authors, the voice and that it is running;
-    # it knows nothing about where anybody has got to, so it writes nothing else.
+    # A render knows the title, the authors, the voice, how many chapters the
+    # book has and that it is running; it knows nothing about where anybody has
+    # got to, so it writes nothing else.
+    #
+    # The chapter count goes in here, before a word is rendered, because parsing
+    # is minutes and rendering is hours and the number is wanted for all of them:
+    # it is the only denominator there is, and without it nothing can tell the
+    # end of the book from the end of what has been rendered of it so far.
     with conn:
         conn.execute(
-            "INSERT INTO books (gid, title, authors, voice, status)"
-            " VALUES (?, ?, ?, ?, 'rendering')"
+            "INSERT INTO books (gid, title, authors, voice, status, chapters_total)"
+            " VALUES (?, ?, ?, ?, 'rendering', ?)"
             " ON CONFLICT(gid) DO UPDATE SET title = excluded.title,"
             " authors = excluded.authors, voice = excluded.voice,"
-            " status = 'rendering'",
-            (gid, book.title, authors, cfg.voice),
+            " chapters_total = excluded.chapters_total, status = 'rendering'",
+            (gid, book.title, authors, cfg.voice, total),
         )
 
     book_dir = (
@@ -148,52 +255,72 @@ def ingest_book(
         / _safe_name(book.title, f"gutenberg-{gid}")
     )
 
-    offset_ms = 0
-    total = len(book.chapters)
-    for idx, chapter in enumerate(book.chapters):
-        logger.info("rendering chapter %d/%d: %s", idx + 1, total, chapter.title)
-        out_path = (
-            book_dir / f"{idx + 1:03d} - {_safe_name(chapter.title, 'chapter')}.m4a"
-        )
-        duration_ms, timed = _render_chapter(cfg, engine, chapter, offset_ms, out_path)
-
-        chunk_windows = windows(
-            timed, size=cfg.window_sentences, stride=cfg.window_stride
-        )
-        add_chunks(conn, embedder, gid, idx, chunk_windows)
-        with conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO chapters"
-                " (book_gid, idx, title, start_ms, end_ms, audio_file)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    gid,
-                    idx,
-                    chapter.title,
-                    offset_ms,
-                    offset_ms + duration_ms,
-                    str(out_path),
-                ),
+    try:
+        start_at, offset_ms = _resume_from(conn, gid)
+        if start_at:
+            logger.info("resuming %s at chapter %d/%d", book.title, start_at + 1, total)
+        for idx, chapter in enumerate(book.chapters):
+            if idx < start_at:
+                continue
+            logger.info("rendering chapter %d/%d: %s", idx + 1, total, chapter.title)
+            out_path = (
+                book_dir / f"{idx + 1:03d} - {_safe_name(chapter.title, 'chapter')}.m4a"
             )
-            conn.execute(
-                "UPDATE books SET total_ms = ? WHERE gid = ?",
-                (offset_ms + duration_ms, gid),
+            duration_ms, timed = _render_chapter(
+                cfg, engine, chapter, offset_ms, out_path, should_stop
             )
-        offset_ms += duration_ms
 
-        if abs_client and cfg.abs_library_id:
-            try:
-                abs_client.scan_library(cfg.abs_library_id)
-                publish_chapters(
-                    cfg,
-                    conn,
-                    abs_client,
-                    gid,
-                    str(book_dir.relative_to(cfg.library_dir)),
-                    offset_ms,
+            chunk_windows = windows(
+                timed, size=cfg.window_sentences, stride=cfg.window_stride
+            )
+            add_chunks(conn, embedder, gid, idx, chunk_windows)
+            with conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO chapters"
+                    " (book_gid, idx, title, start_ms, end_ms, audio_file)"
+                    " VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        gid,
+                        idx,
+                        chapter.title,
+                        offset_ms,
+                        offset_ms + duration_ms,
+                        str(out_path),
+                    ),
                 )
-            except Exception:
-                logger.warning("ABS update failed; continuing", exc_info=True)
+                conn.execute(
+                    "UPDATE books SET total_ms = ? WHERE gid = ?",
+                    (offset_ms + duration_ms, gid),
+                )
+            offset_ms += duration_ms
+            if on_chapter is not None:
+                on_chapter(idx)
+
+            if abs_client and cfg.abs_library_id:
+                try:
+                    abs_client.scan_library(cfg.abs_library_id)
+                    publish_chapters(
+                        cfg,
+                        conn,
+                        abs_client,
+                        gid,
+                        str(book_dir.relative_to(cfg.library_dir)),
+                        offset_ms,
+                    )
+                except Exception:
+                    logger.warning("ABS update failed; continuing", exc_info=True)
+    except Exception:
+        # Whatever went wrong — a stop that was asked for, a box that ran out of
+        # memory, sqlite giving up after its five seconds — the one thing that
+        # must not survive is a row still claiming a render is going on. Nothing
+        # would ever put it right: that is how a book comes to sit on
+        # 'rendering' for weeks. 'pending' is the schema's own default, which
+        # grep says nothing has ever written, so it is free to mean what it
+        # plainly says — not growing, and not finished. The exception goes on up
+        # to whoever started the render, where its traceback belongs.
+        with conn:
+            conn.execute("UPDATE books SET status = 'pending' WHERE gid = ?", (gid,))
+        raise
 
     with conn:
         conn.execute("UPDATE books SET status = 'done' WHERE gid = ?", (gid,))

@@ -88,6 +88,22 @@ _ADDED_COLUMNS = (
     # so datetime('now') would fail on every database that already has books in
     # it. Every write that touches position_ms sets this explicitly instead.
     ("books", "position_at", "TEXT"),
+    # How many chapters this book HAS, as against how many have been rendered —
+    # which is the count of rows in `chapters`. Without it there is no honest
+    # denominator anywhere: nothing could say "chapter 4 of 39", and the page
+    # could not tell the end of the book from the end of what has been rendered
+    # of it so far. Written the moment the parse finishes, because parsing is
+    # minutes and rendering is hours, and the number is wanted for all of them.
+    #
+    # total_ms cannot stand in for it. While a book renders, total_ms means "how
+    # much audio exists so far" and tools.get_position leans on it meaning
+    # exactly that, so a book's length in milliseconds is simply not known until
+    # the last chapter is encoded.
+    #
+    # 0 means nobody ever wrote it down, which is true of every book on the VPS
+    # that was rendered before this column existed — not a book of no chapters,
+    # which is not a thing. Anything reading it has to treat 0 as "don't know".
+    ("books", "chapters_total", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 
