@@ -45,8 +45,10 @@ test("a seek is reported at once", async (t) => {
   // A jump is the one thing the fifteen-second heartbeat cannot approximate:
   // between one tick and the next they may be an hour away.
   assert.deepEqual(page.reports(), [[900001, "seek", 4000]]);
-  assert.equal(page.posts[0].body.playing, true);
   assert.equal(page.posts[0].body.seq, 0);
+  // And nothing played to get there, which is how the server knows it for a
+  // jump rather than for four seconds of listening.
+  assert.equal(page.posts[0].body.played_ms, 0);
 });
 
 test("ticks between heartbeats say nothing, and the fifteenth second does", async (t) => {
@@ -77,7 +79,8 @@ test("a paused page does not tick", async (t) => {
 
 test("a pause is reported however recent the last report was", async (t) => {
   const page = await playing(t);
-  page.audio.advance(2);
+  page.audio.advance(1);
+  page.audio.advance(1);
   page.posts.length = 0;
   page.click("playpause");
   await page.settle();
@@ -87,8 +90,11 @@ test("a pause is reported however recent the last report was", async (t) => {
     page.posts.map((p) => p.body.reason),
     ["pause"],
   );
-  assert.equal(page.posts[0].body.playing, false);
   assert.equal(page.posts[0].body.position_ms, 2000);
+  // And it carries the second that played since the last report with it. A
+  // pause is the best evidence there is that they listened up to here, and
+  // throwing it away leaves the mark behind the position with no way back.
+  assert.equal(page.posts[0].body.played_ms, 1000);
 });
 
 test("only one report is in flight at a time", async (t) => {
@@ -154,6 +160,123 @@ test("the page says one last thing on its way out", async (t) => {
   assert.deepEqual(
     [page.beacons[0].body.reason, page.beacons[0].body.position_ms],
     ["unload", 3000],
+  );
+});
+
+// ------------------------------------------------------- what really played
+
+// The spoiler guard is on the other end of these. It cannot see the difference
+// between fifteen seconds of listening and a fifteen-second jump — both arrive
+// as a position further on than the last one — so the page is the thing that
+// has to say which it was, and it says it by counting the media clock. What
+// follows is every way that count can be got wrong.
+
+test("a report says how much of the book has really played", async (t) => {
+  const page = await playing(t);
+  page.audio.advance(1);
+  page.posts.length = 0;
+  page.tick(15_000);
+  page.audio.advance(1);
+  await page.settle();
+  assert.deepEqual(
+    page.posts.map((p) => [p.body.position_ms, p.body.played_ms]),
+    [[2000, 1000]],
+  );
+});
+
+test("a jump moves the position and not the playback", async (t) => {
+  const page = await playing(t);
+  page.audio.advance(0.5);
+  page.audio.advance(0.5);
+  page.posts.length = 0;
+  // Half a second of listening, and five and a half seconds of book. Whether
+  // it was a thumb on +30, a scrub on the lock screen or the agent taking them
+  // somewhere, the sound was not on for the distance.
+  page.seek(6000);
+  page.audio.fire("seeked");
+  await page.settle();
+  // Nothing at all, not even the half second: it was earned over the ground
+  // behind the jump and can only justify standing there. Carried across, it
+  // would be spent on the distance instead — which is what an agent move does
+  // every time, because the move refuses the report in flight and the seek
+  // that follows the refusal is the very next thing said.
+  assert.deepEqual(
+    page.posts.map((p) => [p.body.position_ms, p.body.played_ms]),
+    [[6000, 0]],
+  );
+});
+
+test("a refused report does not leave its playback to pay for the move", async (t) => {
+  const page = await playing(t);
+  page.audio.advance(0.5);
+  page.audio.advance(0.5);
+  page.reply({
+    accepted: false,
+    gid: 900001,
+    position_ms: 6000,
+    seq: 1,
+    reason: "moved",
+  });
+  page.posts.length = 0;
+  page.tick(15_000);
+  page.audio.advance(0.5);
+  await page.settle();
+  page.audio.fire("seeked");
+  await page.settle();
+  const [refused, followed] = page.posts;
+  assert.deepEqual(
+    [refused.body.reason, refused.body.position_ms, refused.body.played_ms],
+    ["tick", 1500, 1000],
+  );
+  // The same playback, arriving a moment later from four and a half seconds
+  // further on, would have covered most of the move.
+  assert.deepEqual(
+    [followed.body.reason, followed.body.position_ms, followed.body.played_ms],
+    ["seek", 6000, 0],
+  );
+});
+
+test("playback a report never got out with is carried by the next one", async (t) => {
+  const page = await playing(t);
+  page.audio.advance(0.5);
+  page.drop(true);
+  page.tick(15_000);
+  page.audio.advance(0.5);
+  await page.settle();
+  page.drop(false);
+  page.posts.length = 0;
+  page.tick(15_000);
+  page.audio.advance(0.5);
+  await page.settle();
+  // A second of listening, in two heartbeats, one of which went nowhere. Spent
+  // on the report that was never taken, the mark would be left half a second
+  // behind the position — and a mark behind the position refuses everything
+  // after it for the rest of the book.
+  assert.deepEqual(
+    page.posts.map((p) => p.body.played_ms),
+    [1000],
+  );
+});
+
+test("the silence at a chapter boundary is nobody's listening", async (t) => {
+  const page = await playing(t);
+  for (let tick = 0; tick < 14; tick++) page.audio.advance(0.5);
+  page.posts.length = 0;
+  page.audio.currentTime = 7.7;
+  page.audio.fire("timeupdate");
+  page.audio.ready();
+  await page.settle();
+  const [chapter, landed] = page.posts;
+  assert.deepEqual(
+    [chapter.body.reason, chapter.body.position_ms, chapter.body.played_ms],
+    ["chapter", 7700, 7200],
+  );
+  // The three hundred milliseconds between the two reports are the rendered
+  // silence the swap steps over: the position moves and nothing plays. Nothing
+  // is claimed for them, which is what the guard's slack is there to absorb.
+  assert.deepEqual(
+    [landed.body.reason, landed.body.position_ms, landed.body.played_ms],
+    ["seek", 8000, 0],
   );
 });
 
@@ -344,10 +467,17 @@ test("the book they are taken out of is left where they got to", async (t) => {
     [parting.body.reason, parting.body.position_ms],
     ["switch", 6000],
   );
-  // And left not playing. The clock the spoiler guard measures listening
-  // against would otherwise go on running for a book nothing is playing, and
-  // coming back to it in the morning would be credited with the whole night.
-  assert.equal(parting.body.playing, false);
+  // And the playback that belongs to it goes with it, because this is the last
+  // chance to say so: a mark left behind the position they were left at would
+  // refuse everything they play the next time they open this book.
+  assert.equal(parting.body.played_ms, 5500);
+  // None of which is the new book's. The first thing said about that one
+  // claims nothing, or six seconds of somewhere else would be six seconds of
+  // it that nobody has heard.
+  page.audio.ready();
+  await page.settle();
+  const opened = page.posts.find((p) => p.body.gid === 900002);
+  assert.equal(opened.body.played_ms, 0);
 });
 
 test("a book they only opened is not written down when they leave it", async (t) => {

@@ -30,12 +30,15 @@ __all__ = ["BookEntry", "BookList", "Chapter", "Manifest", "Player", "Report"]
 
 logger = logging.getLogger(__name__)
 
-# How much further on than the clock a report may be and still be believed to
-# have been played through. It covers the second datetime('now') truncates away
-# at each end, the 400ms of rendered silence a chapter swap skips, and a render
-# clock that can legitimately run a frame past the container's. What it must
-# stay well below is thirty seconds, which is the smallest forward jump the page
-# has a button for — anything bigger than this is a stretch nobody heard.
+# How much further on than the playback it reports a report may stand and still
+# be believed to have been played through. Because the playback appears on both
+# sides of the comparison, this is exactly the size of the largest jump that can
+# be laundered as listening, so it is also the number to argue about. It has to
+# cover the 400ms of rendered silence a chapter swap steps over, the quarter of
+# a second between the last timeupdate and a pause, the second datetime('now')
+# truncates away at each end, and a render clock that can legitimately run a
+# frame past the container's. What it must stay well below is thirty seconds,
+# which is the smallest forward jump the page has a button for.
 HEARD_SLACK_MS = 5_000
 
 
@@ -218,7 +221,7 @@ class Player:
             ],
         )
 
-    def report(self, gid: int, position_ms: int, seq: int, playing: bool) -> Report:
+    def report(self, gid: int, position_ms: int, seq: int, played_ms: int) -> Report:
         """Take the page's word for where the book is, unless it is out of date.
 
         Compare-and-swap on ``position_seq``, which counts agent moves and
@@ -231,70 +234,77 @@ class Player:
         backwards fifteen seconds at random all night.
 
         How far they have *heard* is a different question from where the book
-        is, and its honest answer is playback that really elapsed rather than a
-        number that was reported. One press of the skip button is thirty
-        seconds, an agent move is hours, and both arrive here as a report that
-        says "playing" from further on than the last one. Believing those handed
-        the whole spoiler guard away for a single nudge, and MAX() meant it
-        never came back.
+        is, and its honest answer is playback that really came out of the
+        speaker. One press of the skip button is thirty seconds, an agent move
+        is hours, and both arrive here as a report from further on than the last
+        one. Believing those handed the whole spoiler guard away for a single
+        nudge, and MAX() meant it never came back.
 
-        So the mark rises only on a report that says the sound is on — a page
-        sitting paused while a question is asked has heard nothing — and only as
-        far as they could have reached by playing on from it: no further past
-        the mark than the wall clock has moved since the last report that said
-        the sound was on. That still believes the gaps that are real, a
-        heartbeat lost on the tailnet or four minutes off the network with the
-        book still playing, because elapsed time covers those honestly while a
-        jump is thirty seconds of book in no seconds of clock. It is why
-        ``reason`` is not consulted: a tick sent fifteen seconds after a skip is
-        an honest tick, and still fifteen seconds of listening at a place they
-        were never played to.
+        Only the page can tell the two apart, so the page is asked. Every report
+        says how much of the book has really played since the last one taken,
+        counted off the media clock: a stretch they listened to moves that by as
+        much as it moves the position, and a jump moves the position alone. The
+        mark rises to the reported position when the two agree — when the report
+        stands no further past the mark than the playback it brought with it,
+        give or take :data:`HEARD_SLACK_MS`. Since the playback is on both sides
+        of that comparison, the slack *is* the largest jump that can be
+        laundered, whatever else the night did.
 
-        ``playing_at`` is that clock. It is written on every report that says
-        the sound is on whether or not the mark rose with it — left alone while
-        the mark was stuck it would accrue until it covered the skip, and the
-        mark would step over the stretch nobody heard a minute late — and
-        cleared by anything that says the sound is off, so six hours face down
-        on a bedside table cannot be spent by the skip that follows them. No
-        clock means no time rather than no limit, which is why the page reports
-        the moment the sound comes back on: that report begins the stretch and
-        is believed because it has gone nowhere. Without it the first heartbeat
-        after every pause would be fifteen seconds of book out of nowhere, and
-        the guard would turn itself off on the first night rather than on the
-        first skip.
+        It follows that the wall clock is no longer consulted for the answer,
+        only as a ceiling: no report may claim more playback than has had time
+        to happen since the last one taken. Elapsed time was the answer once and
+        was too generous by exactly the shape of a night — a phone spends eight
+        hours asleep with the sound off, reports nothing while it does, and the
+        first thing it says on waking is five hours further on, which the clock
+        would have covered in full. The ceiling and the claim measure the same
+        interval by construction: ``position_at`` moves only on an accepted
+        report, and so does the page's idea of what it has already been credited
+        with. That is what makes it safe, and it is also what catches the one
+        report that legitimately claims twice — an acknowledgement lost on the
+        tailnet leaves the page owing that playback again. It does assume the
+        book plays at the speed it was written: a playback-rate control, which
+        somnia deliberately does not have, would have to scale this or a
+        listener going faster than the clock would be refused for it.
 
-        The cost is real and is the one worth paying: after a forward skip the
-        mark stops for good, because everything reported afterwards is thirty
-        seconds further on than it. Searches stay bounded at the last place they
-        truly listened, and the agent offers to go on ahead rather than quoting
-        what lies past it. One number cannot say "I heard this stretch but not
-        that one" — that wants a set of intervals — and failing this way costs
-        them a question at 2am, where failing the other way costs them the book.
+        None of this consults ``reason``, and no report is disbelieved for
+        saying the sound is off. A pause is the strongest evidence in the whole
+        protocol that they listened right up to where it happened, and throwing
+        it away left the mark a heartbeat behind the position with no way back —
+        every report afterwards stood further on than the mark by more than it
+        had playback to show for, so an ordinary pause stopped the guard for the
+        rest of the book. A guard that has stopped rising is not a fix.
+
+        One cost is real and is the one worth paying: after a forward skip the
+        mark stops, because everything reported afterwards stands past a stretch
+        with no playback behind it. Searches stay bounded at the last place they
+        truly listened until they go back over it, and the agent offers to go on
+        ahead rather than quoting what lies past it. One number cannot say "I
+        heard this stretch but not that one" — that wants a set of intervals —
+        and failing this way costs them a question at 2am, where failing the
+        other way costs them the book.
         """
         with self._lock, self._conn:
             row = self._conn.execute(
                 "UPDATE books SET position_ms = ?, position_at = datetime('now'),"
-                " playing_at = CASE WHEN ? THEN datetime('now') END,"
                 # Every expression in a SET reads the row as it was before the
-                # update, so this is the previous report's playing_at and not
-                # the one being written beside it. A missing clock counts as no
-                # time at all rather than as no limit: the first report of a
-                # stretch is believed only where it stands, never for ground in
-                # front of it. MAX(x, 0) is a no-op on a column that is NOT NULL
-                # DEFAULT 0, so a report that cannot be credited needs no second
-                # statement.
-                " heard_to_ms = MAX(heard_to_ms, CASE WHEN ? AND ? - heard_to_ms <="
+                # update, so the position_at inside this one is the previous
+                # report's and not the one being written beside it. A book that
+                # has never been reported on has no interval to have played
+                # anything in, which is why a missing timestamp counts as no
+                # time rather than as no limit. MAX(x, 0) is a no-op on a column
+                # that is NOT NULL DEFAULT 0, so a report that cannot be
+                # credited needs no second statement.
+                " heard_to_ms = MAX(heard_to_ms, CASE WHEN ? - heard_to_ms <= MIN(?,"
                 " (strftime('%s', 'now')"
-                " - COALESCE(strftime('%s', playing_at), strftime('%s', 'now')))"
-                " * 1000 + ?"
+                " - COALESCE(strftime('%s', position_at), strftime('%s', 'now')))"
+                " * 1000) + ?"
                 " THEN ? ELSE 0 END)"
                 " WHERE gid = ? AND position_seq = ?"
                 " RETURNING position_seq, heard_to_ms",
                 (
                     position_ms,
-                    playing,
-                    playing,
                     position_ms,
+                    played_ms,
                     HEARD_SLACK_MS,
                     position_ms,
                     gid,

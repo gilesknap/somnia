@@ -205,6 +205,22 @@ let untouched = true;
 let sending = false; // one report in flight at a time
 let owed = null; // a report that arrived while one was in flight
 let lastSentAt = 0;
+// How much of the book has really come out of the speaker, counted off the
+// media clock rather than off the wall clock. It is the whole of the evidence
+// the spoiler guard has, and only this page can give it: a jump moves the
+// position without moving this, a phone asleep in a pocket moves neither, and
+// a chapter that buffered for ten seconds moves the wall clock and not this.
+let playedMs = 0;
+// Where that clock was last sampled, or null when the next sample is only a
+// baseline. A seek and a chapter swap both move the position with nothing
+// played, so the distance either of them moved is never counted as a step.
+let playedFrom = null;
+// How much of it the server has taken. Only an accepted report spends any:
+// a refusal did not raise the mark, and a reply that never arrived may as well
+// not have, so either way the next report carries the playback again. A mark
+// left behind the position by one lost report never catches up, and a guard
+// that has stopped rising is not a guard.
+let playedTaken = 0;
 // Where to land once the file has a duration to clamp against. It stays set
 // until it is applied, so a loadedmetadata that arrives four minutes late —
 // after the tailnet came back — still lands in the right place instead of
@@ -384,6 +400,23 @@ function seekGlobal(ms, { play = null } = {}) {
   if (fade?.thenSleep) startFade(1, FADE_IN_MS);
   const at = locate(ms);
   positionMs = Math.max(0, Math.min(ms, manifest.total_ms));
+  // Every seek in the page comes through here, which is what makes this the
+  // one place the played clock has to be set aside: the ground between where
+  // they were and where they are going is not ground anybody heard, and
+  // counted as a step it would be a skip that paid for itself.
+  playedFrom = null;
+  // Playback still owed is given up at the same moment, and this is the one
+  // place it is right to give it up. It was earned over the ground behind the
+  // jump and can only ever justify standing there; carried across, the first
+  // report from the far side spends it on the distance instead. That is not
+  // hypothetical — an agent move refuses the heartbeat in flight, and the page
+  // follows the refusal with a seek, so the two arrive in that order every
+  // time: in a real browser the refused report's seven seconds paid for a
+  // twelve-second move, and the mark stepped over four seconds nobody heard.
+  // The cost is that a jump can leave the mark up to one report behind the
+  // furthest they really got, which is the same direction as every other
+  // choice here: the guard stops early rather than late.
+  playedTaken = playedMs;
   if (
     current &&
     at.idx === current.idx &&
@@ -779,9 +812,29 @@ function retryLater() {
 // them happen at every chapter boundary all night.
 function stalling() {
   if (!wantsSound || stallTimer || retryTimer) return;
+  // The grace is for a buffer that is going to refill, and there is nothing
+  // left of that story once the page is already fighting for the chapter: a
+  // reload that stalls again goes straight onto the ladder instead. Without
+  // this the two of them interleave — eight seconds of grace, then the wait,
+  // then eight seconds of grace — and the cadence never falls below a request
+  // every nineteen seconds however long the night's outage lasts.
+  if (troubled) {
+    retryLater();
+    return;
+  }
   stallTimer = setTimeout(() => {
     stallTimer = 0;
     reloadTheChapter();
+    // That reload was an attempt like any other, so the next one waits longer.
+    // A server that takes the connection and never answers — a proxy black
+    // hole, a re-key caught mid-handshake — fires no `error` at all, so
+    // nothing else here would ever grow the wait: the new source stalls, this
+    // fires again on the same eight seconds, and that is the request every
+    // eight seconds until the battery goes that the backoff exists to prevent.
+    // Never below the grace this waited out, so the ladder can only be more
+    // patient than the stall was, never less.
+    retryDelay = Math.max(retryDelay, STALL_GRACE_MS);
+    retryLater();
   }, STALL_GRACE_MS);
 }
 
@@ -830,6 +883,11 @@ player.addEventListener("loadedmetadata", () => {
     pendingOffsetMs = null;
   }
   swapping = false;
+  // A new file, so the last sample belongs to a chapter that is no longer
+  // loaded. The four hundred milliseconds a swap steps over are rendered
+  // silence and were never listened to; counting them would be the only thing
+  // a chapter boundary ever handed the guard.
+  playedFrom = null;
   drawPlayer();
   publishPosition();
   // A boundary is a good place to be interrupted at, and the position either
@@ -843,6 +901,16 @@ player.addEventListener("timeupdate", () => {
   // chapter being left, which would report a position they are no longer at.
   if (swapping || !current) return;
   positionMs = toGlobalMs(current.chapter, player.currentTime);
+  // Sound came out between the last sample and this one, and this is the only
+  // place in the page where that is true: the media clock moves by itself here
+  // and is moved by hand everywhere else. Forwards only, and only from a
+  // sample left behind by the file still loaded — a rewind is not negative
+  // listening, and a baseline that was set aside by a seek or a swap is not a
+  // distance anybody heard.
+  if (playedFrom !== null && positionMs > playedFrom) {
+    playedMs += positionMs - playedFrom;
+  }
+  playedFrom = positionMs;
   // Both of these are here rather than above the guard so that neither can
   // land in the middle of a chapter change: a fade that finished mid-swap
   // would pause an element that is between two sources, and the pause it
@@ -1101,7 +1169,15 @@ function positionBody(reason) {
     gid,
     position_ms: Math.round(positionMs),
     seq,
-    playing: !player.paused && !player.ended,
+    // How much of the book has really played since the last report the server
+    // took, which is what the spoiler guard measures this one against. A
+    // stretch they listened to moves this by as much as it moves the position;
+    // a skip, an agent move or a scrub moves the position and not this. Saying
+    // it rather than leaving the server to infer it from the clock is the
+    // whole of the difference between the two: the server cannot see a phone
+    // that spent four minutes asleep with the sound off, and this page cannot
+    // help seeing it.
+    played_ms: Math.max(0, Math.round(playedMs - playedTaken)),
     reason,
   };
 }
@@ -1132,11 +1208,21 @@ function sendPosition(reason) {
   // every few hundred milliseconds, which is the one thing a battery cannot
   // afford at 4am.
   lastSentAt = Date.now();
+  // What this report is about to claim, held while it is in flight. Playback
+  // that goes out and is not taken has to still be owed when the answer comes
+  // back, and by then more of it may have happened.
+  const claimed = playedMs;
   // Backgrounded, and the page may be frozen a moment later. keepalive is what
   // lets the request finish without one.
   postPosition(positionBody(reason), { keepalive: reason === "hidden" })
     .then((response) => response.json())
-    .then(applyReply)
+    .then((body) => {
+      // Never backwards. A seek gives up whatever was owed at the moment it
+      // happens, and an acknowledgement for a report that went out before it
+      // would otherwise put that playback back and hand it to the jump.
+      if (body?.accepted) playedTaken = Math.max(playedTaken, claimed);
+      applyReply(body);
+    })
     .catch((error) => console.error(error))
     .finally(() => {
       sending = false;
@@ -1158,17 +1244,16 @@ function sendPosition(reason) {
 // one they are now on. Its reply is dropped for the same reason: a refusal
 // here is about a book the page has already left, and following it would take
 // them straight back to it.
+//
+// It carries the playback that belongs to this book with it, which is the last
+// chance to say it: the stretch between the last heartbeat and here was really
+// listened to, and a mark left behind the position they were left at would
+// refuse everything they play the next time they open this book. Nothing here
+// can hear it being taken, so openBook gives it up on this page's behalf a
+// moment later rather than letting the next book claim it too.
 function sendPartingPosition() {
   if (untouched || !manifest || gid === null) return;
-  postPosition({
-    ...positionBody("switch"),
-    // The element is still this book's for another instant, but for this book
-    // the sound is off from here and no report will ever say so again. Left
-    // saying "playing", the clock the spoiler guard measures listening against
-    // would go on running for a book nothing is playing, and coming back to it
-    // in the morning would be credited with the whole of the night between.
-    playing: false,
-  }).catch((error) => console.error(error));
+  postPosition(positionBody("switch")).catch((error) => console.error(error));
 }
 
 function applyReply(body) {
@@ -1222,6 +1307,12 @@ function follow(move) {
 // to deliver after the page has stopped existing. It is JSON in a Blob because
 // that is the only way to give a beacon a content type, and it can read no
 // reply at all, which is the other reason a refusal is a 200 with a body.
+//
+// Nothing can tell this page the beacon landed, so the playback it carries
+// stays owed. A page that dies here never sends it again; a page frozen and
+// then restored sends it twice, which is the cheaper way round — a stretch
+// counted twice lets a jump of a few seconds through once, and a stretch
+// dropped leaves the mark behind the position for the rest of the book.
 window.addEventListener("pagehide", () => {
   if (untouched || !manifest || gid === null) return;
   const body = JSON.stringify(positionBody("unload"));
@@ -1281,6 +1372,14 @@ async function openBook(id, { play = false } = {}) {
   }
   stopAwaiting();
   if (gid !== null && gid !== opening.gid) sendPartingPosition();
+  // Playback belongs to the book it happened in, and this page is starting
+  // again from the server's own record of where that book is — which is what
+  // the last report it took said, and so what the mark was raised to. Both
+  // clocks restart together or neither does: carried across, the first report
+  // of the new book would claim the last seconds of the old one as listening
+  // in it, and thrown away without the position it goes with, the mark would
+  // be left behind and refuse everything they played afterwards.
+  playedTaken = playedMs;
   manifest = opening;
   gid = opening.gid;
   seq = opening.seq ?? 0;

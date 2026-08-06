@@ -527,6 +527,7 @@ export async function boot(t, options = {}) {
   const sentenceAsks = [];
   let positionReply = reply;
   let holding = false;
+  let dropping = false;
   const held = [];
 
   const fakeWindow = new FakeElement("window");
@@ -583,6 +584,11 @@ export async function boot(t, options = {}) {
         return json({ start_ms: sentenceStart });
       }
       if (url === "api/position") {
+        // A report that never gets out at all, which is a different thing from
+        // one that is answered late: the page is told nothing, so whatever it
+        // was carrying is still owed. Held is the tailnet being slow; this is
+        // the tailnet being gone.
+        if (dropping) throw new Error("no route to host");
         const answer = positionReply;
         posts.push({
           body: JSON.parse(init.body),
@@ -650,6 +656,9 @@ export async function boot(t, options = {}) {
     },
     hold: (on) => {
       holding = on;
+    },
+    drop: (on) => {
+      dropping = on;
     },
     // Let every held report come back at once, oldest first.
     release: () => {

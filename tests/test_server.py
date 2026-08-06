@@ -346,7 +346,7 @@ def test_the_book_list_says_what_there_is_to_play(tone_client: TestClient) -> No
 
 
 def report(client: TestClient, **body: Any) -> Any:
-    payload = {"token": TOKEN, "gid": GID, "seq": 0, "playing": True, "reason": "tick"}
+    payload = {"token": TOKEN, "gid": GID, "seq": 0, "played_ms": 0, "reason": "tick"}
     payload.update(body)
     response = client.post("/api/position", json=payload)
     return response.status_code, response.json()
@@ -416,6 +416,31 @@ def test_a_report_of_an_unknown_kind_is_taken_as_a_tick(
     assert (status, body["accepted"]) == (200, True)
 
 
+def test_a_report_that_says_nothing_about_playback_claims_none_of_it(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """A body with no playback in it is nothing played, never no limit.
+
+    The mark is raised by what a report says has really come out of the speaker
+    since the last one, so a page too old to send that number — or a body with
+    a word where the number goes — has to be read as having played nothing.
+    Read the other way round, the oldest page on the phone would be the one
+    thing that could unlock the whole book.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET heard_to_ms = 4000 WHERE gid = ?", (GID,)
+        )
+    body = tone_client.post(
+        "/api/position",
+        json={"token": TOKEN, "gid": GID, "seq": 0, "position_ms": 20_000},
+    ).json()
+    assert (body["accepted"], body["heard_to_ms"]) == (True, 4_000)
+
+    status, garbled = report(tone_client, position_ms=20_000, played_ms="all of it")
+    assert (status, garbled["heard_to_ms"]) == (200, 4_000)
+
+
 def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
     tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -448,7 +473,7 @@ def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
         assert recorder.moves == []
         report(client, position_ms=2_000, reason="pause")
         report(client, position_ms=3_000, reason="unload")
-        report(client, position_ms=4_000, reason="switch", playing=False)
+        report(client, position_ms=4_000, reason="switch")
     assert recorder.moves == [
         ("abs-item-1", 2.0),
         ("abs-item-1", 3.0),

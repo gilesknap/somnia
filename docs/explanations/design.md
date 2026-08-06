@@ -139,12 +139,12 @@ instruction to jump. That is why a refusal is a 200 with a body and not a 409:
 the last report of the night is a beacon, and a beacon can read nothing else.
 
 A book being left behind gets a report of its own, sent while the page is still
-on it and saying the sound is off, because it is the last thing that page will
-ever say about that book: the pause a chapter swap fires is swallowed as
-spurious — quite rightly, or the notification would be torn down at every
-boundary — so without it a book they were moved out of would keep whatever
-position its last heartbeat happened to catch, and the clock the spoiler guard
-counts against would still be running for a book nothing is playing.
+on it, because it is the last thing that page will ever say about that book:
+the pause a chapter swap fires is swallowed as spurious — quite rightly, or the
+notification would be torn down at every boundary — so without it a book they
+were moved out of would keep whatever position its last heartbeat happened to
+catch, and the spoiler guard's mark would be left behind that position with no
+way of ever catching up.
 
 Nothing else in somnia may write those four columns. Ingest upserts the `books`
 row rather than replacing it, and updates only what a render knows — title,
@@ -180,20 +180,27 @@ by the current position, because the agent can move that position anywhere:
 backwards, where being taken to chapter two must not un-hear chapters three to
 twenty, and forwards, where treating where they were put as what they have
 heard would unlock the whole book behind a single move. `books.heard_to_ms`
-records the mark and only ever rises, and it rises only to a position the page
-could have reached by playing on from it — no further past the mark than the
-wall clock has moved since the last report that said the sound was on
-(`books.playing_at`, cleared by any report that says it is off, which is why
-the page reports the moment the sound comes back on: a stretch of listening
-needs a beginning or the first heartbeat after every pause looks like a jump).
-Elapsed time rather than a reported number is what makes a passage heard: a
-press of the skip button is thirty seconds of book in no seconds of clock,
-while four minutes the phone spent playing off the network is covered honestly.
-Two costs, both chosen: after a skip forward the mark stops until they go back,
-and a book nobody has played is bounded at its start rather than left
-unbounded, so on night one the agent has to say the passage is further on than
-they have got and offer to take them there. Failing that way costs a question
-in the dark; failing the other way costs them the book.
+records the mark and only ever rises, and it rises only as far as sound really
+came out of the speaker. Only the page can know that — a skip and a stretch of
+listening both arrive at the server as a position further on than the last one
+— so every report says how much of the book has actually played since the last
+report the server took, counted off the media clock, and the mark rises to the
+reported position only when the report stands no further past the mark than
+that playback accounts for. The wall clock is a ceiling on the claim and not
+the answer to it: a phone asleep in a pocket for eight hours banks eight hours
+of clock and no listening at all, and reading the first report after it off the
+clock handed over a five-hour agent move in full. A pause raises the mark like
+anything else, because a pause is the best evidence in the protocol that they
+listened right up to it; and playback the server never acknowledged stays owed
+and is sent again, because a mark left even a heartbeat behind the position
+refuses every report after it and never recovers — except across a jump, where
+it is given up instead, since it was earned over the ground behind the jump and
+would otherwise be spent on the distance by the report from the far side. Two costs, both chosen: after
+a skip forward the mark stops until they go back over it, and a book nobody has
+played is bounded at its start rather than left unbounded, so on night one the
+agent has to say the passage is further on than they have got and offer to take
+them there. Failing that way costs a question in the dark; failing the other
+way costs them the book.
 
 A bounded search does not simply come back empty. It also runs unbounded and
 says whether a closer match lies past the mark — never what it is — which is
@@ -230,7 +237,13 @@ of what makes an element try again — from where they had got to rather than
 from the top of it, so five seconds off the network costs five seconds and not
 the last ten minutes over again. It waits longer each time, two seconds to thirty,
 because a VPS that is down is down and a phone that retried flat out until
-morning is a phone with no battery in the morning; and it stops entirely when
+morning is a phone with no battery in the morning. Every route to a reload goes
+on that same ladder, including the one that never sees an error at all: a
+server that accepts the connection and answers nothing — a proxy black hole, a
+re-key caught mid-handshake — leaves the element stalling rather than failing,
+and a stall that reloads on a fixed timer stalls again off the new source, for
+ever, at exactly the fixed cadence the ladder exists to prevent. It stops
+entirely when
 they were the ones who stopped it, because a page reloading chapters under a
 book somebody put down is spending the battery on nobody. The boot does the
 same thing for the same reason: the service worker serves the shell when the
