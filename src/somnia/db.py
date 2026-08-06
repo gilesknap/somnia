@@ -1,8 +1,11 @@
 """SQLite schema and connection handling.
 
 One database file holds everything: the Gutenberg catalog (FTS5), per-book
-metadata, indexed text chunks with their audio timestamps, and the vector
-index (sqlite-vec) used for semantic seek.
+metadata, indexed text chunks with their audio timestamps, the vector index
+(sqlite-vec) used for semantic seek, and the ingest queue — which is here
+rather than in a lock file or a socket because sqlite is the one thing every
+process in somnia already shares, and a render's progress has to be readable
+from a process that is not the one doing it.
 """
 
 import sqlite3
@@ -53,6 +56,38 @@ CREATE TABLE IF NOT EXISTS chunks (
     text TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS chunks_book ON chunks(book_gid, start_ms);
+
+-- A whole table, not a column, so CREATE TABLE IF NOT EXISTS is the right tool
+-- and this really does reach the live database on the VPS the next time
+-- connect() runs. The _ADDED_COLUMNS rule below binds columns on tables that
+-- already exist, where the same statement quietly does nothing.
+--
+-- Two indexes, and the second one is the feature. `queue_live` is partial, so
+-- it constrains only rows that are waiting or running: one live job per book,
+-- enforced by the database rather than by a check-then-insert that two presses
+-- a millisecond apart would both pass. A book may appear here as many times as
+-- it likes over its life — every render that failed or was stopped stays as the
+-- record of itself — and only ever once at a time.
+CREATE TABLE IF NOT EXISTS queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    gid INTEGER NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    authors TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL DEFAULT 'queued',
+    cancel INTEGER NOT NULL DEFAULT 0,
+    lease TEXT NOT NULL DEFAULT '',
+    pid INTEGER NOT NULL DEFAULT 0,
+    beat_at TEXT,
+    chapter_at TEXT,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error TEXT NOT NULL DEFAULT '',
+    submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    started_at TEXT,
+    ended_at TEXT
+);
+CREATE INDEX IF NOT EXISTS queue_state ON queue(state, id);
+CREATE UNIQUE INDEX IF NOT EXISTS queue_live ON queue(gid)
+    WHERE state IN ('queued', 'rendering');
 """
 
 _VEC_SCHEMA = f"""
