@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.6.dev4+g28ee50eea documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.6.dev7+gffacf2355 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=5e26508d"></script>
+    <script src="../_static/documentation_options.js?v=5ae372bc"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -620,15 +620,32 @@ phone.</p>
 <p>Ask to be taken somewhere and the book goes there and plays from there. If the
 passage is in a book that was not even open, that book opens. Nothing has to be
 pressed afterwards.</p>
+<p>When more than one place could be what you meant, it does not ask — it puts
+them on the screen. The list is headed <em>Where do you mean?</em> and each row is a
+time, a chapter and the book’s own words — its own, never a description of
+them, so you recognise the moment rather than take somnia’s word for it, and
+never the words of a place you have not reached yet, which is the paragraph
+after this one. There is a <em>you are here</em> marker sitting
+between them in book order so you can see which are behind you and which are
+ahead. Press one and the book goes there and plays. Press <em>cancel</em> at the
+bottom and nothing whatever happens: the book carries on exactly as it was, in
+the same place, with the same sleep timer running. Nothing has moved while the
+list is up, so there is nothing to undo. The book keeps playing underneath it
+the whole time, which also means a sleep timer left to run out under a list
+still ends the night — the list is not a reason to keep the book going.</p>
 <p>It will not answer about a part of the book you have not heard. The bound is
 the furthest point the page has actually <em>played through</em>, not where you are
 now — so being taken back to chapter two does not un-hear chapter twenty, and
 being taken forward does not unlock what you were carried over. What you get
-instead is that the passage is further on than you have got, and an offer to
-take you there anyway. Two things follow from measuring it that way. A book
-somnia has never played is bounded at its opening minute, so if you get that
-answer about a book you have been listening to for a fortnight, the listening
-happened in Audiobookshelf and somnia does not know about it — run
+instead is that place as a row on the list, marked <em>ahead</em>, showing its time
+and its chapter number and nothing else — no words, and not even the chapter’s
+name, since a chapter called <em>How Ginger Died</em> gives away as much as the
+sentence under it. Press <em>show me what’s there</em> and it uncovers, and you decide
+having read it; press the row and you go there without reading it at all. Two
+things follow from measuring it that way. A book
+somnia has never played is bounded at its opening minute, so if a book you have
+been listening to for a fortnight puts everything on the list as <em>ahead</em>, the
+listening happened in Audiobookshelf and somnia does not know about it — run
 <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>. And skipping forward while the sound is on stops the
 mark where it was until you come back behind it, which is the price of one
 press of <em>+30</em> not marking the rest of the book as heard.</p>

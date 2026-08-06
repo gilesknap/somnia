@@ -199,14 +199,32 @@ it is given up instead, since it was earned over the ground behind the jump and
 would otherwise be spent on the distance by the report from the far side. Two costs, both chosen: after
 a skip forward the mark stops until they go back over it, and a book nobody has
 played is bounded at its start rather than left unbounded, so on night one the
-agent has to say the passage is further on than they have got and offer to take
-them there. Failing that way costs a question in the dark; failing the other
+passage they asked for is somewhere to be offered rather than somewhere to be
+played from. Failing that way costs a press in the dark; failing the other
 way costs them the book.
 
 A bounded search does not simply come back empty. It also runs unbounded and
 says whether a closer match lies past the mark — never what it is — which is
 what lets the agent offer rather than shrug, and `find_passage(allow_spoilers)`
 is the way through, asked for by them and by nobody else.
+
+**What it offers is a list of places, not a question.** That passage becomes a
+row on screen with its time and its chapter number, and its words and its
+chapter title covered up behind a second press labelled *show me what's there*;
+the same screen is what several plausible matches produce, so "did you mean the
+one an hour in or the one at four hours?" is now a thing a thumb answers rather
+than a sentence somebody half asleep has to compose. [ADR
+4](decisions/0004-choose-a-place-from-a-list.md) has the argument. What matters
+to the guard is that none of it moves the mark: the model names passages by
+chunk id and `Library.offer_positions` only reads, so an offering turn writes
+nothing at all; whether a row starts covered is decided there and only there,
+as `start_ms >= heard_to_ms`, with no slack and no exemption for a finished
+book, so the page obeys a flag rather than recomputing a number it holds a
+stale copy of; and choosing a row is a local seek by a thumb, not an agent
+move, so `position_seq` is untouched and the mark rises afterwards exactly as
+it would for a press of *−30*. A turn either moves the book or asks which place
+was meant, never both — refused in the tool, before a move can write anything,
+and again in the shape of the reply.
 
 ## Getting through the night is the page's job now
 
@@ -276,8 +294,11 @@ process entirely) and a reader must never block on any of them.
 - Tool layer is a plain Python library: `list_books`, `search_catalog`,
   `add_book`, `find_passage` (bounded by the guard unless they say otherwise),
   `get_position` (reads somnia's own record of where they are), `move_to`
-  (writes it, and counts the move so the page follows). The model is never told
-  to tell them to press play, because there is nothing to press.
+  (writes it, and counts the move so the page follows), and `offer_positions`
+  (writes nothing, and puts several places on the screen for them to choose
+  between). The model is never told to tell them to press play, because there
+  is nothing to press. Which *book* they meant is still one short spoken
+  question; which *passage* they meant never is.
 - 2am surface: a small **PWA chat page** served from the VPS. The server runs
   the agent loop (Anthropic Python SDK tool runner) with an API key held
   server-side — no OAuth. Voice input via the browser's Web Speech API
