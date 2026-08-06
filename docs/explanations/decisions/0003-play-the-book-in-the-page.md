@@ -182,9 +182,16 @@ somnia writes to ABS and never reads it, so a night spent listening in the ABS
 app is a night somnia does not learn about. If offline listening turns out to
 matter more than being moved to the passage, the app is still there to do it.
 
-Finally, this rests on an assumption that has to be checked on the handset and
-cannot be checked from a desk: that an installed PWA keeps playing with the
-screen off on Android Chrome, and that its media notification survives a
-chapter boundary. There is a spike page for exactly this, and
+Finally, this rested on an assumption that could only be checked on the handset:
+that an installed PWA keeps playing with the screen off on Android Chrome, and
+that its media notification survives a chapter boundary. **Checked on 2026-08-06,
+and both halves hold** — it played on with the phone locked, and it crossed a
+chapter while locked. That is the ground the rest of this decision stands on, so
+it is written here rather than left in a night's memory.
+
+The spike page that answers it stays served, because the property belongs to the
+handset and not to this code: a future Chrome, a battery-saver setting or a new
+phone can take it away again, and the failure would arrive as a night that went
+quiet rather than as anything in a log.
 [how-to/serve-the-chat-page.md](../../how-to/serve-the-chat-page.md) says how to
 run it.
