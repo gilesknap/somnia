@@ -50,11 +50,13 @@ WEB_DIR = Path(__file__).parent / "web"
 # nights of tabs can accumulate. Old ones are dropped, not remembered.
 MAX_CONVERSATIONS = 8
 
-# Why the page is telling us where it is. The four below mean they have stopped,
-# and so are the moments Audiobookshelf is worth telling: it is right whenever
-# someone might next open it, at the cost of a handful of writes a night rather
-# than one every fifteen seconds.
-STOPPED = frozenset({"pause", "hidden", "unload", "ended"})
+# Why the page is telling us where it is. The five below mean they have stopped
+# — "switch" is the book left behind when the agent moves them to another one,
+# which for that book is as much of a stop as putting the phone down — and so
+# are the moments Audiobookshelf is worth telling: it is right whenever someone
+# might next open it, at the cost of a handful of writes a night rather than one
+# every fifteen seconds.
+STOPPED = frozenset({"pause", "hidden", "unload", "ended", "switch"})
 REASONS = STOPPED | frozenset({"load", "play", "tick", "seek", "chapter"})
 
 

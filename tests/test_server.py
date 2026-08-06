@@ -381,6 +381,11 @@ def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
 
     Telling it every fifteen seconds would be hundreds of requests to a server
     nothing is reading, on a link that may not be there.
+
+    A switch is the book left behind when the agent takes them to another one.
+    It counts as stopping because for that book it is: the parting report is the
+    last thing the page will ever say about it, and if ABS does not hear it then
+    nothing does.
     """
     recorder = RecordingAbs()
 
@@ -401,7 +406,12 @@ def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
         assert recorder.moves == []
         report(client, position_ms=2_000, reason="pause")
         report(client, position_ms=3_000, reason="unload")
-    assert recorder.moves == [("abs-item-1", 2.0), ("abs-item-1", 3.0)]
+        report(client, position_ms=4_000, reason="switch", playing=False)
+    assert recorder.moves == [
+        ("abs-item-1", 2.0),
+        ("abs-item-1", 3.0),
+        ("abs-item-1", 4.0),
+    ]
 
 
 # ---------------------------------------------------- coming back to the book

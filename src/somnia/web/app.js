@@ -838,6 +838,15 @@ function positionBody(reason) {
   };
 }
 
+function postPosition(body, { keepalive = false } = {}) {
+  return fetch("api/position", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    keepalive,
+  });
+}
+
 // One at a time, and never retried. A retry delivers a stale position over a
 // newer one, and the next heartbeat carries better truth anyway; what must not
 // happen is the LAST position being the one that got dropped, which is what
@@ -855,14 +864,9 @@ function sendPosition(reason) {
   // every few hundred milliseconds, which is the one thing a battery cannot
   // afford at 4am.
   lastSentAt = Date.now();
-  fetch("api/position", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(positionBody(reason)),
-    // Backgrounded, and the page may be frozen a moment later. keepalive is
-    // what lets the request finish without one.
-    keepalive: reason === "hidden",
-  })
+  // Backgrounded, and the page may be frozen a moment later. keepalive is what
+  // lets the request finish without one.
+  postPosition(positionBody(reason), { keepalive: reason === "hidden" })
     .then((response) => response.json())
     .then(applyReply)
     .catch((error) => console.error(error))
@@ -874,8 +878,39 @@ function sendPosition(reason) {
     });
 }
 
+// The last word on a book the page is about to stop being on, sent while gid
+// is still that book's. Nothing else would ever say it: the pause a swap fires
+// is swallowed as spurious, quite rightly, so a book left behind would keep
+// whatever position its last heartbeat happened to catch — up to fifteen
+// seconds of a book they were listening to a moment ago.
+//
+// It goes round sendPosition rather than through it. That one holds a report
+// back while another is in flight and builds the body when its turn comes, and
+// by then this body would be the book they left written against the gid of the
+// one they are now on. Its reply is dropped for the same reason: a refusal
+// here is about a book the page has already left, and following it would take
+// them straight back to it.
+function sendPartingPosition() {
+  if (untouched || !manifest || gid === null) return;
+  postPosition({
+    ...positionBody("switch"),
+    // The element is still this book's for another instant, but for this book
+    // the sound is off from here and no report will ever say so again. Left
+    // saying "playing", the clock the spoiler guard measures listening against
+    // would go on running for a book nothing is playing, and coming back to it
+    // in the morning would be credited with the whole of the night between.
+    playing: false,
+  }).catch((error) => console.error(error));
+}
+
 function applyReply(body) {
   if (!body || body.accepted) return;
+  // A refusal answers the report that asked, and that report may be about a
+  // book the page has since left: switching books leaves one in flight, and
+  // reading its refusal as "go here" would re-open the book they were just
+  // taken out of. Only a refusal about the book the page is on has anything to
+  // say to it.
+  if (body.gid !== gid) return;
   // The agent moved the book while this page was not looking. That is the only
   // thing that can refuse a report, and the refusal says where to go.
   if (body.reason === "moved") follow(body);
@@ -941,15 +976,24 @@ document.addEventListener("visibilitychange", () => {
 async function openBook(id, { play = false } = {}) {
   const response = await fetch(`api/book/${id}`);
   if (!response.ok) throw new Error(`no book ${id}`);
-  manifest = await response.json();
-  if (!manifest.chapters.length) {
+  // Held to one side until it is known to be playable. Adopting it before the
+  // check below left the element playing one book while every clock, seek and
+  // boundary read another book's rows: the time said "of 0:00:00", locate()
+  // threw on the next press of anything for the rest of the night, and the
+  // chapter they were in ended with "that is the end of the book".
+  const opening = await response.json();
+  if (!opening.chapters.length) {
     // Rows but no audio: the book is still rendering, or the render died.
+    // Whatever was playing is still playing, and still the book this page is
+    // on, which is the only place left to be.
     setStatus("nothing to play yet");
     return;
   }
-  gid = manifest.gid;
-  seq = manifest.seq ?? 0;
-  positionMs = manifest.position_ms ?? 0;
+  if (gid !== null && gid !== opening.gid) sendPartingPosition();
+  manifest = opening;
+  gid = opening.gid;
+  seq = opening.seq ?? 0;
+  positionMs = opening.position_ms ?? 0;
   playerBar.hidden = false;
   showChapter(locate(positionMs), { play });
 }
