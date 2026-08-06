@@ -2,10 +2,11 @@ import sqlite3
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
+from black_beauty import ABS_ITEM_ID, CHAPTERS, build_black_beauty
 from fakes import BrokenAbs, FakeAbs, FakeEmbedder
 from somnia.abs import AbsClient
 from somnia.config import Config
@@ -13,23 +14,14 @@ from somnia.db import connect
 from somnia.embed import Embedder
 from somnia.index import add_chunks
 from somnia.segment import Window
-from somnia.tools import Library, format_timestamp
-
-ITEM_ID = "abs-item-1"
-
-
-CHAPTERS = [
-    ("01 My Early Home", 0, 240_000),
-    ("02 The Hunt", 240_000, 560_000),
-    ("47 Hard Times", 560_000, 900_000),
-]
-PASSAGES = [
-    ("the meadow with the pond", 10_000),
-    ("Rob Roy was shot after the hunt", 300_000),
-    # Invented, not a real passage: fixtures should not spoil the book for
-    # anyone reading the tests. Only that it is late in the book matters.
-    ("a later scene the listener has not reached", 700_000),
-]
+from somnia.tools import (
+    CANDIDATE_MAX,
+    CANDIDATE_TEXT_CHARS,
+    Library,
+    Offer,
+    Refused,
+    format_timestamp,
+)
 
 
 @dataclass
@@ -39,6 +31,10 @@ class Fixture:
     library: Library
     conn: sqlite3.Connection
     abs: FakeAbs
+    # The one that indexed the book, because only it can find those passages
+    # again — and because a test that wants a fourth or a fifth place to offer
+    # has to index it with the same instance.
+    embedder: Embedder
     # Any stand-in for Audiobookshelf, including one that only knows how to
     # fail: what a move does when ABS is down is now part of the contract.
     make_library: Callable[[object], Library]
@@ -54,42 +50,19 @@ def fixture(tmp_path: Path) -> Iterator[Fixture]:
 
 
 def _seeded(conn: sqlite3.Connection, tmp_path: Path) -> Fixture:
-    embedder = FakeEmbedder()
-    with conn:
-        # Five minutes in, and five minutes is the furthest they have got. Both
-        # are seeded because the page writes them now — it reports where it has
-        # reached every few seconds — so a library test starts from a listener
-        # who has been listening rather than from one who has not.
-        conn.execute(
-            "INSERT INTO books (gid, title, authors, voice, status, total_ms,"
-            " abs_item_id, position_ms, heard_to_ms) VALUES (271, 'Black Beauty',"
-            " 'Sewell, Anna', 'af_heart', 'done', 900000, ?, 300000, 300000)",
-            (ITEM_ID,),
-        )
-        for idx, (title, start, end) in enumerate(CHAPTERS):
-            conn.execute(
-                "INSERT INTO chapters (book_gid, idx, title, start_ms, end_ms,"
-                " audio_file) VALUES (271, ?, ?, ?, ?, '')",
-                (idx, title, start, end),
-            )
-    for idx, (text, start) in enumerate(PASSAGES):
-        add_chunks(
-            conn,
-            cast(Embedder, embedder),
-            271,
-            idx,
-            [Window(text=text, start_ms=start, end_ms=start + 10_000)],
-        )
+    embedder = cast(Embedder, FakeEmbedder())
+    build_black_beauty(conn, embedder)
     cfg = Config(data_dir=tmp_path)
 
     def make_library(fake: object) -> Library:
-        return Library(cfg, conn, cast(AbsClient, fake), cast(Embedder, embedder))
+        return Library(cfg, conn, cast(AbsClient, fake), embedder)
 
     fake_abs = FakeAbs(300.0)
     return Fixture(
         library=make_library(fake_abs),
         conn=conn,
         abs=fake_abs,
+        embedder=embedder,
         make_library=make_library,
     )
 
@@ -256,7 +229,7 @@ def test_moving_writes_the_position_and_tells_audiobookshelf_too(
     assert row["position_ms"] == 300_500
     assert (moved.gid, moved.position_ms) == (271, 300_500)
     assert moved.sentence == "Moved to 0:05:00, and it plays from there."
-    assert fixture.abs.moves == [(ITEM_ID, 300.5)]
+    assert fixture.abs.moves == [(ABS_ITEM_ID, 300.5)]
 
 
 def test_moving_counts_up_so_the_page_can_tell_it_happened(fixture: Fixture) -> None:
@@ -359,3 +332,444 @@ def test_find_passage_says_when_the_answer_lies_ahead(fixture: Fixture) -> None:
     assert search.better_ahead is not None
     assert search.better_ahead.start_ms == 700_000
     assert 700_000 not in [p.start_ms for p in search.hits]
+
+
+# ------------------------------------------- the places they might have meant
+
+
+def offered(result: Offer | Refused) -> Offer:
+    """The offer, or a failure that shows what came back instead."""
+    assert isinstance(result, Offer), result
+    return result
+
+
+def refused(result: Offer | Refused) -> str:
+    """The refusal's own words, which are what the model is handed."""
+    assert isinstance(result, Refused), result
+    return result.reason
+
+
+def chunk_at(fixture: Fixture, start_ms: int) -> int:
+    """The id of the passage that begins there — how a search names a place."""
+    row = fixture.conn.execute(
+        "SELECT id FROM chunks WHERE book_gid = 271 AND start_ms = ?", (start_ms,)
+    ).fetchone()
+    assert row is not None, f"no passage at {start_ms}"
+    return int(row["id"])
+
+
+def add_passage(fixture: Fixture, chapter_idx: int, text: str, start_ms: int) -> int:
+    """Index one more passage into the book, and say what it is called."""
+    add_chunks(
+        fixture.conn,
+        fixture.embedder,
+        271,
+        chapter_idx,
+        [Window(text=text, start_ms=start_ms, end_ms=start_ms + 10_000)],
+    )
+    return chunk_at(fixture, start_ms)
+
+
+def passage_in_another_book(fixture: Fixture) -> int:
+    """A second book with one passage in it, to try to smuggle into a list."""
+    with fixture.conn:
+        fixture.conn.execute(
+            "INSERT INTO books (gid, title, voice, status, total_ms)"
+            " VALUES (272, 'Another Book', 'af_heart', 'done', 600000)"
+        )
+    add_chunks(
+        fixture.conn,
+        fixture.embedder,
+        272,
+        0,
+        [Window(text="a passage from somewhere else", start_ms=5_000, end_ms=15_000)],
+    )
+    row = fixture.conn.execute("SELECT id FROM chunks WHERE book_gid = 272").fetchone()
+    return int(row["id"])
+
+
+def night(fixture: Fixture) -> dict[str, Any]:
+    """Everything about the book a listener could tell had changed."""
+    row = fixture.conn.execute(
+        "SELECT position_ms, position_seq, position_at, heard_to_ms FROM books"
+        " WHERE gid = 271"
+    ).fetchone()
+    return dict(row)
+
+
+def test_a_list_of_places_carries_the_books_own_words_for_each(
+    fixture: Fixture,
+) -> None:
+    """A row is the passage that matched, never a description of it.
+
+    A sentence the model wrote about a passage is a sentence about a passage it
+    may have misread, and the whole point of showing the list is that they
+    recognise the moment themselves. The model ranks; the server writes what
+    each row says.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET heard_to_ms = 800000 WHERE gid = 271")
+    offer = offered(
+        fixture.library.offer_positions(
+            271, [chunk_at(fixture, 300_000), chunk_at(fixture, 10_000)]
+        )
+    )
+
+    assert (offer.gid, offer.title, offer.position_ms) == (271, "Black Beauty", 300_000)
+    # Named in the model's order, drawn in the book's: a timeline out of order
+    # cannot be read at a glance, and a glance is the only way it will be read.
+    assert [p.start_ms for p in offer.places] == [10_000, 300_000]
+    assert [p.chapter_idx for p in offer.places] == [0, 1]
+    assert [p.chapter_title for p in offer.places] == [
+        "01 My Early Home",
+        "02 The Hunt",
+    ]
+    assert [p.text for p in offer.places] == [
+        "the meadow with the pond",
+        "Rob Roy was shot after the hunt",
+    ]
+    assert [p.ahead for p in offer.places] == [False, False]
+
+
+def test_the_passage_the_guard_held_back_is_offered_and_marked_ahead(
+    fixture: Fixture,
+) -> None:
+    """The one the list exists for: a closer match past where they have got.
+
+    Its words come down with the list rather than being fetched when they ask
+    to see them. A route that handed out the text of any chunk id would be a
+    spoiler oracle one guessed integer wide, sitting there for the life of the
+    deployment; and it would be asked at 2am, over a link that drops for
+    seconds at a time, on the one press where a spinner does the most damage.
+    So the words ride inside the answer to the question that already searched
+    for them, and covering them up is the page's job.
+    """
+    search = fixture.library.find_passage(
+        271, "a later scene the listener has not reached"
+    )
+    assert search.better_ahead is not None
+
+    offer = offered(
+        fixture.library.offer_positions(
+            271, [search.better_ahead.chunk_id, chunk_at(fixture, 10_000)]
+        )
+    )
+    assert [(p.start_ms, p.ahead) for p in offer.places] == [
+        (10_000, False),
+        (700_000, True),
+    ]
+    ahead = offer.places[1]
+    assert ahead.text == "a later scene the listener has not reached"
+    # The chapter heading travels too, and is withheld on the page exactly as
+    # the words are: "47 Hard Times" is as much of a spoiler as the sentence
+    # under it.
+    assert ahead.chapter_title == "47 Hard Times"
+
+
+def test_a_passage_that_begins_at_the_mark_has_not_been_heard_yet(
+    fixture: Fixture,
+) -> None:
+    """``>=`` and not ``>``: the sentence starting at the mark is the next one.
+
+    There is no slack either. The search bound is the mark plus a minute, so a
+    passage inside that minute can be found and is still covered up here —
+    strictly tighter than the guard that let it through, which is the safe
+    direction and costs one press.
+    """
+    assert fixture.library.heard_to_ms(271) == 300_000
+    offer = offered(
+        fixture.library.offer_positions(
+            271, [chunk_at(fixture, 10_000), chunk_at(fixture, 300_000)]
+        )
+    )
+    assert [(p.start_ms, p.ahead) for p in offer.places] == [
+        (10_000, False),
+        (300_000, True),
+    ]
+
+
+def test_a_book_nobody_has_played_covers_up_even_its_opening_words(
+    fixture: Fixture,
+) -> None:
+    """Every book stands at a mark of zero until the page plays one.
+
+    With ``>``, a passage beginning at 0:00:00 would be judged already heard on
+    a book nobody has listened to a second of, and its opening words would be
+    painted in the clear on the very screen built to cover them.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET heard_to_ms = 0 WHERE gid = 271")
+        fixture.conn.execute(
+            "UPDATE chunks SET start_ms = 0 WHERE book_gid = 271 AND start_ms = 10000"
+        )
+    offer = offered(
+        fixture.library.offer_positions(
+            271, [chunk_at(fixture, 0), chunk_at(fixture, 300_000)]
+        )
+    )
+    assert [(p.start_ms, p.ahead) for p in offer.places] == [(0, True), (300_000, True)]
+
+
+def test_one_place_they_have_already_heard_is_a_move_not_a_question(
+    fixture: Fixture,
+) -> None:
+    """A list of one they know is a move with a press in front of it.
+
+    Making somebody half asleep press a button to be taken to the only place on
+    offer buys nothing, so the tool sends the model back to move them instead.
+    """
+    assert refused(
+        fixture.library.offer_positions(271, [chunk_at(fixture, 10_000)])
+    ) == ("That is one place they have already heard. Move them there instead.")
+
+
+def test_one_place_they_have_not_heard_is_the_whole_reason_for_the_list(
+    fixture: Fixture,
+) -> None:
+    """Here the press is the point: it is what replaced asking them.
+
+    "Shall I take you there anyway?" was a question read in the dark and
+    answered by composing a sentence. This is the same question as a row.
+    """
+    offer = offered(fixture.library.offer_positions(271, [chunk_at(fixture, 700_000)]))
+    assert [(p.start_ms, p.ahead) for p in offer.places] == [(700_000, True)]
+
+
+def test_a_place_in_another_book_refuses_the_whole_list(fixture: Fixture) -> None:
+    """A list is one book's timeline, and half of another's is not a timeline.
+
+    Every row is drawn against one "you are here", and the page seeks in one
+    book. A stray row would be measured against the wrong clock entirely.
+    """
+    alien = passage_in_another_book(fixture)
+    assert refused(
+        fixture.library.offer_positions(271, [chunk_at(fixture, 10_000), alien])
+    ) == (f"Passage {alien} is not in book 271.")
+
+
+def test_a_place_in_another_book_is_refused_even_when_it_would_not_have_fitted(
+    fixture: Fixture,
+) -> None:
+    """The books are checked over everything it named, before the four are cut.
+
+    Otherwise whether a mixed-up list was caught would depend on where in the
+    ranking the stray one landed, which is the sort of rule that holds for a
+    year and then does not.
+    """
+    alien = passage_in_another_book(fixture)
+    named = [
+        chunk_at(fixture, 10_000),
+        chunk_at(fixture, 300_000),
+        add_passage(fixture, 0, "one more passage in the meadow", 20_000),
+        add_passage(fixture, 0, "another passage in the meadow", 30_000),
+        alien,
+    ]
+    assert refused(fixture.library.offer_positions(271, named)) == (
+        f"Passage {alien} is not in book 271."
+    )
+
+
+def test_an_id_that_is_no_passage_at_all_is_refused_rather_than_guessed_at(
+    fixture: Fixture,
+) -> None:
+    """Never resolved to whatever chunk is nearest.
+
+    A near miss would put the book's words on the screen under a time they do
+    not belong to, and nothing on the row would say so — which is the one lie
+    this list cannot tell. Being sent back to search is recoverable.
+    """
+    nowhere = "None of those are passages from a search. Search first."
+    assert refused(fixture.library.offer_positions(271, [999_999])) == nowhere
+    assert refused(fixture.library.offer_positions(271, [])) == nowhere
+
+
+def test_only_the_four_it_thought_likeliest_go_on_the_screen(
+    fixture: Fixture,
+) -> None:
+    """Four is what somebody half awake can compare without scrolling back.
+
+    Which four is the model's business — it ranked them, and the ones it named
+    last are the ones that go. The order it named them in is spent on that cut
+    and then thrown away, because the screen wants a timeline.
+    """
+    named = [
+        chunk_at(fixture, 300_000),
+        add_passage(fixture, 0, "one more passage in the meadow", 20_000),
+        add_passage(fixture, 0, "another passage in the meadow", 21_000),
+        add_passage(fixture, 0, "a third passage in the meadow", 22_000),
+        add_passage(fixture, 0, "the passage it thought least likely", 23_000),
+    ]
+    offer = offered(fixture.library.offer_positions(271, named))
+
+    assert len(offer.places) == CANDIDATE_MAX
+    assert [p.start_ms for p in offer.places] == [20_000, 21_000, 22_000, 300_000]
+    assert named[4] not in [p.chunk_id for p in offer.places]
+
+
+def test_a_long_passage_is_cut_to_something_a_row_can_hold(fixture: Fixture) -> None:
+    """Enough to recognise a moment by, not a page of the book on a menu.
+
+    The ellipsis goes on only where something was really cut, so a row that
+    ends in one is telling the truth about there being more, and never at the
+    front: on a screen built around withholding things, a leading "…" would
+    suggest the beginning had been taken away too.
+    """
+    whole = " ".join(["the meadow and the pond and the long grass"] * 12)
+    long_one = add_passage(fixture, 0, whole, 20_000)
+    short_one = chunk_at(fixture, 10_000)
+    offer = offered(fixture.library.offer_positions(271, [long_one, short_one]))
+
+    cut = next(p for p in offer.places if p.chunk_id == long_one).text
+    assert len(cut) <= CANDIDATE_TEXT_CHARS + 1
+    assert cut.endswith("…")
+    assert not cut.startswith("…")
+    # A whole word, and the book's own words up to that point rather than a
+    # paraphrase of them.
+    assert whole.startswith(cut[:-1])
+    assert whole[len(cut) - 1] == " "
+    # And a passage that fits is left exactly as the book has it, with nothing
+    # to suggest anything was held back.
+    assert next(p for p in offer.places if p.chunk_id == short_one).text == (
+        "the meadow with the pond"
+    )
+
+
+def test_a_place_in_a_chapter_with_no_name_is_still_a_place(fixture: Fixture) -> None:
+    """An absence, not an error: the row simply reads "Ch 10"."""
+    nameless = add_passage(fixture, 9, "somewhere in a chapter with no row", 20_000)
+    offer = offered(
+        fixture.library.offer_positions(271, [nameless, chunk_at(fixture, 10_000)])
+    )
+    assert next(p for p in offer.places if p.chunk_id == nameless).chapter_title == ""
+
+
+def test_the_same_place_named_twice_is_one_row(fixture: Fixture) -> None:
+    """Two rows that go to the same second are a question with no answer.
+
+    The two searches behind one of these use different limits and are each
+    truncated, so a passage can genuinely come back from both of them.
+    """
+    here, later = chunk_at(fixture, 10_000), chunk_at(fixture, 300_000)
+    offer = offered(fixture.library.offer_positions(271, [here, later, here]))
+    assert [p.chunk_id for p in offer.places] == [here, later]
+
+
+def test_offering_a_book_that_is_not_here_says_so_rather_than_raising(
+    fixture: Fixture,
+) -> None:
+    """A sentence is more use than a traceback, here as everywhere else."""
+    assert refused(
+        fixture.library.offer_positions(999, [chunk_at(fixture, 10_000)])
+    ) == ("There is no book 999 here.")
+
+
+def test_a_book_they_have_never_started_draws_no_you_are_here(
+    fixture: Fixture,
+) -> None:
+    """Nobody is at 0:00:00, so the row is left off rather than invented.
+
+    The page draws no marker at all instead of putting them at the beginning of
+    a book they have not begun, which would be a place they are not.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = NULL WHERE gid = 271")
+    offer = offered(
+        fixture.library.offer_positions(
+            271, [chunk_at(fixture, 10_000), chunk_at(fixture, 300_000)]
+        )
+    )
+    assert offer.position_ms is None
+
+
+def test_asking_which_place_they_meant_changes_nothing_at_all(
+    fixture: Fixture,
+) -> None:
+    """An offer is a question. Nothing has moved and nothing has been heard.
+
+    ``heard_to_ms`` above all: it rises only from audio that really came out of
+    the speaker, and showing somebody a list of places they have not been is
+    not having been there. If drawing the list raised it, every list would
+    widen the next search past where they had listened, and the guard would
+    unwind itself one question at a time — which is the one failure in this
+    project that cannot be undone in the morning.
+    """
+    before = night(fixture)
+    offered(
+        fixture.library.offer_positions(
+            271, [chunk_at(fixture, 10_000), chunk_at(fixture, 700_000)]
+        )
+    )
+    assert night(fixture) == before
+
+    # And a refused one is no different: it writes nothing either, and there is
+    # nothing left behind for the next question to trip over.
+    refused(fixture.library.offer_positions(271, [chunk_at(fixture, 10_000)]))
+    assert night(fixture) == before
+
+
+def test_a_passage_with_no_word_boundary_to_cut_on_is_still_cut(
+    fixture: Fixture,
+) -> None:
+    """Chunk text comes out of a rendering pipeline, not out of a proof-reader.
+
+    A run of characters longer than a whole row has no space to cut at, and
+    handing the row an empty string would say nothing at all — so it is cut
+    where it has to be. Something they can recognise the place by beats nothing
+    they can read.
+    """
+    unbroken = "x" * (CANDIDATE_TEXT_CHARS * 2)
+    long_one = add_passage(fixture, 0, unbroken, 20_000)
+    offer = offered(
+        fixture.library.offer_positions(271, [long_one, chunk_at(fixture, 10_000)])
+    )
+
+    cut = next(p for p in offer.places if p.chunk_id == long_one).text
+    assert cut == "x" * CANDIDATE_TEXT_CHARS + "…"
+
+
+def test_a_passage_inside_the_searches_own_slack_is_still_covered_up(
+    fixture: Fixture,
+) -> None:
+    """The two guards are not the same number, and this one is the tighter.
+
+    A search runs to the mark plus a minute, so that the sentence being spoken
+    counts as heard. A row is covered up at the bare mark. So a passage in that
+    minute can be found, offered, and still arrive with its words hidden — the
+    safe direction, and it costs one press.
+    """
+    inside = add_passage(fixture, 1, "a passage inside the minute of slack", 340_000)
+    search = fixture.library.find_passage(271, "a passage inside the minute of slack")
+    assert inside in [p.chunk_id for p in search.hits]
+
+    offer = offered(
+        fixture.library.offer_positions(271, [chunk_at(fixture, 10_000), inside])
+    )
+    assert [(p.start_ms, p.ahead) for p in offer.places] == [
+        (10_000, False),
+        (340_000, True),
+    ]
+
+
+def test_a_book_they_have_finished_still_covers_up_what_they_never_heard(
+    fixture: Fixture,
+) -> None:
+    """Reaching the end is not the same as having listened to all of it.
+
+    Being finished switches the search bound off, because there is nothing left
+    to spoil in a book you have heard. The mark says otherwise: it rises only
+    from audio that really played, so a book skipped to the end still has hours
+    behind it that nobody heard. This rule has no modes and never turns off.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = 900000 WHERE gid = 271")
+    assert fixture.library.find_passage(271, "anything").searched_to_ms is None
+
+    offer = offered(
+        fixture.library.offer_positions(
+            271, [chunk_at(fixture, 10_000), chunk_at(fixture, 700_000)]
+        )
+    )
+    assert [(p.start_ms, p.ahead) for p in offer.places] == [
+        (10_000, False),
+        (700_000, True),
+    ]

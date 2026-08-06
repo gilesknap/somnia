@@ -29,6 +29,10 @@ const sleepButton = document.getElementById("sleep");
 const playpause = document.getElementById("playpause");
 const back30 = document.getElementById("back30");
 const fwd30 = document.getElementById("fwd30");
+const candidates = document.getElementById("candidates");
+const candidatesBook = document.getElementById("candidates-book");
+const candidateList = document.getElementById("candidate-list");
+const candidatesCancel = document.getElementById("candidates-cancel");
 
 // One conversation per launch of the app. The server holds the history; this
 // is only the name it goes by.
@@ -65,6 +69,11 @@ function buzz(ms) {
 
 async function ask(text) {
   if (!text) return;
+  // Whatever the last answer offered is about a question that is over. Leaving
+  // it up would put a list of places over a conversation that has moved on, and
+  // the row they pressed would be an answer to the question above the one they
+  // are looking at.
+  closeCandidates();
   say(text, "you");
   question.value = "";
   const pending = say("…", "agent pending");
@@ -84,10 +93,20 @@ async function ask(text) {
     if (!response.ok) throw new Error(body.error || "no answer");
     pending.className = "said agent";
     pending.textContent = body.reply || "…nothing to say.";
-    // The turn moved the book. This is the short way round — the same move
-    // arrives as the refusal of the next report within fifteen seconds — so it
-    // is only ever a head start, and applying it twice costs nothing.
-    follow(body.move);
+    // An answer does one of two things and never both. Either the turn knew
+    // where they meant and moved the book — the short way round, since the same
+    // move arrives as the refusal of the next report within fifteen seconds, so
+    // it is only ever a head start and applying it twice costs nothing — or it
+    // did not, and hands back the places it is choosing between for them to
+    // decide.
+    //
+    // Both cannot arrive: the move_to tool refuses to run at all once a turn
+    // has offered a list, and the server writes "move" only when there is no
+    // "candidates". If they ever did, the list wins, because nothing has been
+    // moved under a listener who has not chosen yet — and a move that really
+    // happened comes back as the refusal of the next report anyway.
+    if (body.candidates?.places?.length) showCandidates(body.candidates);
+    else follow(body.move);
   } catch (error) {
     pending.className = "said failed";
     pending.textContent = "Couldn't reach somnia. Still here?";
@@ -111,6 +130,10 @@ restart.addEventListener("click", async () => {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ token: stale }),
   }).catch(() => {});
+  // A list left up over a cleared transcript is exactly the stranding this page
+  // promises cannot happen: an overlay offering places, with nothing behind it
+  // to say what was asked or why.
+  closeCandidates();
   transcript.replaceChildren();
   setStatus("");
   say("Where do you want to be?", "agent");
@@ -391,6 +414,12 @@ function showChapter({ idx, chapter, offset_ms }, { play }) {
 // bit" in a book that only happens to be stored as separate files.
 function seekGlobal(ms, { play = null } = {}) {
   if (!manifest) return;
+  // The book is going somewhere, so a list of places it might go is answered
+  // however it got here — a row, a thumb on −30, the lock screen, or the agent
+  // moving the book by the other route while they were still reading. A list
+  // left up over a book that has since moved offers rows whose "you are here"
+  // is a lie, and the next press acts on it.
+  closeCandidates();
   // Somebody meant this — a thumb, a lock screen, or the agent. Whatever
   // happens next is worth recording, even if they never press play.
   untouched = false;
@@ -723,6 +752,35 @@ async function rememberTheSentence() {
   }
 }
 
+// The listener waiting for a touch anywhere on the page, or null. Its
+// truthiness is the whole of "armed" — a second flag is a second thing to keep
+// in step with it, and the one that goes stale is the one that starts the book
+// under somebody.
+//
+// It is a named function held in a variable rather than the anonymous
+// once-listener this used to be, purely so it can be taken off again. The
+// candidate list is why: a real 2am sequence is app backgrounded, play refused,
+// question asked, list arrives, cancel pressed — and with an unremovable
+// listener the press that was meant to change nothing starts the book. Cancel
+// puts it back afterwards, because by then it is true again.
+let tapToResume = null;
+
+function armTapToResume() {
+  if (tapToResume) return;
+  setStatus("tap anywhere to carry on");
+  tapToResume = () => {
+    tapToResume = null;
+    ensurePlaying();
+  };
+  document.addEventListener("pointerdown", tapToResume, { once: true });
+}
+
+function disarmTapToResume() {
+  if (!tapToResume) return;
+  document.removeEventListener("pointerdown", tapToResume);
+  tapToResume = null;
+}
+
 function onPlayRejected(error) {
   // Two unlike failures arrive here. NotAllowedError is the autoplay policy:
   // the sound is welcome, it just wants a touch first, and offering that is
@@ -735,10 +793,7 @@ function onPlayRejected(error) {
   // the next thing they touch, which at 2am is the question box.
   console.error(error);
   if (error?.name !== "NotAllowedError") return;
-  setStatus("tap anywhere to carry on");
-  document.addEventListener("pointerdown", () => ensurePlaying(), {
-    once: true,
-  });
+  armTapToResume();
 }
 
 // --------------------------------------------------------------- getting back
@@ -1271,6 +1326,11 @@ function applyReply(body) {
     // The book is not in the database any more. Whatever is still in the
     // element can play out, but there is nothing left to write to.
     setStatus("that book isn't here any more");
+    // And a list of places in it is a list of promises the page can no longer
+    // keep: every row would go and fetch a book that has been deleted and come
+    // back with "couldn't reach that book". Only when it is that book's list —
+    // an offer about some other book is still perfectly good.
+    if (offered?.gid === body.gid) closeCandidates();
     gid = null;
   }
 }
@@ -1300,6 +1360,259 @@ function follow(move) {
   // They asked to be taken somewhere, so take them there and play it.
   // Reproducing "now press play yourself" in JavaScript would be a joke.
   seekGlobal(move.position_ms, { play: true });
+}
+
+// ------------------------------------------------------- where do you mean?
+
+// Some questions have more than one answer, and the old way of saying so was a
+// conversation: "did you mean the one an hour in, or the one at four hours?"
+// read in the dark, by someone half asleep, and answered by typing. This is
+// that conversation as a list of times a thumb can point at.
+//
+// It is an overlay and not a screen. The book plays underneath the whole time,
+// nothing has been moved, nothing has been written, and every way out leaves
+// the page in a state it was already able to be in. Choosing a row is a seek —
+// the same code path as −30, made by the same person — and not a request to the
+// server: a chosen row bumps no position_seq, so routing it through follow()
+// with an invented count would either do nothing at all or leave this page
+// holding a number the database has never had, after which every report for the
+// rest of the night is refused and the refusal drags them backwards. The server
+// finds out at once anyway, by the route every other seek takes: the element
+// fires `seeked` and sendPosition("seek") goes out behind it.
+//
+// The words matter more than the times. Half of the point of a list rather than
+// a sentence is that they read the book's own sentence and recognise it — but a
+// place they have not reached yet cannot show its words, or its chapter title
+// ("How Ginger Died" is as much of a spoiler as the paragraph under it), so
+// those rows say only when they are and that they are ahead, and offer a second
+// press to find out more. Going somewhere and finding out what is there are
+// different decisions and they are different buttons.
+
+// The offer currently on screen, or null. It holds the only copy of the words
+// of any place they have not heard yet, which is why it is a variable and not a
+// rendered thing: those words are never written into the DOM until the reveal
+// press, never put in storage, never logged, never passed to say(), and are
+// gone from the page entirely the moment the list closes. Not persisted for the
+// same reason — a page discarded with the list up comes back with no list,
+// which is correct, because the only thing worth saving is exactly the thing
+// the reveal control exists to withhold. The question and the answer are still
+// in the transcript, and asking again is one press.
+let offered = null;
+
+// Whether cancel owes the page a tap-to-resume listener, because showing the
+// list took one away. See cancelCandidates.
+let rearmOnCancel = false;
+
+// Where the book is on this book's clock, drawn into the list so that a glance
+// says which rows are behind them and which are ahead. That is the whole point
+// of the row: "ahead" as a word is a claim, and a time among other times is
+// something anyone can check.
+//
+// For the book that is open it is this page's own number, because the page is
+// the player and the server's copy is up to fifteen seconds stale; for a book
+// that is not, it is whatever the server last wrote down. Null means nobody has
+// ever started that book, and then there is no row at all — "never started" and
+// "at 0:00:00" are different answers, and only one of them would be true. A
+// book that is open but untouched reads 0:00:00 here, which is what the clock
+// under the transport says as well, so at worst the two agree.
+function hereTime(list) {
+  return list.gid === gid && manifest ? positionMs : list.position_ms;
+}
+
+function chapterLabel(place, { title }) {
+  const chapter = `Ch ${place.chapter_idx + 1}`;
+  // Ingest numbers chapters from one and so does everybody counting them; the
+  // index in the row is zero-based. A book whose chapters were never titled
+  // gets the number and nothing else rather than a trailing separator.
+  const parts = [chapter];
+  if (title && place.chapter_title) parts.push(place.chapter_title);
+  if (place.ahead) parts.push("ahead");
+  return parts.join(" · ");
+}
+
+function candidateRow(place) {
+  const li = document.createElement("li");
+  li.className = place.ahead ? "candidate ahead" : "candidate";
+
+  const go = document.createElement("button");
+  go.type = "button";
+  go.className = "candidate-go";
+  go.id = `candidate-go-${place.chunk_id}`;
+
+  const when = document.createElement("span");
+  when.className = "candidate-when";
+  when.textContent = timestamp(place.start_ms);
+
+  const where = document.createElement("span");
+  where.className = "candidate-where";
+  where.textContent = chapterLabel(place, { title: !place.ahead });
+
+  const what = document.createElement("span");
+  what.className = "candidate-what";
+  // A place ahead of where they have listened starts with nothing in it at
+  // all — not hidden text, no text. Held in the closure below instead, so that
+  // a screen reader cannot read it out, a selection cannot catch it, a
+  // screenshot cannot contain it and a scroll cannot bring it into view. The
+  // server decided which of those this is; the page does not recompute it and
+  // has no opinion about how far they have listened.
+  if (place.ahead) what.hidden = true;
+  else what.textContent = place.text;
+
+  go.append(when);
+  go.append(where);
+  go.append(what);
+  go.addEventListener("click", () => chooseCandidate(place));
+  li.append(go);
+
+  if (place.ahead) {
+    const show = document.createElement("button");
+    show.type = "button";
+    show.className = "candidate-show";
+    show.id = `candidate-show-${place.chunk_id}`;
+    show.textContent = "show me what's there";
+    // Five writes to this row's own DOM and nothing else in the whole page: no
+    // request, no seek, no report, nothing touched that the spoiler guard
+    // measures. The words came down with the answer and were already in hand,
+    // which is why there is no endpoint here to fetch them from — a general
+    // /api route handing back unheard book text for any chunk id would be a
+    // spoiler oracle one guessed integer wide, sitting there for the life of
+    // the deployment, and it would put a tailnet round trip on the one press
+    // where a control that does nothing for three seconds reads as broken and
+    // gets pressed again — with a list on screen, into a row.
+    show.addEventListener("click", () => {
+      what.textContent = place.text;
+      what.hidden = false;
+      // The title arrives at the same press and never before it.
+      where.textContent = chapterLabel(place, { title: true });
+      show.hidden = true;
+      // It is still ahead of them, and that is what they are deciding about.
+      li.classList.add("revealed");
+    });
+    li.append(show);
+  }
+  return li;
+}
+
+function hereRow(ms) {
+  const li = document.createElement("li");
+  li.className = "candidate here";
+  li.setAttribute("aria-current", "true");
+  const when = document.createElement("span");
+  when.className = "candidate-when";
+  when.textContent = timestamp(ms);
+  const where = document.createElement("span");
+  where.className = "candidate-where";
+  where.textContent = "you are here";
+  li.append(when);
+  li.append(where);
+  return li;
+}
+
+function showCandidates(list) {
+  offered = list;
+  candidateList.replaceChildren();
+
+  // Which book, but only when it is not the one playing.
+  const elsewhere = list.gid !== gid;
+  candidatesBook.textContent = elsewhere ? `in ${list.title}` : "";
+  candidatesBook.hidden = !elsewhere;
+
+  const rows = list.places.map(candidateRow);
+  const here = hereTime(list);
+  if (typeof here === "number") {
+    // Spliced in among them in book order, which is the only arrangement that
+    // answers the question the list is for without reading a word: everything
+    // below this line has not happened yet. The server sorted the places; this
+    // is the one row the page decides the place of, and it is painted once and
+    // never updated — a number moving under a finger is worse than a number
+    // that is a moment old.
+    const at = list.places.findIndex((place) => place.start_ms > here);
+    rows.splice(at < 0 ? rows.length : at, 0, hereRow(here));
+  }
+  for (const row of rows) candidateList.append(row);
+
+  candidates.hidden = false;
+  // Giving focus up, never taking it. The keyboard is up on exactly the turns
+  // that produce a list — they just typed a question — and half the screen
+  // being keyboard is how the cancel button ends up somewhere a thumb cannot
+  // reach. Nothing here calls focus() on anything: this page does not move the
+  // cursor around under people.
+  question.blur?.();
+  // A book waiting for a touch before it will make a sound would otherwise
+  // start on the first press anywhere on this overlay — a row, a reveal, or
+  // cancel. Cancel especially: the one control that promises to change nothing
+  // would have started the night. Taken off while the list is up and given back
+  // by cancel, which is the only way out that leaves the page as it found it.
+  rearmOnCancel = tapToResume !== null;
+  disarmTapToResume();
+}
+
+// The inert close. Everything that takes the list down goes through here, and
+// it does nothing but forget: no seek, no report, no request, nothing said, and
+// nothing touched that the spoiler guard or the sleep timer can see.
+function closeCandidates() {
+  candidates.hidden = true;
+  // The rows, and with them any words a reveal press put on the screen.
+  candidateList.replaceChildren();
+  // And the words it did not: the only other copy in the page.
+  offered = null;
+}
+
+// Cancel, and only cancel. It is three assignments and at most one listener put
+// back, and that is the whole of it: no move, no report, no seq bump, no write
+// to Audiobookshelf, and nothing said on the status line.
+//
+// What it deliberately does not undo, because none of it was the list's doing:
+// a sleep fade running underneath keeps running, and if it finishes the book
+// still goes quiet and still says goodnight — the night was already ending and
+// a question about where to go did not change that, so putting the question
+// away must not either. Nor does it give back the countdown, which has been
+// running the whole time the list was up because the book was playing and they
+// were listening to it. A list left up long enough ends the night by itself.
+// That looks like a bug and is not one.
+function cancelCandidates() {
+  const rearm = rearmOnCancel;
+  rearmOnCancel = false;
+  closeCandidates();
+  // True before the list went up and true again now: the book is still paused,
+  // still waiting for a touch, and the line that said so was taken down with
+  // the listener rather than left lying.
+  if (rearm) armTapToResume();
+}
+
+candidatesCancel.addEventListener("click", cancelCandidates);
+
+// A row is a seek somebody made, in the book they made it in.
+async function chooseCandidate(place) {
+  const list = offered;
+  if (!list) return;
+  // First, so that nothing between here and the seek can leave a list of places
+  // over a book that has already gone to one of them.
+  closeCandidates();
+  if (list.gid === gid && manifest) {
+    if (place.start_ms > manifest.total_ms) {
+      // The manifest is older than the render: this book grew while the page
+      // was holding a photograph of it, and seeking would clamp them to the
+      // frontier instead. Only in that case — an unconditional refresh would
+      // put a network round trip in front of every press, which is the one
+      // thing a transport action on this page never does. The seek happens
+      // either way: a refresh that failed leaves them where the page thinks
+      // the book ends, which is still nearer than not moving at all.
+      await refreshManifest().catch(() => {});
+    }
+    seekGlobal(place.start_ms, { play: true });
+    return;
+  }
+  // Another book, which has had nothing written to it: `at` is what carries the
+  // chosen place through the switch. If that book is still rendering, openBook
+  // waits for its first chapter and the chosen place is lost — said plainly on
+  // the status line rather than engineered around, because threading a position
+  // through a wait that can last a quarter of an hour is a promise this page
+  // cannot keep.
+  openBook(list.gid, { play: true, at: place.start_ms }).catch((error) => {
+    setStatus("couldn't reach that book");
+    console.error(error);
+  });
 }
 
 // Told once, as the page dies. fetch does not survive teardown — the document
@@ -1344,7 +1657,18 @@ document.addEventListener("visibilitychange", () => {
 // `play` is false at boot and true only when the agent has just moved this
 // book: opening the app at 2am to ask a question must not start the book, but
 // being taken to a passage in a book that was not even open must.
-async function openBook(id, { play = false } = {}) {
+//
+// `at` is where in that book to land, and it exists for exactly one caller: a
+// candidate chosen in a book that is not the one open. Everywhere else the
+// position comes from the manifest, because by the time openBook is called the
+// server has already written it — follow() gets away with opening a book and
+// applying nothing for precisely that reason. A chosen row has had nothing
+// written anywhere, so without this it would land wherever that book was last
+// left. It is applied before the chapter is shown rather than seeked to
+// afterwards: a seek onto an element whose src was assigned a moment ago finds
+// readyState 0 and swaps the chapter a second time, which is two source
+// assignments and the media notification built twice for one press.
+async function openBook(id, { play = false, at = null } = {}) {
   const response = await fetch(`api/book/${id}`);
   if (!response.ok) throw new Error(`no book ${id}`);
   // Held to one side until it is known to be playable. Adopting it before the
@@ -1371,6 +1695,22 @@ async function openBook(id, { play = false } = {}) {
     return;
   }
   stopAwaiting();
+  // This book is really being adopted now, so whichever book the list was drawn
+  // against, it is not the one about to be open — and if it is, the position
+  // those rows were drawn around is about to change. Either way the rows are
+  // stale and the list goes with them.
+  //
+  // It is here and not at the top of the function on purpose. openBook is
+  // called by the two ladders that ask again on a timer — the boot retry and
+  // the wait for a book that is still being read — and neither of those is
+  // somebody doing something. A page booted onto a rendering book holds no book
+  // at all, which is exactly the state a list about some *other* book can be
+  // raised in; from the top of the function, the five-second poll that found
+  // nothing new tore that list out from under a thumb with nothing said, and
+  // then did it again at ten seconds, and twenty, and on every unlock. A call
+  // that adopts nothing must leave the screen alone, and a fetch that failed
+  // must too.
+  closeCandidates();
   if (gid !== null && gid !== opening.gid) sendPartingPosition();
   // Playback belongs to the book it happened in, and this page is starting
   // again from the server's own record of where that book is — which is what
@@ -1383,7 +1723,11 @@ async function openBook(id, { play = false } = {}) {
   manifest = opening;
   gid = opening.gid;
   seq = opening.seq ?? 0;
-  positionMs = opening.position_ms ?? 0;
+  positionMs = at ?? opening.position_ms ?? 0;
+  // Somebody chose this place, which is the same kind of act as a seek and is
+  // worth writing down. Opening a book on its own is still not listening, so
+  // this stays where it is rather than moving up to the top of the function.
+  if (at !== null) untouched = false;
   playerBar.hidden = false;
   showChapter(locate(positionMs), { play });
 }

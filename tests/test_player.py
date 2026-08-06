@@ -20,6 +20,7 @@ from conftest import ToneBook
 from fakes import BrokenAbs, RecordingAbs
 from somnia.abs import AbsClient
 from somnia.player import Player
+from somnia.tools import Library, Offer
 from tone_book import CHAPTERS, GID, TOTAL_MS
 
 
@@ -537,3 +538,46 @@ def test_a_book_audiobookshelf_has_never_seen_is_simply_not_told(
     finally:
         player.close()
     assert abs_client.moves == []
+
+
+def test_a_list_of_places_neither_raises_the_mark_nor_stops_it_rising(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """Both directions, because only one of them is a fix.
+
+    A list of places they might have meant is a question. Nothing has played
+    and nobody has been anywhere, so the mark must not move by a millisecond —
+    if it did, every list would widen the next search past what they have
+    listened to and the guard would unwind itself one question at a time.
+
+    And a mark that has stopped rising is not a guard, it is a book that can
+    never be searched again. So the same night carries on either side of the
+    question: nine seconds of listening before it, nine seconds after, and the
+    mark steps to both. The two assertions belong in one test because a broken
+    guard passes either of them alone.
+    """
+    library = Library(tone_book.cfg, tone_book.conn, embedder=tone_book.embedder)
+    set_heard(tone_book, 0)
+    reported_since(tone_book, 9)
+    assert player.report(GID, 9_000, seq=0, played_ms=9_000).heard_to_ms == 9_000
+
+    places = [
+        int(row["id"])
+        for row in tone_book.conn.execute(
+            "SELECT id FROM chunks WHERE book_gid = ? AND start_ms IN (4000, 20000)"
+            " ORDER BY start_ms",
+            (GID,),
+        )
+    ]
+    offer = library.offer_positions(GID, places)
+    assert isinstance(offer, Offer), offer
+    assert heard(tone_book) == 9_000
+    # Nor did it move them, or count anything: the whole of an offer is reads.
+    row = tone_book.conn.execute(
+        "SELECT position_ms, position_seq FROM books WHERE gid = ?", (GID,)
+    ).fetchone()
+    assert (row["position_ms"], row["position_seq"]) == (9_000, 0)
+
+    reported_since(tone_book, 9)
+    assert player.report(GID, 18_000, seq=0, played_ms=9_000).heard_to_ms == 18_000
+    assert heard(tone_book) == 18_000

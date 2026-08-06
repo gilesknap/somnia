@@ -24,7 +24,17 @@
          screen allows, the conversation in the middle where it is read rather
          than touched, and the two things pressed without looking — the book and
          the microphone — where a hand already holding the phone can find
-         them. -->
+         them.
+
+         The one screen now has one overlay over it — #candidates, at the foot
+         of this file — and it is still the same screen underneath. It is raised
+         only by an answer that is itself a choice ("which of these places did
+         you mean?"), the book keeps playing beneath it, nothing has moved while
+         it is up, and its cancel button puts it away having changed nothing at
+         all. It is not a route and there is nothing to come back from: the ways
+         out are a row, cancel, and the agent moving the book itself, and every
+         one of them leaves the page in a state it already knows how to be
+         in. -->
     <header>
       <h1>somnia</h1>
       <button id="restart" type="button" class="quiet">start over</button>
@@ -120,6 +130,39 @@
         </svg>
       </button>
     </form>
+
+    <!-- Still one screen. This is over the page, not away from it: the book
+         keeps playing underneath, nothing has moved yet, and cancel puts it
+         back exactly as it was. It exists because the alternative was a
+         conversation — "did you mean the one an hour in or the one at four
+         hours?" — read in the dark by someone half asleep, and a list of times
+         is something a thumb can answer without composing a sentence. The three
+         ways out are a row, cancel, and the agent moving the book itself, and
+         each leaves the page in a state it already knows how to be in.
+
+         Last in the document on purpose, for the same reason as everything
+         above it: the DOM and tab order end with the thing a hand reaches for,
+         and while the overlay is up that is cancel.
+
+         Not a <dialog>, and showModal() is never called: a modal dialog moves
+         focus, and this page never takes focus from anybody. role="dialog" and
+         aria-modal are left off for the same reason — aria-modal is a promise
+         that everything behind it is inert, and everything behind it is a book
+         still playing that the lock screen can still stop. -->
+    <section id="candidates" hidden aria-labelledby="candidates-title">
+      <h2 id="candidates-title">Where do you mean?</h2>
+      <!-- Which book, and only when it is not the one already playing. For the
+           book they are listening to, naming it is a line of type spent saying
+           what they already know. -->
+      <p id="candidates-book" hidden></p>
+      <ol id="candidate-list"></ol>
+      <!-- Outside the scrolling list, so however many rows there are the way
+           out is in the same place, at the bottom, where a hand already holding
+           the phone is. -->
+      <div id="candidates-foot">
+        <button id="candidates-cancel" type="button">cancel</button>
+      </div>
+    </section>
 
     <script src="app.js"></script>
   </body>

@@ -21,9 +21,29 @@ from .config import Config
 from .embed import Embedder
 from .index import Passage, find_passage
 
-__all__ = ["Book", "Library", "Moved", "Position"]
+__all__ = [
+    "Book",
+    "Candidate",
+    "Library",
+    "Moved",
+    "Offer",
+    "Position",
+    "Refused",
+]
 
 logger = logging.getLogger(__name__)
+
+# How many places may go on one screen. Four is what somebody half awake can
+# compare without scrolling back up and starting again, and a list they have to
+# re-read is worse than the conversation it replaced. The model ranks; if it
+# names more than this, the ones it thought least likely are the ones dropped.
+CANDIDATE_MAX = 4
+
+# How much of a passage goes on a row. Enough to recognise a moment by, not
+# enough to read a page of the book off a list of places you might go — and the
+# rows have to stay short enough that four of them plus "you are here" fit on a
+# phone held above a face in the dark.
+CANDIDATE_TEXT_CHARS = 240
 
 
 @dataclass
@@ -43,13 +63,79 @@ class Search:
     ``better_ahead`` is the crux: without it, a spoiler-bounded search that
     excludes the answer is indistinguishable from a book that never contained
     it, and the only honest thing left to say is "not found". Knowing that a
-    closer match lies ahead lets the answer be "that is further on than you
-    have got — shall I take you there anyway?", which is the true one.
+    closer match lies ahead lets the answer be the true one instead: there is
+    somewhere further on than you have got, and here is the time of it.
+
+    That used to be asked as a question — "shall I take you there anyway?" —
+    and is now a row on a list, offered by :meth:`Library.offer_positions`,
+    with its words covered up until they ask to see them. The only thing that
+    changed here is what is done with it; it is still one passage, still chosen
+    only when it beats everything in range.
     """
 
     hits: list[Passage]
     searched_to_ms: int | None
     better_ahead: Passage | None
+
+
+@dataclass
+class Candidate:
+    """One place on the list of places they might have meant.
+
+    ``text`` is the book's own words, taken from the chunk that matched, never
+    a description of them: a sentence the model wrote about a passage is a
+    sentence about a passage it may be wrong about, and the whole point of
+    showing the list is that they recognise the moment themselves.
+
+    ``ahead`` says the passage begins at or after the furthest point they have
+    ever reached, and it is decided here, once, by the same code that owns the
+    spoiler guard. The page obeys it and computes nothing: it has never read
+    ``heard_to_ms`` and the copy it holds goes stale over a night, so letting it
+    judge would mean two numbers that can disagree about exactly the rows a
+    mistake matters most on. When it is true the page keeps both these words and
+    ``chapter_title`` off the screen until they ask for them — a Gutenberg
+    chapter heading is as much of a spoiler as the sentence under it.
+    """
+
+    chunk_id: int
+    start_ms: int
+    chapter_idx: int
+    chapter_title: str
+    ahead: bool
+    text: str
+
+
+@dataclass
+class Offer:
+    """A list of places to choose between, and where they are now.
+
+    This is the whole of what the page needs to draw the choice, because the
+    alternative was a conversation — "did you mean the one an hour in or the one
+    at four hours?" — read in the dark by someone half asleep. Nothing has moved
+    when one of these is made: it is a question, and it is answered by a thumb.
+
+    ``position_ms`` is None when they have never started the book, preserving
+    the distinction :meth:`Library.get_position` keeps: nobody is at 0:00:00,
+    and the page draws no "you are here" row at all rather than inventing one.
+    """
+
+    gid: int
+    title: str
+    position_ms: int | None
+    places: list[Candidate]
+
+
+@dataclass
+class Refused:
+    """Why an offer was not made, in words the model can act on.
+
+    Handed back to it verbatim as the tool result, so it reads as an instruction
+    rather than an error: told "search first" it searches, told "move them there
+    instead" it moves them. Nothing reaches the page, which is the point — a
+    refusal that still drew a screen would be a wrong screen.
+    """
+
+    reason: str
 
 
 @dataclass
@@ -277,6 +363,104 @@ class Library:
                 better_ahead = ahead[0]
         return Search(hits=hits, searched_to_ms=before_ms, better_ahead=better_ahead)
 
+    def offer_positions(self, gid: int, chunk_ids: list[int]) -> Offer | Refused:
+        """Build the list of places to put on screen, from passages that matched.
+
+        Reads and nothing else. An offer asks a question, so it must leave the
+        night exactly as it found it: no position, no count, and above all no
+        ``heard_to_ms``, which rises only from audio that really played. Showing
+        somebody a list of places they have not been is not having been there.
+
+        The ids are chunk ids, as :class:`somnia.index.Passage` carries them,
+        and an id that resolves to nothing is dropped rather than rounded to the
+        nearest chunk: a near miss would put words on the screen that are not
+        the passage that matched, which is the one lie this list cannot tell. An
+        id belonging to another book refuses the whole call, because a list is
+        one book's timeline and half of another book's is not a timeline.
+
+        A list of exactly one place they have already heard is refused too. That
+        is not a question — it is a move with a press in front of it, and making
+        them press it at 2am buys nothing. One place they have *not* heard is
+        accepted, because there the press is the whole point: it is what replaced
+        "shall I take you there anyway?".
+        """
+        book = self.book(gid)
+        if book is None:
+            return Refused(f"There is no book {gid} here.")
+
+        # The model's own order, kept: it ranked them, and if it named more than
+        # will fit, the ones it thought least likely are the ones that go.
+        wanted: list[int] = []
+        for chunk_id in chunk_ids:
+            if chunk_id not in wanted:
+                wanted.append(chunk_id)
+
+        rows: list[sqlite3.Row] = []
+        for chunk_id in wanted:
+            row = self._conn.execute(
+                "SELECT id, book_gid, chapter_idx, start_ms, text FROM chunks"
+                " WHERE id = ?",
+                (chunk_id,),
+            ).fetchone()
+            if row is None:
+                continue
+            if int(row["book_gid"]) != gid:
+                return Refused(f"Passage {chunk_id} is not in book {gid}.")
+            rows.append(row)
+        if not rows:
+            return Refused("None of those are passages from a search. Search first.")
+
+        # Read once for the whole offer. Asking per row would let two rows be
+        # judged against different marks if a report landed in between, and the
+        # row that changed its mind would be the one furthest on.
+        heard = self.heard_to_ms(gid)
+        places = [
+            Candidate(
+                chunk_id=int(row["id"]),
+                start_ms=int(row["start_ms"]),
+                chapter_idx=int(row["chapter_idx"]),
+                chapter_title=self._chapter_title(gid, int(row["chapter_idx"])),
+                # Not `>`. A chunk that begins exactly at the mark is the
+                # sentence they have not heard yet, and on a book nobody has
+                # played a second of — heard_to_ms 0, which is every book until
+                # it is played — `>` would print the opening words in the clear.
+                # No slack either: the search bound is the mark plus a minute
+                # (see find_passage), so a passage inside that minute is in
+                # range to be found and still covered up here. That is the safe
+                # direction, and it costs one press.
+                ahead=int(row["start_ms"]) >= heard,
+                text=_shorten(str(row["text"]), CANDIDATE_TEXT_CHARS),
+            )
+            for row in rows[:CANDIDATE_MAX]
+        ]
+        # Sorted for the screen after the ranking has been spent on the cut: the
+        # list is a timeline, and a timeline out of order cannot be read at a
+        # glance, which is the only way it will be read.
+        places.sort(key=lambda place: place.start_ms)
+        if len(places) == 1 and not places[0].ahead:
+            return Refused(
+                "That is one place they have already heard. Move them there instead."
+            )
+        position = self.get_position(gid)
+        return Offer(
+            gid=gid,
+            title=book.title,
+            position_ms=position.position_ms if position is not None else None,
+            places=places,
+        )
+
+    def _chapter_title(self, gid: int, chapter_idx: int) -> str:
+        """What a chapter is called, or "" where there is no such row.
+
+        An absence, not an error. A book whose chapters were never given names
+        still has places worth offering, and the row simply reads "Ch 7".
+        """
+        row = self._conn.execute(
+            "SELECT title FROM chapters WHERE book_gid = ? AND idx = ?",
+            (gid, chapter_idx),
+        ).fetchone()
+        return str(row["title"]) if row is not None else ""
+
     def move_to(self, gid: int, position_ms: int) -> Moved:
         """Take them to a point in the book, and play from there.
 
@@ -336,6 +520,23 @@ class Library:
                 (position_ms, gid),
             ).fetchone()
         return int(row["position_seq"]) if row is not None else None
+
+
+def _shorten(text: str, limit: int) -> str:
+    """A passage cut to a length a row can hold, on a word boundary.
+
+    The ellipsis goes on only when something was actually cut, so a row that
+    ends in one is telling the truth about there being more. There is never a
+    leading one: the words start where the passage starts, and a row that opened
+    with "…" would read as though the beginning had been withheld, which on a
+    screen built around withholding things is precisely the wrong suggestion.
+    """
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0].rstrip()
+    # A single word longer than the whole limit has no boundary to cut on, and
+    # an empty row says nothing at all — so fall back to cutting mid-word.
+    return f"{cut or text[:limit].rstrip()}…"
 
 
 def format_timestamp(ms: int) -> str:

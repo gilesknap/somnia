@@ -112,6 +112,43 @@ export const RENDERING_BOOK = {
   chapters: [],
 };
 
+// A book with the mark somewhere in the middle of it, which is the one shape
+// none of the others have: every book above has been heard to the end or not
+// started at all, and a candidate list is only interesting where some of the
+// places are behind the listener and some are in front. Heard to the end of the
+// first chapter, of two, with the position a little way behind that — so the
+// "you are here" row has rows on both sides of it, and the boundary either side
+// of the mark is also a boundary between two chapter titles, which is what makes
+// a title withheld and a title shown tellable apart. The page never reads
+// heard_to_ms; it is here so the tests can work out what the server would have
+// said about each place.
+export const HALF_HEARD = {
+  gid: 900005,
+  title: "Half Heard",
+  authors: "Somnia Test",
+  status: "done",
+  total_ms: 3_600_000,
+  position_ms: 1_000_000,
+  seq: 2,
+  heard_to_ms: 1_800_000,
+  chapters: [
+    {
+      idx: 0,
+      title: "What They Have Heard",
+      start_ms: 0,
+      end_ms: 1_800_000,
+      url: "api/audio/900005/0",
+    },
+    {
+      idx: 1,
+      title: "What They Have Not",
+      start_ms: 1_800_000,
+      end_ms: 3_600_000,
+      url: "api/audio/900005/1",
+    },
+  ],
+};
+
 // A book somebody could actually fall asleep in. The tone book is twenty-four
 // seconds long — shorter than the shortest rewind and a four-hundredth of the
 // shortest sleep timer — so anything measured in minutes needs a book measured
@@ -144,7 +181,7 @@ export const NIGHT_BOOK = {
 };
 
 const MANIFESTS = new Map(
-  [TONE_BOOK, OTHER_BOOK, RENDERING_BOOK, NIGHT_BOOK].map((m) => [
+  [TONE_BOOK, OTHER_BOOK, RENDERING_BOOK, NIGHT_BOOK, HALF_HEARD].map((m) => [
     `api/book/${m.gid}`,
     m,
   ]),
@@ -252,14 +289,26 @@ class FakeSession {
   }
 }
 
+// Enough of a DOM node to build a list of places out of, and no more.
+//
+// It grew children the day the page started making them. Everything the page
+// draws was a string in an element it was handed at boot until the candidate
+// list, which is built node by node — so a fake whose append() threw its
+// argument away could not be asked what is on the screen, which is the only
+// question worth asking about a list of places to jump to. `registry` is how a
+// created node gets found again: the page gives each pressable one an id, and a
+// getElementById that auto-vivified a fresh object for that id would hand a test
+// a different element from the one it is looking at.
 class FakeElement {
-  constructor(id) {
-    this.id = id;
+  constructor(id, registry = null) {
+    this.registry = registry;
     this.handlers = {};
     this.textContent = "";
     this.hidden = false;
     this.attributes = {};
     this.style = {};
+    this.children = [];
+    this.parent = null;
     // Which half of the play button is showing is a class rather than a glyph,
     // so a class list that can be read back is how a test sees the transport.
     this.classes = new Set();
@@ -272,14 +321,45 @@ class FakeElement {
           ? this.classes.add(name)
           : this.classes.delete(name),
     };
+    this.id = id;
   }
 
-  addEventListener(type, fn) {
-    (this.handlers[type] ||= []).push(fn);
+  get id() {
+    return this._id;
+  }
+
+  set id(value) {
+    this._id = value;
+    if (value && this.registry) this.registry.set(value, this);
+  }
+
+  get className() {
+    return [...this.classes].join(" ");
+  }
+
+  set className(value) {
+    this.classes = new Set(String(value).split(/\s+/).filter(Boolean));
+  }
+
+  // `once` is honoured because one listener in the page depends on it: the tap
+  // that lets a refused play through arms itself for a single press, and a fake
+  // that fired it twice would test a page no browser runs.
+  addEventListener(type, fn, options = {}) {
+    (this.handlers[type] ||= []).push({ fn, once: Boolean(options?.once) });
+  }
+
+  removeEventListener(type, fn) {
+    const list = this.handlers[type];
+    if (!list) return;
+    const at = list.findIndex((entry) => entry.fn === fn);
+    if (at >= 0) list.splice(at, 1);
   }
 
   fire(type, event = {}) {
-    for (const fn of [...(this.handlers[type] || [])]) fn(event);
+    for (const entry of [...(this.handlers[type] || [])]) {
+      if (entry.once) this.removeEventListener(type, entry.fn);
+      entry.fn(event);
+    }
   }
 
   setAttribute(name, value) {
@@ -290,17 +370,35 @@ class FakeElement {
     return this.attributes[name] ?? null;
   }
 
-  append() {}
-  replaceChildren() {}
+  append(...nodes) {
+    for (const node of nodes) {
+      node.parent = this;
+      this.children.push(node);
+    }
+  }
+
+  replaceChildren(...nodes) {
+    for (const child of this.children) child.parent = null;
+    this.children = [];
+    this.append(...nodes);
+  }
+
+  remove() {
+    const at = this.parent ? this.parent.children.indexOf(this) : -1;
+    if (at >= 0) this.parent.children.splice(at, 1);
+    this.parent = null;
+  }
+
   focus() {}
+  blur() {}
 }
 
 // One <audio> element for the life of the page, as index.html insists on. The
 // events below are fired in the order a browser fires them, and the comments
 // say which part of the spec each one is standing in for.
 class FakeAudio extends FakeElement {
-  constructor(order, clock) {
-    super("player");
+  constructor(order, clock, registry) {
+    super("player", registry);
     this.order = order;
     this.clock = clock;
     this._src = "";
@@ -478,6 +576,15 @@ globalThis.__page = {
     fading: fade !== null,
     sleepLeftMs,
     volume: player.volume,
+    // Whether a list of places is over the page, and how many of the ones on it
+    // have been asked to show their words. Both belong in the probe rather than
+    // beside it: what cancel promises is that everything else in this object is
+    // the same afterwards, and a promise about "everything else" needs the two
+    // things that are allowed to change to be in the same place as the rest.
+    candidatesUp: !candidates.hidden,
+    revealed: candidateList.children.filter((li) =>
+      li.classList.contains("revealed"),
+    ).length,
   }),
   seekGlobal,
   openBook,
@@ -505,6 +612,7 @@ export async function boot(t, options = {}) {
     reply = { accepted: true },
     sentenceStart = null,
     stored = {},
+    answer = { reply: "…" },
   } = options;
 
   // Everything the element and the media session did, in the order they did
@@ -512,12 +620,13 @@ export async function boot(t, options = {}) {
   const order = [];
   const clock = new FakeClock();
   const session = new FakeSession(order);
-  const audio = new FakeAudio(order, clock);
+  const elements = new Map();
+  const audio = new FakeAudio(order, clock, elements);
   const localStorage = new FakeStorage(stored);
+  const sessionStorage = new FakeStorage();
 
-  const elements = new Map([["player", audio]]);
   const el = (id) => {
-    if (!elements.has(id)) elements.set(id, new FakeElement(id));
+    if (!elements.has(id)) elements.set(id, new FakeElement(id, elements));
     return elements.get(id);
   };
 
@@ -525,7 +634,9 @@ export async function boot(t, options = {}) {
   const posts = [];
   const beacons = [];
   const sentenceAsks = [];
+  const asks = [];
   let positionReply = reply;
+  let askReply = answer;
   let holding = false;
   let dropping = false;
   const held = [];
@@ -534,6 +645,13 @@ export async function boot(t, options = {}) {
   const fakeDocument = new FakeElement("document");
   fakeDocument.getElementById = el;
   fakeDocument.visibilityState = "visible";
+  // Made without an id, so nothing is registered until the page gives it one —
+  // which it does for every node a thumb can land on, and for none of the rest.
+  fakeDocument.createElement = (tag) => {
+    const node = new FakeElement(null, elements);
+    node.tagName = String(tag).toUpperCase();
+    return node;
+  };
 
   // Cleared when the test ends. The page has no idea it is in one, and it is
   // entitled to be waiting five seconds for a chapter that will never come.
@@ -544,7 +662,7 @@ export async function boot(t, options = {}) {
     document: fakeDocument,
     window: fakeWindow,
     localStorage,
-    sessionStorage: new FakeStorage(),
+    sessionStorage,
     crypto: { randomUUID: () => "test-token" },
     Blob: FakeBlob,
     MediaMetadata: FakeMediaMetadata,
@@ -579,6 +697,13 @@ export async function boot(t, options = {}) {
         });
       }
       if (MANIFESTS.has(url)) return json(MANIFESTS.get(url));
+      // The agent, stood in for by whatever the test decided it would say. The
+      // question is kept because half of what the page owes a turn is that the
+      // right one was asked, and that a conversation started over is not.
+      if (url === "api/ask") {
+        asks.push(JSON.parse(init.body));
+        return json(typeof askReply === "function" ? askReply() : askReply);
+      }
       if (url.startsWith("api/sentence/")) {
         sentenceAsks.push(url);
         return json({ start_ms: sentenceStart });
@@ -634,6 +759,8 @@ export async function boot(t, options = {}) {
     beacons,
     fetches,
     sentenceAsks,
+    asks,
+    storageSession: sessionStorage,
     settle,
     tick: (ms) => clock.tick(ms),
     probe: () => plain(context.__page.probe()),
@@ -651,6 +778,18 @@ export async function boot(t, options = {}) {
     ),
     click: (id) => el(id).fire("click"),
     press: (...args) => session.press(...args),
+    // Typing a question and pressing send, which is the only way into ask() and
+    // therefore the only way a list of places ever reaches the screen. Four
+    // turns of the queue: the post, its body, and whatever the answer set off.
+    ask: async (text) => {
+      el("question").value = text;
+      el("composer").fire("submit", { preventDefault() {} });
+      for (let turn = 0; turn < 4; turn++) await settle();
+    },
+    // What the agent will say to the next question.
+    answers: (body) => {
+      askReply = body;
+    },
     reply: (answer) => {
       positionReply = answer;
     },
