@@ -81,6 +81,10 @@ async function ask(text) {
     if (!response.ok) throw new Error(body.error || "no answer");
     pending.className = "said agent";
     pending.textContent = body.reply || "…nothing to say.";
+    // The turn moved the book. This is the short way round — the same move
+    // arrives as the refusal of the next report within fifteen seconds — so it
+    // is only ever a head start, and applying it twice costs nothing.
+    follow(body.move);
   } catch (error) {
     pending.className = "said failed";
     pending.textContent = "Couldn't reach somnia. Still here?";
@@ -591,15 +595,28 @@ function applyReply(body) {
   }
 }
 
-// Somewhere else decided where the book should be. Until a reply to a question
-// carries the move itself, this is the one route it arrives by: the refusal of
-// the next heartbeat. Both routes are meant to end up here, and applying a move
-// twice is a no-op, so whichever gets here first wins and losing one costs
-// nothing.
+// The agent decided where the book should be. It arrives by two routes — the
+// reply to the question that caused it, and the refusal of the next report —
+// and they are the same function because whichever gets here first should win
+// and losing either should cost nothing.
 function follow(move) {
-  if (!move || typeof move.seq !== "number" || move.seq <= seq) return;
+  if (!move || typeof move.seq !== "number") return;
+  if (move.gid !== gid) {
+    // A different book. The move was written before the answer came back, so
+    // that book's manifest already carries the new position and the new count:
+    // opening it *is* following it, and there is nothing else to apply.
+    openBook(move.gid, { play: true }).catch((error) => {
+      setStatus("couldn't reach that book");
+      console.error(error);
+    });
+    return;
+  }
+  // Our own book. Our reports never raise the count, so a number higher than
+  // the one we hold can only be a move this page has not applied — and one that
+  // is not higher has already been applied by the other route.
+  if (move.seq <= seq) return;
   seq = move.seq;
-  if (move.gid !== gid || typeof move.position_ms !== "number") return;
+  if (typeof move.position_ms !== "number") return;
   // They asked to be taken somewhere, so take them there and play it.
   // Reproducing "now press play yourself" in JavaScript would be a joke.
   seekGlobal(move.position_ms, { play: true });
@@ -626,7 +643,10 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") sendPosition("hidden");
 });
 
-async function openBook(id) {
+// `play` is false at boot and true only when the agent has just moved this
+// book: opening the app at 2am to ask a question must not start the book, but
+// being taken to a passage in a book that was not even open must.
+async function openBook(id, { play = false } = {}) {
   const response = await fetch(`api/book/${id}`);
   if (!response.ok) throw new Error(`no book ${id}`);
   manifest = await response.json();
@@ -639,9 +659,7 @@ async function openBook(id) {
   seq = manifest.seq ?? 0;
   positionMs = manifest.position_ms ?? 0;
   playerBar.hidden = false;
-  // Never play on load. Opening the app at 2am to ask a question must not
-  // start the book.
-  showChapter(locate(positionMs), { play: false });
+  showChapter(locate(positionMs), { play });
 }
 
 async function openTheBook() {

@@ -8,6 +8,7 @@ from starlette.testclient import TestClient
 from conftest import ToneBook
 from fakes import RecordingAbs
 from somnia import server
+from somnia.agent import Turn
 from somnia.config import Config
 from somnia.db import connect
 from somnia.tools import Library
@@ -22,9 +23,24 @@ class FakeConversation:
     def __init__(self, cfg: Config, library: Library) -> None:
         self.turns: list[str] = []
 
-    def ask(self, question: str) -> str:
+    def ask(self, question: str) -> Turn:
         self.turns.append(question)
-        return f"{len(self.turns)}: {question}"
+        return Turn(reply=f"{len(self.turns)}: {question}")
+
+
+class MovingConversation:
+    """A turn that moves the book, without a model deciding to.
+
+    It moves through the real tool layer rather than writing the row itself, so
+    what the page is told comes from the same place a real move would put it.
+    """
+
+    def __init__(self, cfg: Config, library: Library) -> None:
+        self._library = library
+
+    def ask(self, question: str) -> Turn:
+        moved = self._library.move_to(GID, 12_000)
+        return Turn(reply="You're back at the fair.", move=moved)
 
 
 @pytest.fixture
@@ -110,6 +126,36 @@ def test_the_chat_page_is_served_from_the_package(client: TestClient) -> None:
     assert "somnia" in page.text
     assert client.get("/manifest.webmanifest").status_code == 200
     assert client.get("/sw.js").status_code == 200
+
+
+def test_a_turn_that_moved_the_book_tells_the_page_where_to_go(
+    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The head start. Without it the page waits for its next report to be
+    refused, which is up to fifteen seconds of nothing happening after being
+    told it had.
+
+    The count travels with the position because a page that took one without the
+    other would have its very next report refused, and the refusal would drag it
+    back here after it had already played on.
+    """
+    monkeypatch.setattr(server, "Conversation", MovingConversation)
+    with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
+        status, body = ask(client, "take me back to the fair")
+
+    assert status == 200
+    assert body == {
+        "reply": "You're back at the fair.",
+        "move": {"gid": GID, "position_ms": 12_000, "seq": 1},
+    }
+
+
+def test_a_turn_that_moved_nothing_says_nothing_about_moving(
+    client: TestClient,
+) -> None:
+    """The page reads the key's presence, so an empty one would be a move."""
+    status, body = ask(client, "how far am I?")
+    assert (status, body) == (200, {"reply": "1: how far am I?"})
 
 
 def test_old_conversations_are_dropped_rather_than_kept_for_ever(

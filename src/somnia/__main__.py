@@ -94,7 +94,7 @@ def main(args: Sequence[str] | None = None) -> None:
             question = ns.question or input("> ").strip()
             if not question:
                 break
-            print(conversation.ask(question))
+            print(conversation.ask(question).reply)
             if ns.question:
                 break
     elif ns.command == "serve":

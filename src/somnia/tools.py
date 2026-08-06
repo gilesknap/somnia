@@ -13,7 +13,6 @@ import logging
 import sqlite3
 import subprocess
 import sys
-import time
 from dataclasses import dataclass
 
 from .abs import AbsClient
@@ -22,7 +21,7 @@ from .config import Config
 from .embed import Embedder
 from .index import Passage, find_passage
 
-__all__ = ["Book", "Library", "Position"]
+__all__ = ["Book", "Library", "Moved", "Position"]
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +50,28 @@ class Search:
     hits: list[Passage]
     searched_to_ms: int | None
     better_ahead: Passage | None
+
+
+@dataclass
+class Moved:
+    """What a move did, for the three callers that each want a different part.
+
+    The model reads ``sentence``, and so does the listener on the turns where
+    the model acts and then says nothing. The page gets the numbers: ``gid`` and
+    ``position_ms`` say where to go, and ``seq`` is what stops it being dragged
+    straight back — a page that adopted the position without the count would
+    have its next report refused, and the refusal would carry it back to the
+    move target after it had already played on.
+
+    ``seq`` counts up from zero on every move that lands, so a zero here means
+    no move landed at all: there is no such book, and there is nothing for the
+    page to follow.
+    """
+
+    gid: int
+    position_ms: int
+    seq: int
+    sentence: str
 
 
 @dataclass
@@ -141,18 +162,18 @@ class Library:
     # -------------------------------------------------------------- listening
 
     def _abs_item_id(self, gid: int) -> str:
+        """What Audiobookshelf calls this book, or "" if it has never seen it.
+
+        An absence, not an error. A book somnia rendered before ABS last scanned
+        the library has no item there, and since the page is the player that no
+        longer stops anything — it only means there is nowhere to send the
+        courtesy write.
+        """
         row = self._conn.execute(
             "SELECT abs_item_id FROM books WHERE gid = ?", (gid,)
         ).fetchone()
         item_id: str = row["abs_item_id"] if row else ""
-        if not item_id:
-            raise LookupError(f"book {gid} is not in Audiobookshelf yet")
         return item_id
-
-    def _require_abs(self) -> AbsClient:
-        if self._abs is None:
-            raise LookupError("Audiobookshelf is not configured")
-        return self._abs
 
     def get_position(self, gid: int) -> Position | None:
         """Where the listener left off, and the text at that point.
@@ -239,66 +260,43 @@ class Library:
                 better_ahead = ahead[0]
         return Search(hits=hits, searched_to_ms=before_ms, better_ahead=better_ahead)
 
-    def move_to(self, gid: int, position_ms: int) -> str:
-        """Move the book to a point, so pressing play resumes there.
+    def move_to(self, gid: int, position_ms: int) -> Moved:
+        """Take them to a point in the book, and play from there.
 
         This replaced planting a bookmark. A bookmark is only a signpost: it
-        still has to be found in a list of every other bookmark, in the dark,
-        by someone who is half asleep. Moving the position means the next tap
-        on play is already in the right place.
+        still has to be found in a list of every other bookmark, in the dark, by
+        someone who is half asleep. Moving takes them there instead.
 
-        Where it lands is written into somnia's own database, which is what the
-        page reads and what the page is refused against; Audiobookshelf gets the
-        same number because the app there should not be left behind.
+        One write does the whole job. The row is what the page reads on load and
+        what its reports are refused against, so raising the count beside the
+        position is the move as far as the page is concerned: the next thing it
+        hears back tells it to jump, and it does.
 
-        Any player still holding an open session on this book is ended first.
-        A session is the authority on where the book is while it lasts, so
-        writing underneath a live one is silently undone a few seconds later.
-
-        Then it checks. A player whose session is closed underneath it opens a
-        new one and reports where *it* thinks the book is, which put the
-        position back and made the first attempt of the night look like it did
-        nothing at all. Losing that race once is normal; losing it three times
-        means something is playing that will not be talked out of it, and
-        saying so is more use at 2am than a confident lie.
+        There used to be a fight here — sessions to close, a wait to settle, and
+        three attempts at outlasting a running Audiobookshelf player that kept
+        syncing its own position back over this one. Nothing but the page plays
+        the book now, so there is nobody left to argue with. ABS is told
+        afterwards, out of courtesy, and can fail without anyone noticing.
         """
-        abs_client = self._require_abs()
-        item_id = self._abs_item_id(gid)
-        target_s = position_ms / 1000
-        interrupted = False
+        seq = self._write_position(gid, position_ms)
+        if seq is None:
+            # The model named a book that is not here. Saying so is worth more
+            # at 2am than a traceback, and there is no move for the page to
+            # follow — which a seq of zero is exactly how to say.
+            return Moved(gid, position_ms, 0, f"There is no book {gid} here.")
+        self._tell_abs(gid, position_ms)
+        return Moved(
+            gid=gid,
+            position_ms=position_ms,
+            seq=seq,
+            # Read out verbatim when the model acts and then says nothing, so it
+            # has to stand on its own. It does not say to press play, because
+            # nobody has to any more.
+            sentence=f"Moved to {format_timestamp(position_ms)},"
+            " and it plays from there.",
+        )
 
-        for attempt in range(3):
-            live = abs_client.open_sessions(item_id)
-            interrupted = interrupted or bool(live)
-            for session_id in live:
-                abs_client.close_session(session_id)
-            abs_client.set_position(item_id, target_s)
-
-            # Nothing playing, nothing to argue with: don't make them wait for
-            # a race that cannot happen. A player that was running gets a
-            # couple of seconds to reopen a session and put the book back.
-            if live:
-                time.sleep(self._cfg.move_settle_s)
-            if self._is_at(item_id, target_s):
-                if attempt:
-                    logger.info("move to %d took %d tries", position_ms, attempt + 1)
-                break
-            logger.warning("position was put back after moving to %d", position_ms)
-        else:
-            return (
-                "Something is playing that keeps putting the book back where it"
-                " was. Stop it and ask me again."
-            )
-
-        self._write_position(gid, position_ms)
-        moved = f"Moved to {format_timestamp(position_ms)}."
-        if interrupted:
-            # They will not have heard it stop: the audio already in flight
-            # keeps playing, and only the next press of play starts from here.
-            return f"{moved} A player was running, so it was stopped first."
-        return moved
-
-    def _write_position(self, gid: int, position_ms: int) -> None:
+    def _write_position(self, gid: int, position_ms: int) -> int | None:
         """Record a move where the page will find it, and count it.
 
         The count is the only thing that tells an agent move apart from the
@@ -307,23 +305,36 @@ class Library:
         it has not applied, which is what lets it act on one unconditionally.
 
         ``heard_to_ms`` is deliberately untouched. Being taken back to chapter
-        two must not un-hear chapters three to twenty, or the whole stretch
-        they had already listened to becomes unsearchable for the rest of the
-        night.
+        two must not un-hear chapters three to twenty, or the whole stretch they
+        had already listened to becomes unsearchable for the rest of the night.
+
+        None if there is no such book: the guarded UPDATE returns no row at all,
+        which is the cheapest way to ask and answer in one statement.
         """
         with self._conn:
-            self._conn.execute(
+            row = self._conn.execute(
                 "UPDATE books SET position_ms = ?, position_seq = position_seq + 1,"
-                " position_at = datetime('now') WHERE gid = ?",
+                " position_at = datetime('now') WHERE gid = ?"
+                " RETURNING position_seq",
                 (position_ms, gid),
-            )
+            ).fetchone()
+        return int(row["position_seq"]) if row is not None else None
 
-    def _is_at(self, item_id: str, target_s: float) -> bool:
-        """Did the move stick, or has a player already overwritten it?"""
-        progress = self._require_abs().progress(item_id)
-        if progress is None:
-            return False
-        return abs(float(progress.get("currentTime", 0.0)) - target_s) < 2.0
+    def _tell_abs(self, gid: int, position_ms: int) -> None:
+        """Keep Audiobookshelf's idea of the position in step, if it has one.
+
+        Best effort on purpose. The ABS app is not the player any more, so a
+        write that fails costs nothing tonight, and a book somnia rendered
+        before ABS ever scanned it has no item to write to at all. This must
+        never turn a move that worked into an error at 2am.
+        """
+        item_id = self._abs_item_id(gid)
+        if self._abs is None or not item_id:
+            return
+        try:
+            self._abs.set_position(item_id, position_ms / 1000)
+        except Exception:
+            logger.warning("ABS position write failed; continuing", exc_info=True)
 
 
 def format_timestamp(ms: int) -> str:

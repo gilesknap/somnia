@@ -6,7 +6,7 @@ from typing import cast
 
 import pytest
 
-from fakes import FakeAbs, FakeEmbedder
+from fakes import BrokenAbs, FakeAbs, FakeEmbedder
 from somnia.abs import AbsClient
 from somnia.config import Config
 from somnia.db import connect
@@ -39,7 +39,9 @@ class Fixture:
     library: Library
     conn: sqlite3.Connection
     abs: FakeAbs
-    make_library: Callable[[FakeAbs], Library]
+    # Any stand-in for Audiobookshelf, including one that only knows how to
+    # fail: what a move does when ABS is down is now part of the contract.
+    make_library: Callable[[object], Library]
 
 
 @pytest.fixture
@@ -78,9 +80,9 @@ def _seeded(conn: sqlite3.Connection, tmp_path: Path) -> Fixture:
             idx,
             [Window(text=text, start_ms=start, end_ms=start + 10_000)],
         )
-    cfg = Config(data_dir=tmp_path, move_settle_s=0.0)
+    cfg = Config(data_dir=tmp_path)
 
-    def make_library(fake: FakeAbs) -> Library:
+    def make_library(fake: object) -> Library:
         return Library(cfg, conn, cast(AbsClient, fake), cast(Embedder, embedder))
 
     fake_abs = FakeAbs(300.0)
@@ -182,19 +184,22 @@ def test_find_passage_finds_what_they_have_already_heard(fixture: Fixture) -> No
     assert search.better_ahead is None
 
 
-def test_move_to_uses_the_abs_item_and_seconds(fixture: Fixture) -> None:
-    message = fixture.library.move_to(271, 300_500)
-    assert fixture.abs.moves == [(ITEM_ID, 300.5)]
-    assert "0:05:00" in message
+def test_moving_writes_the_position_and_tells_audiobookshelf_too(
+    fixture: Fixture,
+) -> None:
+    """Where the book resumes is somnia's own record now, not a remote one.
 
-
-def test_moving_writes_the_position_the_page_will_read(fixture: Fixture) -> None:
-    """Where the book resumes is somnia's own record now, not a remote one."""
-    fixture.library.move_to(271, 123_000)
+    ABS still hears the same number, in seconds and after the fact, so that a
+    book opened there on some other evening starts somewhere near right.
+    """
+    moved = fixture.library.move_to(271, 300_500)
     row = fixture.conn.execute(
         "SELECT position_ms FROM books WHERE gid = 271"
     ).fetchone()
-    assert row["position_ms"] == 123_000
+    assert row["position_ms"] == 300_500
+    assert (moved.gid, moved.position_ms) == (271, 300_500)
+    assert moved.sentence == "Moved to 0:05:00, and it plays from there."
+    assert fixture.abs.moves == [(ITEM_ID, 300.5)]
 
 
 def test_moving_counts_up_so_the_page_can_tell_it_happened(fixture: Fixture) -> None:
@@ -212,64 +217,62 @@ def test_moving_counts_up_so_the_page_can_tell_it_happened(fixture: Fixture) -> 
         return int(row["position_seq"])
 
     assert seq() == 0
-    fixture.library.move_to(271, 10_000)
+    # Handed back as well as written: the page acts on the number it is given,
+    # so the two disagreeing would refuse every report it made afterwards.
+    assert fixture.library.move_to(271, 10_000).seq == 1
     assert seq() == 1
-    fixture.library.move_to(271, 20_000)
+    assert fixture.library.move_to(271, 20_000).seq == 2
     assert seq() == 2
 
 
-def test_move_to_explains_when_the_book_is_not_in_abs_yet(fixture: Fixture) -> None:
+def test_a_book_audiobookshelf_has_never_seen_can_still_be_moved(
+    fixture: Fixture,
+) -> None:
+    """somnia renders books ABS may not have scanned yet, and plays them anyway.
+
+    Having nowhere to send the courtesy write used to raise, back when ABS held
+    the position. The page holds it now, so this is an absence, not a failure.
+    """
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET abs_item_id = '' WHERE gid = 271")
-    with pytest.raises(LookupError):
-        fixture.library.move_to(271, 1000)
+
+    moved = fixture.library.move_to(271, 60_000)
+    assert moved.sentence == "Moved to 0:01:00, and it plays from there."
+    assert moved.seq == 1
+    assert fixture.abs.moves == []
 
 
-def test_a_running_player_is_stopped_before_the_book_is_moved(fixture: Fixture) -> None:
-    """A live session syncs its own position back every few seconds.
+def test_an_audiobookshelf_that_is_down_does_not_fail_a_move(
+    fixture: Fixture,
+) -> None:
+    """The write that matters already happened before ABS was asked anything.
 
-    Writing a new position underneath one is undone before the listener has
-    finished reading the reply that said it worked.
+    Turning a move that worked into an error, because a server nothing is
+    listening to could not be reached, is the wrong answer at 2am.
     """
-    live = FakeAbs(300.0, playing=["session-a", "session-b"])
-    message = fixture.make_library(live).move_to(271, 300_500)
+    library = fixture.make_library(BrokenAbs())
+    moved = library.move_to(271, 60_000)
 
-    assert live.closed == ["session-a", "session-b"]
-    assert live.moves == [(ITEM_ID, 300.5)]
-    assert "was running" in message
+    assert moved.sentence == "Moved to 0:01:00, and it plays from there."
+    row = fixture.conn.execute(
+        "SELECT position_ms FROM books WHERE gid = 271"
+    ).fetchone()
+    assert row["position_ms"] == 60_000
 
 
-def test_moving_says_nothing_about_players_when_none_were_running(
+def test_moving_a_book_that_is_not_here_says_so_rather_than_raising(
     fixture: Fixture,
 ) -> None:
-    assert "was running" not in fixture.library.move_to(271, 300_500)
+    """A sentence is more use than a traceback, and no move is no move.
 
-
-def test_a_player_that_puts_the_position_back_is_tried_again(
-    fixture: Fixture,
-) -> None:
-    """The first move of the night was landing and then being undone.
-
-    A player whose session is closed underneath it opens another and reports
-    where it thinks the book is, so the move has to be checked, not assumed.
+    The count is how the page tells a move from nothing, and it counts up from
+    zero on every one that lands — so zero says there is nothing to follow
+    without needing a second field to say it.
     """
-    stubborn = FakeAbs(300.0, playing=["session-a"], stubborn=1)
-    message = fixture.make_library(stubborn).move_to(271, 60_000)
-
-    assert len(stubborn.moves) == 2  # first undone, second stuck
-    assert stubborn.current_time == 60.0
-    assert "Moved to 0:01:00" in message
-
-
-def test_a_player_that_will_not_give_up_is_reported_not_hidden(
-    fixture: Fixture,
-) -> None:
-    """Saying "moved" when nothing moved is the worst answer available."""
-    immovable = FakeAbs(300.0, playing=["session-a"], stubborn=99)
-    message = fixture.make_library(immovable).move_to(271, 60_000)
-
-    assert "Stop it and ask me again" in message
-    assert immovable.current_time == 300.0
+    moved = fixture.library.move_to(999, 60_000)
+    assert moved.seq == 0
+    assert "no book 999" in moved.sentence
+    assert fixture.abs.moves == []
 
 
 def test_being_moved_back_does_not_un_hear_the_rest(fixture: Fixture) -> None:

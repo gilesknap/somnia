@@ -64,27 +64,6 @@ class AbsClient:
                 return entry
         return None
 
-    def open_sessions(self, item_id: str) -> list[str]:
-        """Playback sessions currently open on this item, on any device.
-
-        A player holding an open session is the authority on where the book
-        is: it syncs its own position back every few seconds, overwriting
-        anything written underneath it.
-        """
-        resp = self._client.get("/api/users/online")
-        resp.raise_for_status()
-        sessions: list[dict[str, Any]] = resp.json().get("openSessions", [])
-        return [
-            s["id"]
-            for s in sessions
-            if s.get("libraryItemId") == item_id and s.get("id")
-        ]
-
-    def close_session(self, session_id: str) -> None:
-        """End a playback session so the next one starts from stored progress."""
-        resp = self._client.post(f"/api/session/{session_id}/close")
-        resp.raise_for_status()
-
     def set_position(self, item_id: str, time_s: float) -> None:
         """Move the listener to a point in the book.
 
@@ -93,9 +72,11 @@ class AbsClient:
         app resumes from this point instead of where it left off. ABS
         recalculates the percentage itself from the item's duration.
 
-        Close any open session on the item first (see :meth:`open_sessions`),
-        or a player that is still running will sync its own position back over
-        this within seconds.
+        somnia and Audiobookshelf are free to disagree from here on, and
+        deliberately so. The page is the player, its position is somnia's own,
+        and this is written afterwards as a courtesy — so that a book opened in
+        ABS on some other evening starts somewhere near right. A player running
+        there will overwrite this within seconds and nothing tries to stop it.
         """
         # A short timeout of its own. This is a courtesy write now — the page is
         # the player, and nothing waits on ABS agreeing — so an ABS that is down

@@ -35,7 +35,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from .abs import AbsClient
-from .agent import Conversation, open_library
+from .agent import Conversation, Turn, open_library
 from .config import Config
 from .player import Player
 from .tools import Library
@@ -72,7 +72,7 @@ class Conversations:
         self._lock = threading.Lock()
         self._by_token: OrderedDict[str, Conversation] = OrderedDict()
 
-    def ask(self, token: str, question: str) -> str:
+    def ask(self, token: str, question: str) -> Turn:
         with self._lock:
             conversation = self._by_token.pop(token, None)
             if conversation is None:
@@ -106,11 +106,27 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         try:
             # A turn blocks for seconds on the model and on sqlite, so it runs
             # off the event loop.
-            reply = await run_in_threadpool(conversations.ask, token, question)
+            turn = await run_in_threadpool(conversations.ask, token, question)
         except Exception:
             logger.exception("agent turn failed")
             return JSONResponse({"error": "Something went wrong down here."}, 500)
-        return JSONResponse({"reply": reply})
+        body: dict[str, Any] = {"reply": turn.reply}
+        if turn.move is not None:
+            # Present only when the book actually moved: the page reads the key
+            # rather than its contents. The count travels with the position
+            # because adopting one without the other would have the page's next
+            # report refused, and the refusal would drag it back here after it
+            # had already played on.
+            #
+            # This is a head start, not the mechanism. If this reply never
+            # arrives the same move lands within fifteen seconds as the refusal
+            # of the page's next report, and both routes end in one function.
+            body["move"] = {
+                "gid": turn.move.gid,
+                "position_ms": turn.move.position_ms,
+                "seq": turn.move.seq,
+            }
+        return JSONResponse(body)
 
     async def forget(request: Request) -> Response:
         payload = await _payload(request)
