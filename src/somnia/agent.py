@@ -9,15 +9,16 @@ enough to turn "the bit where the horse dies" into a place in the book.
 import logging
 import sqlite3
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from anthropic import Anthropic, beta_tool
 
 from .abs import AbsClient
 from .config import Config
-from .tools import Library, format_timestamp
+from .tools import Library, Moved, format_timestamp
 
-__all__ = ["SYSTEM_PROMPT", "Conversation", "build_tools", "open_library"]
+__all__ = ["SYSTEM_PROMPT", "Conversation", "Turn", "build_tools", "open_library"]
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +54,9 @@ none is, say you couldn't find it rather than moving them to the least bad one.
 
 When they describe a moment they want to get back to, find it and move the book
 there, then tell them roughly where it now sits — "you're back at two hours in,
-in the chapter about X". Moving sets where the book resumes from; pressing play
-is theirs to do, and you never play anything yourself. When the tool says a
-player was running, tell them to press play again: audio already going carries
-on for a moment and will not jump by itself.
+in the chapter about X". Moving takes them there: the page jumps to the new
+place and plays from it. Never tell them to press play, and never say whether
+anything is playing — you do not know.
 
 Searches are limited to how far they have listened. When a search reports that
 a closer match lies further on, say that it is ahead of where they have got and
@@ -83,8 +83,29 @@ moved them and where to, and nothing about what happens there.\
 """
 
 
+@dataclass
+class Turn:
+    """One exchange: what to say back, and where the book was put.
+
+    ``move`` is None unless the agent moved the book, and the page reads the
+    key's presence rather than its contents, so an empty one would be a move
+    that never happened.
+
+    Carrying it here is a shortcut, not the mechanism. The same move reaches the
+    page anyway as the refusal of its next report — within fifteen seconds,
+    whatever happens to this reply — and both routes end up in the same place.
+    What the shortcut buys is those fifteen seconds, which is a long time to sit
+    in the dark wondering whether anything happened.
+    """
+
+    reply: str
+    move: Moved | None = None
+
+
 def build_tools(
-    library: Library, note: Callable[[str], None] = lambda _: None
+    library: Library,
+    note: Callable[[str], None] = lambda _: None,
+    record: Callable[[Moved], None] = lambda _: None,
 ) -> list[Any]:
     """Wrap the tool layer for the runner, as text the model can read.
 
@@ -92,6 +113,9 @@ def build_tools(
     starting a render. It is what the conversation falls back on when the model
     acts and then says nothing, and it deliberately never sees search results,
     which are full of the passages the spoiler guard exists to withhold.
+
+    ``record`` hears about moves alone, and in numbers rather than prose,
+    because the page has to act on one and cannot read a sentence.
     """
 
     @beta_tool
@@ -143,10 +167,7 @@ def build_tools(
         Args:
             gid: The Gutenberg id of the book.
         """
-        try:
-            position = library.get_position(gid)
-        except LookupError as exc:
-            return str(exc)
+        position = library.get_position(gid)
         if position is None:
             return "They have not started this book."
         return (
@@ -197,22 +218,23 @@ def build_tools(
 
     @beta_tool
     def move_to(gid: int, position_ms: int) -> str:
-        """Move the book to a moment, so playing it resumes from there.
+        """Move the book to a moment, and play it from there.
 
         This is how they get taken to a passage: their position in the book
-        becomes the point you name, and the next tap on play starts there.
+        becomes the point you name, and the book starts playing there.
 
         Args:
             gid: The Gutenberg id of the book.
             position_ms: Milliseconds from the start of the book, as returned
                 by find_passage.
         """
-        try:
-            moved = library.move_to(gid, position_ms)
-        except LookupError as exc:
-            return str(exc)
-        note(moved)
-        return moved
+        moved = library.move_to(gid, position_ms)
+        note(moved.sentence)
+        # A move that landed always counts up from zero, so a zero is the one
+        # that did not — no such book, and nothing for the page to follow.
+        if moved.seq:
+            record(moved)
+        return moved.sentence
 
     return [
         list_books,
@@ -247,10 +269,11 @@ class Conversation:
         self._cfg = cfg
         self._client = client or Anthropic(api_key=cfg.anthropic_api_key or None)
         self._actions: list[str] = []
-        self._tools = build_tools(library, self._actions.append)
+        self._moves: list[Moved] = []
+        self._tools = build_tools(library, self._actions.append, self._moves.append)
         self.messages: list[Any] = []
 
-    def ask(self, question: str) -> str:
+    def ask(self, question: str) -> Turn:
         """Run one turn: the tools do the work, the model does the talking.
 
         The turn is built on a copy and only kept if it finishes. A turn that
@@ -261,6 +284,7 @@ class Conversation:
         # The runner copies the list it is given, so mirroring its turns back
         # into ours is what carries the history to the next question.
         self._actions.clear()
+        self._moves.clear()
         turn: list[Any] = [*self.messages, {"role": "user", "content": question}]
         runner = self._client.beta.messages.tool_runner(
             model=self._cfg.agent_model,
@@ -291,4 +315,8 @@ class Conversation:
             logger.warning("turn produced no text; answering with what it did")
             reply = self._actions[-1] if self._actions else ""
         self.messages = turn
-        return reply
+        # The last move, on a turn that made more than one — a search, a move, a
+        # second thought, a better move. The page has to end up somewhere, and
+        # where it was told to go last is the only place that matches what was
+        # said about it.
+        return Turn(reply=reply, move=self._moves[-1] if self._moves else None)

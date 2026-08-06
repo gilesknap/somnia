@@ -18,6 +18,25 @@ While 100% code coverage does not make a library bug-free, it significantly
 reduces the number of easily caught bugs! Please make sure coverage remains the
 same or is improved by a pull request!
 
+## The page has tests of its own
+
+`tox` runs pytest, and pytest cannot see a line of `src/somnia/web/app.js` —
+which is where most of somnia's behaviour now lives, because the page is the
+player. That code has its own suite under `tests/web/`, written against node's
+built-in test runner and a fake media element, so it needs no npm install and
+no browser:
+
+```
+$ node --test                    # every *.test.mjs in the repo, in under a second
+```
+
+`pre-commit` runs it whenever the page or those tests change, so `tox -e
+pre-commit` covers it too and CI runs it on every pull request. What it cannot
+tell you is whether the audio decodes, whether a Range request really comes
+back 206, or whether the lock screen follows a chapter boundary. Those are
+properties of a handset and are checked in a real browser against a real
+`somnia serve` — the how-to guide *Serve the chat page* ends with how.
+
 ## Developer Information
 
 It is recommended that developers use a [vscode devcontainer](https://code.visualstudio.com/docs/devcontainers/containers). This repository contains configuration to set up a containerized development environment that suits its own needs.

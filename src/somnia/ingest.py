@@ -124,10 +124,21 @@ def ingest_book(
     ).fetchone()
     authors: str = row["authors"] if row else ""
 
+    # Upsert, not INSERT OR REPLACE. REPLACE is DELETE followed by INSERT, so
+    # re-running a render — which is the normal way to restart one that died —
+    # dropped position_ms, position_at, position_seq and heard_to_ms back to
+    # their defaults. That was the one way the high-water mark could shrink, and
+    # it wedged any page still open: it holds a count the reset row cannot
+    # match, so every report it made for the rest of the night was refused.
+    # A render knows the title, the authors, the voice and that it is running;
+    # it knows nothing about where anybody has got to, so it writes nothing else.
     with conn:
         conn.execute(
-            "INSERT OR REPLACE INTO books (gid, title, authors, voice, status)"
-            " VALUES (?, ?, ?, ?, 'rendering')",
+            "INSERT INTO books (gid, title, authors, voice, status)"
+            " VALUES (?, ?, ?, ?, 'rendering')"
+            " ON CONFLICT(gid) DO UPDATE SET title = excluded.title,"
+            " authors = excluded.authors, voice = excluded.voice,"
+            " status = 'rendering'",
             (gid, book.title, authors, cfg.voice),
         )
 

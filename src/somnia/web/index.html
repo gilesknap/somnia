@@ -15,6 +15,16 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- One screen. There is nowhere else to go, nothing to come back from, and
+         no state a wrong press could leave them stranded in — at 2am the whole
+         of the app has to be the thing already in front of them.
+
+         The order down the page is the order a hand reaches: the name and the
+         one button that throws anything away as far from the thumb as the
+         screen allows, the conversation in the middle where it is read rather
+         than touched, and the two things pressed without looking — the book and
+         the microphone — where a hand already holding the phone can find
+         them. -->
     <header>
       <h1>somnia</h1>
       <button id="restart" type="button" class="quiet">start over</button>
@@ -25,6 +35,66 @@
     </main>
 
     <p id="status" aria-live="polite"></p>
+
+    <!-- One element for the whole life of the page. It is never removed, never
+         given an empty src and never loaded on nothing: emptying it is the
+         documented way to dismiss the media notification, and doing that with
+         the screen off in a pocket is not recoverable from. -->
+    <audio id="player" preload="metadata"></audio>
+
+    <section id="player-bar" hidden>
+      <div id="now-playing">
+        <p id="chapter-title"></p>
+        <p id="whereabouts">
+          <span id="clock"></span>
+          <!-- The sleep timer is its own readout: it says how long the night
+               has left, and a tap is what sets it. Taps walk 15, 30, 45 and 60
+               minutes, then the end of the chapter, then off again — one
+               target that is always in the same place and always says what it
+               is doing, rather than a menu to be opened, read and dismissed
+               with the lights off. Six taps wrap, so the worst a mis-tap can
+               do is offer to end the night early, and the next tap takes it
+               back.
+
+               It is here and not in the transport below on purpose. A control
+               that can end the night early — or fail to — has no business
+               within a thumb's width of the one button that gets pressed
+               without looking. -->
+          <button id="sleep" type="button" aria-label="Sleep timer, off">
+            sleep
+          </button>
+        </p>
+      </div>
+      <div class="transport">
+        <button id="back30" type="button" aria-label="Back thirty seconds">
+          −30
+        </button>
+        <!-- Drawn rather than typed. A glyph would be whatever size and weight
+             the phone's symbol font decided, sitting on a baseline rather than
+             in the middle of the button; this is the same shape everywhere and
+             it is the size it was meant to be. Which half shows is a class,
+             set in drawPlayer. -->
+        <button id="playpause" type="button" aria-label="Play">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              class="play"
+              d="M8.5 5.5 18 12 8.5 18.5Z"
+              fill="currentColor"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linejoin="round"
+            />
+            <g class="pause" fill="currentColor">
+              <rect x="7.2" y="5" width="3.8" height="14" rx="1.4" />
+              <rect x="13" y="5" width="3.8" height="14" rx="1.4" />
+            </g>
+          </svg>
+        </button>
+        <button id="fwd30" type="button" aria-label="Forward thirty seconds">
+          +30
+        </button>
+      </div>
+    </section>
 
     <form id="composer" autocomplete="off">
       <input

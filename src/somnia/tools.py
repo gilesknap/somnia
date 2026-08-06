@@ -13,16 +13,15 @@ import logging
 import sqlite3
 import subprocess
 import sys
-import time
 from dataclasses import dataclass
 
-from .abs import AbsClient
+from .abs import AbsClient, tell_abs
 from .catalog import CatalogEntry, search_catalog
 from .config import Config
 from .embed import Embedder
 from .index import Passage, find_passage
 
-__all__ = ["Book", "Library", "Position"]
+__all__ = ["Book", "Library", "Moved", "Position"]
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +50,28 @@ class Search:
     hits: list[Passage]
     searched_to_ms: int | None
     better_ahead: Passage | None
+
+
+@dataclass
+class Moved:
+    """What a move did, for the three callers that each want a different part.
+
+    The model reads ``sentence``, and so does the listener on the turns where
+    the model acts and then says nothing. The page gets the numbers: ``gid`` and
+    ``position_ms`` say where to go, and ``seq`` is what stops it being dragged
+    straight back — a page that adopted the position without the count would
+    have its next report refused, and the refusal would carry it back to the
+    move target after it had already played on.
+
+    ``seq`` counts up from zero on every move that lands, so a zero here means
+    no move landed at all: there is no such book, and there is nothing for the
+    page to follow.
+    """
+
+    gid: int
+    position_ms: int
+    seq: int
+    sentence: str
 
 
 @dataclass
@@ -141,29 +162,41 @@ class Library:
     # -------------------------------------------------------------- listening
 
     def _abs_item_id(self, gid: int) -> str:
+        """What Audiobookshelf calls this book, or "" if it has never seen it.
+
+        An absence, not an error. A book somnia rendered before ABS last scanned
+        the library has no item there, and since the page is the player that no
+        longer stops anything — it only means there is nowhere to send the
+        courtesy write.
+        """
         row = self._conn.execute(
             "SELECT abs_item_id FROM books WHERE gid = ?", (gid,)
         ).fetchone()
         item_id: str = row["abs_item_id"] if row else ""
-        if not item_id:
-            raise LookupError(f"book {gid} is not in Audiobookshelf yet")
         return item_id
 
-    def _require_abs(self) -> AbsClient:
-        if self._abs is None:
-            raise LookupError("Audiobookshelf is not configured")
-        return self._abs
-
     def get_position(self, gid: int) -> Position | None:
-        """Where the listener left off, and the text at that point."""
+        """Where the listener left off, and the text at that point.
+
+        Read from somnia's own record, not from Audiobookshelf. The page is the
+        player now and reports here every few seconds while it plays; ABS only
+        ever hears about a position afterwards, as a courtesy, so asking it
+        would answer with whatever it was last told — seconds out at best, and
+        a whole night out on a book played entirely from the page.
+
+        A NULL position means they have never started this book. Nobody is at
+        0:00:00, and collapsing the two would make "you haven't begun this one"
+        unsayable.
+        """
         book = self.book(gid)
         if book is None:
             return None
-        progress = self._require_abs().progress(self._abs_item_id(gid))
-        if progress is None:
+        row = self._conn.execute(
+            "SELECT position_ms FROM books WHERE gid = ?", (gid,)
+        ).fetchone()
+        if row is None or row["position_ms"] is None:
             return None
-        position_ms = int(float(progress.get("currentTime", 0.0)) * 1000)
-        self._remember_heard(gid, position_ms)
+        position_ms = int(row["position_ms"])
         chapter = self._conn.execute(
             "SELECT idx, title FROM chapters WHERE book_gid = ? AND start_ms <= ?"
             " ORDER BY start_ms DESC LIMIT 1",
@@ -180,16 +213,13 @@ class Library:
             chapter_idx=chapter["idx"] if chapter else 0,
             chapter_title=chapter["title"] if chapter else "",
             text=chunk["text"] if chunk else "",
-            finished=bool(progress.get("isFinished")),
+            # Not the naive `>= total_ms`. A book still rendering has a
+            # total_ms that covers only what exists so far, so that form would
+            # call it finished the moment they caught up with the renderer —
+            # and find_passage switches the spoiler guard *off* for a finished
+            # book, on precisely the book most able to spoil itself.
+            finished=book.status == "done" and position_ms >= book.total_ms - 1000,
         )
-
-    def _remember_heard(self, gid: int, position_ms: int) -> None:
-        """Record the furthest point reached, never letting it go backwards."""
-        with self._conn:
-            self._conn.execute(
-                "UPDATE books SET heard_to_ms = MAX(heard_to_ms, ?) WHERE gid = ?",
-                (position_ms, gid),
-            )
 
     def heard_to_ms(self, gid: int) -> int:
         row = self._conn.execute(
@@ -206,17 +236,34 @@ class Library:
         point they have ever reached, and reports separately whether a closer
         match lies beyond it. Pass False once they have said they don't mind.
 
-        The bound is the high-water mark rather than the current position
-        because the agent can move them backwards: having been taken back to
-        chapter two must not un-hear chapters three to twenty.
+        The bound is the high-water mark and nothing else. Not the current
+        position, because the agent can move them anywhere: backwards, where
+        having been taken to chapter two must not un-hear chapters three to
+        twenty, and forwards, where treating where they were put as what they
+        have heard would unlock the whole book behind a single move. Not a
+        status of done either — that says the rendering finished, not that
+        anybody listened to it.
+
+        A mark of zero therefore bounds the search at the beginning of the book
+        rather than leaving it unbounded, which is what it used to do. Zero
+        means nothing has been heard, and that is precisely when the whole book
+        is ahead of them; reading it as "no limit" turned the guard off on every
+        book the page has never played — since the position pivot, every book
+        there is — and had the agent free to quote the ending of something they
+        are three chapters into.
+
+        What that costs is night one: until they have listened to some of a
+        book, a search finds nothing in range and the agent has to say the match
+        lies further on than they have got and offer to take them there. That is
+        one question in the dark, and they can answer it. The other way round
+        they cannot un-hear the answer.
         """
         before_ms: int | None = None
         if spoiler_free:
-            position = self.get_position(gid)  # also records the high-water mark
-            heard = self.heard_to_ms(gid)
-            if heard and not (position is not None and position.finished):
+            position = self.get_position(gid)
+            if position is None or not position.finished:
                 # Include the sentence being spoken, not just what precedes it.
-                before_ms = heard + 60_000
+                before_ms = self.heard_to_ms(gid) + 60_000
 
         hits = find_passage(
             self._conn, self.embedder, gid, query, k=k, before_ms=before_ms
@@ -230,66 +277,65 @@ class Library:
                 better_ahead = ahead[0]
         return Search(hits=hits, searched_to_ms=before_ms, better_ahead=better_ahead)
 
-    def move_to(self, gid: int, position_ms: int) -> str:
-        """Move the book to a point, so pressing play resumes there.
+    def move_to(self, gid: int, position_ms: int) -> Moved:
+        """Take them to a point in the book, and play from there.
 
         This replaced planting a bookmark. A bookmark is only a signpost: it
-        still has to be found in a list of every other bookmark, in the dark,
-        by someone who is half asleep. Moving the position means the next tap
-        on play is already in the right place.
+        still has to be found in a list of every other bookmark, in the dark, by
+        someone who is half asleep. Moving takes them there instead.
 
-        Any player still holding an open session on this book is ended first.
-        A session is the authority on where the book is while it lasts, so
-        writing underneath a live one is silently undone a few seconds later.
+        One write does the whole job. The row is what the page reads on load and
+        what its reports are refused against, so raising the count beside the
+        position is the move as far as the page is concerned: the next thing it
+        hears back tells it to jump, and it does.
 
-        Then it checks. A player whose session is closed underneath it opens a
-        new one and reports where *it* thinks the book is, which put the
-        position back and made the first attempt of the night look like it did
-        nothing at all. Losing that race once is normal; losing it three times
-        means something is playing that will not be talked out of it, and
-        saying so is more use at 2am than a confident lie.
+        There used to be a fight here — sessions to close, a wait to settle, and
+        three attempts at outlasting a running Audiobookshelf player that kept
+        syncing its own position back over this one. Nothing but the page plays
+        the book now, so there is nobody left to argue with. ABS is told
+        afterwards, out of courtesy, and can fail without anyone noticing.
         """
-        abs_client = self._require_abs()
-        item_id = self._abs_item_id(gid)
-        target_s = position_ms / 1000
-        interrupted = False
+        seq = self._write_position(gid, position_ms)
+        if seq is None:
+            # The model named a book that is not here. Saying so is worth more
+            # at 2am than a traceback, and there is no move for the page to
+            # follow — which a seq of zero is exactly how to say.
+            return Moved(gid, position_ms, 0, f"There is no book {gid} here.")
+        tell_abs(self._abs, self._abs_item_id(gid), position_ms)
+        return Moved(
+            gid=gid,
+            position_ms=position_ms,
+            seq=seq,
+            # Read out verbatim when the model acts and then says nothing, so it
+            # has to stand on its own. It does not say to press play, because
+            # nobody has to any more.
+            sentence=f"Moved to {format_timestamp(position_ms)},"
+            " and it plays from there.",
+        )
 
-        for attempt in range(3):
-            live = abs_client.open_sessions(item_id)
-            interrupted = interrupted or bool(live)
-            for session_id in live:
-                abs_client.close_session(session_id)
-            abs_client.set_position(item_id, target_s)
+    def _write_position(self, gid: int, position_ms: int) -> int | None:
+        """Record a move where the page will find it, and count it.
 
-            # Nothing playing, nothing to argue with: don't make them wait for
-            # a race that cannot happen. A player that was running gets a
-            # couple of seconds to reopen a session and put the book back.
-            if live:
-                time.sleep(self._cfg.move_settle_s)
-            if self._is_at(item_id, target_s):
-                if attempt:
-                    logger.info("move to %d took %d tries", position_ms, attempt + 1)
-                break
-            logger.warning("position was put back after moving to %d", position_ms)
-        else:
-            return (
-                "Something is playing that keeps putting the book back where it"
-                " was. Stop it and ask me again."
-            )
+        The count is the only thing that tells an agent move apart from the
+        page's own reports of where it has got to, which leave it alone. A
+        number higher than the one the page holds can therefore only be a move
+        it has not applied, which is what lets it act on one unconditionally.
 
-        moved = f"Moved to {format_timestamp(position_ms)}."
-        if interrupted:
-            # They will not have heard it stop: the audio already in flight
-            # keeps playing, and only the next press of play starts from here.
-            return f"{moved} A player was running, so it was stopped first."
-        return moved
+        ``heard_to_ms`` is deliberately untouched. Being taken back to chapter
+        two must not un-hear chapters three to twenty, or the whole stretch they
+        had already listened to becomes unsearchable for the rest of the night.
 
-    def _is_at(self, item_id: str, target_s: float) -> bool:
-        """Did the move stick, or has a player already overwritten it?"""
-        progress = self._require_abs().progress(item_id)
-        if progress is None:
-            return False
-        return abs(float(progress.get("currentTime", 0.0)) - target_s) < 2.0
+        None if there is no such book: the guarded UPDATE returns no row at all,
+        which is the cheapest way to ask and answer in one statement.
+        """
+        with self._conn:
+            row = self._conn.execute(
+                "UPDATE books SET position_ms = ?, position_seq = position_seq + 1,"
+                " position_at = datetime('now') WHERE gid = ?"
+                " RETURNING position_seq",
+                (position_ms, gid),
+            ).fetchone()
+        return int(row["position_seq"]) if row is not None else None
 
 
 def format_timestamp(ms: int) -> str:

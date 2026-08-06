@@ -126,8 +126,8 @@ def test_each_turn_is_remembered_for_the_next_question(library: Library) -> None
             FakeRunner([SimpleNamespace(content=[text("Two hours in.")])]),
         ),
     )
-    assert conversation.ask("what have I got?") == "Black Beauty."
-    assert conversation.ask("how far?") == "Two hours in."
+    assert conversation.ask("what have I got?").reply == "Black Beauty."
+    assert conversation.ask("how far?").reply == "Two hours in."
     # user, assistant, user, assistant — the second question was asked in the
     # context of the first.
     assert [m["role"] for m in conversation.messages] == [
@@ -184,7 +184,7 @@ def test_a_sentence_written_before_a_tool_call_is_not_lost(library: Library) -> 
             )
         ),
     )
-    assert conversation.ask("take me back") == "Taking you there."
+    assert conversation.ask("take me back").reply == "Taking you there."
 
 
 def test_acting_without_speaking_answers_with_what_it_did(
@@ -203,7 +203,47 @@ def test_acting_without_speaking_answers_with_what_it_did(
             calls=[("move_to", {"gid": 271, "position_ms": 3_600_000})],
         ),
     )
-    assert conversation.ask("go") == "Moved to 1:00:00."
+    assert conversation.ask("go").reply == "Moved to 1:00:00, and it plays from there."
+
+
+def test_a_turn_that_moved_twice_reports_where_it_left_them(
+    library_with_book: Library,
+) -> None:
+    """A turn can search, move, think better of it, and move again.
+
+    The page has to end up somewhere, and the last place it was sent is the only
+    one that matches what was said about it.
+    """
+    conversation = Conversation(
+        Config(),
+        library_with_book,
+        client_that_acts(
+            [SimpleNamespace(content=[text("You're at the fair.")])],
+            calls=[
+                ("move_to", {"gid": 271, "position_ms": 60_000}),
+                ("move_to", {"gid": 271, "position_ms": 3_600_000}),
+            ],
+        ),
+    )
+    turn = conversation.ask("take me to the fair")
+
+    assert turn.move is not None
+    assert (turn.move.gid, turn.move.position_ms) == (271, 3_600_000)
+    # The count the page is handed has to be the one the second move wrote, or
+    # its next report is refused and it is dragged back to the first.
+    assert turn.move.seq == 2
+
+
+def test_a_turn_that_moved_nothing_carries_no_move(library_with_book: Library) -> None:
+    """The page reads the move's presence, so an idle turn must not invent one."""
+    conversation = Conversation(
+        Config(),
+        library_with_book,
+        client_returning(
+            FakeRunner([SimpleNamespace(content=[text("Two hours in.")])])
+        ),
+    )
+    assert conversation.ask("how far am I?").move is None
 
 
 def test_a_search_is_never_used_as_the_answer(library_with_book: Library) -> None:
@@ -220,4 +260,4 @@ def test_a_search_is_never_used_as_the_answer(library_with_book: Library) -> Non
             calls=[("find_passage", {"gid": 271, "description": "the hunt"})],
         ),
     )
-    assert conversation.ask("where is the hunt?") == ""
+    assert conversation.ask("where is the hunt?").reply == ""

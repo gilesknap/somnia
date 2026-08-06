@@ -37,6 +37,11 @@ def main(args: Sequence[str] | None = None) -> None:
 
     sub.add_parser("libraries", help="list Audiobookshelf libraries (to get the id)")
 
+    sub.add_parser(
+        "seed-positions",
+        help="once: take where you had got to from Audiobookshelf",
+    )
+
     ns = parser.parse_args(args)
     if ns.command is None:
         parser.print_help()
@@ -94,7 +99,7 @@ def main(args: Sequence[str] | None = None) -> None:
             question = ns.question or input("> ").strip()
             if not question:
                 break
-            print(conversation.ask(question))
+            print(conversation.ask(question).reply)
             if ns.question:
                 break
     elif ns.command == "serve":
@@ -107,6 +112,25 @@ def main(args: Sequence[str] | None = None) -> None:
         abs_client = AbsClient(cfg.abs_url, cfg.abs_token)
         for lib in abs_client.libraries():
             print(f"{lib['id']}  {lib['name']}")
+    elif ns.command == "seed-positions":
+        import httpx  # noqa: PLC0415
+
+        from .abs import AbsClient  # noqa: PLC0415
+        from .seed import seed_positions  # noqa: PLC0415
+
+        if not cfg.abs_token:
+            print("No Audiobookshelf token set, so there is nothing to read.")
+            return
+        try:
+            seeds = seed_positions(conn, AbsClient(cfg.abs_url, cfg.abs_token))
+        except httpx.HTTPError as error:
+            # Every read happens before the first write, so this really did
+            # change nothing and can simply be run again.
+            print(f"Could not reach Audiobookshelf ({error}). Nothing changed.")
+            return
+        for seed in seeds:
+            print(f"{seed.gid:>6}  {seed.title}: {seed.sentence}")
+        print(f"{sum(s.changed for s in seeds)} of {len(seeds)} books changed.")
 
 
 if __name__ == "__main__":

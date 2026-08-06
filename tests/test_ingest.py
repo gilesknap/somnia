@@ -2,12 +2,19 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
 
+import numpy as np
 import pytest
 
+from fakes import FakeEmbedder
+from somnia import ingest
 from somnia.abs import AbsClient
+from somnia.audio import ChapterAudio
 from somnia.config import Config
 from somnia.db import connect
-from somnia.ingest import publish_chapters
+from somnia.embed import Embedder
+from somnia.gutenberg import Book, Chapter
+from somnia.ingest import ingest_book, publish_chapters
+from somnia.tts import TTSEngine
 
 REL_PATH = "Sewell, Anna/Black Beauty"
 
@@ -107,3 +114,107 @@ def test_publish_chapters_gives_up_quietly_when_the_item_never_appears(
         timeout_s=0,
     )
     assert abs_client.pushed is None
+
+
+# ------------------------------------------------- rendering over a book we have
+
+
+class SilentEngine:
+    """Ten milliseconds of silence per character, so a chapter has a length.
+
+    A render test cannot have Kokoro — it is in the ``[ml]`` extra and takes a
+    minute to load a model — and does not need one. What ingest actually does
+    with the samples is count them.
+    """
+
+    sample_rate = 1000
+
+    def render(self, text: str) -> Any:
+        return np.zeros(10 * len(text), dtype=np.float32)
+
+
+BOOK = Book(
+    gid=271,
+    title="Black Beauty",
+    authors="Sewell, Anna",
+    chapters=[Chapter(title="01 My Early Home", paragraphs=["The first place."])],
+)
+
+
+@pytest.fixture
+def unrendered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Write each chapter as an empty file rather than shelling out to ffmpeg.
+
+    ffmpeg is a system package on the render host, and a test run should not
+    need one — the tone book's audio is committed for the same reason. This
+    stubs the single step that leaves the process; the rest of the pipeline,
+    including every row it writes, is the real thing.
+    """
+
+    def encode(self: ChapterAudio, out_path: Path, bitrate: str = "64k") -> None:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.touch()
+
+    def fetch_book(gid: int) -> Book:
+        return BOOK
+
+    monkeypatch.setattr(ChapterAudio, "encode", encode)
+    monkeypatch.setattr(ingest, "fetch_book", fetch_book)
+
+
+def _ingest(conn: Any, tmp_path: Path) -> None:
+    ingest_book(
+        _cfg(tmp_path),
+        conn,
+        cast(TTSEngine, SilentEngine()),
+        cast(Embedder, FakeEmbedder()),
+        271,
+    )
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_re_rendering_a_book_keeps_where_they_had_got_to(
+    conn: Any, tmp_path: Path
+) -> None:
+    """Restarting a render that died is the ordinary reason to run `somnia add`.
+
+    The row used to be written with INSERT OR REPLACE, which is DELETE followed
+    by INSERT: the position, the count of agent moves and the high-water mark
+    all dropped back to their defaults. That was the one way the mark could
+    shrink, and losing it was not even the worst of it — a page still open held
+    a count the new row could never match, so every report it made for the rest
+    of the night was refused and nothing more was ever written.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE books SET position_ms = 300000, position_seq = 3,"
+            " position_at = '2026-08-05 23:40:00', heard_to_ms = 250000,"
+            " abs_item_id = 'abs-item-1' WHERE gid = 271"
+        )
+
+    _ingest(conn, tmp_path)
+
+    row = conn.execute("SELECT * FROM books WHERE gid = 271").fetchone()
+    assert (row["position_ms"], row["position_seq"]) == (300_000, 3)
+    assert (row["position_at"], row["heard_to_ms"]) == ("2026-08-05 23:40:00", 250_000)
+    assert row["abs_item_id"] == "abs-item-1"
+    # And it still did its own job: what a render knows, it wrote.
+    assert (row["title"], row["voice"], row["status"]) == (
+        "Black Beauty",
+        "af_heart",
+        "done",
+    )
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_rendering_a_book_for_the_first_time_creates_its_row(tmp_path: Path) -> None:
+    """The other half of the upsert, which nothing else in the suite reaches."""
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        _ingest(conn, tmp_path)
+        row = conn.execute("SELECT * FROM books WHERE gid = 271").fetchone()
+    finally:
+        conn.close()
+    assert (row["title"], row["status"]) == ("Black Beauty", "done")
+    assert (row["position_ms"], row["heard_to_ms"]) == (None, 0)
+    assert row["total_ms"] > 0
