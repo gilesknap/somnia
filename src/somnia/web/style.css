@@ -82,9 +82,15 @@
   --faint: rgba(230, 220, 200, 0.32);
   --hairline: rgba(230, 220, 200, 0.13);
 
-  /* The toast has no home on the page yet. The colour lives here anyway,
-     because when it arrives it must be this one and not a fresh guess. */
-  --toast-bg: #150f06;
+  --toast-bg: #150f06; /* the one sentence said out loud, and then not */
+
+  /* Real black, and the only place on the page that uses it. Everything drawn
+     is a warm near-black because a pure black screen with cream on it is a set
+     of floating words; this is not drawn, it is subtracted — a sheet of
+     nothing laid over the room to take the last of the light off it. A tinted
+     dim would be a colour cast over a page that has spent this whole redesign
+     getting onto one hue. */
+  --night: #000;
 
   /* The two reds, lifted out of the rules below exactly as they were. Nothing
      on this page has decided yet what failure is supposed to look like once
@@ -1324,4 +1330,116 @@ button:disabled {
   #queue-close {
     min-height: 4rem;
   }
+}
+
+/* ------------------------------------------------------ said once, and gone
+
+   The second of the page's two voices. #status further up holds the sentences
+   that have to stand — "listening…" while a button is held, "tap anywhere to
+   carry on" until somebody does — and this holds the ones that are over as
+   soon as they have been read: what the last press did. They are two channels
+   and not one because a line that clears itself cannot hold an instruction,
+   and a line that never clears itself cannot say "fading out in 30 min"
+   without still saying it an hour later.
+
+   At the bottom, near the thumb that caused it, rather than at the top where
+   the reading is: this is the answer to a press, and the answer belongs where
+   the press was. Its own safe-area inset, because fixed positioning escapes
+   the padding the body carries and a sentence under the home bar is a sentence
+   nobody reads. */
+
+/* First, before the rule below sets a display: an author id rule beats the
+   browser's own [hidden] { display: none }, the same trap #talk, #candidates
+   and #queue each carry. Forgetting it here is a box that never goes away. */
+#toast[hidden] {
+  display: none;
+}
+
+#toast {
+  position: fixed;
+  left: calc(env(safe-area-inset-left) + 1rem);
+  right: calc(env(safe-area-inset-right) + 1rem);
+  bottom: calc(env(safe-area-inset-bottom) + 1.3rem);
+  /* Over both overlays, and under the dim layer below — which is the only
+     thing on this page allowed above it. */
+  z-index: 90;
+  margin: 0;
+  border: 1px solid var(--accent-line);
+  border-radius: 0.7rem;
+  background: var(--toast-bg);
+  color: var(--accent);
+  font-size: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  /* Nothing to press, and for 2.8 seconds it is lying across the box and part
+     of the microphone. A reader who set the sleep timer and then reached for
+     the mic must reach the mic, not a sentence about what they just did — so
+     the press goes through it, the same way it goes through the dim layer and
+     for the same reason. */
+  pointer-events: none;
+  /* It arrives from below, in the direction of the press that caused it, and
+     it is the only thing on the page that moves to arrive. 240ms: long enough
+     to be seen starting, short enough that a sentence which stands for under
+     three seconds is not still arriving. */
+  animation: toast-rise 240ms ease-out;
+}
+
+@keyframes toast-rise {
+  from {
+    transform: translateY(0.9rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* The sentence still has to appear, so what goes is the travel and not the
+   arrival — the same ruling as the listening ring further up this file: what is
+   lost is the movement, not the message. A box that fades up in place says the
+   same thing to somebody for whom a thing sliding across the screen at 2am is
+   worse than no animation at all. */
+@media (prefers-reduced-motion: reduce) {
+  #toast {
+    animation-name: toast-fade;
+  }
+}
+
+@keyframes toast-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------- darker than dark
+
+   Android will not take its own backlight below a floor, and this room is
+   below it. So the rest of the light comes off here: a sheet of black over the
+   whole page, at a level the page holds rather than the phone.
+
+   Over everything, both overlays included — a books panel that came up at full
+   brightness would be the brightest thing in the room at 3am — which is
+   precisely why it can never be touched. The page arms a document-wide
+   pointerdown when the platform refuses to start the sound, and a layer over
+   the screen that ate that press would strand a paused book in the dark. That
+   is what `pointer-events: none` is doing here, and it is load-bearing rather
+   than tidy.
+
+   0.12 is the level the page ships at, written here so that what a render
+   photographs is what the reader is looking through; app.js replaces it with
+   whatever was written down. Nothing on the page changes it yet. */
+#dim {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: var(--night);
+  opacity: 0.12;
+  pointer-events: none;
+  /* Long enough to be a room getting darker rather than a light going off.
+     Nothing changes it during a night yet, so this is spent only on the level
+     arriving at boot. */
+  transition: opacity 300ms ease;
 }

@@ -78,6 +78,21 @@ purpose. It is never something to ignore.
 Adding a readout to the page? Add its id to `FIXTURE` in `snapshot.py`, or it
 photographs empty.
 
+`FIXTURE["styles"]` sets inline style by id, and carries one thing: the dim
+layer, at the 0.12 the page ships at. `app.js` does not run in a snapshot, so
+without it every render would be a photograph of a page brighter than the one on
+the phone — the reader looks at the whole page through that layer, both overlays
+included.
+
+## What the picture will not show you
+
+CSS animations are frozen part-way through by this headless mode: an element
+that rises and fades in over 240ms photographs at whatever opacity it had a
+moment after it started, which looks like a bug in the page and is not. To judge
+one, inject `animation: none` for it into the copied snapshot and render that.
+Nothing that ships in `FIXTURE` animates, so this only bites when you unhide
+something — the toast, for instance — by hand.
+
 ## Sizes worth knowing before you argue with a render
 
 - transport buttons **5.5rem**; chapter skips **4rem**; the microphone **5rem**

@@ -50,6 +50,9 @@ const queueQuery = document.getElementById("queue-query");
 const queueResults = document.getElementById("queue-results");
 const queueSaid = document.getElementById("queue-said");
 const queueClose = document.getElementById("queue-close");
+// The page's second voice, and the sheet of black over the whole of it.
+const toastLine = document.getElementById("toast");
+const dimLayer = document.getElementById("dim");
 
 // One conversation per launch of the app. The server holds the history; this
 // is only the name it goes by.
@@ -76,6 +79,83 @@ function say(text, kind) {
 function setStatus(text) {
   statusLine.textContent = text;
 }
+
+// The other voice, and why there are two.
+//
+// #status above holds the sentences that have to stand: "listening…" for as
+// long as a button is held, "tap anywhere to carry on" until somebody does,
+// "the rest of this book hasn't been read yet" until they go somewhere it has.
+// A line that cleared itself after a few seconds could not hold any of those —
+// the instruction would be gone and the state it describes would not.
+//
+// This holds the other kind: what the press they just made did. It is true
+// when it is read and untrue a minute later, so it takes itself off, and it
+// happens at the bottom of the screen near the thumb that caused it rather
+// than at the top where the reading is.
+//
+// One box, one sentence. A second one replaces the first in place rather than
+// pushing it up a stack: the older sentence is never the one still true, and a
+// box that jumped every time a control was pressed would read as an alarm on a
+// page whose whole argument is that nothing moves unless it has to.
+const TOAST_MS = 2800;
+
+let toastTimer = 0;
+
+function toast(text) {
+  clearTimeout(toastTimer);
+  toastLine.textContent = text;
+  toastLine.hidden = false;
+  toastTimer = setTimeout(forgetToast, TOAST_MS);
+}
+
+// Emptied as well as hidden, so that "is anything being said?" has one answer
+// and not two that can disagree.
+function forgetToast() {
+  clearTimeout(toastTimer);
+  toastTimer = 0;
+  toastLine.hidden = true;
+  toastLine.textContent = "";
+}
+
+// How dark the page takes the room, over and above what the phone will do.
+// Android holds its own backlight above a floor and this room is below it, so
+// the last of the light comes off in a layer of black over everything.
+//
+// Beside the sleep timer in localStorage, and for the same reason: it is an
+// instruction about the dark that outlives a tab the phone discarded while it
+// was in a pocket. Unlike the timer it never goes stale — a room that was dark
+// last night is dark tonight.
+//
+// Nothing on the page writes it yet. The control that would belongs with the
+// jump size and the default sleep timer on a settings surface this page does
+// not have, and inventing one to carry a single slider is a screen somebody
+// has to find in the dark.
+const DIM_KEY = "somnia-dim";
+const DIM_DEFAULT = 0.12;
+// Past this the page stops being readable, and there is nothing on screen to
+// turn it back down with. A half-written record must not be able to black out
+// the only transport in the room.
+const DIM_MAX = 0.6;
+
+function restoreDim() {
+  let level = DIM_DEFAULT;
+  try {
+    const saved = localStorage.getItem(DIM_KEY);
+    // `Number(null)` and `Number("")` are both 0, and 0 is a level somebody
+    // can mean — so nothing written down has to be told apart from a level of
+    // nothing before the range is checked at all, or a page that has never
+    // been set opens with no dim on it. NaN fails both comparisons, which is
+    // how every other kind of rubbish falls through to the default.
+    const asked = saved?.trim() ? Number(saved) : NaN;
+    if (asked >= 0 && asked <= DIM_MAX) level = asked;
+  } catch (error) {
+    // Storage refused. The page ships at 0.12 and this changes nothing.
+    console.error(error);
+  }
+  dimLayer.style.opacity = String(level);
+}
+
+restoreDim();
 
 // A short buzz confirms the button caught the press, for a listener who can't
 // see much and shouldn't be listening for a beep. Android honours this; iOS
@@ -687,8 +767,21 @@ sleepButton.addEventListener("click", () => {
   if (fade?.thenSleep) startFade(1, FADE_IN_MS);
   drawSleep();
   saveSleep();
+  // Said in the words somebody would use, once, rather than left to be read
+  // off a pill that says "sleep 30m". The pill is the readout and this is the
+  // answer to the press — including on the sixth press, which takes the timer
+  // off again: a box still promising to fade out over a night with no end
+  // scheduled is the one lie this control can tell.
+  toast(sleepSentence());
   buzz(10);
 });
+
+function sleepSentence() {
+  const choice = SLEEP_CHOICES[sleepChoice];
+  if (choice === null) return "no sleep timer";
+  if (choice === "chapter") return "fading out at the end of the chapter";
+  return `fading out in ${choice} min`;
+}
 
 function drawSleep() {
   const choice = SLEEP_CHOICES[sleepChoice];

@@ -327,6 +327,42 @@
       </div>
     </section>
 
+    <!-- Two layers over the whole page, and neither of them is a control.
+         They come after `cancel` and `close` in the document without breaking
+         the rule that puts those last: a paragraph and an empty div are not
+         tab stops and cannot be pressed, so the last thing a hand can reach is
+         still the way out of whichever overlay is up.
+
+         The toast is a second voice, not a replacement for #status. #status
+         holds two unlike things — "listening…", which is over in a moment, and
+         "tap anywhere to carry on", which is an instruction that stands until
+         it is obeyed — and a line that clears itself after a few seconds
+         cannot hold the second kind. So the standing sentences stay where they
+         are and this says the passing ones: what a press just did, once, at
+         the bottom of the screen near the thumb that did it. It is a live
+         region because that is the whole job — a thing said once has to be
+         heard once, including by somebody who is not looking at the screen.
+
+         The dim layer is how the page goes darker than the phone will. Android
+         has a floor on its own brightness and this room is darker than that
+         floor, so the last of the light is taken off in the page instead. It
+         is over everything, both overlays included, because a books panel that
+         came up at full brightness would be the brightest thing in the room at
+         3am.
+
+         Being over everything is exactly why it must never take a press. The
+         page arms a document-wide pointerdown when the platform refuses to
+         start the sound, and a layer that swallowed that press would leave a
+         paused book in the dark with the only way back to it underneath the
+         thing covering the screen. `pointer-events: none` in the sheet is what
+         keeps that true, and nothing in app.js listens here.
+
+         There is nothing on the page yet that changes the level: it ships at
+         0.12 and is read back from storage if something wrote one down. The
+         control belongs on a settings surface this page does not have. -->
+    <p id="toast" hidden aria-live="polite"></p>
+    <div id="dim" aria-hidden="true"></div>
+
     <script src="app.js"></script>
   </body>
 </html>

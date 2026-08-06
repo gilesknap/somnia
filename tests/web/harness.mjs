@@ -341,6 +341,7 @@ const BORN_HIDDEN = new Set([
   "candidates",
   "candidates-book",
   "queue",
+  "toast",
 ]);
 
 // Enough of a DOM node to build a list of places out of, and no more.
@@ -629,6 +630,16 @@ globalThis.__page = {
     chapterClock: chapterClock.textContent,
     canSkipOn: !nextChapter.disabled,
     status: statusLine.textContent,
+    // The page's two channels, side by side, because the only interesting
+    // thing about either is what the other one is doing at the same moment:
+    // the toast is what was said once and the status line is what still
+    // stands, and a change in one of them that moved the other is the bug.
+    // Empty when nothing is being said — the box is emptied as well as hidden
+    // so this cannot report a sentence nobody can see.
+    toast: toastLine.textContent,
+    // How much of the light the page is taking off the room, as a number. Set
+    // once at boot from storage and by nothing else yet.
+    dim: Number(dimLayer.style.opacity),
     sleep: sleepButton.textContent,
     spokenSleep: sleepButton.getAttribute("aria-label"),
     armed: sleepButton.classList.contains("armed"),

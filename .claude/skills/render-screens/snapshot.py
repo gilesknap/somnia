@@ -50,6 +50,14 @@ FIXTURE = {
     # opening state, which is not the one anybody is designing.
     "unhide": ["player-bar"],
     "classes": {"playpause": ["playing"], "playpause-mini": ["playing"]},
+    # Inline style, by id. The dim layer is the only thing that needs it, and it
+    # needs it for a reason worth writing down: app.js does not run in a
+    # snapshot, so the level the reader is actually looking through is set here
+    # instead. Without it a future render is a photograph of a page 12% brighter
+    # than the one on the phone — which is exactly the kind of plausible, wrong
+    # picture this whole file exists to prevent. The value is style.css's own
+    # default, restated; if the two ever drift the render is the one that lies.
+    "styles": {"dim": {"opacity": "0.12"}},
 }
 
 FILL = """
@@ -75,6 +83,11 @@ FILL = """
   for (const [id, classes] of Object.entries(FIXTURE.classes)) {
     const el = document.getElementById(id);
     if (el) el.classList.add(...classes);
+  }
+
+  for (const [id, style] of Object.entries(FIXTURE.styles)) {
+    const el = need(id);
+    if (el) Object.assign(el.style, style);
   }
 
   const transcript = need("transcript");
@@ -116,7 +129,9 @@ def inline_fonts(css):
     def swap(match):
         path = WEB / match.group(1)
         if not path.exists():
-            sys.exit(f"snapshot: style.css asks for {match.group(1)} and it is not in {WEB}")
+            sys.exit(
+                f"snapshot: style.css asks for {match.group(1)} and it is not in {WEB}"
+            )
         data = base64.b64encode(path.read_bytes()).decode()
         return f'url("data:font/woff2;base64,{data}")'
 
