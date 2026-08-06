@@ -155,6 +155,23 @@ const SENTENCE_REACH_MS = 45_000;
 // timeupdate comes off the media pipeline and keeps firing with the screen off.
 const HEARTBEAT_MS = 15_000;
 
+// How long to leave a book that is still rendering before asking whether it has
+// grown, and the longest that wait ever gets. Kokoro takes minutes over a
+// chapter, so asking every few seconds all night would be a hundred requests
+// for one answer — but the ask made the moment the audio runs out is the one
+// the listener is waiting on, and that one is worth being quick about.
+const RENDER_ASK_MS = 5_000;
+const RENDER_ASK_MAX_MS = 60_000;
+
+// How long a stall is given to sort itself out before the chapter is put back
+// under it, and how long to leave between attempts once something has actually
+// failed. Two seconds because a tailnet re-key is usually over before that;
+// thirty at the top because a VPS that is down is down, and a phone that
+// retried flat out until morning is a phone with no battery in the morning.
+const STALL_GRACE_MS = 8_000;
+const RETRY_MIN_MS = 2_000;
+const RETRY_MAX_MS = 30_000;
+
 // The lock screen, the notification shade and whatever is paired over
 // Bluetooth all reach the page through this one object, so it is the whole of
 // what somnia can be controlled by while the phone is face down. It is still
@@ -206,8 +223,30 @@ let sleepChoice = 0; // an index into SLEEP_CHOICES
 // end scheduled.
 let sleepLeftMs = null;
 let sleepCountedAt = 0;
+let sleepSavedAt = 0;
 // Where the sentence they stopped in began, found out at the pause.
 let sentenceHint = null;
+// Whether the sound is meant to be on. `paused` cannot answer that: an element
+// whose chapter failed to load is paused, so is one whose buffer ran dry at
+// 3am, and the difference between those and a thumb on the pause button is the
+// whole of whether the page should be fighting to get the book back.
+let wantsSound = false;
+// A stall being given a moment, a reload waiting out its backoff, and the boot
+// waiting out its own. Zero for "nothing pending", which is what clearTimeout
+// takes for an answer.
+let stallTimer = 0;
+let retryTimer = 0;
+let retryDelay = RETRY_MIN_MS;
+let bootTimer = 0;
+let bootDelay = RETRY_MIN_MS;
+// Whether what is on the status line is about the network. Only what this page
+// put there is ever taken away again: "goodnight" is about something else and
+// is still true.
+let troubled = false;
+// The book the page has run out of audio on and is waiting to grow, or null:
+// which book, how long to leave it before asking again, which chapter it ran
+// out after, and whether the sound was on when it did.
+let awaiting = null;
 
 // Global milliseconds -> the chapter that owns them, and how far into its file.
 // A linear scan: a book is a few hundred chapters and this runs once per seek.
@@ -343,10 +382,21 @@ function seekGlobal(ms, { play = null } = {}) {
   if (fade?.thenSleep) startFade(1, FADE_IN_MS);
   const at = locate(ms);
   positionMs = Math.max(0, Math.min(ms, manifest.total_ms));
-  if (current && at.idx === current.idx && player.readyState > 0) {
+  if (
+    current &&
+    at.idx === current.idx &&
+    player.readyState > 0 &&
+    !player.error
+  ) {
     // Within the file already loaded. This branch is what keeps autoplay policy
     // out of the common case: a seek on a live element needs no permission at
     // all, so it does not ask for any.
+    //
+    // An element holding an error is not a live one however much of the file it
+    // still has: it will not fetch again until it is loaded afresh, so a press
+    // of play after the tailnet went would set currentTime on something that
+    // was never going to make a sound. Sending it down the other branch is what
+    // makes the transport a way back as well.
     player.currentTime = toElementSeconds(at.offset_ms, player.duration);
     if (play === true && player.paused) player.play().catch(onPlayRejected);
   } else {
@@ -445,6 +495,68 @@ function fallAsleep() {
   drawPlayer();
 }
 
+// The timer outlives the page, because the page does not outlive the night. A
+// backgrounded tab is discarded whenever the phone wants the memory back, and
+// reloading is also the first thing anyone does to a page that looks stuck —
+// either way a timer kept only in a variable was silently disarmed, with
+// nothing on screen to say it had gone, and the book played until morning.
+//
+// localStorage rather than the sessionStorage the token uses. sessionStorage
+// dies with the tab, which is exactly the death this is about; and unlike the
+// conversation, which is meant to start fresh every launch, an armed sleep
+// timer is an instruction about tonight that nobody has cancelled.
+const SLEEP_KEY = "somnia-sleep";
+
+// How often the countdown is written down. The readout is in whole minutes, so
+// half a minute of slop after a crash cannot be seen, and this is two writes a
+// minute rather than two hundred and forty.
+const SLEEP_SAVE_MS = 30_000;
+
+// Older than this and the night it belonged to is over. Someone opening the
+// book the following evening is starting a night rather than finishing one, and
+// a timer they could not remember setting would end it early for no reason they
+// could see.
+const SLEEP_STALE_MS = 6 * 3_600_000;
+
+function saveSleep() {
+  sleepSavedAt = Date.now();
+  try {
+    if (SLEEP_CHOICES[sleepChoice] === null) {
+      localStorage.removeItem(SLEEP_KEY);
+      return;
+    }
+    const state = { choice: sleepChoice, leftMs: sleepLeftMs, at: Date.now() };
+    localStorage.setItem(SLEEP_KEY, JSON.stringify(state));
+  } catch (error) {
+    // Storage refused or full. The timer still works for as long as this page
+    // lives, which is all it ever did before.
+    console.error(error);
+  }
+}
+
+// What they asked for last time this page was alive, if it still stands.
+function restoreSleep() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(SLEEP_KEY) || "null");
+  } catch (error) {
+    console.error(error);
+  }
+  if (!saved || !(Date.now() - saved.at < SLEEP_STALE_MS)) return;
+  const choice = SLEEP_CHOICES[saved.choice];
+  // Anything else is a half-written record or a list of choices that has
+  // changed shape since. Neither is worth ending a night over.
+  if (choice === undefined || choice === null) return;
+  if (typeof choice === "number" && typeof saved.leftMs !== "number") return;
+  sleepChoice = saved.choice;
+  sleepLeftMs = typeof choice === "number" ? saved.leftMs : null;
+  // Listening time, not clock time — the same rule as while it is counting. The
+  // minutes they had left are still the minutes they have left, whether the
+  // reload took two seconds or the phone killed the tab an hour ago.
+  sleepCountedAt = Date.now();
+  drawSleep();
+}
+
 function sleepsAtChapterEnd() {
   return SLEEP_CHOICES[sleepChoice] === "chapter";
 }
@@ -452,6 +564,7 @@ function sleepsAtChapterEnd() {
 function clearSleep() {
   sleepChoice = 0;
   sleepLeftMs = null;
+  saveSleep();
 }
 
 sleepButton.addEventListener("click", () => {
@@ -465,6 +578,7 @@ sleepButton.addEventListener("click", () => {
   // that is already going quiet.
   if (fade?.thenSleep) startFade(1, FADE_IN_MS);
   drawSleep();
+  saveSleep();
   buzz(10);
 });
 
@@ -504,6 +618,10 @@ function countDownToSleep() {
   // one way a paused book could otherwise be charged for the time.
   if (player.paused || fade || sleepLeftMs === null) return;
   sleepLeftMs -= spent;
+  // Written down as it goes, not only when it is set: the tab can be discarded
+  // between one timeupdate and the next, and a timer that came back with the
+  // whole of its hour still to run would be an hour of book nobody asked for.
+  if (now - sleepSavedAt >= SLEEP_SAVE_MS) saveSleep();
   if (sleepLeftMs > FADE_OUT_MS) return;
   // Spent: the fade is the last thing the timer does, and once it has started
   // the control reads as off again. Coming back afterwards is a decision to
@@ -588,7 +706,123 @@ function onPlayRejected(error) {
   });
 }
 
+// --------------------------------------------------------------- getting back
+
+// Nothing below is hypothetical. Wifi power save, a DHCP renewal and a
+// tailscale re-key each take the tailnet away for a few seconds in the middle
+// of the night, and a media element comes back from none of them by itself:
+// once it has taken a network error it will never fetch again, and a buffer
+// that ran dry with nothing behind it sits there silently until something
+// reloads it. With the screen locked, all of that looks the same from the
+// outside — a notification that says paused — so the page has to be the thing
+// that notices, and it has to say so where they can see it. At 2am a silent
+// spinner is worse than a sentence.
+
+function inTrouble(message) {
+  troubled = true;
+  setStatus(message);
+}
+
+// The book is arriving again. Only the network's own message is cleared:
+// "goodnight" and "tap anywhere to carry on" are about something else.
+function outOfTrouble() {
+  clearTimeout(stallTimer);
+  clearTimeout(retryTimer);
+  stallTimer = 0;
+  retryTimer = 0;
+  retryDelay = RETRY_MIN_MS;
+  if (troubled) setStatus("");
+  troubled = false;
+}
+
+// Put the chapter back under them, from where they had got to rather than from
+// the top of it. Reloading is the whole of the way back — assigning src is what
+// makes an element try the network again — and going through locate(positionMs)
+// is what makes a five-second drop cost five seconds instead of making them
+// hear the last ten minutes again.
+function reloadTheChapter() {
+  if (!manifest || !current) return;
+  inTrouble("still trying to reach the book");
+  showChapter(locate(positionMs), { play: wantsSound });
+}
+
+// Wait, then try again, waiting longer each time. Bounded at both ends for the
+// reason given at RETRY_MIN_MS. Never while they are the ones who stopped it: a
+// page that reloaded chapters under a book somebody had put down would be
+// spending the battery on nobody.
+function retryLater() {
+  if (retryTimer || !wantsSound) return;
+  // Whatever grace a stall was being given is spent: `waiting` fires just
+  // before the error that follows it, so without this every failure leaves two
+  // chains reloading the chapter and the backoff below is capped at whichever
+  // of them is shorter — which at 4am is a request every eight seconds until
+  // the battery goes.
+  clearTimeout(stallTimer);
+  stallTimer = 0;
+  retryTimer = setTimeout(() => {
+    retryTimer = 0;
+    reloadTheChapter();
+  }, retryDelay);
+  retryDelay = Math.min(retryDelay * 2, RETRY_MAX_MS);
+}
+
+// A buffer that has run dry, or a download that has stopped arriving. Given a
+// few seconds before anything is done about it: most of these refill by
+// themselves and nobody hears more than a gap, and announcing every ordinary
+// rebuffer would put a line on the screen — and in a screen reader's ear,
+// through the live region — for something that is already over.
+//
+// `suspend` and `abort` are deliberately not wired here however much they look
+// like they belong: suspend is a full buffer and abort is a swap, which between
+// them happen at every chapter boundary all night.
+function stalling() {
+  if (!wantsSound || stallTimer || retryTimer) return;
+  stallTimer = setTimeout(() => {
+    stallTimer = 0;
+    reloadTheChapter();
+  }, STALL_GRACE_MS);
+}
+
+// Something happened that might mean the network is back: the browser said so,
+// or the page came back in front of them. Whatever is waiting out a backoff is
+// worth trying now — the wait was only ever a guess about a network nobody can
+// see, and being wrong about it in this direction costs one request.
+function tryAgainNow() {
+  bootDelay = RETRY_MIN_MS;
+  retryDelay = RETRY_MIN_MS;
+  if (bootTimer) {
+    clearTimeout(bootTimer);
+    bootTimer = 0;
+    openTheBook();
+  }
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = 0;
+    reloadTheChapter();
+  }
+  if (awaiting) {
+    awaiting.delay = RENDER_ASK_MS;
+    askForMore();
+  }
+}
+
+player.addEventListener("waiting", stalling);
+player.addEventListener("stalled", stalling);
+// The sound is really coming out, which is the only proof worth having. A stall
+// that refilled by itself never reloads anything, so this is the one thing that
+// says so.
+player.addEventListener("playing", outOfTrouble);
+
+// `online` is a hint and never a replacement for the backoff above: the wifi
+// coming back is not the tailnet coming back, and a tailscale re-key does not
+// touch this event at all. All it means is that there is no point waiting out
+// the rest of a wait that was a guess.
+window.addEventListener("online", tryAgainNow);
+
 player.addEventListener("loadedmetadata", () => {
+  // The server answered with a chapter, which is as much as this page ever
+  // knows about the network being back.
+  outOfTrouble();
   if (pendingOffsetMs !== null) {
     player.currentTime = toElementSeconds(pendingOffsetMs, player.duration);
     pendingOffsetMs = null;
@@ -647,6 +881,9 @@ player.addEventListener("seeked", () => {
 
 player.addEventListener("play", () => {
   untouched = false;
+  // From here the sound is meant to be on, and anything that takes it away is
+  // something to get back from rather than something that happened.
+  wantsSound = true;
   // The timer measures listening, so it starts counting from here and not from
   // whenever it was last looked at.
   sleepCountedAt = Date.now();
@@ -684,6 +921,11 @@ player.addEventListener("pause", () => {
   // and it redraws the button, or worse decides the page is finished with the
   // sound. The state only ever changes here for a pause that really happened.
   if (swapping || player.ended || player.error) return;
+  // A pause that got this far is one somebody made — a thumb, the lock screen,
+  // the sleep timer, or an alarm taking the sound. None of them is a network to
+  // fight, and the retry above stops for all of them.
+  wantsSound = false;
+  outOfTrouble();
   // How long the sound has been off is the whole of what the resume knows, so
   // it is written down before anything else can take time over it.
   lastPauseAt = Date.now();
@@ -721,23 +963,38 @@ player.addEventListener("ended", () => {
     showChapter(locate(next.start_ms), { play: true });
     return;
   }
-  // Either the book has run out or the night has. A chapter ending is its own
-  // fade — ingest leaves half a second of silence at the end of every one, and
-  // the last words of a chapter are a place a book means to be put down — so
-  // this way of stopping needs no fading at all.
-  setStatus(goodnight ? "goodnight" : "that is the end of the book");
-  clearSleep();
-  endFade();
+  // The sound has stopped, whichever of the three reasons it was. A chapter
+  // ending is its own fade — ingest leaves half a second of silence at the end
+  // of every one, and the last words of a chapter are a place a book means to
+  // be put down — so this way of stopping needs no fading at all.
+  //
   // The pause that came with this was swallowed as spurious, quite rightly, so
   // everything that pause would have done has to happen here instead: writing
   // down when the sound stopped, because the morning's rewind is measured from
   // it, and saying so, because otherwise the lock screen goes on offering a
-  // pause button for a book that has finished.
+  // pause button for a book that is not playing.
+  endFade();
   lastPauseAt = Date.now();
   rememberTheSentence();
   reportPlaybackState("paused");
-  drawPlayer();
   sendPosition("ended");
+  // gid is null for a book the server has said is gone: there is nothing left
+  // to ask about it, and the answer would never change.
+  if (!next && !goodnight && gid !== null && manifest.status === "rendering") {
+    // Not the end of the book — the end of what has been read of it so far.
+    // Saying otherwise here is the lie somebody would act on: they added the
+    // book at eleven, chapter one was playable in minutes, and the night ends
+    // three chapters into forty-nine with the sleep timer thrown away.
+    awaitMore(gid, { play: true, at: current.idx });
+    drawPlayer();
+    return;
+  }
+  setStatus(goodnight ? "goodnight" : "that is the end of the book");
+  // Nothing is coming. Anything still trying to get the book back is trying for
+  // nobody now.
+  wantsSound = false;
+  clearSleep();
+  drawPlayer();
 });
 
 player.addEventListener("error", () => {
@@ -745,13 +1002,22 @@ player.addEventListener("error", () => {
   // `swapping` stuck on, every later boundary would be ignored.
   swapping = false;
   pendingOffsetMs = null;
-  setStatus("that chapter didn't arrive");
   // Same reason as at the end of the book: the pause that follows an error is
   // swallowed, and a notification still showing a pause button for silence is
   // a lie they would have to unlock the phone to see through.
   reportPlaybackState("paused");
   drawPlayer();
   console.error(player.error);
+  // Nobody can tell from here whether this is the night ending or five seconds
+  // of it, so the page assumes the kinder one for as long as the sound was
+  // meant to be on, and keeps trying. A book they had already put down is left
+  // where they put it.
+  if (!wantsSound) {
+    setStatus("that chapter didn't arrive");
+    return;
+  }
+  inTrouble("the book stopped arriving");
+  retryLater();
 });
 
 playpause.addEventListener("click", () => {
@@ -967,7 +1233,19 @@ document.addEventListener("visibilitychange", () => {
   // Backgrounded, which on a phone is most of the night. Say so now: from here
   // on the page can be frozen or discarded without warning, and this is the
   // last moment a normal request is certain to be allowed out.
-  if (document.visibilityState === "hidden") sendPosition("hidden");
+  if (document.visibilityState === "hidden") {
+    sendPosition("hidden");
+    saveSleep();
+    return;
+  }
+  // Back in front of them, and the phone may have been asleep for hours. Two
+  // things could have changed while nothing here was running: the network, and
+  // the book — a render that was three chapters in when the screen went off
+  // can be twenty by now. Both are cheap to ask, and neither answers by itself.
+  tryAgainNow();
+  if (!awaiting && manifest?.status === "rendering") {
+    refreshManifest().catch((error) => console.error(error));
+  }
 });
 
 // `play` is false at boot and true only when the agent has just moved this
@@ -986,9 +1264,20 @@ async function openBook(id, { play = false } = {}) {
     // Rows but no audio: the book is still rendering, or the render died.
     // Whatever was playing is still playing, and still the book this page is
     // on, which is the only place left to be.
-    setStatus("nothing to play yet");
+    if (opening.status === "rendering") {
+      // The first chapter is minutes away. Left at that one sentence with the
+      // player bar hidden, the page stayed that way for ever, on a book that
+      // was playable a quarter of an hour later.
+      awaitMore(id, { play });
+    } else {
+      // Nothing is running, so nothing is coming: the render died, or it never
+      // started. Asking again all night would answer the same thing all night.
+      stopAwaiting();
+      setStatus("nothing to play yet");
+    }
     return;
   }
+  stopAwaiting();
   if (gid !== null && gid !== opening.gid) sendPartingPosition();
   manifest = opening;
   gid = opening.gid;
@@ -999,6 +1288,8 @@ async function openBook(id, { play = false } = {}) {
 }
 
 async function openTheBook() {
+  clearTimeout(bootTimer);
+  bootTimer = 0;
   try {
     const response = await fetch("api/books");
     if (!response.ok) throw new Error("no book list");
@@ -1009,12 +1300,130 @@ async function openTheBook() {
       return;
     }
     await openBook(chosen);
+    // Reached the server and got a book out of it, so the next thing to go
+    // wrong starts its waiting again from the short end.
+    bootDelay = RETRY_MIN_MS;
   } catch (error) {
-    setStatus("couldn't reach the book");
     console.error(error);
+    // The service worker serves the shell from cache when the server cannot be
+    // reached — on purpose, and it is the right call — so what somebody lands
+    // on here is a page that looks perfectly alive with no book in it. Said
+    // once and never tried again, it stayed that way until they thought to kill
+    // the app and open it afresh, and the 2am screen took away the pull to
+    // refresh that was the one gesture that would have fixed it by hand.
+    inTrouble("couldn't reach the book — trying again");
+    bootTimer = setTimeout(openTheBook, bootDelay);
+    bootDelay = Math.min(bootDelay * 2, RETRY_MAX_MS);
   }
 }
 
+// -------------------------------------------- a book that is still being read
+
+// somnia renders a book chapter by chapter and the whole point of that is that
+// listening can start when chapter one is ready. So a manifest is a photograph
+// of a book that is still arriving: ingest writes each chapter row as it
+// finishes and bumps total_ms with it. Fetched once at boot and never again,
+// chapter three of forty-nine ended the night with "that is the end of the
+// book", the sleep timer thrown away and the phone silent — and a book opened
+// before its first chapter landed showed no player at all, for ever.
+//
+// Only the timeline is taken. position_ms and seq in the reply are the server's
+// record of what this page last told it, which is up to fifteen seconds behind
+// where the sound actually is, so adopting them mid-chapter would drag the
+// listener backwards every time the book grew.
+async function refreshManifest() {
+  if (gid === null || !manifest) return false;
+  const response = await fetch(`api/book/${gid}`);
+  if (!response.ok) throw new Error(`no book ${gid}`);
+  const fresh = await response.json();
+  // The page moved to another book while this was in flight, or the answer has
+  // fewer chapters in it than the page is already playing — a book somebody is
+  // re-rendering, say. Neither is something to adopt underneath a listener: the
+  // chapter the element is holding might not be in it.
+  if (fresh.gid !== gid || fresh.chapters.length < manifest.chapters.length) {
+    return false;
+  }
+  const grew = fresh.chapters.length > manifest.chapters.length;
+  manifest = fresh;
+  // The element is holding a chapter object from the manifest just replaced.
+  // Pointing it at the row of the same index in the new one keeps every clock
+  // on the page reading off one manifest — the numbers are the same today, but
+  // a page holding rows from two fetches at once is a bug waiting for the day
+  // they are not.
+  if (current) {
+    current = { idx: current.idx, chapter: fresh.chapters[current.idx] };
+  }
+  drawPlayer();
+  return grew;
+}
+
+// Wait for the book to grow, and carry on when it does. `at` is the chapter the
+// audio ran out after, or null when there was no audio at all yet.
+function awaitMore(id, { play = false, at = null } = {}) {
+  if (awaiting?.gid === id) return;
+  stopAwaiting();
+  awaiting = { gid: id, delay: RENDER_ASK_MS, play, at, timer: 0 };
+  setStatus(
+    at === null
+      ? "the first chapter is still being read"
+      : "waiting for the next chapter to be read",
+  );
+  awaiting.timer = setTimeout(askForMore, awaiting.delay);
+}
+
+// Whoever stops the waiting takes the message down with it — the chapter has
+// either arrived or is never going to, and either way the page is not waiting
+// for it any more. Anything with something else to say says it afterwards.
+function stopAwaiting() {
+  if (!awaiting) return;
+  clearTimeout(awaiting.timer);
+  awaiting = null;
+  setStatus("");
+}
+
+async function askForMore() {
+  const waiting = awaiting;
+  if (!waiting) return;
+  // It may have been called early — by the network coming back, or by the page
+  // coming back in front of them — so whatever was scheduled is stale.
+  clearTimeout(waiting.timer);
+  try {
+    if (gid === waiting.gid && manifest) {
+      if (await refreshManifest()) {
+        stopAwaiting();
+        // Only if they are still standing where the audio ran out. If they went
+        // somewhere else in the meantime, the longer timeline was all they
+        // needed: the boundary at the end of wherever they are now will take
+        // them into the new chapter by itself.
+        if (player.ended && current?.idx === waiting.at) {
+          const next = manifest.chapters[waiting.at + 1];
+          if (next) showChapter(locate(next.start_ms), { play: waiting.play });
+        }
+        return;
+      }
+      if (manifest.status !== "rendering") {
+        // The render finished, and there was nothing more in it after all.
+        stopAwaiting();
+        setStatus("that is the end of the book");
+        wantsSound = false;
+        clearSleep();
+        return;
+      }
+    } else {
+      // Nothing of this book is open yet, so there is no timeline to extend:
+      // the first chapter arriving is the page opening the book at last.
+      await openBook(waiting.gid, { play: waiting.play });
+      if (awaiting !== waiting) return;
+    }
+  } catch (error) {
+    // The tailnet, most likely. Asking again is already the plan.
+    console.error(error);
+  }
+  waiting.delay = Math.min(waiting.delay * 2, RENDER_ASK_MAX_MS);
+  waiting.timer = setTimeout(askForMore, waiting.delay);
+}
+
+restoreSleep();
 openTheBook();
 
 // ------------------------------------------------------------------ speaking

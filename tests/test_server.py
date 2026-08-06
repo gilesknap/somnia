@@ -294,6 +294,48 @@ def test_the_manifest_gives_the_page_a_url_for_every_chapter(
         assert tone_client.get(f"/{chapter['url']}").status_code == 200
 
 
+def test_a_book_still_being_read_says_so_and_grows_between_asks(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The page fetches the manifest again while it says 'rendering'.
+
+    Ingest writes a chapter row as each one finishes and bumps total_ms with it,
+    which is what lets listening start on chapter one of forty-nine. Fetched
+    once and never again, the page ends the night at whatever the book happened
+    to be an instant after it opened — so ``status`` is not decoration, it is
+    the page's only cue to ask again, and a second ask has to show the chapter
+    that has landed since.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET status = 'rendering', total_ms = 16000 WHERE gid = ?",
+            (GID,),
+        )
+        tone_book.conn.execute(
+            "DELETE FROM chapters WHERE book_gid = ? AND idx = 2", (GID,)
+        )
+    rendering = tone_client.get(f"/api/book/{GID}").json()
+    assert rendering["status"] == "rendering"
+    assert (len(rendering["chapters"]), rendering["total_ms"]) == (2, 16_000)
+
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO chapters (book_gid, idx, title, start_ms, end_ms,"
+            " audio_file) VALUES (?, 2, 'The Third Tone', 16000, 24000, ?)",
+            (GID, str(tone_book.book_dir / CHAPTERS[2].file_name)),
+        )
+        tone_book.conn.execute(
+            "UPDATE books SET status = 'done', total_ms = 24000 WHERE gid = ?", (GID,)
+        )
+    done = tone_client.get(f"/api/book/{GID}").json()
+    assert done["status"] == "done"
+    assert [c["start_ms"] for c in done["chapters"]] == [0, 8_000, 16_000]
+    assert done["total_ms"] == 24_000
+    # And the chapter that arrived is really playable, which is the whole of
+    # what the page does with it.
+    assert tone_client.get(f"/{done['chapters'][2]['url']}").status_code == 200
+
+
 def test_the_book_list_says_what_there_is_to_play(tone_client: TestClient) -> None:
     body = tone_client.get("/api/books").json()
     assert body["last_gid"] is None
