@@ -5,15 +5,55 @@
    is easy to forget, a miss that costs nothing rather than a miss that does the
    wrong thing. Where those two pull against each other, the second one wins. */
 
+/* One hue, and no blue in it.
+
+   Everything the page is made of used to be a blue-grey: slabs at #12121a,
+   borders at #23232e, a tap flash at #20202c repeated ten times. Blue-grey is
+   what a screen looks like when nobody chose, and at 2am it is also the coldest
+   thing a dark-adapted eye can be shown. So the greys are gone: the page is a
+   near-black brown, its controls are one warm slab, and the only saturated
+   colour anywhere is amber — the same amber, at one value, for every warm thing
+   on the page.
+
+   No literal colour is written anywhere below this block. That is not tidiness:
+   it is the only way "is this page still on one hue?" stays a question that can
+   be answered by reading nine lines instead of a thousand. */
 :root {
-  --ink: #c8bda8; /* what is read */
-  --mid: #9a907e; /* what is glanced at */
-  --dim: #6d6558; /* what is there if it is wanted */
-  --page: #07070b;
-  --raised: #12121a; /* a control */
-  --lit: #191307; /* the control that is pressed without looking */
-  --edge: #23232e;
-  --glow: #b58a4a;
+  --bg: #0b0a09; /* the room */
+  --surface: #16151b; /* a control */
+  --surface-active: #1d1c23; /* a control under a thumb */
+
+  --accent: #c8873c; /* the one warm thing: progress, the press, the voice */
+  --accent-surface: #241a08; /* the control that is pressed without looking */
+  --accent-surface-active: #2e2109;
+  --accent-tint: rgba(200, 135, 60, 0.07); /* a wash of it */
+  --accent-line: rgba(200, 135, 60, 0.4); /* an edge of it */
+
+  /* One cream, dropped down the page by alpha rather than by picking darker
+     creams. Descending: what is read, what is glanced at, what is there if it
+     is wanted, and what is only a hint inside a box someone is about to type
+     in. Alpha and not hex so every one of them is the same colour going out,
+     which is what makes the hierarchy read as depth instead of as four
+     decisions. */
+  --ink: #e6dcc8;
+  --mid: rgba(230, 220, 200, 0.6);
+  --dim: rgba(230, 220, 200, 0.4);
+  --faint: rgba(230, 220, 200, 0.32);
+  --hairline: rgba(230, 220, 200, 0.13);
+
+  /* The toast has no home on the page yet. The colour lives here anyway,
+     because when it arrives it must be this one and not a fresh guess. */
+  --toast-bg: #150f06;
+
+  /* The two reds, lifted out of the rules below exactly as they were. Nothing
+     on this page has decided yet what failure is supposed to look like once
+     everything else is amber, and a red invented in passing during a colour
+     pass is a red nobody chose either. They keep their hue until that is
+     answered on purpose. */
+  --failed: #8c5a52; /* an answer that never came back */
+  --stop-armed: #c08a80; /* a render about to be thrown away */
+  --stop-armed-line: #6b3f3a;
+
   color-scheme: dark;
 }
 
@@ -40,7 +80,7 @@ body {
   margin: 0;
   display: flex;
   flex-direction: column;
-  background: var(--page);
+  background: var(--bg);
   color: var(--ink);
   font: 400 1.25rem/1.55 ui-serif, Georgia, serif;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
@@ -148,7 +188,7 @@ h1 {
 }
 
 .said.failed {
-  color: #8c5a52;
+  color: var(--failed);
 }
 
 /* The only feedback that the button is listening, or that an answer is on its
@@ -165,7 +205,7 @@ h1 {
   min-height: 1.6rem;
   font-size: 1rem;
   font-style: italic;
-  color: var(--glow);
+  color: var(--accent);
   opacity: 0.75;
 }
 
@@ -230,7 +270,7 @@ h1 {
   min-height: 4rem;
   display: grid;
   place-items: center;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--hairline);
   border-radius: 1.1rem;
   background: none;
   color: var(--dim);
@@ -242,9 +282,13 @@ h1 {
   height: 1.75rem;
 }
 
-/* The platform's tap flash is off page-wide, so every button shows its own. */
+/* The platform's tap flash is off page-wide, so every button shows its own.
+   This one's edge warms as well as its fill: unfilled to start with, a change
+   of background alone is the faintest press on the page, and this is the press
+   that costs a whole chapter. */
 .chapter-skip:active {
-  background: #20202c;
+  background: var(--surface-active);
+  border-color: var(--accent-line);
   color: var(--ink);
 }
 
@@ -302,20 +346,25 @@ h1 {
   padding: 0.6rem 0.85rem;
 }
 
+/* A wash and an edge, not the filled slab the play button wears. Both are
+   amber, and the difference between them is the difference between "there is a
+   timer running" and "this is the thing you press without looking" — which is a
+   distinction that has to survive being glanced at, in the dark, by someone who
+   has already stopped reading. */
 #sleep.armed {
-  background: var(--lit);
-  border-color: #3a2e16;
-  color: var(--glow);
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+  color: var(--accent);
 }
 
 /* The platform's tap flash is off page-wide, so every button shows its own. */
 #sleep:active {
-  background: #20202c;
+  background: var(--surface-active);
   color: var(--ink);
 }
 
 #sleep.armed:active {
-  background: #241a09;
+  background: var(--accent-surface);
 }
 
 /* Where they are, and the three things they might want to do about it.
@@ -336,9 +385,9 @@ h1 {
   min-height: 5.5rem;
   display: grid;
   place-items: center;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--hairline);
   border-radius: 1.1rem;
-  background: var(--raised);
+  background: var(--surface);
   color: var(--ink);
   font-size: 1.45rem;
   font-variant-numeric: tabular-nums;
@@ -349,20 +398,20 @@ h1 {
    way: without it a button that did not take looks exactly like one that did,
    and the answer to that is always to press it again. */
 .transport button:active {
-  background: #20202c;
+  background: var(--surface-active);
 }
 
 /* Warmer than the two beside it and half again as wide, so that finding it in
    the dark is a matter of reaching for the middle rather than of reading
    anything. */
 #playpause {
-  background: var(--lit);
-  border-color: #3a2e16;
-  color: var(--glow);
+  background: var(--accent-surface);
+  border-color: var(--accent-line);
+  color: var(--accent);
 }
 
 #playpause:active {
-  background: #241a09;
+  background: var(--accent-surface-active);
 }
 
 #playpause svg {
@@ -406,8 +455,8 @@ h1 {
   flex: 1;
   min-width: 0;
   min-height: 3.5rem;
-  background: var(--raised);
-  border: 1px solid var(--edge);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
   border-radius: 999px;
   color: var(--ink);
   font: inherit;
@@ -416,7 +465,7 @@ h1 {
 }
 
 #question::placeholder {
-  color: #5b5245;
+  color: var(--faint);
 }
 
 /* The clear-field cross a search box brings with it: a second small target
@@ -428,7 +477,7 @@ h1 {
 
 #question:focus {
   outline: none;
-  border-color: #2c2c3c;
+  border-color: var(--accent-line);
 }
 
 #talk {
@@ -436,11 +485,15 @@ h1 {
   width: 5rem;
   height: 5rem;
   border-radius: 50%;
-  border: 1px solid var(--edge);
-  background: var(--raised);
-  color: var(--glow);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--accent);
   display: grid;
   place-items: center;
+  /* So the listening ring below can be hung off this button rather than drawn
+     inside it. It is out of flow, so it neither shifts the icon nor widens the
+     row the button sits in. */
+  position: relative;
   /* Not `manipulation` like the others: this one is held down, and the browser
      must not decide part way through that the press was really a scroll. */
   touch-action: none;
@@ -452,31 +505,55 @@ h1 {
 }
 
 #talk.listening {
-  background: #3a2a16;
-  color: #f0cf95;
-  border-color: #6b512c;
+  background: var(--accent-surface);
+  color: var(--accent);
+  border-color: var(--accent-line);
   transform: scale(1.06);
-  animation: listening 1.5s ease-out infinite;
+}
+
+/* The ring, and the one thing on this page that moves for its own sake. It
+   breathes rather than expanding: an expanding ring is a shockwave, which says
+   something happened once, and what has to be said here is that something is
+   still happening. Held at one size, at one colour, changing only how present
+   it is.
+
+   It has to carry that on its own. Android's speech recogniser plays its own
+   start and stop tones and a web page cannot silence them, so for anyone with
+   the phone muted this ring is the whole of the answer to "is it hearing
+   me?" */
+#talk.listening::after {
+  content: "";
+  position: absolute;
+  inset: -0.45rem;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: listening 1.6s ease-in-out infinite;
 }
 
 @keyframes listening {
-  from {
-    box-shadow: 0 0 0 0 rgba(224, 182, 115, 0.3);
+  0%,
+  100% {
+    opacity: 0.35;
   }
-  to {
-    box-shadow: 0 0 0 1.8rem rgba(224, 182, 115, 0);
+  50% {
+    opacity: 0.9;
   }
 }
 
-/* Nothing here has to move to be understood. The ring stays — it is the only
-   sign that the microphone is on, for someone who cannot hear the recogniser's
-   own tone with the phone muted — but it stops breathing, and the button stops
-   growing under the finger holding it. */
+/* Nothing here has to move to be understood. The ring stays — with the pulse
+   stopped it is a plain amber circle, still the only sign the microphone is on
+   for someone who cannot hear the recogniser's own tone — and the button stops
+   growing under the finger holding it. It is held at the bright end of the
+   pulse rather than the dim one: what is lost is the movement, not the
+   message. */
 @media (prefers-reduced-motion: reduce) {
   #talk.listening {
-    animation: none;
     transform: none;
-    box-shadow: 0 0 0 0.7rem rgba(224, 182, 115, 0.12);
+  }
+
+  #talk.listening::after {
+    animation: none;
+    opacity: 0.9;
   }
 }
 
@@ -597,7 +674,7 @@ button:disabled {
   gap: 0.9rem;
   /* Opaque, not a scrim. Half-lit text read through the conversation behind it
      at 2am without glasses is not text. */
-  background: var(--page);
+  background: var(--bg);
   /* Its own safe-area insets: fixed positioning escapes the padding the body
      carries, so without these the cancel button sits under the home bar. */
   padding: calc(env(safe-area-inset-top) + 1rem)
@@ -665,15 +742,15 @@ button:disabled {
   display: grid;
   gap: 0.25rem;
   text-align: left;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--hairline);
   border-radius: 1.1rem;
-  background: var(--raised);
+  background: var(--surface);
   color: var(--ink);
   padding: 0.9rem 1.1rem;
 }
 
 .candidate-go:active {
-  background: #20202c;
+  background: var(--surface-active);
 }
 
 .candidate-when {
@@ -717,7 +794,7 @@ button:disabled {
   min-height: 3.5rem;
   width: 100%;
   background: none;
-  border: 1px dashed var(--edge);
+  border: 1px dashed var(--hairline);
   border-radius: 0.9rem;
   color: var(--dim);
   font-size: 1rem;
@@ -725,7 +802,7 @@ button:disabled {
 }
 
 .candidate-show:active {
-  background: #20202c;
+  background: var(--surface-active);
   color: var(--ink);
 }
 
@@ -744,11 +821,11 @@ button:disabled {
      makes it read as a mark on the same timeline rather than as another
      control. */
   padding: 0 1.1rem;
-  color: var(--glow);
+  color: var(--accent);
 }
 
 .candidate.here .candidate-where {
-  color: var(--glow);
+  color: var(--accent);
 }
 
 .candidate.here .candidate-when::before {
@@ -759,22 +836,24 @@ button:disabled {
   flex: none;
 }
 
-/* --raised and --ink, never --lit: the warm one is reserved for the control
-   pressed without looking, and this one is pressed on purpose. It is the full
-   width of the screen at the bottom of it, which is the one place a hand
-   already holding the phone arrives at without aiming. */
+/* --surface and --ink, never --accent-surface: the warm one is reserved for the
+   control pressed without looking, and this one is pressed on purpose. Now that
+   the page has one amber and uses it for everything warm, that rule is the only
+   thing left keeping the amber worth noticing. It is the full width of the
+   screen at the bottom of it, which is the one place a hand already holding the
+   phone arrives at without aiming. */
 #candidates-cancel {
   width: 100%;
   min-height: 5.5rem;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--hairline);
   border-radius: 1.1rem;
-  background: var(--raised);
+  background: var(--surface);
   color: var(--ink);
   font-size: 1.25rem;
 }
 
 #candidates-cancel:active {
-  background: #20202c;
+  background: var(--surface-active);
 }
 
 /* A keyboard over half the screen, or a phone on its side — and a keyboard is
@@ -844,7 +923,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  background: var(--page);
+  background: var(--bg);
   padding: calc(env(safe-area-inset-top) + 1rem)
     calc(env(safe-area-inset-right) + 1.2rem)
     calc(env(safe-area-inset-bottom) + 1.1rem)
@@ -930,7 +1009,7 @@ button:disabled {
   min-height: 3.5rem;
   width: 100%;
   background: none;
-  border: 1px dashed var(--edge);
+  border: 1px dashed var(--hairline);
   border-radius: 0.9rem;
   color: var(--dim);
   font-size: 1rem;
@@ -938,7 +1017,7 @@ button:disabled {
 }
 
 .job-stop:active {
-  background: #20202c;
+  background: var(--surface-active);
   color: var(--ink);
 }
 
@@ -947,8 +1026,8 @@ button:disabled {
    press the second half without noticing the first. */
 .job-stop.armed {
   border-style: solid;
-  border-color: #6b3f3a;
-  color: #c08a80;
+  border-color: var(--stop-armed-line);
+  color: var(--stop-armed);
 }
 
 #queue-note,
@@ -956,7 +1035,7 @@ button:disabled {
   margin: 0;
   font-size: 1rem;
   font-style: italic;
-  color: var(--glow);
+  color: var(--accent);
   opacity: 0.75;
 }
 
@@ -977,8 +1056,8 @@ button:disabled {
   flex: 1;
   min-width: 0;
   min-height: 3.5rem;
-  background: var(--raised);
-  border: 1px solid var(--edge);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
   border-radius: 999px;
   color: var(--ink);
   font: inherit;
@@ -987,7 +1066,7 @@ button:disabled {
 }
 
 #queue-query::placeholder {
-  color: #5b5245;
+  color: var(--faint);
 }
 
 #queue-query::-webkit-search-cancel-button,
@@ -997,42 +1076,42 @@ button:disabled {
 
 #queue-query:focus {
   outline: none;
-  border-color: #2c2c3c;
+  border-color: var(--accent-line);
 }
 
 #queue-find {
   flex: none;
   min-height: 3.5rem;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--hairline);
   border-radius: 0.9rem;
-  background: var(--raised);
+  background: var(--surface);
   color: var(--ink);
   font-size: 1.05rem;
   padding: 0.6rem 1.1rem;
 }
 
 #queue-find:active {
-  background: #20202c;
+  background: var(--surface-active);
 }
 
 /* Adding a book is the one thing on this panel that is meant to be easy to hit,
    so it is the one thing here shaped like the rows on the candidate list. It is
-   still not --lit: the warm one is reserved for the button pressed without
-   looking, and nobody adds a book without looking. */
+   still not --accent-surface: the warm one is reserved for the button pressed
+   without looking, and nobody adds a book without looking. */
 .found-add {
   min-height: 4rem;
   width: 100%;
   text-align: left;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--hairline);
   border-radius: 1.1rem;
-  background: var(--raised);
+  background: var(--surface);
   color: var(--ink);
   font-size: 1.1rem;
   padding: 0.7rem 1.1rem;
 }
 
 .found-add:active {
-  background: #20202c;
+  background: var(--surface-active);
 }
 
 #queue-foot {
@@ -1047,15 +1126,15 @@ button:disabled {
 #queue-close {
   width: 100%;
   min-height: 5.5rem;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--hairline);
   border-radius: 1.1rem;
-  background: var(--raised);
+  background: var(--surface);
   color: var(--ink);
   font-size: 1.25rem;
 }
 
 #queue-close:active {
-  background: #20202c;
+  background: var(--surface-active);
 }
 
 /* A keyboard over half the screen, which on this panel is not the exception —
