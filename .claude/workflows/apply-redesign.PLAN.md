@@ -104,6 +104,42 @@ Five phases. The full reasoning is commented in the script; the short version:
   Blockers are fixed before the next slice stacks on top.
 - **Report** — what landed, what was deferred, what never got built.
 
+## The user's ruling on scope (2026-08-06, before going AFK)
+
+**The visual redesign is the deliverable. New features are not.**
+
+Apply the look — tokens, serif and scale, spacing, radius, motion, dim overlay,
+toast, restructured screens. Where the handoff wants a capability somnia does
+not have, do not build it and do not fake it: record it and draw the screen
+against the data that already exists. Some of the handoff's richness is
+deliberately dropped in this pass; that is the intended outcome.
+
+**Places specifically**: keep the candidate list exactly as it is. No `source`
+line, no standing marks list, no raising the cap to 7. Take the typography, row
+structure, the reveal-versus-`goto` split, the "you are here" divider, the
+pinned `close`. The existing `ahead` flag *is* the handoff's spoiler rule — wire
+them together; that is the one place the two designs already agreed.
+
+**Everything dropped goes into a follow-up issue.** The user asked for this
+explicitly; the workflow's Ship phase opens it. It must not be skipped.
+
+## Shipping (the workflow does this itself)
+
+The user is AFK until the evening of 2026-08-07 and asked for PRs, so the final
+phase pushes and opens the PR without further input.
+
+- Push path is **verified working**: `gh` is authenticated (`repo` scope) and
+  the branch pushed. The remote is `ssh://`, so the explicit-HTTPS +
+  `GIT_CONFIG_GLOBAL=/dev/null` incantation is required and is what the Ship
+  agent uses.
+- **One PR, not one per slice.** The user originally chose PR-per-slice, but the
+  slices are sequential commits on one branch all touching the same three files,
+  so stacked PRs would conflict. One PR with a commit table per slice is the
+  shape this repo already uses (`/pr-slice-tables`). The deviation is stated in
+  the PR body rather than left silent.
+- **Do not merge.** `gh pr merge --auto` does not gate on CI on this user's
+  repos — it merges immediately. Leave the PR open.
+
 ## What will need the user, mid-flight
 
 The workflow is built to stop rather than guess, so expect these:
