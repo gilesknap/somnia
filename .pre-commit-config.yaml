@@ -24,6 +24,19 @@ repos:
         types: [python]
         require_serial: true
 
+      # The page is the player now, so the largest state machine in somnia is
+      # written in JavaScript and pytest cannot see a line of it. This runs it
+      # against a fake media element under node's own test runner — no npm, no
+      # browser, a third of a second. It takes no file names on purpose: bare
+      # `node --test` finds every *.test.mjs there is, so a new one is picked
+      # up by writing it.
+      - id: web-tests
+        name: play the book in a fake browser
+        language: system
+        entry: node --test
+        pass_filenames: false
+        files: ^(src/somnia/web/|tests/web/)
+
       - id: uv-sync
         name: update uv.lock and venv
         pass_filenames: false
