@@ -15,6 +15,16 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- One screen. There is nowhere else to go, nothing to come back from, and
+         no state a wrong press could leave them stranded in — at 2am the whole
+         of the app has to be the thing already in front of them.
+
+         The order down the page is the order a hand reaches: the name and the
+         one button that throws anything away as far from the thumb as the
+         screen allows, the conversation in the middle where it is read rather
+         than touched, and the two things pressed without looking — the book and
+         the microphone — where a hand already holding the phone can find
+         them. -->
     <header>
       <h1>somnia</h1>
       <button id="restart" type="button" class="quiet">start over</button>
@@ -33,15 +43,46 @@
     <audio id="player" preload="metadata"></audio>
 
     <section id="player-bar" hidden>
-      <p id="now-playing">
-        <span id="chapter-title"></span>
-        <span id="clock"></span>
-      </p>
+      <div id="now-playing">
+        <p id="chapter-title"></p>
+        <p id="whereabouts">
+          <span id="clock"></span>
+          <!-- Where the sleep timer will say how long it has left to run. It
+               stays empty until there is one, and an empty slot is given no
+               room, so reserving it costs nothing tonight.
+
+               It is here and not in the transport below on purpose. A control
+               that can end the night early — or fail to — has no business
+               within a thumb's width of the one button that gets pressed
+               without looking. -->
+          <span id="sleep"></span>
+        </p>
+      </div>
       <div class="transport">
         <button id="back30" type="button" aria-label="Back thirty seconds">
           −30
         </button>
-        <button id="playpause" type="button" aria-label="Play">▶</button>
+        <!-- Drawn rather than typed. A glyph would be whatever size and weight
+             the phone's symbol font decided, sitting on a baseline rather than
+             in the middle of the button; this is the same shape everywhere and
+             it is the size it was meant to be. Which half shows is a class,
+             set in drawPlayer. -->
+        <button id="playpause" type="button" aria-label="Play">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              class="play"
+              d="M8.5 5.5 18 12 8.5 18.5Z"
+              fill="currentColor"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linejoin="round"
+            />
+            <g class="pause" fill="currentColor">
+              <rect x="7.2" y="5" width="3.8" height="14" rx="1.4" />
+              <rect x="13" y="5" width="3.8" height="14" rx="1.4" />
+            </g>
+          </svg>
+        </button>
         <button id="fwd30" type="button" aria-label="Forward thirty seconds">
           +30
         </button>

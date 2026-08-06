@@ -219,7 +219,10 @@ function drawPlayer() {
   chapterTitle.textContent = current.chapter.title;
   const whole = timestamp(manifest.total_ms);
   clock.textContent = `${timestamp(positionMs)} of ${whole}`;
-  playpause.textContent = player.paused ? "▶" : "⏸";
+  // Which half of the button's drawing shows. A class rather than the glyph it
+  // used to hold: how big the symbol is and where in the button it sits are no
+  // longer whatever the phone's symbol font happened to think.
+  playpause.classList.toggle("playing", !player.paused);
   playpause.setAttribute("aria-label", player.paused ? "Play" : "Pause");
 }
 
