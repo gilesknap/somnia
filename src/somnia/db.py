@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS books (
     position_ms INTEGER,
     position_seq INTEGER NOT NULL DEFAULT 0,
     position_at TEXT,
+    playing_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -86,6 +87,13 @@ _ADDED_COLUMNS = (
     # so datetime('now') would fail on every database that already has books in
     # it. Every write that touches position_ms sets this explicitly instead.
     ("books", "position_at", "TEXT"),
+    # When the page last said the sound was actually on. It is the clock
+    # heard_to_ms advances against: a position can only be counted as heard if
+    # enough time has passed since this for it to have been played through.
+    # NULL after any report that says the sound is off, so the hours a phone
+    # spends paused overnight can never be spent as listening time by the skip
+    # that follows them.
+    ("books", "playing_at", "TEXT"),
 )
 
 

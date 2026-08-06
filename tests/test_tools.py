@@ -177,6 +177,63 @@ def test_find_passage_will_not_search_past_where_they_are(fixture: Fixture) -> N
     assert spoiled.searched_to_ms is None
 
 
+def test_a_book_nobody_has_listened_to_yet_is_bounded_at_its_start(
+    fixture: Fixture,
+) -> None:
+    """A mark of zero is nothing heard, which is the opposite of no limit.
+
+    The mark is only raised by the page playing the book, so every book somnia
+    has rendered but nobody has yet played from it stands at zero — and reading
+    that as "search the whole thing" turns the guard off on exactly the books
+    that have never been opened.
+    """
+    with fixture.conn:
+        fixture.conn.execute(
+            "UPDATE books SET heard_to_ms = 0, position_ms = NULL WHERE gid = 271"
+        )
+    search = fixture.library.find_passage(
+        271, "a later scene the listener has not reached"
+    )
+    assert search.searched_to_ms == 60_000
+    assert 700_000 not in [p.start_ms for p in search.hits]
+    # And the answer is not silence: what lies ahead is reported, so the agent
+    # can offer to take them there instead of saying the book does not have it.
+    assert search.better_ahead is not None
+    assert search.better_ahead.start_ms == 700_000
+
+
+def test_a_book_they_have_only_been_moved_through_is_still_bounded(
+    fixture: Fixture,
+) -> None:
+    """Where they were put is not what they have heard.
+
+    The agent can move the book anywhere, and it moves it by writing the
+    position. If the bound followed the position, one move ahead — which they
+    may well have asked for — would unlock everything behind it for the rest of
+    the book's life.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = 700000 WHERE gid = 271")
+    search = fixture.library.find_passage(
+        271, "a later scene the listener has not reached"
+    )
+    assert search.searched_to_ms == 360_000
+    assert 700_000 not in [p.start_ms for p in search.hits]
+
+
+def test_a_book_they_have_finished_is_searched_whole(fixture: Fixture) -> None:
+    """There is nothing left to spoil once they have heard the end of it."""
+    with fixture.conn:
+        fixture.conn.execute(
+            "UPDATE books SET heard_to_ms = 0, position_ms = 900000 WHERE gid = 271"
+        )
+    search = fixture.library.find_passage(
+        271, "a later scene the listener has not reached"
+    )
+    assert search.searched_to_ms is None
+    assert search.hits[0].start_ms == 700_000
+
+
 def test_find_passage_finds_what_they_have_already_heard(fixture: Fixture) -> None:
     search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
     assert search.hits[0].start_ms == 300_000

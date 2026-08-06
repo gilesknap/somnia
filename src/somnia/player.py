@@ -30,6 +30,14 @@ __all__ = ["BookEntry", "BookList", "Chapter", "Manifest", "Player", "Report"]
 
 logger = logging.getLogger(__name__)
 
+# How much further on than the clock a report may be and still be believed to
+# have been played through. It covers the second datetime('now') truncates away
+# at each end, the 400ms of rendered silence a chapter swap skips, and a render
+# clock that can legitimately run a frame past the container's. What it must
+# stay well below is thirty seconds, which is the smallest forward jump the page
+# has a button for — anything bigger than this is a stretch nobody heard.
+HEARD_SLACK_MS = 5_000
+
 
 @dataclass
 class BookEntry:
@@ -222,21 +230,76 @@ class Player:
         tailnet would look like a move, and the listener would be yanked
         backwards fifteen seconds at random all night.
 
-        The high-water mark rises only when something was actually playing. A
-        page sitting paused while a question is asked has heard nothing, and a
-        forward seek followed immediately by a pause would otherwise mark the
-        skipped stretch as heard and give the spoiler guard away.
+        How far they have *heard* is a different question from where the book
+        is, and its honest answer is playback that really elapsed rather than a
+        number that was reported. One press of the skip button is thirty
+        seconds, an agent move is hours, and both arrive here as a report that
+        says "playing" from further on than the last one. Believing those handed
+        the whole spoiler guard away for a single nudge, and MAX() meant it
+        never came back.
+
+        So the mark rises only on a report that says the sound is on — a page
+        sitting paused while a question is asked has heard nothing — and only as
+        far as they could have reached by playing on from it: no further past
+        the mark than the wall clock has moved since the last report that said
+        the sound was on. That still believes the gaps that are real, a
+        heartbeat lost on the tailnet or four minutes off the network with the
+        book still playing, because elapsed time covers those honestly while a
+        jump is thirty seconds of book in no seconds of clock. It is why
+        ``reason`` is not consulted: a tick sent fifteen seconds after a skip is
+        an honest tick, and still fifteen seconds of listening at a place they
+        were never played to.
+
+        ``playing_at`` is that clock. It is written on every report that says
+        the sound is on whether or not the mark rose with it — left alone while
+        the mark was stuck it would accrue until it covered the skip, and the
+        mark would step over the stretch nobody heard a minute late — and
+        cleared by anything that says the sound is off, so six hours face down
+        on a bedside table cannot be spent by the skip that follows them. No
+        clock means no time rather than no limit, which is why the page reports
+        the moment the sound comes back on: that report begins the stretch and
+        is believed because it has gone nowhere. Without it the first heartbeat
+        after every pause would be fifteen seconds of book out of nowhere, and
+        the guard would turn itself off on the first night rather than on the
+        first skip.
+
+        The cost is real and is the one worth paying: after a forward skip the
+        mark stops for good, because everything reported afterwards is thirty
+        seconds further on than it. Searches stay bounded at the last place they
+        truly listened, and the agent offers to go on ahead rather than quoting
+        what lies past it. One number cannot say "I heard this stretch but not
+        that one" — that wants a set of intervals — and failing this way costs
+        them a question at 2am, where failing the other way costs them the book.
         """
-        # MAX(x, 0) is a no-op on a column that is NOT NULL DEFAULT 0, so the
-        # paused case needs no second statement.
-        heard_ms = position_ms if playing else 0
         with self._lock, self._conn:
             row = self._conn.execute(
                 "UPDATE books SET position_ms = ?, position_at = datetime('now'),"
-                " heard_to_ms = MAX(heard_to_ms, ?)"
+                " playing_at = CASE WHEN ? THEN datetime('now') END,"
+                # Every expression in a SET reads the row as it was before the
+                # update, so this is the previous report's playing_at and not
+                # the one being written beside it. A missing clock counts as no
+                # time at all rather than as no limit: the first report of a
+                # stretch is believed only where it stands, never for ground in
+                # front of it. MAX(x, 0) is a no-op on a column that is NOT NULL
+                # DEFAULT 0, so a report that cannot be credited needs no second
+                # statement.
+                " heard_to_ms = MAX(heard_to_ms, CASE WHEN ? AND ? - heard_to_ms <="
+                " (strftime('%s', 'now')"
+                " - COALESCE(strftime('%s', playing_at), strftime('%s', 'now')))"
+                " * 1000 + ?"
+                " THEN ? ELSE 0 END)"
                 " WHERE gid = ? AND position_seq = ?"
                 " RETURNING position_seq, heard_to_ms",
-                (position_ms, heard_ms, gid, seq),
+                (
+                    position_ms,
+                    playing,
+                    playing,
+                    position_ms,
+                    HEARD_SLACK_MS,
+                    position_ms,
+                    gid,
+                    seq,
+                ),
             ).fetchone()
             if row is not None:
                 # The seq handed back is the one that was sent. Saying so out

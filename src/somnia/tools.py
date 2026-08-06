@@ -236,17 +236,34 @@ class Library:
         point they have ever reached, and reports separately whether a closer
         match lies beyond it. Pass False once they have said they don't mind.
 
-        The bound is the high-water mark rather than the current position
-        because the agent can move them backwards: having been taken back to
-        chapter two must not un-hear chapters three to twenty.
+        The bound is the high-water mark and nothing else. Not the current
+        position, because the agent can move them anywhere: backwards, where
+        having been taken to chapter two must not un-hear chapters three to
+        twenty, and forwards, where treating where they were put as what they
+        have heard would unlock the whole book behind a single move. Not a
+        status of done either — that says the rendering finished, not that
+        anybody listened to it.
+
+        A mark of zero therefore bounds the search at the beginning of the book
+        rather than leaving it unbounded, which is what it used to do. Zero
+        means nothing has been heard, and that is precisely when the whole book
+        is ahead of them; reading it as "no limit" turned the guard off on every
+        book the page has never played — since the position pivot, every book
+        there is — and had the agent free to quote the ending of something they
+        are three chapters into.
+
+        What that costs is night one: until they have listened to some of a
+        book, a search finds nothing in range and the agent has to say the match
+        lies further on than they have got and offer to take them there. That is
+        one question in the dark, and they can answer it. The other way round
+        they cannot un-hear the answer.
         """
         before_ms: int | None = None
         if spoiler_free:
             position = self.get_position(gid)
-            heard = self.heard_to_ms(gid)
-            if heard and not (position is not None and position.finished):
+            if position is None or not position.finished:
                 # Include the sentence being spoken, not just what precedes it.
-                before_ms = heard + 60_000
+                before_ms = self.heard_to_ms(gid) + 60_000
 
         hits = find_passage(
             self._conn, self.embedder, gid, query, k=k, before_ms=before_ms

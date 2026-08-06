@@ -55,7 +55,7 @@ MAX_CONVERSATIONS = 8
 # someone might next open it, at the cost of a handful of writes a night rather
 # than one every fifteen seconds.
 STOPPED = frozenset({"pause", "hidden", "unload", "ended"})
-REASONS = STOPPED | frozenset({"load", "tick", "seek", "chapter"})
+REASONS = STOPPED | frozenset({"load", "play", "tick", "seek", "chapter"})
 
 
 class Conversations:

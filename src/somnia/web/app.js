@@ -656,6 +656,13 @@ player.addEventListener("play", () => {
   reportPlaybackState("playing");
   drawPlayer();
   publishPosition();
+  // Where the sound came back on, which is the beginning of a stretch of
+  // listening. The spoiler guard advances on time that really elapsed with the
+  // sound on, so a stretch with no beginning gives it nothing to measure the
+  // first heartbeat against and it stops for the rest of the book. Not during a
+  // chapter swap: the position is between two files there, and the report at
+  // the far side of the swap says the same thing a moment later.
+  if (!swapping) sendPosition("play");
 });
 
 // Nothing changes the rate yet. The handler is here because the platform

@@ -113,7 +113,7 @@ fling them past the spoiler guard into the ending.
 where they are, `position_seq` counts agent moves and nothing else, and
 `position_at` is how a cold launch knows which book to open. The asymmetry is
 the whole protocol: the page's own reports — every fifteen seconds while it
-plays, and at every stop — leave the count alone, so a report carrying a stale
+plays, and whenever the sound starts or stops — leave the count alone, so a report carrying a stale
 count can only mean the agent moved the book, and the refusal that comes back
 is also the instruction to jump. That is why a refusal is a 200 with a body and
 not a 409: the last report of the night is a beacon, and a beacon can read
@@ -125,15 +125,26 @@ requests a night and means the book is in roughly the right place if they open
 ABS somewhere else. A failure is logged and ignored — the app is not the player
 any more, so nothing tonight depends on it.
 
-**The spoiler guard is bounded by the furthest point ever reached**, not by the
-current position, because the agent can move that position backwards: being
-taken back to chapter two must not un-hear chapters three to twenty.
-`books.heard_to_ms` records the high-water mark and only ever rises. The page
-is what raises it, and only for a position reported while something was
-actually playing — a page sitting paused while a question is answered has heard
-nothing. Known hole, stated so it is not mistaken for a design: a jump made
-*while* playing is reported the same way as listening, so a forward nudge
-raises the mark over ground nobody heard.
+**The spoiler guard is bounded by the furthest point ever played through**, not
+by the current position, because the agent can move that position anywhere:
+backwards, where being taken to chapter two must not un-hear chapters three to
+twenty, and forwards, where treating where they were put as what they have
+heard would unlock the whole book behind a single move. `books.heard_to_ms`
+records the mark and only ever rises, and it rises only to a position the page
+could have reached by playing on from it — no further past the mark than the
+wall clock has moved since the last report that said the sound was on
+(`books.playing_at`, cleared by any report that says it is off, which is why
+the page reports the moment the sound comes back on: a stretch of listening
+needs a beginning or the first heartbeat after every pause looks like a jump).
+Elapsed time
+rather than a reported number is what makes a passage heard: a press of the
+skip button is thirty seconds of book in no seconds of clock, while four
+minutes the phone spent playing off the network is covered honestly. Two costs,
+both chosen: after a skip forward the mark stops until they go back, and a book
+nobody has played is bounded at its start rather than left unbounded, so on
+night one the agent has to say the passage is further on than they have got and
+offer to take them there. Failing that way costs a question in the dark;
+failing the other way costs them the book.
 
 ## Serving the audio and answering the questions are separate lanes
 
