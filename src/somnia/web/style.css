@@ -318,6 +318,10 @@ h1 {
 }
 
 #question {
+  /* It is a search field for the keyboard's benefit, so the platform styling
+     that comes with one has to be taken back off before the pill survives. */
+  appearance: none;
+  -webkit-appearance: none;
   flex: 1;
   min-width: 0;
   min-height: 3.5rem;
@@ -332,6 +336,13 @@ h1 {
 
 #question::placeholder {
   color: #5b5245;
+}
+
+/* The clear-field cross a search box brings with it: a second small target
+   beside the microphone, in the dark, doing what a long press already does. */
+#question::-webkit-search-cancel-button,
+#question::-webkit-search-decoration {
+  display: none;
 }
 
 #question:focus {

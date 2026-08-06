@@ -107,10 +107,15 @@
     </section>
 
     <form id="composer" autocomplete="off">
+      <!-- A search box, not a text box, and autocomplete off on the field as
+           well as the form: between them they stop Android offering to fill in
+           passwords and cards, which costs a strip of screen above the keyboard
+           on the one page where the keyboard is already the expensive part. -->
       <input
         id="question"
-        type="text"
+        type="search"
         enterkeyhint="send"
+        autocomplete="off"
         placeholder="the bit where the horse dies"
         aria-label="What are you looking for?"
       />
