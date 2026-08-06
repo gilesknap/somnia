@@ -396,15 +396,17 @@ button:disabled {
   opacity: 0.4;
 }
 
-/* A keyboard over half the screen, or a phone on its side. `interactive-widget=
-   resizes-content` in the viewport meta means the keyboard genuinely shrinks
-   the viewport, so this fires at the moment there is one and not before.
+/* Not much screen: a keyboard over half of it, or a phone on its side.
+   `interactive-widget=resizes-content` in the viewport meta means the keyboard
+   genuinely shrinks the viewport, so this fires at the moment there is one and
+   not before.
 
-   What gives way is the reading: which chapter it is and how far in are not
-   worth a line while someone is typing a question, and the transcript they are
-   typing into is. What does not give way is the transport — a book still
-   playing must still be stoppable — so it shrinks to the smallest thing a thumb
-   can still be trusted with rather than going away. */
+   What does not give way is the transport — a book still playing must still be
+   stoppable — so it shrinks to the smallest thing a thumb can still be trusted
+   with rather than going away. What gives way is the reading: which chapter it
+   is and how far in are not worth a line while someone is typing a question,
+   and the transcript they are typing into is. That is the keyboard's answer,
+   though, not everybody's: see the rule after this one. */
 @media (max-height: 34rem) {
   #now-playing {
     display: none;
@@ -436,5 +438,57 @@ button:disabled {
 
   .said {
     margin-bottom: 1rem;
+  }
+}
+
+/* Short and wide is not a keyboard, it is a phone lying on its side, and the
+   rule above was measured at 390x400 and never at 844x390. In landscape it took
+   away the chapter, the clock, and the only place the sleep timer can be read
+   or set — so the one control that decides when the night ends was reachable
+   only by turning the phone back over.
+
+   Nothing has to go, because nothing is short of room across: the reading moves
+   alongside the transport instead of above it, where it costs no height at all.
+   The transport keeps the larger share, since it is what gets pressed without
+   looking.
+
+   Asked as a width rather than as `orientation: landscape` because width is
+   what actually decides it. A phone held upright with a keyboard up is under
+   34rem across and a phone on its side is over it, and something wide, short
+   and still called portrait — a tablet held upright, typing — gets the layout
+   that fits rather than the one its orientation is named after. The installed
+   app also asks for portrait in the webmanifest, but that binds nothing in a
+   browser tab, which is where the page is read before it is ever installed. */
+@media (max-height: 34rem) and (min-width: 34rem) {
+  #player-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    align-items: center;
+    gap: 1.2rem;
+  }
+
+  #now-playing {
+    display: flex;
+    margin: 0;
+  }
+
+  /* Beside the clock rather than pushed out to the far side of its column.
+     Upright, the dead space under the sleep timer is what keeps it clear of the
+     button pressed without looking; on its side, sending it to the right edge
+     would land it a thumb's width from −30 instead. The slack belongs between
+     the two, whichever way the phone is being held. */
+  #whereabouts {
+    justify-content: flex-start;
+  }
+}
+
+/* Shorter than this and there is nothing left to arrange: it is a keyboard on
+   a phone already lying down, and the reading has to go after all or it takes
+   the bottom off the box they are typing into. Well under any phone on its
+   side with nothing over it — those are 320px and up — and well over what is
+   left of one with a keyboard up, which is around 220px. */
+@media (max-height: 17rem) {
+  #now-playing {
+    display: none;
   }
 }
