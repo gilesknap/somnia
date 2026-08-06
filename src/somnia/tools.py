@@ -9,10 +9,7 @@ a book is answered from the part the listener could have heard, because finding
 out how it ends is the one thing a bedtime reader must never do by accident.
 """
 
-import logging
 import sqlite3
-import subprocess
-import sys
 from dataclasses import dataclass
 
 from .abs import AbsClient, tell_abs
@@ -20,6 +17,7 @@ from .catalog import CatalogEntry, search_catalog
 from .config import Config
 from .embed import Embedder
 from .index import Passage, find_passage
+from .queue import QueueRow, submit, view
 
 __all__ = [
     "Book",
@@ -30,8 +28,6 @@ __all__ = [
     "Position",
     "Refused",
 ]
-
-logger = logging.getLogger(__name__)
 
 # How many places may go on one screen. Four is what somebody half awake can
 # compare without scrolling back up and starting again, and a list they have to
@@ -226,24 +222,33 @@ class Library:
         return next((b for b in self.books() if b.gid == gid), None)
 
     def add_book(self, gid: int) -> str:
-        """Start rendering a Gutenberg book, in the background.
+        """Ask for a Gutenberg book to be rendered, and say where in the line it is.
 
-        A book takes hours to render, so this returns as soon as the work has
-        started. Chapter one is listenable within a few minutes; the rest
-        arrives while you sleep.
+        This starts nothing. It used to spawn ``somnia add`` detached, with all
+        three of its stdio at /dev/null, and return a sentence promising
+        chapter one in a few minutes — a promise it had no way of keeping,
+        since a second question a minute later gave a second Kokoro process on
+        two cores and both of them then rendered slower than somebody listens.
+        Now it writes one row into the queue that the worker drains one book at
+        a time, and the sentence can be honest about waiting.
+
+        The refusals moved with it. A book somnia has all of is still refused,
+        and so is one that is already coming; a render that died, was stopped
+        or was killed by a deploy is not, which is the retry that was
+        impossible before. :func:`somnia.queue.submit` has the argument.
         """
-        existing = self.book(gid)
-        if existing is not None:
-            return f"{existing.title} is already here ({existing.status})."
-        subprocess.Popen(  # noqa: S603
-            [sys.executable, "-m", "somnia", "add", str(gid)],
-            start_new_session=True,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        logger.info("started ingest of gid %d", gid)
-        return f"Started rendering book {gid}. Chapter one plays in a few minutes."
+        return submit(self._conn, gid).said
+
+    def queue(self) -> list[QueueRow]:
+        """What is being rendered, what is waiting, and what died overnight.
+
+        Here so that the voice and the page cannot disagree about what happened
+        when somebody asked for a book: they read the same rows, through the
+        same function. The agent uses the live ones to say "it is third in the
+        line", which is the only true answer to "did that book get added?"
+        between the asking and the first chapter.
+        """
+        return view(self._conn)
 
     # -------------------------------------------------------------- listening
 

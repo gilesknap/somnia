@@ -16,6 +16,7 @@ from anthropic import Anthropic, beta_tool
 
 from .abs import AbsClient
 from .config import Config
+from .queue import QueueRow
 from .tools import Library, Moved, Offer, Refused, format_timestamp
 
 __all__ = [
@@ -189,19 +190,33 @@ def build_tools(
 
     @beta_tool
     def list_books() -> str:
-        """List the audiobooks somnia has, with how much is rendered so far.
+        """List the audiobooks somnia has, and any that are still being made.
 
-        Use this to work out which book someone means, or when they ask what
-        they can listen to.
+        Use this to work out which book someone means, when they ask what they
+        can listen to, or when they ask what became of a book they asked for.
         """
         books = library.books()
-        if not books:
-            return "No books yet."
-        return "\n".join(
+        lines = [
             f"gid {b.gid}: {b.title} by {b.authors or 'unknown'}"
             f" — {b.status}, {b.chapters} chapters, {format_timestamp(b.total_ms)} long"
             for b in books
-        )
+        ]
+        # A book somebody asked for tonight has no books row until its parse
+        # finishes, so without these lines the only true answer to "did that
+        # book get added?" would be "there is no such book" — which is what the
+        # agent said, for the whole of the hours it was waiting its turn.
+        have = {b.gid for b in books}
+        for row in library.queue():
+            if row.state == "rendering" and row.gid in have:
+                # The books line above already says it is rendering. All this
+                # would add is the chapter count, and two lines about one book
+                # is how the voice comes to contradict itself.
+                continue
+            if row.state not in ("queued", "rendering"):
+                continue
+            name = row.title or f"book {row.gid}"
+            lines.append(f"gid {row.gid}: {name} — {_line(row)}")
+        return "\n".join(lines) if lines else "No books yet."
 
     @beta_tool
     def search_catalog(query: str) -> str:
@@ -217,7 +232,14 @@ def build_tools(
 
     @beta_tool
     def add_book(gid: int) -> str:
-        """Start rendering a Gutenberg book to audio. Takes hours to finish.
+        """Ask for a Gutenberg book to be rendered. Hours, and one at a time.
+
+        Books are rendered one after another, so this puts it in a line rather
+        than starting it. The answer says where in that line it landed; tell
+        them that, and never that it has started or that a chapter will be
+        ready soon — you have not been told either. A book somnia already has
+        in full is refused, and so is one that is already coming; a render that
+        died can be asked for again and picks up where it stopped.
 
         Args:
             gid: The Gutenberg id, from search_catalog.
@@ -381,6 +403,24 @@ def build_tools(
         offer_positions,
         move_to,
     ]
+
+
+def _line(row: QueueRow) -> str:
+    """What to say about a book that is not a book yet, in one clause.
+
+    Deliberately in the same vocabulary the page uses, and deliberately with no
+    percentage and no guess at how long is left: chapters differ in length by an
+    order of magnitude, so a fraction of them is not a fraction of the night,
+    and the model would turn any number offered here into a promise.
+    """
+    if row.state == "queued":
+        return f"waiting to be rendered, {row.place} in the line"
+    if not row.chapters_total:
+        return "being rendered now, still fetching the text"
+    return (
+        "being rendered now, chapter"
+        f" {min(row.chapters_done + 1, row.chapters_total)} of {row.chapters_total}"
+    )
 
 
 def _offered(offer: Offer) -> str:

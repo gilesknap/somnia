@@ -36,6 +36,20 @@ const candidates = document.getElementById("candidates");
 const candidatesBook = document.getElementById("candidates-book");
 const candidateList = document.getElementById("candidate-list");
 const candidatesCancel = document.getElementById("candidates-cancel");
+// The books panel. `queuePanel` rather than `queue` because "the queue" in this
+// file means the rows the server is holding, and the two are not the same thing
+// — the panel is a photograph of them, taken every five seconds and only while
+// somebody is looking.
+const booksButton = document.getElementById("books");
+const queuePanel = document.getElementById("queue");
+const queueLive = document.getElementById("queue-live");
+const queueGone = document.getElementById("queue-gone");
+const queueNote = document.getElementById("queue-note");
+const queueSearch = document.getElementById("queue-search");
+const queueQuery = document.getElementById("queue-query");
+const queueResults = document.getElementById("queue-results");
+const queueSaid = document.getElementById("queue-said");
+const queueClose = document.getElementById("queue-close");
 
 // One conversation per launch of the app. The server holds the history; this
 // is only the name it goes by.
@@ -1144,6 +1158,18 @@ player.addEventListener("ended", () => {
     drawPlayer();
     return;
   }
+  // Not rendering, and not all here either: a render that was stopped, or that
+  // died, or that a deploy shot in the head. Nothing is coming while nobody
+  // asks for it, so there is nothing to wait for — but this is still not the
+  // end of the book, and saying it was would end the night on a lie somebody
+  // would act on. The sleep timer and the fight to keep the sound going are
+  // left exactly as they are, because neither has anything to do with the
+  // render having stopped.
+  if (!next && !goodnight && moreToCome()) {
+    setStatus("the rest of this book hasn't been read yet");
+    drawPlayer();
+    return;
+  }
   setStatus(goodnight ? "goodnight" : "that is the end of the book");
   // Nothing is coming. Anything still trying to get the book back is trying for
   // nobody now.
@@ -1685,6 +1711,9 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     sendPosition("hidden");
     saveSleep();
+    // Nobody is looking at the books panel either, and a poll in a pocket is
+    // both throttled to uselessness and a radio wake beside somebody asleep.
+    stopQueuePoll();
     return;
   }
   // Back in front of them, and the phone may have been asleep for hours. Two
@@ -1695,6 +1724,10 @@ document.addEventListener("visibilitychange", () => {
   if (!awaiting && manifest?.status === "rendering") {
     refreshManifest().catch((error) => console.error(error));
   }
+  // And if they left the panel up, whatever it is showing is as old as the
+  // sleep was. Asked now rather than in five seconds, for the same reason as
+  // the two above: coming back to the app is the moment somebody is looking.
+  if (!queuePanel.hidden) pollQueue();
 });
 
 // `play` is false at boot and true only when the agent has just moved this
@@ -1784,7 +1817,10 @@ async function openTheBook() {
     const listing = await response.json();
     const chosen = listing.last_gid ?? listing.books[0]?.gid;
     if (chosen === undefined) {
-      setStatus("nothing rendered yet");
+      // The state that most needs the panel, and the one with no book, no
+      // manifest and no gid — so the nudge has to name the control rather than
+      // relying on anything on the screen to be about a book.
+      setStatus("nothing yet — press books to add one");
       return;
     }
     await openBook(chosen);
@@ -1805,6 +1841,430 @@ async function openTheBook() {
   }
 }
 
+// ------------------------------------------------------------------- books
+
+// The second overlay, and the one that had to argue hardest for itself.
+//
+// A book gets added by asking — "add me Treasure Island" — and that still
+// works and is still the shortest way to do it. What asking could never do is
+// show the answer: a render takes hours, it happens in another process on
+// another unit, and until now the only evidence that it was happening at all
+// was whether the chapter count was still moving. So this panel exists to watch
+// one, and to stop one, and to start one when somebody would rather point than
+// speak.
+//
+// What it deliberately is not is a library browser. Nothing on it opens a book,
+// nothing on it switches what is playing, and there is no way to reach a book
+// from here at all — which is what keeps ADR 3's "the page opens the book they
+// were last listening to; changing books is done by asking" literally true. A
+// catalog search for something to *add* is a different act from choosing what
+// to listen to, and the difference is the whole reason this is allowed to be a
+// second overlay on a one-screen page.
+//
+// It costs nothing when it is shut. No request is made before it is opened, its
+// poll stops the moment it is closed or the phone goes in a pocket, and it
+// holds no payload — so none of the six places that take the candidate list
+// down has a twin here, and nothing else on the page has to know it exists.
+//
+// And it is separate from the ladder that watches THIS book grow, on purpose.
+// `awaiting`/`askForMore` conflate "has this book got longer" with "is the
+// listener stranded", and when a status stops being 'rendering' they clear
+// wantsSound and throw the sleep timer away. Sharing them would end somebody's
+// night because a book they queued for tomorrow finished rendering.
+
+// How often the panel asks, while somebody is looking at it. Five seconds is
+// slow enough to be nothing on a tailnet and fast enough that a press feels
+// answered — and it stops dead the moment nobody is looking, which is the part
+// that matters at 2am.
+const QUEUE_POLL_MS = 5000;
+
+// How long the first press of `stop reading this` stands before the button
+// forgets it was ever asked. Long enough to read the label and decide, short
+// enough that a panel left open does not have a live stop on it.
+const STOP_CONFIRM_MS = 5000;
+
+// The two states a job can be stopped in, which are also the two that go in the
+// top list. Everything else has already happened.
+const QUEUE_LIVE = ["queued", "rendering"];
+
+// What somnia already has, said as something to read rather than as a status.
+// A book on 'pending' is a render that died or was stopped, and it is the one
+// marked state that is still worth offering: retrying it was impossible until
+// the queue existed, and it is now the ordinary way to pick a book back up.
+const HAVE_WORDS = {
+  done: "already here",
+  rendering: "being read now",
+  queued: "in the queue",
+  pending: "part rendered",
+};
+const HAVE_ALREADY = ["done", "rendering", "queued"];
+
+let queuePoll = 0; // the wake this panel is waiting on, or 0 for none
+let queueRows = []; // the last list the server gave us, drawn as it stands
+let queueFound = []; // the last search, and what has since been done about it
+// Which stop control is asking for its second press, and the wake that will
+// make it forget. It lives here rather than on the button because the list is
+// redrawn under it every five seconds, and a confirmation that a poll can
+// cancel is a confirmation that expires at random.
+let stopArmed = null;
+let submitting = 0; // one submit in flight at a time, by gid
+// Whether close owes the page a tap-to-resume listener, because opening the
+// panel took one away. Exactly the borrow cancelCandidates makes, for exactly
+// the same reason: with the listener still armed the first press anywhere on
+// this overlay starts the book, and close — the one control that promises to
+// change nothing — is where a thumb goes first.
+let rearmOnQueueClose = false;
+
+function ordinal(n) {
+  const tens = n % 100;
+  const suffix =
+    tens > 3 && tens < 21 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th";
+  return `${n}${suffix}`;
+}
+
+// How much of a book can be listened to now, in the units somebody thinking
+// about bedtime thinks in. Empty under a minute, because "0m read so far" reads
+// as a stall and a render that has just started is not stalled.
+function howMuch(ms) {
+  const minutes = Math.floor(Math.max(0, ms) / 60_000);
+  if (minutes < 1) return "";
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours}h${String(rest).padStart(2, "0")}m` : `${rest}m`;
+}
+
+function bookName(row) {
+  // A book that has been through nothing but the local catalog may have no name
+  // at all, and "book 1342" is a good deal better than an empty pair of quotes
+  // in a sentence read at 2am. The server says the same thing in its own
+  // readout, from queue._name.
+  const name = row.title || `book ${row.gid}`;
+  return row.authors ? `${name} — ${row.authors}` : name;
+}
+
+// One job, in one line, for somebody who wants to know whether to wait up.
+//
+// Two of these are not states at all. A render whose heartbeat has gone quiet
+// says so, because "rendering" would be a claim about a process that may have
+// died with the box; and one that has been asked to stop says it is stopping,
+// because it stays 'rendering' until the child reaches the end of its sentence
+// and saying "rendering" there looks like the press was ignored.
+//
+// No percentage and no time remaining, anywhere. Chapters differ in length by
+// an order of magnitude, so a bar drawn from 4 of 39 moves in lurches that read
+// as a stall, and the only honest denominator for a time estimate does not
+// exist until the last chapter has been encoded.
+function jobWords(row) {
+  if (row.state === "queued") {
+    return row.place > 0 ? `${ordinal(row.place)} in line` : "waiting its turn";
+  }
+  if (row.state === "rendering") {
+    if (row.stopping) return "stopping at the end of this sentence";
+    if (!row.responding) return "not responding";
+    // 0 means nobody has written the number down yet — the fetch and the parse
+    // are what produce it — and it is what every book rendered before that
+    // column existed says as well. "chapter 1 of 0" is the sentence this
+    // prevents.
+    if (!row.chapters_total) return "fetching the text";
+    // The chapter being worked on, not the count that is finished: the same
+    // number, and the same meaning, as the "rendering chapter 4/39" line the
+    // renderer writes to the journal, so the two can be read side by side.
+    const chapter = Math.min(row.chapters_done + 1, row.chapters_total);
+    const words = `chapter ${chapter} of ${row.chapters_total}`;
+    const ready = howMuch(row.rendered_ms);
+    return ready ? `${words} · ${ready} read so far` : words;
+  }
+  if (row.state === "failed") return row.error || "something went wrong";
+  if (row.state === "cancelled") {
+    // Two quite different things end up here. A book taken out of the line
+    // never started and nothing of it exists; a render stopped at chapter four
+    // left four chapters that play perfectly well, and somebody deciding
+    // whether to ask for it again needs to know which of those they have.
+    return row.chapters_done
+      ? "stopped part way — what was read still plays"
+      : "taken out of the queue";
+  }
+  return "all of it is here";
+}
+
+function stopControl(row) {
+  const armed = stopArmed?.id === row.id;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = armed ? "job-stop armed" : "job-stop";
+  // Set at creation, as candidateRow does, or nothing in a test can reach it.
+  button.id = `queue-stop-${row.id}`;
+  // Two presses, and the button itself is the question. Not a confirm dialog:
+  // that is an overlay over an overlay, which is a route wearing a hat, and it
+  // would be the first thing on this page to take focus from anybody.
+  button.textContent = armed ? "really stop?" : "stop reading this";
+  button.addEventListener("click", () => pressStop(row));
+  return button;
+}
+
+function jobRow(row) {
+  const live = QUEUE_LIVE.includes(row.state);
+  const li = document.createElement("li");
+  li.className = live ? "job" : "job gone";
+  li.id = `job-${row.id}`;
+  const name = document.createElement("span");
+  name.className = "job-name";
+  name.textContent = bookName(row);
+  const state = document.createElement("span");
+  state.className = "job-state";
+  state.textContent = jobWords(row);
+  // No listener on the row itself. A row is a readout, so the only pressable
+  // thing on it is its own action and there is nothing to mis-hit into.
+  li.append(name);
+  li.append(state);
+  if (live) li.append(stopControl(row));
+  return li;
+}
+
+function drawQueue() {
+  const live = queueRows.filter((row) => QUEUE_LIVE.includes(row.state));
+  const over = queueRows.filter((row) => !QUEUE_LIVE.includes(row.state));
+  queueLive.replaceChildren(...live.map(jobRow));
+  // What went wrong, under what is happening. There is no dismiss control for
+  // these and no count of them: `view` drops a terminal row after a day, which
+  // is when a failure stops being news and becomes something the journal has.
+  queueGone.replaceChildren(...over.map(jobRow));
+}
+
+function foundRow(entry) {
+  const li = document.createElement("li");
+  li.className = "found";
+  li.id = `found-${entry.gid}`;
+  const name = document.createElement("span");
+  name.className = "found-name";
+  name.textContent = bookName(entry);
+  li.append(name);
+  const already = HAVE_WORDS[entry.have];
+  if (already) {
+    const mark = document.createElement("span");
+    mark.className = "found-have";
+    mark.textContent = already;
+    li.append(mark);
+  }
+  // A book that is already here, or already coming, is marked rather than
+  // offered and then refused: a press that was never available cannot be a
+  // press that did nothing, and at 2am those two feel completely different.
+  if (HAVE_ALREADY.includes(entry.have)) return li;
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "found-add";
+  add.id = `queue-add-${entry.gid}`;
+  add.textContent =
+    entry.have === "pending" ? "finish this one" : "add this book";
+  add.addEventListener("click", () => addBook(entry, add));
+  li.append(add);
+  return li;
+}
+
+function drawResults() {
+  queueResults.replaceChildren(...queueFound.map(foundRow));
+}
+
+// ------------------------------------------------------------- asking about it
+
+async function pollQueue() {
+  clearTimeout(queuePoll);
+  queuePoll = 0;
+  try {
+    const response = await fetch("api/queue");
+    if (!response.ok) throw new Error("no queue");
+    const body = await response.json();
+    queueRows = body.items || [];
+    queueNote.textContent = "";
+    drawQueue();
+  } catch (error) {
+    // Whatever was last drawn stays on the screen and the doubt is written
+    // under it. Emptying the list would be the one lie this panel can tell: an
+    // empty queue and an unreachable server look identical and mean opposite
+    // things, and only one of them is a reason to go to sleep.
+    console.error(error);
+    queueNote.textContent = "couldn't reach somnia";
+  }
+  scheduleQueuePoll();
+}
+
+// Only while somebody is looking, and only while the panel is up. A hidden
+// page's timers are throttled to roughly one wake a minute, so a poll left
+// running in a pocket is both untimely and a radio wake beside somebody asleep
+// — worst of both. It is asked again in full when the page comes back.
+function scheduleQueuePoll() {
+  clearTimeout(queuePoll);
+  queuePoll = 0;
+  if (queuePanel.hidden || document.visibilityState === "hidden") return;
+  queuePoll = setTimeout(pollQueue, QUEUE_POLL_MS);
+}
+
+function stopQueuePoll() {
+  clearTimeout(queuePoll);
+  queuePoll = 0;
+}
+
+// ------------------------------------------------------------------ stopping
+
+function forgetStop() {
+  if (!stopArmed) return;
+  clearTimeout(stopArmed.timer);
+  stopArmed = null;
+}
+
+function pressStop(row) {
+  if (stopArmed?.id !== row.id) {
+    forgetStop();
+    stopArmed = {
+      id: row.id,
+      timer: setTimeout(() => {
+        stopArmed = null;
+        drawQueue();
+      }, STOP_CONFIRM_MS),
+    };
+    // Redrawn rather than relabelled in place, so that the label a poll paints
+    // and the label a press paints come from the same line of code.
+    drawQueue();
+    return;
+  }
+  forgetStop();
+  askToStop(row.id);
+}
+
+async function askToStop(id) {
+  try {
+    const response = await fetch(`api/queue/${id}/stop`, { method: "POST" });
+    // Read whatever came back, whatever the status was. A job that ended a
+    // second ago is answered 200 with a sentence and a job that never existed
+    // is answered 404 with the same shape, and the sentence is the point of
+    // both.
+    const body = await response.json();
+    queueSaid.textContent = body.said || "";
+  } catch (error) {
+    console.error(error);
+    queueSaid.textContent = "couldn't reach somnia — nothing has been stopped";
+    return;
+  }
+  // A stop takes about twenty seconds to land — one heartbeat plus the sentence
+  // in flight — so this is not the answer, it is the row starting to say
+  // "stopping".
+  await pollQueue();
+}
+
+// ------------------------------------------------------------------- adding
+
+async function findBooks() {
+  const wanted = queueQuery.value.trim();
+  if (!wanted) return;
+  queueSaid.textContent = "";
+  try {
+    // One request per press. A round trip per keystroke would be fifteen
+    // requests for one answer over a tailnet, and the search is an offline FTS5
+    // query on the server's own disk, so there is nothing to be gained by
+    // starting it early.
+    const response = await fetch(`api/catalog?q=${encodeURIComponent(wanted)}`);
+    if (!response.ok) throw new Error("no catalog");
+    const body = await response.json();
+    queueFound = body.entries || [];
+    drawResults();
+    if (!queueFound.length) queueSaid.textContent = "nothing in the catalog";
+  } catch (error) {
+    console.error(error);
+    queueSaid.textContent = "couldn't reach somnia";
+  }
+}
+
+async function addBook(entry, button) {
+  // One at a time, and the guard is set before the first await: two presses a
+  // frame apart are the ordinary way a thumb double-taps something that has not
+  // answered yet.
+  if (submitting) return;
+  submitting = entry.gid;
+  button.disabled = true;
+  try {
+    const response = await fetch("api/queue", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gid: entry.gid }),
+    });
+    const body = await response.json();
+    // Taken or refused, the server said a sentence and the sentence is the
+    // answer — the same string the agent's add_book returns, from the same
+    // function, so the panel and the voice cannot disagree about what happened.
+    queueSaid.textContent = body.said || "";
+    if (body.ok) {
+      entry.have = "queued";
+      drawResults();
+    } else {
+      button.disabled = false;
+    }
+  } catch (error) {
+    // Nothing landed, and no optimistic row is drawn: a queue entry that never
+    // existed on the server is exactly the state a wrong press must not be able
+    // to leave behind. The press comes back, because trying again is the whole
+    // of what there is to do about it.
+    console.error(error);
+    queueSaid.textContent = "couldn't reach somnia — nothing has been added";
+    button.disabled = false;
+    submitting = 0;
+    return;
+  }
+  submitting = 0;
+  // So the row it just made is on the screen now rather than in five seconds.
+  await pollQueue();
+}
+
+// ------------------------------------------------------- opening and closing
+
+function showQueue() {
+  if (!queuePanel.hidden) return;
+  queuePanel.hidden = false;
+  // Giving focus up, never taking it — and in particular never focusing the
+  // search box. Focusing it pops the keyboard, and the keyboard changes the
+  // geometry the fixed overlay just measured itself against, so the panel would
+  // arrive with its way out somewhere under the letters.
+  question.blur?.();
+  queueQuery.blur?.();
+  rearmOnQueueClose = tapToResume !== null;
+  disarmTapToResume();
+  pollQueue();
+}
+
+// The inert close. It forgets everything the panel was holding and gives back
+// the one thing it borrowed, and that is the whole of it: no seek, no report,
+// no seq bump, nothing said on the status line, and nothing touched that the
+// spoiler guard or the sleep timer can see. A fade running underneath keeps
+// running and the countdown keeps counting, for the same reason cancel leaves
+// them alone — the night was already ending and looking at a list of books did
+// not change that.
+function hideQueue() {
+  if (queuePanel.hidden) return;
+  queuePanel.hidden = true;
+  stopQueuePoll();
+  forgetStop();
+  queueRows = [];
+  queueFound = [];
+  queueLive.replaceChildren();
+  queueGone.replaceChildren();
+  queueResults.replaceChildren();
+  queueNote.textContent = "";
+  queueSaid.textContent = "";
+  queueQuery.value = "";
+  const rearm = rearmOnQueueClose;
+  rearmOnQueueClose = false;
+  // True before the panel went up and true again now: the book is still paused,
+  // still waiting for a touch, and the line that said so came back with the
+  // listener rather than being left lying.
+  if (rearm) armTapToResume();
+}
+
+booksButton.addEventListener("click", showQueue);
+queueClose.addEventListener("click", hideQueue);
+queueSearch.addEventListener("submit", (event) => {
+  event.preventDefault();
+  findBooks();
+});
+
 // -------------------------------------------- a book that is still being read
 
 // somnia renders a book chapter by chapter and the whole point of that is that
@@ -1819,6 +2279,24 @@ async function openTheBook() {
 // record of what this page last told it, which is up to fifteen seconds behind
 // where the sound actually is, so adopting them mid-chapter would drag the
 // listener backwards every time the book grew.
+// Whether this book has chapters that have not been read yet — as against
+// being over.
+//
+// `status === 'rendering'` answers the live case and nothing else: a render
+// that was stopped, or killed by a reboot, or that failed at chapter four of
+// thirty-nine leaves a book that is not growing and is not finished either, and
+// before there was a denominator the page had nothing to tell that from the end
+// of a novel. It would say "that is the end of the book", clear wantsSound and
+// throw the sleep timer away, three chapters into thirty-nine.
+//
+// 0 means nobody wrote the number down — which is every book rendered before
+// the column existed, including every book on the box this runs on — so it is
+// read as "don't know" and the old sentence stands.
+function moreToCome() {
+  const total = manifest?.chapters_total || 0;
+  return total > 0 && manifest.chapters.length < total;
+}
+
 async function refreshManifest() {
   if (gid === null || !manifest) return false;
   const response = await fetch(`api/book/${gid}`);
@@ -1890,8 +2368,16 @@ async function askForMore() {
         return;
       }
       if (manifest.status !== "rendering") {
-        // The render finished, and there was nothing more in it after all.
         stopAwaiting();
+        // The render stopped without finishing the book — cancelled, killed, or
+        // failed — and the chapters it did not get to are still missing. That is
+        // not the end of the book, so nothing here ends the night: the sleep
+        // timer is left running and the page is left wanting the sound back.
+        if (moreToCome()) {
+          setStatus("the rest of this book hasn't been read yet");
+          return;
+        }
+        // The render finished, and there was nothing more in it after all.
         setStatus("that is the end of the book");
         wantsSound = false;
         clearSleep();

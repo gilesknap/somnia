@@ -76,10 +76,21 @@ h1 {
   text-transform: lowercase;
 }
 
-/* Small type, but a target the size of everything else. The only control on the
-   page that throws anything away is kept quiet, and kept in the corner a
-   one-handed grip has to stretch for — and it is still big enough that reaching
-   it deliberately does not need aim. */
+/* The far corner, and both of the controls that live in it. They are side by
+   side rather than stacked because the header is one line high and has to stay
+   one line high: what sits under it is the conversation, and a header that grew
+   a row would push the transport down the screen. */
+#corner {
+  display: flex;
+  align-items: center;
+}
+
+/* Small type, but a target the size of everything else. The two controls that
+   are pressed on purpose rather than by feel — the one that throws the
+   conversation away, and the one that opens a panel over a playing book — are
+   kept quiet, and kept in the corner a one-handed grip has to stretch for, and
+   they are still big enough that reaching one deliberately does not need
+   aim. */
 .quiet {
   background: none;
   border: 0;
@@ -806,5 +817,274 @@ button:disabled {
 @media (max-height: 17rem) {
   #now-playing {
     display: none;
+  }
+}
+
+/* ------------------------------------------------------------------- books
+
+   The second overlay, built out of the first one's parts. Everything geometric
+   below is the candidate list's, reused rather than re-guessed: the same fixed
+   inset, the same opaque background, the same safe-area padding, the same 5.5rem
+   for the way out and the same 3.5rem dashed shape for the quieter, more
+   dangerous press. Two overlays that were measured separately would drift, and
+   the drift would land on a thumb in the dark. */
+
+/* First, before anything else in this block sets a display. An author id rule
+   beats the browser's own [hidden] { display: none } — the same trap #talk and
+   #candidates carry further up this file — and the failure mode of forgetting
+   it here is a panel over a book all night. */
+#queue[hidden] {
+  display: none;
+}
+
+#queue {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  background: var(--page);
+  padding: calc(env(safe-area-inset-top) + 1rem)
+    calc(env(safe-area-inset-right) + 1.2rem)
+    calc(env(safe-area-inset-bottom) + 1.1rem)
+    calc(env(safe-area-inset-left) + 1.2rem);
+}
+
+#queue-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 400;
+  color: var(--mid);
+}
+
+/* Everything except the way out. It is the only thing here that scrolls, and it
+   contains its own overscroll for the reason #transcript and #candidate-list
+   do: there is no scrolling document on this page and the pull-to-refresh
+   gesture must not be handed back. */
+#queue-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+#queue-live,
+#queue-gone,
+#queue-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/* An empty list must take no room at all, or three of them stack up a screen of
+   gaps above the search box on a night when nothing is rendering. */
+#queue-live:empty,
+#queue-gone:empty,
+#queue-results:empty {
+  display: none;
+}
+
+/* A row is a readout. It is not a button, it does not look like one, and
+   nothing happens if a thumb lands on it — which is the whole reason the only
+   pressable thing on it is its own action. */
+.job,
+.found {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.job-name,
+.found-name {
+  color: var(--ink);
+  font-size: 1.15rem;
+}
+
+.job-state,
+.found-have {
+  color: var(--dim);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The rows that are over. Quieter than the live ones, because they are being
+   read once and then never again — after a day they are gone from the readout
+   by themselves, and the journal has the rest. */
+.job.gone .job-name {
+  color: var(--mid);
+}
+
+/* Ending hours of rendering, shaped like .candidate-show and nothing like a
+   transport button. Dashed, unfilled, and half the height of the things that
+   are pressed on purpose: going somewhere and throwing something away must not
+   look like the same press. It takes two of them, and the label says so in
+   between. */
+.job-stop {
+  min-height: 3.5rem;
+  width: 100%;
+  background: none;
+  border: 1px dashed var(--edge);
+  border-radius: 0.9rem;
+  color: var(--dim);
+  font-size: 1rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.job-stop:active {
+  background: #20202c;
+  color: var(--ink);
+}
+
+/* Asked once and about to be answered. Warmer, because at this point it is a
+   different button doing a different thing, and it should not be possible to
+   press the second half without noticing the first. */
+.job-stop.armed {
+  border-style: solid;
+  border-color: #6b3f3a;
+  color: #c08a80;
+}
+
+#queue-note,
+#queue-said {
+  margin: 0;
+  font-size: 1rem;
+  font-style: italic;
+  color: var(--glow);
+  opacity: 0.75;
+}
+
+#queue-note:empty,
+#queue-said:empty {
+  display: none;
+}
+
+#queue-search {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+#queue-query {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 1;
+  min-width: 0;
+  min-height: 3.5rem;
+  background: var(--raised);
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.15rem;
+  padding: 0.85rem 1.2rem;
+}
+
+#queue-query::placeholder {
+  color: #5b5245;
+}
+
+#queue-query::-webkit-search-cancel-button,
+#queue-query::-webkit-search-decoration {
+  display: none;
+}
+
+#queue-query:focus {
+  outline: none;
+  border-color: #2c2c3c;
+}
+
+#queue-find {
+  flex: none;
+  min-height: 3.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.9rem;
+  background: var(--raised);
+  color: var(--ink);
+  font-size: 1.05rem;
+  padding: 0.6rem 1.1rem;
+}
+
+#queue-find:active {
+  background: #20202c;
+}
+
+/* Adding a book is the one thing on this panel that is meant to be easy to hit,
+   so it is the one thing here shaped like the rows on the candidate list. It is
+   still not --lit: the warm one is reserved for the button pressed without
+   looking, and nobody adds a book without looking. */
+.found-add {
+  min-height: 4rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--edge);
+  border-radius: 1.1rem;
+  background: var(--raised);
+  color: var(--ink);
+  font-size: 1.1rem;
+  padding: 0.7rem 1.1rem;
+}
+
+.found-add:active {
+  background: #20202c;
+}
+
+#queue-foot {
+  flex: none;
+}
+
+/* The same button as #candidates-cancel, in the same place, at the same size.
+   Whichever overlay is up, the way out is the full width of the bottom of the
+   screen — which is where a hand already holding the phone arrives without
+   aiming, and it must not be somewhere different depending on which one it
+   is. */
+#queue-close {
+  width: 100%;
+  min-height: 5.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 1.1rem;
+  background: var(--raised);
+  color: var(--ink);
+  font-size: 1.25rem;
+}
+
+#queue-close:active {
+  background: #20202c;
+}
+
+/* A keyboard over half the screen, which on this panel is not the exception —
+   searching for a book is what it is for. The rows shrink, the list scrolls,
+   and close stays where a thumb left it. */
+@media (max-height: 34rem) {
+  #queue {
+    gap: 0.5rem;
+  }
+
+  #queue-title {
+    font-size: 1.15rem;
+  }
+
+  #queue-scroll {
+    gap: 0.7rem;
+  }
+
+  #queue-live,
+  #queue-gone,
+  #queue-results {
+    gap: 0.7rem;
+  }
+
+  .found-add {
+    min-height: 3.5rem;
+  }
+
+  #queue-close {
+    min-height: 4rem;
   }
 }

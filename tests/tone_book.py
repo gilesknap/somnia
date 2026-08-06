@@ -121,12 +121,20 @@ def build_tone_book(
                 ),
             )
 
-    for idx, text, start_ms in PASSAGES:
+    # A chapter's passages go in one call, because ``add_chunks`` owns the
+    # chapter it is given: it clears what that chapter had before writing what
+    # it was handed, which is how a re-render stops adding a second copy of
+    # everything. Two calls for chapter one would leave only the second passage.
+    for idx in range(len(CHAPTERS)):
         add_chunks(
             conn,
             embedder,
             GID,
             idx,
-            [Window(text=text, start_ms=start_ms, end_ms=start_ms + 4_000)],
+            [
+                Window(text=text, start_ms=start_ms, end_ms=start_ms + 4_000)
+                for chapter_idx, text, start_ms in PASSAGES
+                if chapter_idx == idx
+            ],
         )
     return book_dir

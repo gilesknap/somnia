@@ -1,3 +1,7 @@
+import asyncio
+import subprocess
+import sys
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -8,9 +12,11 @@ from starlette.testclient import TestClient
 from conftest import ToneBook
 from fakes import RecordingAbs
 from somnia import server
-from somnia.agent import OFFER_SENTENCE, Turn
+from somnia.agent import OFFER_SENTENCE, Turn, open_library
+from somnia.catalog import update_catalog
 from somnia.config import Config
 from somnia.db import connect
+from somnia.queue import claim, finish
 from somnia.tools import Library, Moved, Offer
 from tone_book import CHAPTERS, GID
 
@@ -697,3 +703,351 @@ def test_a_book_with_no_sentence_to_offer_is_not_an_error(
     response = tone_client.get(f"/api/sentence/{GID + 1}/5000")
     assert response.status_code == 200
     assert response.json()["start_ms"] is None
+
+
+# ------------------------------------------------------------- adding a book
+
+# Nine books that share a word, so the cap has something to cut, and two real
+# ones so a refusal sentence reads as a book rather than as a number.
+_ALSO_A_HORSE = '{gid},Text,2006-01-25,A Horse Story {gid},en,"Nobody",Horses,PZ,\n'
+CATALOG_CSV = "".join(
+    [
+        "Text#,Type,Issued,Title,Language,Authors,Subjects,LoCC,Bookshelves\n",
+        '271,Text,2006-01-25,Black Beauty,en,"Sewell, Anna",Horses,PZ,\n',
+        "120,Text,2006-01-25,Treasure Island,en,"
+        '"Stevenson, Robert Louis",Pirates,PZ,\n',
+        *(_ALSO_A_HORSE.format(gid=9000 + n) for n in range(9)),
+    ]
+)
+
+
+def catalogued(tone_book: ToneBook) -> None:
+    """Fill the local catalog, which is the only thing a search ever reads."""
+    update_catalog(tone_book.conn, csv_text=CATALOG_CSV)
+
+
+def queue_items(client: TestClient) -> list[dict[str, Any]]:
+    response = client.get("/api/queue")
+    assert response.status_code == 200
+    body: dict[str, Any] = response.json()
+    return list(body["items"])
+
+
+def add(client: TestClient, gid: Any) -> Any:
+    response = client.post("/api/queue", json={"gid": gid})
+    return response.status_code, response.json()
+
+
+def test_the_catalog_can_be_searched_without_leaving_the_box(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """An FTS5 query against the local dump, not a round trip to Gutenberg.
+
+    The search happens while somebody is standing there with a keyboard up, so
+    it has to answer in the time a tap takes. Nothing here fetches anything.
+    """
+    catalogued(tone_book)
+    body = tone_client.get("/api/catalog", params={"q": "black beauty"}).json()
+    assert body["query"] == "black beauty"
+    assert body["entries"][0] == {
+        "gid": 271,
+        "title": "Black Beauty",
+        "authors": "Sewell, Anna",
+        "have": None,
+    }
+
+
+def test_a_book_somnia_already_has_is_marked_rather_than_offered(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """So a duplicate press is never offered, rather than refused afterwards.
+
+    Both halves of "already" are here, and they disagree on purpose. Black
+    Beauty is a book with audio on disk and no queue row, which a check against
+    the queue alone would miss. Treasure Island is a render that died — a
+    ``books`` row on 'pending' — and has since been asked for again, so both
+    tables have something to say about it and the live queue row is the true
+    one: it is coming, whatever last week's row remembers.
+    """
+    catalogued(tone_book)
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO books (gid, title, voice, status)"
+            " VALUES (271, 'Black Beauty', 'af_heart', 'done')"
+        )
+        tone_book.conn.execute(
+            "INSERT INTO books (gid, title, voice, status)"
+            " VALUES (120, 'Treasure Island', 'af_heart', 'pending')"
+        )
+    assert add(tone_client, 120)[1]["ok"] is True
+
+    # Two searches, because FTS5 puts an implicit AND between the terms and no
+    # book is both of these.
+    have = {}
+    for query in ["black beauty", "treasure island"]:
+        for entry in tone_client.get("/api/catalog", params={"q": query}).json()[
+            "entries"
+        ]:
+            have[entry["gid"]] = entry["have"]
+    assert have == {271: "done", 120: "queued"}
+
+
+def test_a_search_full_of_punctuation_is_not_a_five_hundred(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """FTS5 has its own query syntax, and an apostrophe is not it."""
+    catalogued(tone_book)
+    for query in ["what's the horse's name?", "", "  ", '"', "a"]:
+        response = tone_client.get("/api/catalog", params={"q": query})
+        assert response.status_code == 200, query
+        assert isinstance(response.json()["entries"], list)
+
+
+def test_a_search_answers_with_what_fits_on_a_phone(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """Eight is what sits above a keyboard. A scroll here is a second screen."""
+    catalogued(tone_book)
+    body = tone_client.get("/api/catalog", params={"q": "horse"}).json()
+    assert len(body["entries"]) == 8
+
+
+def test_the_queue_says_what_is_rendering_and_what_is_waiting(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The whole readout in one GET, asserted whole rather than sampled.
+
+    Every field is something the page draws or obeys, so a field arriving or
+    leaving unnoticed is a caption that quietly stops being true.
+    """
+    catalogued(tone_book)
+    assert add(tone_client, 271)[1]["ok"] is True
+    assert add(tone_client, 120)[1]["ok"] is True
+    taken = claim(tone_book.conn, lease="a-lease", pid=1234)
+    assert taken is not None
+
+    items = queue_items(tone_client)
+    assert [(i["gid"], i["state"], i["place"]) for i in items] == [
+        (271, "rendering", 0),
+        (120, "queued", 1),
+    ]
+    assert set(items[0]) == {
+        "id",
+        "gid",
+        "title",
+        "authors",
+        "state",
+        "place",
+        "chapters_done",
+        "chapters_total",
+        "rendered_ms",
+        "stopping",
+        "responding",
+        "error",
+        "submitted_at",
+        "started_at",
+    }
+    assert items[0]["title"] == "Black Beauty"
+    assert (items[0]["stopping"], items[0]["responding"]) == (False, True)
+    assert (items[0]["chapters_done"], items[0]["chapters_total"]) == (0, 0)
+
+
+def test_the_page_and_the_voice_say_the_same_thing_about_adding_a_book(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """Byte-identical, because both sentences come out of the same function.
+
+    The agent can be asked for a book and so can the panel, and the two must
+    not be able to disagree about what just happened — least of all about a
+    refusal, which is the answer somebody reads twice.
+    """
+    catalogued(tone_book)
+    status, first = add(tone_client, 271)
+    assert (status, first["ok"]) == (200, True)
+    assert first["id"] > 0
+    assert "Black Beauty" in first["said"]
+
+    status, again = add(tone_client, 271)
+    assert (status, again["ok"], again["id"]) == (200, False, 0)
+    library = open_library(tone_book.cfg, tone_book.conn)
+    assert again["said"] == library.add_book(271)
+    # And the refusal really refused: one row, not two.
+    assert len(queue_items(tone_client)) == 1
+
+
+def test_a_refusal_is_answered_two_hundred_with_something_readable(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """Exactly the argument /api/position already makes for its own refusals.
+
+    A 409 would put a red line in the console at 2am for something working
+    exactly as designed, and invite a throw in the fetch wrapper that skipped
+    the one line that mattered — which here is the sentence saying why.
+    """
+    catalogued(tone_book)
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO books (gid, title, voice, status)"
+            " VALUES (271, 'Black Beauty', 'af_heart', 'done')"
+        )
+    status, body = add(tone_client, 271)
+    assert status == 200
+    assert body["ok"] is False
+    assert "already here" in body["said"]
+
+
+def test_a_body_with_no_number_in_it_is_the_one_four_hundred(
+    tone_client: TestClient,
+) -> None:
+    """There is nothing to submit, so there is nothing to say 200 about."""
+    assert tone_client.post("/api/queue", json={}).status_code == 400
+    assert add(tone_client, "treasure island")[0] == 400
+    assert add(tone_client, -1)[0] == 400
+    assert tone_client.post("/api/queue", content=b"not json").status_code == 400
+
+
+def test_a_book_that_may_not_be_renderable_is_still_taken(
+    tone_client: TestClient,
+) -> None:
+    """Because finding out costs a fetch and a parse, and that is minutes.
+
+    A control that thinks for three seconds reads as broken, so an unknown gid
+    is accepted here and fails later in the worker with a sentence.
+    """
+    status, body = add(tone_client, 999_999)
+    assert (status, body["ok"]) == (200, True)
+    assert "book 999999" in body["said"]
+
+
+def test_a_book_can_be_taken_out_of_the_line_from_the_page(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    catalogued(tone_book)
+    job_id = add(tone_client, 271)[1]["id"]
+    body = tone_client.post(f"/api/queue/{job_id}/stop")
+    assert body.status_code == 200
+    assert body.json()["ok"] is True
+    assert body.json()["state"] == "cancelled"
+    assert "Black Beauty" in body.json()["said"]
+    assert [(i["id"], i["state"]) for i in queue_items(tone_client)] == [
+        (job_id, "cancelled")
+    ]
+
+
+def test_stopping_something_that_has_already_ended_is_an_answer_not_an_error(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """Too late is a sentence. No such job is a 404, which is a different fact.
+
+    They are told apart because a caller does different things with them: one
+    is a row on the screen whose button came a second too late, the other is a
+    page holding an id from a database that has moved on.
+    """
+    catalogued(tone_book)
+    job_id = add(tone_client, 271)[1]["id"]
+    taken = claim(tone_book.conn, lease="a-lease", pid=1234)
+    assert taken is not None
+    finish(tone_book.conn, job_id, lease="a-lease", state="done")
+
+    response = tone_client.post(f"/api/queue/{job_id}/stop")
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+    assert "nothing to stop" in response.json()["said"]
+
+    missing = tone_client.post("/api/queue/404404/stop")
+    assert missing.status_code == 404
+    assert "said" in missing.json()
+
+
+def test_what_died_yesterday_is_history_rather_than_news(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The list empties itself, which is why nothing on it has to be dismissed."""
+    catalogued(tone_book)
+    job_id = add(tone_client, 271)[1]["id"]
+    claim(tone_book.conn, lease="a-lease", pid=1234)
+    finish(tone_book.conn, job_id, lease="a-lease", state="failed", error="No HTML.")
+    assert [i["error"] for i in queue_items(tone_client)] == ["No HTML."]
+
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE queue SET ended_at = datetime('now', '-25 hours') WHERE id = ?",
+            (job_id,),
+        )
+    assert queue_items(tone_client) == []
+
+
+def test_a_render_that_stopped_beating_is_shown_as_not_responding(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """Told from a slow one by the heartbeat, and by nothing else.
+
+    Nobody writes this down: staleness is worked out when somebody looks, so
+    the page says "not responding" honestly even when the worker unit has been
+    stopped and there is nobody left to write anything at all.
+    """
+    catalogued(tone_book)
+    add(tone_client, 271)
+    claim(tone_book.conn, lease="a-lease", pid=1234)
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE queue SET beat_at = datetime('now', '-6 minutes')"
+        )
+    item = queue_items(tone_client)[0]
+    assert (item["state"], item["responding"]) == ("rendering", False)
+
+
+def test_the_new_routes_are_under_api_like_everything_the_page_fetches(
+    tone_book: ToneBook,
+) -> None:
+    """Not cosmetic: sw.js skips that prefix, and the mount swallows the rest.
+
+    A queue route the service worker cached would draw last night's queue over
+    tonight's, and a queue route behind the static mount would never be reached
+    at all.
+    """
+    app = server.create_app(tone_book.cfg, tone_book.conn)
+    with TestClient(app) as client:
+        paths = [str(getattr(route, "path", "")) for route in app.routes]
+        for path in paths:
+            if "queue" in path or "catalog" in path:
+                assert path.startswith("/api/"), path
+        assert "/api/queue" in paths
+        assert "/api/catalog" in paths
+        # And the bare name really does fall through to the static mount, which
+        # is what proves the prefix is doing the work rather than the ordering
+        # happening to be lucky.
+        fell_through = client.get("/queue")
+        assert fell_through.status_code == 404
+        assert "json" not in fell_through.headers.get("content-type", "")
+
+
+def test_starting_the_server_starts_nothing_of_its_own(
+    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No thread, no child, and no torch — the renderer lives in another unit.
+
+    The point of moving renders out of ``somnia serve`` is that a deploy's
+    restart costs a render nothing and the page never waits behind Kokoro. It
+    is also what keeps the forty-odd tests that build an app inside a
+    ``TestClient`` as fast as they are, so it is worth catching here rather
+    than in a stopwatch.
+    """
+    threads: list[threading.Thread] = []
+    processes: list[Any] = []
+
+    def spawned(*args: Any, **kwargs: Any) -> None:
+        processes.append(args)
+
+    monkeypatch.setattr(threading.Thread, "start", threads.append)
+    monkeypatch.setattr(subprocess, "Popen", spawned)
+
+    app = server.create_app(tone_book.cfg, tone_book.conn)
+
+    async def start_and_stop() -> None:
+        async with app.router.lifespan_context(app):
+            pass
+
+    asyncio.run(start_and_stop())
+    assert (threads, processes) == ([], [])
+    assert "torch" not in sys.modules

@@ -3,7 +3,7 @@
 import sqlite3
 from dataclasses import dataclass
 
-from .embed import Embedder
+from .embed import Embedder, Vectors
 from .segment import Window
 
 __all__ = ["Passage", "add_chunks", "find_passage", "indexed_frontier"]
@@ -28,11 +28,50 @@ def add_chunks(
     chapter_idx: int,
     chunk_windows: list[Window],
 ) -> None:
-    """Index one chapter's windows: text rows plus their embeddings."""
-    if not chunk_windows:
-        return
-    vectors = embedder.encode_passages([w.text for w in chunk_windows])
+    """Index one chapter's windows: text rows plus their embeddings.
+
+    This owns the chapter: when it returns, that chapter's chunks are exactly
+    the windows it was handed. It used only to insert, which was fine while a
+    chapter was rendered once and never again — but restarting a render that
+    died begins at chapter one, so every restart added a second copy of every
+    passage it had already indexed. A search then came back with the same words
+    twice under two ids, and a list of places to jump to could offer the same
+    moment four times, which is an impossible question to put to somebody half
+    asleep. So each chapter is cleared before it is written.
+
+    Both deletes, in that order, and in the same transaction as the inserts.
+    ``chunks.id`` and ``vec_chunks.rowid`` are the same number by construction —
+    that identity is the whole of the join — so dropping one side alone leaves
+    either a vector that still matches a search and joins to nothing, or a row
+    no search can ever reach. The vectors go first because the rows are what
+    say which vectors they were.
+
+    An empty window list is a clearing rather than a no-op. Windowing can
+    legitimately come back with nothing — a chapter that is one illustration, a
+    parse that now reads the text differently — and leaving yesterday's passages
+    in place under today's audio is exactly the sort of quiet wrongness the
+    spoiler guard cannot survive. Which is why the encode, the one slow step,
+    is what gets skipped instead: the write always happens.
+
+    The encode stays outside the transaction. It is the embedding model, which
+    is torch, which is the slowest thing in this process by an order of
+    magnitude; holding sqlite's single write lock across it would put the page's
+    own writes behind a neural network at 2am.
+    """
+    texts = [w.text for w in chunk_windows]
+    vectors: Vectors | None = embedder.encode_passages(texts) if texts else None
     with conn:
+        conn.execute(
+            "DELETE FROM vec_chunks WHERE rowid IN"
+            " (SELECT id FROM chunks WHERE book_gid = ? AND chapter_idx = ?)",
+            (book_gid, chapter_idx),
+        )
+        conn.execute(
+            "DELETE FROM chunks WHERE book_gid = ? AND chapter_idx = ?",
+            (book_gid, chapter_idx),
+        )
+        if vectors is None:
+            return
         for window, vec in zip(chunk_windows, vectors, strict=True):
             cur = conn.execute(
                 "INSERT INTO chunks (book_gid, chapter_idx, start_ms, end_ms, text)"

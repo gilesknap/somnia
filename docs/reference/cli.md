@@ -1,6 +1,6 @@
 # Command line
 
-Nine commands. `somnia` on its own prints the help and stops, and `somnia
+Eleven commands. `somnia` on its own prints the help and stops, and `somnia
 --version` prints the version and nothing else.
 
 Results go to **stdout** and progress to **stderr**, so `somnia search bee >
@@ -14,7 +14,9 @@ therefore leaves a database behind whatever else happens.
 |---|---|---|
 | [`catalog-update`](#cli-catalog-update) | Download the Gutenberg catalog | the network |
 | [`search`](#cli-search) | Find a book id in that catalog | a catalog |
-| [`add`](#cli-add) | Render and index a book | `[ml]`, ffmpeg, espeak-ng |
+| [`add`](#cli-add) | Ask for a book and render it here and now | `[ml]`, ffmpeg, espeak-ng |
+| [`queue`](#cli-queue) | Ask for a book, see what is rendering, stop one | nothing |
+| [`worker`](#cli-worker) | Empty the queue, one book at a time | `[ml]`, ffmpeg, espeak-ng |
 | [`find`](#cli-find) | Semantic search inside one rendered book | `[ml]` |
 | [`ask`](#cli-ask) | Put the agent in front of it | `ANTHROPIC_API_KEY` |
 | [`serve`](#cli-serve) | The page that plays the book | `ANTHROPIC_API_KEY` |
@@ -77,17 +79,42 @@ No results usually means no catalog: run [`catalog-update`](#cli-catalog-update)
 somnia add GID [--voice af_heart]
 ```
 
-Fetches the book from Gutenberg, renders every chapter with Kokoro, and indexes
-each one the moment it is finished. This is the command that takes hours, and
-the only one that needs the `[ml]` extra, ffmpeg and espeak-ng.
+Puts the book in the [queue](#cli-queue) and then renders the head of the line
+in this process: fetches from Gutenberg, renders every chapter with Kokoro, and
+indexes each one the moment it is finished. This is the command that takes
+hours, and one of the two that need the `[ml]` extra, ffmpeg and espeak-ng.
 
 ```console
 $ somnia add 271
+Black Beauty is next to be rendered.
+2026-08-06 21:04:11 INFO claimed job 7: book 271
 2026-08-06 21:04:11 INFO rendering chapter 1/49: 01. My Early Home
 2026-08-06 21:09:38 INFO rendering chapter 2/49: 02. The Hunt
 ...
 2026-08-07 02:31:55 INFO finished Black Beauty: 49 chapters, 6.2 hours
 ```
+
+It takes the **same claim** the worker's child takes, so it is not a second
+renderer: if something else is already rendering it says so in the first second
+and stops, leaving the book in the line for the worker to reach.
+
+```console
+$ somnia add 120
+Treasure Island is in the queue, behind one other book.
+Something else is being rendered, so this one waits its turn. Run `somnia
+queue` to see the line.
+```
+
+Two consequences of going through the queue. A book somnia already has in full
+is refused, and nothing is rendered — this command was asked about one book and
+has no business spending six hours on another; use
+[`worker --once`](#cli-worker) to drain the line by hand. And what it renders
+is the head of the line, which is the book you named unless you had already
+asked for others, so read the `claimed job` line if you care which.
+
+Ctrl-C stops it the way a `queue stop` does: at the end of the sentence it is
+speaking, leaving every finished chapter playable, and the book goes back into
+the queue rather than being cancelled — nobody stopped wanting it.
 
 Audio lands in `SOMNIA_LIBRARY_DIR/<author>/<title>/NNN - <chapter>.m4a`, and
 the database row is what everything else reads: chapters are never served by
@@ -100,15 +127,19 @@ book with a different voice.** Every timestamp somnia holds — chapter marks,
 index entries, the place you fell asleep — belongs to the audio that was
 actually produced.
 
-Two things to know before re-running it on a book it has already rendered:
+Re-running it on a book it has already rendered is the ordinary way to finish
+one that died, and it **resumes**: it starts at the first chapter that has no
+row — the first missing one, not the one after the highest, so a hole in the
+middle is filled rather than stepped over — and carries the global clock on
+from where that chapter ended. Re-indexing a chapter replaces its passages
+rather than adding a second copy of every one of them. Both of those were
+[#11](https://github.com/gilesknap/somnia/issues/11), and both are fixed.
 
-- It starts again at chapter one. There is no resume; each chapter is rendered
-  and its file overwritten, so a render that died at chapter 40 costs you those
-  40 chapters again.
-- The index gains a **second copy** of every passage, because chapters are
-  replaced but chunks are only ever inserted. Searches still work; they just
-  return the same passage more than once. Both are
-  [#11](https://github.com/gilesknap/somnia/issues/11).
+The one case that starts from zero is a book whose chapter *count* has changed
+since it was last rendered, which means Gutenberg has re-issued the text.
+Chapter four of one edition is not chapter four of another, so the old
+chapters, chunks and vectors are dropped and the book is rendered again from
+the start; it says so in a warning naming both counts.
 
 What it does not touch is where you have got to. A re-render writes the title,
 the authors, the voice and the status, and nothing about your position or how
@@ -117,6 +148,138 @@ far you have heard.
 If `SOMNIA_ABS_TOKEN` and `SOMNIA_ABS_LIBRARY_ID` are both set, Audiobookshelf
 is rescanned and given chapter marks after each chapter. A failure there is
 logged and the render carries on.
+
+(cli-queue)=
+## `queue`
+
+```bash
+somnia queue [list]
+somnia queue add GID
+somnia queue stop ID
+```
+
+The ingest queue: what is being rendered, what is waiting behind it, and what
+died overnight. `somnia queue` on its own prints it, and needs nothing but the
+database — no key, no network, no `[ml]`.
+
+```console
+$ somnia queue
+   1  rendering       Black Beauty — Sewell, Anna, 1820-1878  (chapter 4 of 49)
+   2  1st in line     Treasure Island — Stevenson, Robert Louis
+   3  cancelled       Moby Dick — Melville, Herman
+```
+
+The first column is the **job id**, and it is what `stop` takes. It is not the
+Gutenberg id: a book can be queued, stopped and asked for again, and each of
+those is a separate row, so stopping by book would be ambiguous about which
+attempt you meant.
+
+The second column is the whole state of the thing:
+
+| Word | What it means |
+|---|---|
+| `rendering` | A renderer holds this book and said so within the last five minutes |
+| `not responding` | It still holds it, but has not said anything for five minutes |
+| `stopping` | It has been asked to stop and will, at the end of the sentence it is on |
+| `Nth in line` | Waiting, with N−1 books ahead of it |
+| `done` | Rendered, all of it |
+| `cancelled` | Somebody stopped it |
+| `failed` | It broke, and the reason is in brackets at the end of the line |
+
+`not responding` is worked out when you look, from the last heartbeat, and is
+stored nowhere — so it is honest even when the renderer has been stopped
+altogether and there is nobody left to write anything down. The chapter number
+in brackets is the one being worked on, which is the same number the renderer
+logs as `rendering chapter 4/49`.
+
+Rows that have ended drop off after **24 hours**. There is nothing to press to
+make one go away: after a day a failure is history rather than news, and
+history is in the journal.
+
+`somnia queue add GID` asks for a book. It writes a row and returns at once —
+there is no network in it — so an id Gutenberg has never heard of is accepted
+here and fails later, with a sentence saying so, rather than making you wait
+three seconds to be told no.
+
+```console
+$ somnia queue add 120
+Treasure Island is in the queue, behind one other book.
+```
+
+The name comes from the **local catalog**, so a book queued before
+[`catalog-update`](#cli-catalog-update) has ever run reads as `book 120` in the
+list. That is cosmetic and nothing else depends on it. Two refusals: a book
+that is already queued or already rendering, and a book somnia has rendered in
+full. A render that died, was stopped, or was killed by a reboot is **not**
+refused — asking again is how you retry one, and that was impossible before
+this command existed.
+
+`somnia queue stop ID` takes a book out of the line, or asks a running render
+to stop.
+
+```console
+$ somnia queue stop 2
+Treasure Island has been taken out of the queue.
+```
+
+A book that was only waiting goes immediately. A render that is running is only
+*asked*: nothing signals it and nothing kills it, so it reads to the end of the
+sentence it is on and stops on the next chapter boundary, which can take about
+twenty seconds. Every chapter it had already finished stays exactly where it
+is, and stays playable.
+
+What empties the queue is [`worker`](#cli-worker), and if nothing is running it
+nothing renders: rows sit there with their place in line and the readout says
+so honestly. See [Keep a long render
+running](../how-to/keep-renders-running.md) for the unit that runs it.
+
+(cli-worker)=
+## `worker`
+
+```bash
+somnia worker
+somnia worker --once
+```
+
+Empties the queue, one book at a time, and is meant to be a systemd user unit
+rather than something you type. It reconciles whatever the last crash left
+behind, then loops: if a book is waiting it spawns a child — `somnia worker
+--once` — and waits for it, and either way it sleeps ten seconds and looks
+again.
+
+The supervisor itself imports nothing expensive. Kokoro and the embedder live
+in the child, which exits between books and takes every megabyte with it, and
+the child's stdout and stderr are **inherited**, so its chapter lines and any
+traceback land in the journal:
+
+```console
+$ journalctl --user -u somnia-worker -f
+INFO worker watching /home/reader/.local/share/somnia/somnia.db: 1 requeued, 0 given up on, 1 books freed
+INFO claimed job 7: book 271
+INFO rendering chapter 1/49: 01. My Early Home
+```
+
+`--once` claims the next book, renders it and exits — which is also what
+`somnia add` does after submitting, under the same claim. Use it to drain the
+line by hand without asking for anything new. If something else is already
+rendering it claims nothing and exits at once, saying so at INFO.
+
+`SIGTERM` — which is what `systemctl --user stop` sends — stops the render at
+the end of the sentence it is speaking, puts the book **back in the queue**
+rather than cancelling it, and exits. Nobody stopped wanting the book, so the
+next worker to start picks it up at the chapter after the last one that
+finished. The chapter that was in flight is lost, deliberately: the child will
+not gamble on finishing a chapter inside a stop timeout, because a chapter
+killed part way through the encode is the one death that can leave the index
+holding words the player cannot see.
+
+A render that is interrupted this way is retried, bounded at **three**
+attempts, after which the job is failed with a sentence saying it was
+interrupted three times. A child that dies without recording anything — an OOM,
+a SIGKILL, a segfault underneath — is failed straight away with its exit code
+in the sentence, and never retried: a real error recurs, and a queue that
+spends the night failing the same book is worse than one that stops and says
+why.
 
 (cli-find)=
 ## `find`

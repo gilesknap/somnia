@@ -3,10 +3,78 @@
 import logging
 from argparse import ArgumentParser
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from . import __version__
 
+if TYPE_CHECKING:
+    # Only for the annotation on _queue_line. Every branch of main() imports
+    # what it needs where it needs it, so that `somnia search` never pays for
+    # the modules `somnia add` wants, and one type name is not a reason to
+    # break that.
+    from .queue import QueueRow
+
 __all__ = ["main"]
+
+_ORDINALS = {1: "st", 2: "nd", 3: "rd"}
+
+
+def _ordinal(n: int) -> str:
+    """1st, 2nd, 3rd: how far down the line a book is, in English.
+
+    A queue of three books deep does not need this, and somebody reading "place
+    2" instead of "2nd in line" would understand it perfectly well. It is here
+    because the line is a sentence about waiting and reads as one.
+    """
+    suffix = "th" if n % 100 in (11, 12, 13) else _ORDINALS.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _queue_line(row: "QueueRow") -> str:
+    """One job, on one line, for somebody at a terminal.
+
+    The state comes first and in the same column every time, because the
+    question being asked is "is anything actually happening", and that has to be
+    answerable by looking down the left of the screen rather than by reading.
+
+    Two of the words are not states at all. A render whose heartbeat has gone
+    quiet says so, since 'rendering' would be a claim about a process that may
+    have died with the box; and one that has been asked to stop says 'stopping',
+    because it stays 'rendering' until the child gets to the end of its
+    sentence, and printing that would look like the stop had been ignored.
+
+    The chapter is the one being worked on rather than the count that is
+    finished — the same number, and the same meaning, as the "rendering chapter
+    3/34" line the renderer writes to the journal, so the two can be read side
+    by side. It is held at the last chapter rather than allowed to say "50 of
+    49" in the seconds between the final chapter landing and the job ending.
+    """
+    if row.state == "queued":
+        where = f"{_ordinal(row.place)} in line"
+    elif row.state != "rendering":
+        where = row.state
+    elif row.stopping:
+        where = "stopping"
+    elif not row.responding:
+        where = "not responding"
+    else:
+        where = "rendering"
+
+    name = row.title or f"book {row.gid}"
+    if row.authors:
+        name = f"{name} — {row.authors}"
+
+    detail = ""
+    if row.state == "rendering":
+        detail = (
+            f"chapter {min(row.chapters_done + 1, row.chapters_total)}"
+            f" of {row.chapters_total}"
+            if row.chapters_total
+            else "fetching the text"
+        )
+    elif row.error:
+        detail = row.error
+    return f"{row.id:>4}  {where:<14}  {name}" + (f"  ({detail})" if detail else "")
 
 
 def main(args: Sequence[str] | None = None) -> None:
@@ -23,6 +91,21 @@ def main(args: Sequence[str] | None = None) -> None:
     p_add = sub.add_parser("add", help="render + index a book (streams into ABS)")
     p_add.add_argument("gid", type=int, help="Gutenberg book id")
     p_add.add_argument("--voice", default=None)
+
+    p_worker = sub.add_parser("worker", help="render whatever is in the queue")
+    p_worker.add_argument(
+        "--once", action="store_true", help="render one book and exit"
+    )
+
+    p_queue = sub.add_parser("queue", help="the ingest queue: ask, watch, stop")
+    queue_sub = p_queue.add_subparsers(dest="queue_command")
+    queue_sub.add_parser("list", help="what is in the queue (the default)")
+    p_queue_add = queue_sub.add_parser("add", help="ask for a book to be rendered")
+    p_queue_add.add_argument("gid", type=int, help="Gutenberg book id")
+    p_queue_stop = queue_sub.add_parser(
+        "stop", help="take a book out of the line, or stop the render"
+    )
+    p_queue_stop.add_argument("job_id", type=int, metavar="ID", help="the queue row id")
 
     p_find = sub.add_parser("find", help="semantic search within an ingested book")
     p_find.add_argument("gid", type=int)
@@ -67,17 +150,63 @@ def main(args: Sequence[str] | None = None) -> None:
         for entry in search_catalog(conn, ns.query, language=ns.language):
             print(f"{entry.gid:>6}  {entry.title} — {entry.authors}")
     elif ns.command == "add":
-        from .abs import AbsClient  # noqa: PLC0415
-        from .embed import Embedder  # noqa: PLC0415
-        from .ingest import ingest_book  # noqa: PLC0415
-        from .tts import KokoroEngine  # noqa: PLC0415
+        from .queue import submit  # noqa: PLC0415
+        from .worker import asked_to_stop, render_one  # noqa: PLC0415
 
         if ns.voice:
             cfg.voice = ns.voice
-        engine = KokoroEngine(voice=cfg.voice)
-        embedder = Embedder(cfg.embed_model)
-        abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
-        ingest_book(cfg, conn, engine, embedder, ns.gid, abs_client)
+        # Submit, then render under the same claim every other renderer takes.
+        # This used to go straight at ingest_book, which made it a second
+        # renderer with no lease and nothing to stop two of them running at
+        # once — and two Kokoro processes on two cores render slower than
+        # somebody listens. There is now exactly one function in somnia that
+        # renders a book, and it always holds a lease.
+        asked = submit(conn, ns.gid)
+        print(asked.said)
+        if not asked.ok:
+            # Somnia already has it, or it is already coming. Draining the line
+            # by hand is `somnia worker --once`; this command was asked about
+            # one book and has no business starting six hours of another.
+            return
+        with asked_to_stop() as stopping:
+            rendered = render_one(cfg, conn, stopping=stopping)
+        if rendered is None:
+            print(
+                "Something else is being rendered, so this one waits its"
+                " turn. Run `somnia queue` to see the line."
+            )
+        elif rendered.state == "queued":
+            # Ctrl-C, or systemd stopping the session out from under it. Said
+            # rather than logged because the person who pressed it is watching
+            # a terminal and wants to know what it cost them.
+            print(
+                "Stopped at the end of a chapter. Everything already rendered"
+                " is still there, and the book is back in the queue."
+            )
+    elif ns.command == "worker":
+        from .worker import asked_to_stop, render_one, supervise  # noqa: PLC0415
+
+        with asked_to_stop() as stopping:
+            if ns.once:
+                render_one(cfg, conn, stopping=stopping)
+            else:
+                supervise(cfg, conn, stopping=stopping)
+    elif ns.command == "queue":
+        from .queue import stop, submit, view  # noqa: PLC0415
+
+        if ns.queue_command == "add":
+            # No network and no render: this writes a row and says where in the
+            # line it landed. Whether Gutenberg has the book at all is found out
+            # when something comes to render it, and said in a sentence then.
+            print(submit(conn, ns.gid).said)
+        elif ns.queue_command == "stop":
+            print(stop(conn, ns.job_id).said)
+        else:
+            rows = view(conn)
+            if not rows:
+                print("Nothing in the queue.")
+            for row in rows:
+                print(_queue_line(row))
     elif ns.command == "find":
         from .embed import Embedder  # noqa: PLC0415
         from .index import find_passage  # noqa: PLC0415
