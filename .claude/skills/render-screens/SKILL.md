@@ -95,7 +95,8 @@ something — the toast, for instance — by hand.
 
 ## Sizes worth knowing before you argue with a render
 
-- transport buttons **5.5rem**; chapter skips **4rem**; the microphone **5rem**
+- transport buttons **5.5rem**; the chapter circles **3.2rem**; the microphone
+  **5rem**; the header **2.4rem**
 - the text column is **320px** — 360 less the 1rem gutter each side
 - `1:12:08 of 9:41:33` and the sleep pill share one row and only just: at the
   sizes before the type scale landed they wrapped, and they still wrap if the

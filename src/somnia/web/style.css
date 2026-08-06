@@ -133,7 +133,8 @@ html {
    and a time on a list · 1.1 what you are typing, and a chapter · 1.05 the way
    out, and a search result · 0.95 a chapter count, and the book's own words ·
    0.9 a second-rank control, and where you are in the book · 0.825 what a row
-   is, under its name · 0.775 a footnote.
+   is, under its name · 0.775 a footnote · 0.75 the corner that throws things
+   away.
 
    Nothing meant to be read goes below 0.75rem — 15dp — and the one thing under
    that, .section-label at 0.55rem, is not read: it is mono, uppercase and
@@ -176,24 +177,48 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* One row, 48dp tall, holding an action, the name, and a quiet action. It is
+   `position: relative` only so that the name can be centred against the screen
+   rather than against whatever is left between the two buttons — the two are
+   not the same width and never will be, and a wordmark that sits a few pixels
+   off centre reads as a page that was not finished. */
 header {
+  position: relative;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.4rem 0.4rem 0.2rem 1rem;
+  height: 2.4rem;
+  padding: 0 0.7rem;
 }
 
 /* The wordmark, and the smallest tracking on the page that is still tracking.
    It came down from 0.4em because at the size the rest of the page now reads
    at, a name spaced that far apart stops being a word and starts being seven
-   letters — and this is the one thing on the screen nobody has to read. */
+   letters — and this is the one thing on the screen nobody has to read.
+
+   Centred on the screen and not in the row, and then nudged right by half its
+   own tracking. Letter-spacing puts a gap after the last `a` as well as between
+   the letters, and the browser counts that gap in the box it centres — so a
+   box centred exactly leaves the word itself sitting 2.7px to the left, which
+   is small enough to look like a mistake rather than like a choice.
+
+   Nothing on this page is more certainly not a button, so it takes no presses
+   at all: it lies across the middle of the header, and a stretch towards it
+   that landed on a name would be a press that did nothing with no way to tell
+   why. */
 h1 {
-  margin: 0;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0 0 0 0.15em;
   font-size: 0.9rem;
   font-weight: 400;
   letter-spacing: 0.3em;
   color: var(--dim);
   text-transform: lowercase;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* A name for a stretch of the page, at the one size on it that is not meant to
@@ -210,31 +235,84 @@ h1 {
   color: var(--faint);
 }
 
-/* The far corner, and both of the controls that live in it. They are side by
-   side rather than stacked because the header is one line high and has to stay
-   one line high: what sits under it is the conversation, and a header that grew
-   a row would push the transport down the screen. */
-#corner {
+/* The way to the books, drawn as something to press. A 48dp target with a 36dp
+   pill inside it: the pill is what is seen and the space around it is what is
+   hit, which is how a control can be small enough not to shout across a dark
+   room and still big enough to land on without aiming.
+
+   It is the only outlined thing in the header. Everything else up here is bare
+   type, so an outline is the whole of the difference between "this is a name"
+   and "this is a door" — and this door was invisible for as long as it looked
+   like the name beside it. */
+#books {
+  flex: none;
   display: flex;
   align-items: center;
+  height: 2.4rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--mid);
 }
 
-/* Small type, but a target the size of everything else. The two controls that
-   are pressed on purpose rather than by feel — the one that throws the
-   conversation away, and the one that opens a panel over a playing book — are
-   kept quiet, and kept in the corner a one-handed grip has to stretch for, and
-   they are still big enough that reaching one deliberately does not need
-   aim. */
+#books .pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 1.8rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  font-size: 0.825rem;
+  white-space: nowrap;
+}
+
+/* Small, and pointing the way the panel arrives from. currentColor, so it warms
+   with the word rather than being a second thing that has to be kept in step
+   with it. */
+#books .caret {
+  flex: none;
+  width: 0.3rem;
+  height: 0.5rem;
+}
+
+/* The press, in the amber the design gives a selected pill — and the press is
+   the only moment it can ever be seen. The panel this opens is opaque and
+   covers the screen, so there is no "while it is open" for the button
+   underneath to be lit for; a class that stayed on behind a full-screen panel
+   would be state nobody could look at. What is worth showing is that the press
+   landed, and that is what this is. */
+#books:active .pill {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+/* The other corner, and the one control on this page that throws something
+   away. Quieter than it used to be, and quieter than the pill opposite it, on
+   purpose: it is now the only thing in the header that is not meant to be
+   found, and it can afford to be because a first press no longer does anything
+   — it asks, and says so where the label was. The target is the full height of
+   the header, so pressing it deliberately still needs no aim. */
 .quiet {
   background: none;
   border: 0;
-  color: var(--dim);
-  font-size: 0.8rem;
-  padding: 0.7rem 1rem;
+  color: var(--faint);
+  font-size: 0.75rem;
+  min-height: 2.4rem;
+  padding: 0 0.5rem;
 }
 
 .quiet:active {
   color: var(--ink);
+}
+
+/* Asked, and about to be answered. Amber because that is what this page says
+   "this is live" in, and it has to be a different colour and not only different
+   words: the whole point of the two presses is that the second one cannot
+   happen without the first having been noticed. */
+#restart.armed {
+  color: var(--accent);
 }
 
 #transcript {
@@ -340,19 +418,31 @@ h1 {
   margin: 0 0 1.7rem;
 }
 
-/* One line, whatever the book is called: cut with an ellipsis rather than
-   allowed to wrap. This has to be the same height with every chapter of every
-   book in it, because everything below it — the chapter strip, the clock, the
-   transport — would be shifted down by the one chapter whose name ran to two
-   lines, and the bottom of that stack is the button a hand arrives at without
-   looking first.
+/* The book's name, and the largest thing on the player. It is the top of a
+   stack of three one-line readouts — book, chapter, how far into the chapter —
+   and every one of them is cut with an ellipsis rather than allowed to wrap.
+   That is not tidiness: the stack has to be the same height with every book and
+   every chapter in it, because a title that ran to two lines would push the
+   chapter circles, the clock and the transport down the screen, and the bottom
+   of that stack is the button a hand arrives at without looking first.
 
-   It has the whole width to itself, which is why the ellipsis is now rare
-   enough to be an edge case rather than most nights. It shared the line with
-   the chapter clock for one afternoon: the clock never varies in width and the
-   title always does, so a book with long chapter names spent every night
-   truncated to make room for eleven characters that had somewhere better to
-   be. They are in .chapter-strip below. */
+   Each has the whole width to itself, which is what makes the ellipsis an edge
+   case rather than most nights. The chapter's name and its clock shared a line
+   for one afternoon: the clock never varies in width and the name always does,
+   so a book with long chapter names spent every night truncated to make room
+   for eleven characters that had somewhere better to be. */
+#book-title {
+  margin: 0;
+  font-size: 1.45rem;
+  /* Closed up by a hair, which at this size is the difference between a title
+     and a title that has been set. Nothing else on the page is tracked in. */
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #chapter-title {
   margin: 0;
   font-size: 1.1rem;
@@ -362,31 +452,63 @@ h1 {
   white-space: nowrap;
 }
 
-/* The chapter's own row: skip, clock, skip. The buttons are laid out at a fixed
-   width and the clock takes what is left, so the number stays in the middle of
-   the screen whatever the chapter is called and whatever hour it has got to. */
+/* The chapter's own row: skip, count, skip. The buttons are laid out at a fixed
+   width and the count takes what is left, so the number stays in the middle of
+   the screen whatever the chapter is called and however many chapters there
+   are. */
 .chapter-strip {
   display: grid;
-  grid-template-columns: 4.6rem 1fr 4.6rem;
+  grid-template-columns: 3.2rem 1fr 3.2rem;
   align-items: center;
   gap: 0.6rem;
   /* Its own space above and below. Under it sits the book's clock, and under
      that the transport: this row must not read as the top of the button
      cluster, because it is not one. */
-  margin: 0.35rem 0 0.15rem;
+  margin: 0.5rem 0 0.15rem;
 }
 
-/* Shorter and quieter than the transport below — no raised fill, dimmer ink,
-   a smaller glyph. Everything about it says "reached for on purpose", which is
-   the only way it should ever be reached for: a press here costs a whole
-   chapter, and the row that costs thirty seconds is the warm one further
-   down. */
+/* Which chapter of how many, between the two buttons that change it. Two lines
+   rather than one string, because they are not the same kind of thing: `chapter`
+   is a label that is read once ever, and the number under it is read every time
+   anybody looks at this screen. So the label is small and dim and the count is
+   neither.
+
+   When there is no denominator this holds the whole sentence — `chapter 4` —
+   and the label above it is taken away rather than left saying the word twice.
+   The row does not change height when that happens: the circles either side are
+   taller than both lines together, and they are what sets it. */
+.chapter-of {
+  margin: 0;
+  display: grid;
+  gap: 0.1rem;
+  text-align: center;
+}
+
+#chapter-word {
+  font-size: 0.825rem;
+  color: var(--dim);
+}
+
+#chapter-count {
+  font-size: 0.95rem;
+  color: var(--mid);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Circles, and quieter than the transport below — no raised fill, dimmer ink, a
+   smaller glyph. Everything about them says "reached for on purpose", which is
+   the only way they should ever be reached for: a press here costs a whole
+   chapter, and the row that costs thirty seconds is the warm one further down.
+   The shape says it as well as the colour. Nothing round on this page is part
+   of the transport, which is the one distinction a thumb arriving in the dark
+   has to make before it makes any other. */
 .chapter-skip {
-  min-height: 4rem;
+  width: 3.2rem;
+  height: 3.2rem;
   display: grid;
   place-items: center;
   border: 1px solid var(--hairline);
-  border-radius: 1rem;
+  border-radius: 999px;
   background: none;
   color: var(--dim);
   transition: background-color 90ms linear;
@@ -415,19 +537,24 @@ h1 {
   opacity: 0.3;
 }
 
-/* Dimmer and smaller than the book's clock below it, and now smaller again.
-   Both are on screen at once and they are not equals: the one that says where
-   the night has got to is the book's, and two numbers of the same weight would
-   have to be read to be told apart.
+/* Under the name of the chapter it is counting, and left-aligned with it: the
+   two are one readout in two lines, and a number centred over a title that is
+   not would read as belonging to something else.
 
-   The size is load-bearing and was measured in a render, not chosen. `3:24 of
-   41:12` has 116px between the two chapter buttons; in Newsreader at the size
-   this was — 1rem — it wrapped onto a second line, which pushed the whole
-   transport down the screen on every chapter whose clock ran past ten minutes.
-   At 0.825rem it fits with room, and 0.825rem is what the design asks for
-   anyway. */
+   Dimmer and smaller than the book's clock further down. Both are on screen at
+   once and they are not equals: the one that says where the night has got to is
+   the book's, and two numbers of the same weight would have to be read to be
+   told apart.
+
+   It has the whole line now, where it used to have the 116px between the two
+   chapter buttons — and at 1rem in Newsreader `3:24 of 41:12` did not fit that,
+   wrapping onto a second line and pushing the transport down the screen on
+   every chapter that ran past ten minutes. The width it was measured against is
+   gone, but the size stays: 0.825rem is what the design asks for, and it is the
+   size that keeps this a footnote to the chapter's name rather than a second
+   thing to read. */
 #chapter-clock {
-  text-align: center;
+  margin: 0;
   font-size: 0.825rem;
   color: var(--dim);
   font-variant-numeric: tabular-nums;
@@ -466,11 +593,12 @@ h1 {
   flex: none;
   white-space: nowrap;
   border: 1px solid transparent;
-  /* A pill, not a rounded box. On this page a pill is a thing that can be set
-     and a slab is a thing that can be pressed, and the sleep timer is the one
-     control that is both a readout and a setting — so it takes the shape of the
-     readout it also is, rather than the shape of the transport it must not be
-     mistaken for. */
+  /* A pill, not a rounded box. On this page a slab is the transport — the three
+     things pressed without looking — and everything round is something reached
+     for on purpose: the chapter circles above, and this. The sleep timer is the
+     one control that is both a readout and a setting, so it takes the shape of
+     the readout it also is rather than the shape of the transport it must not
+     be mistaken for. */
   border-radius: 999px;
   background: none;
   color: var(--dim);

@@ -23,7 +23,10 @@ const restart = document.getElementById("restart");
 const statusLine = document.getElementById("status");
 const player = document.getElementById("player");
 const playerBar = document.getElementById("player-bar");
+const bookTitle = document.getElementById("book-title");
 const chapterTitle = document.getElementById("chapter-title");
+const chapterWord = document.getElementById("chapter-word");
+const chapterCount = document.getElementById("chapter-count");
 const clock = document.getElementById("clock");
 const sleepButton = document.getElementById("sleep");
 const playpause = document.getElementById("playpause");
@@ -218,7 +221,47 @@ composer.addEventListener("submit", (event) => {
   ask(question.value.trim());
 });
 
-restart.addEventListener("click", async () => {
+// How long `start over` stands asked before the corner forgets it. Long enough
+// to read four words and decide, short enough that a phone put down face up
+// with the question still on it is not one press from an empty screen. The
+// queue's `stop reading this` is the same pattern with a longer fuse, because
+// that press ends hours of rendering and this one ends a conversation.
+const RESTART_CONFIRM_MS = 3200;
+
+// The wake that will put the label back, or 0 for a corner that is not asking.
+// One variable and not two: the label is drawn from it, so "is it armed?" and
+// "what does it say?" cannot come apart.
+let restartTimer = 0;
+
+function forgetRestart() {
+  clearTimeout(restartTimer);
+  restartTimer = 0;
+  restart.textContent = "start over";
+  restart.classList.remove("armed");
+}
+
+// Two presses, and the button itself is the question — the same answer the
+// queue panel gives, so that the page has one way of asking rather than two.
+// Not a confirm dialog: that would be the first thing on this page to take
+// focus from anybody, and an overlay over a conversation somebody is about to
+// throw away is one more thing to get out of.
+restart.addEventListener("click", () => {
+  if (!restartTimer) {
+    restart.textContent = "sure? tap again";
+    restart.classList.add("armed");
+    restartTimer = setTimeout(forgetRestart, RESTART_CONFIRM_MS);
+    return;
+  }
+  forgetRestart();
+  startOver();
+});
+
+// What is thrown away is the conversation, and only the conversation. The book
+// keeps playing, keeps its position and keeps its sleep timer: "start over"
+// means the questions, not the night. A press here that took somebody back to
+// the beginning of a nine-hour book would be the one mistake on this page
+// nothing could undo.
+function startOver() {
   const stale = token;
   token = crypto.randomUUID();
   sessionStorage.setItem("somnia-token", token);
@@ -235,7 +278,7 @@ restart.addEventListener("click", async () => {
   setStatus("");
   say("Where do you want to be?", "agent");
   question.focus();
-});
+}
 
 // ------------------------------------------------------------------- playing
 
@@ -445,6 +488,13 @@ function chapterTime(ms) {
 
 function drawPlayer() {
   if (!manifest || !current) return;
+  // Which book, above which chapter of it. Drawn every pass rather than once
+  // when the book opened, so there is no path — a swap, a refreshed manifest, a
+  // move to another book — by which the headline can be left naming the last
+  // one. The fallback is the queue panel's, from bookName: a book that has been
+  // through nothing but the local catalog may have no name at all, and "book
+  // 1342" is a good deal better than an empty line where the title goes.
+  bookTitle.textContent = manifest.title || `book ${gid}`;
   chapterTitle.textContent = current.chapter.title;
   const whole = timestamp(manifest.total_ms);
   clock.textContent = `${timestamp(positionMs)} of ${whole}`;
@@ -454,6 +504,22 @@ function drawPlayer() {
   const into = positionMs - current.chapter.start_ms;
   const length = current.chapter.end_ms - current.chapter.start_ms;
   chapterClock.textContent = `${chapterTime(into)} of ${chapterTime(length)}`;
+  // Which chapter of how many, in the gap between the two buttons that change
+  // it. The denominator is chapters_total — how many chapters the book HAS, as
+  // against how many have been rendered — because a count taken from the
+  // chapters that happen to have landed would read "1 of 1" at eleven o'clock
+  // and "1 of 2" an hour later, on a book that has forty.
+  //
+  // 0 means nobody wrote the number down. That is every book rendered before
+  // the column existed, which is every book on the box this runs on, so it is
+  // not an edge case to be swept up: the count says which chapter they are in
+  // and stops, and the word above it goes rather than saying "chapter" twice.
+  const total = manifest.chapters_total || 0;
+  const number = current.idx + 1;
+  chapterWord.hidden = total === 0;
+  chapterCount.textContent = total
+    ? `${number} of ${total}`
+    : `chapter ${number}`;
   // A book still being read grows a chapter at a time, so this is asked every
   // draw rather than once when the manifest lands.
   nextChapter.disabled = !manifest.chapters[current.idx + 1];

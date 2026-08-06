@@ -19,12 +19,12 @@
          no state a wrong press could leave them stranded in — at 2am the whole
          of the app has to be the thing already in front of them.
 
-         The order down the page is the order a hand reaches: the name and the
-         one button that throws anything away as far from the thumb as the
-         screen allows, the conversation in the middle where it is read rather
-         than touched, and the two things pressed without looking — the book and
-         the microphone — where a hand already holding the phone can find
-         them.
+         The order down the page is the order a hand reaches: the name, the way
+         to the books and the one button that throws anything away, all of them
+         as far from the thumb as the screen allows; the conversation in the
+         middle where it is read rather than touched; and the two things pressed
+         without looking — the book and the microphone — where a hand already
+         holding the phone can find them.
 
          The one screen now has one overlay over it — #candidates, at the foot
          of this file — and it is still the same screen underneath. It is raised
@@ -48,19 +48,49 @@
          "the page opens the book they were last listening to; changing books is
          done by asking" is still true word for word. The way out is `close`,
          and close changes nothing at all. -->
+
+    <!-- One action, the name, and one quiet action — in that order across the
+         top, which is the order of how much anybody has to do with them.
+
+         Both buttons are still in a far corner, and that half of the old
+         argument stands: opening a picker over a playing book, or throwing a
+         conversation away, must be something somebody decided to do rather
+         than something a hand finds on the way to the microphone. What has
+         gone is the other half. `books` used to be as quiet as `start over`
+         and it was the only way to add a book at all, and a control nobody can
+         find is a control that is not there — so distance is still doing the
+         work of keeping it off a sleepy thumb, and the pill is doing the work
+         of being findable. It still carries no badge and no count: a book
+         finishing at 3am is not news to somebody asleep, and a dot that has to
+         be cleared is a second thing to press.
+
+         It says `books` and not `library` because that is the word on the
+         panel it opens, and a button and the screen it raises disagreeing
+         about their own name is a thing to work out in the dark.
+
+         `start over` keeps the right-hand corner to itself and nothing else is
+         ever allowed in it. It is the one control on the page that throws
+         something away, it takes two presses now, and the second press is
+         about the conversation — never the book's position. -->
     <header>
+      <button id="books" type="button">
+        <span class="pill">
+          <!-- Drawn, for the reason the transport's glyphs are: a caret typed
+               as a character is whatever size and weight the phone's symbol
+               font decided, sitting on a baseline rather than beside a word. -->
+          <svg
+            class="caret"
+            viewBox="0 0 6 10"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M0 0 6 5 0 10Z" fill="currentColor" />
+          </svg>
+          books
+        </span>
+      </button>
       <h1>somnia</h1>
-      <!-- Both of the page's quiet controls, in the corner a one-handed grip
-           has to stretch for. `books` is here rather than anywhere nearer the
-           thumb for the same reason `start over` is: opening a picker over a
-           playing book must be something somebody decided to do, not something
-           a hand finds on the way to the microphone. It carries no badge and no
-           count — a book finishing at 3am is not news to somebody asleep, and a
-           dot that has to be cleared is a second thing to press. -->
-      <div id="corner">
-        <button id="books" type="button" class="quiet">books</button>
-        <button id="restart" type="button" class="quiet">start over</button>
-      </div>
+      <button id="restart" type="button" class="quiet">start over</button>
     </header>
 
     <main id="transcript" aria-live="polite">
@@ -77,21 +107,50 @@
 
     <section id="player-bar" hidden>
       <div id="now-playing">
-        <!-- The title has the whole line to itself. It shared it with the
-             chapter clock for one afternoon, and the clock is the thing that
-             never varies in width while the title is the thing that does: a
-             book with long chapter names spent every night ellipsised to make
-             room for eleven characters that had somewhere better to be. -->
+        <!-- The book, and then the chapter of it. The manifest has carried the
+             book's own name since the beginning and the page drew everything
+             else out of it — the chapter, both clocks, the album on the lock
+             screen — while the one line that answers "am I in the right book?"
+             was on no screen at all. Somebody who queued three books before bed
+             had to press play and listen to find out which one they had come
+             back to.
+
+             It is the headline because it is the only thing here that is true
+             all night. Everything under it changes while they sleep. -->
+        <p id="book-title"></p>
+
+        <!-- Both of these are one line and cut with an ellipsis rather than
+             allowed to wrap, and that is the whole discipline of this stack:
+             everything below — the chapter circles, the clocks, the transport —
+             would be pushed down the screen by the one book whose title ran to
+             two lines, and the bottom of that stack is the button a hand
+             arrives at without looking first. -->
         <p id="chapter-title"></p>
 
-        <!-- The chapter's clock, between the two buttons that change which
-             chapter it is counting. The number and the controls that alter it
-             are one thing, so they are drawn as one.
+        <!-- How far into this chapter, under the name of the chapter it is
+             counting. It sat between the two skip buttons until the count took
+             that place, which is the better use of the gap: the number between
+             two controls should be the number those controls change, and what
+             prev and next change is which chapter this is, not how many minutes
+             of it have gone.
 
-             It is bare rather than boxed. A border around it would make it the
-             third button in a row of three, and a control that looks pressable
-             and does nothing is a worse thing to meet in the dark than a plain
-             number is. -->
+             It is bare rather than boxed here for the same reason it was there.
+             A border around it would make it look pressable, and a control that
+             looks pressable and does nothing is a worse thing to meet in the
+             dark than a plain number is. -->
+        <p id="chapter-clock"></p>
+
+        <!-- Two circles and, between them, the number they change. `chapter`
+             over `4 of 37`: the word is a label small enough not to be read
+             twice, and the count is the one thing on this screen that says how
+             much book is left without anybody doing arithmetic on a clock.
+
+             When nobody wrote the total down it says `chapter 4` and stops
+             there. That is not a rare case — it is every book on the box this
+             runs on, all of them rendered before there was a column to write it
+             in — and `4 of 0` or a denominator guessed from the chapters that
+             happen to have landed would both be worse than a number with
+             nothing after it. -->
         <div class="chapter-strip">
           <button
             id="prevchapter"
@@ -111,7 +170,10 @@
               />
             </svg>
           </button>
-          <span id="chapter-clock"></span>
+          <p class="chapter-of">
+            <span id="chapter-word">chapter</span>
+            <span id="chapter-count"></span>
+          </p>
           <button
             id="nextchapter"
             type="button"

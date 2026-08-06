@@ -1,17 +1,19 @@
-// The chapter strip: the two buttons that move a whole chapter at a time, and
-// the clock between them that says how much of this one is left.
+// The chapter strip: the two circles that move a whole chapter at a time, the
+// count between them that says which chapter of how many, and the clock under
+// the chapter's name that says how much of this one is left.
 //
 // The book's own clock has been on the screen since the beginning and is tested
-// in playing.test.mjs. What is new here is a second clock at a different scale,
-// and the thing those tests cannot cover: that the buttons under a thumb and
-// the buttons on the lock screen are the same two functions, so a chapter skip
-// means the same thing whether it came from the page, from the notification, or
-// from a pillow speaker at 2am.
+// in playing.test.mjs. What is here is a second clock at a different scale, the
+// count that replaced it between the two buttons, and the thing those tests
+// cannot cover: that the buttons under a thumb and the buttons on the lock
+// screen are the same two functions, so a chapter skip means the same thing
+// whether it came from the page, from the notification, or from a pillow
+// speaker at 2am.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boot } from "./harness.mjs";
+import { boot, UNCOUNTED_BOOK } from "./harness.mjs";
 
 // The tone book is three chapters of exactly eight seconds, so every number
 // below is exact and an off-by-one has nowhere to hide.
@@ -32,6 +34,38 @@ test("the chapter clock counts the chapter and not the book", async (t) => {
   // whole reason for having a second one.
   assert.equal(page.probe().clock, "0:00:20 of 0:00:24");
   assert.equal(page.probe().chapterClock, "0:04 of 0:08");
+});
+
+test("the count between the circles says which chapter of how many", async (t) => {
+  const page = await playing(t);
+  // The one number on this screen that answers "how much of this book is left"
+  // without arithmetic, which is what somebody deciding whether to set a sleep
+  // timer is actually asking.
+  assert.equal(page.probe().chapterCount, "1 of 3");
+  page.click("nextchapter");
+  page.audio.ready();
+  assert.equal(page.probe().chapterCount, "2 of 3");
+  page.click("nextchapter");
+  page.audio.ready();
+  assert.equal(page.probe().chapterCount, "3 of 3");
+  // And the circle either side of it still says where there is nothing to go
+  // to, rather than going nowhere quietly.
+  assert.equal(page.probe().canSkipOn, false);
+});
+
+test("a book nobody counted says which chapter and no denominator", async (t) => {
+  const page = await boot(t, { lastGid: UNCOUNTED_BOOK.gid });
+  page.audio.ready();
+  // chapters_total 0 means nobody wrote the number down — which is true of
+  // every book on the box this runs on, all of them rendered before the column
+  // existed. "1 of 0" is the sentence this prevents, and inventing a
+  // denominator from the chapters that happen to have landed would be worse: a
+  // book still being read would say "1 of 1" and then "1 of 2" an hour later.
+  assert.equal(page.probe().chapterCount, "chapter 1");
+  page.click("nextchapter");
+  page.audio.ready();
+  assert.equal(page.probe().chapterCount, "chapter 2");
+  assert.equal(page.probe().canSkipOn, false);
 });
 
 test("a chapter under an hour drops the leading hour, and over it keeps it", async (t) => {

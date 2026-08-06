@@ -188,6 +188,40 @@ export const HALF_HEARD = {
   ],
 };
 
+// A book nobody counted. It has chapters and it plays perfectly well, and the
+// number of chapters it is *supposed* to have was never written down — which is
+// not an edge case but the ordinary state of every book on the box this runs
+// on, all of them rendered before the column existed. The page has to say which
+// chapter they are in without a denominator it does not have, rather than
+// inventing one or saying "of 0".
+export const UNCOUNTED_BOOK = {
+  gid: 900007,
+  title: "Nobody Counted",
+  authors: "Somnia Test",
+  status: "done",
+  total_ms: 16000,
+  position_ms: 0,
+  seq: 0,
+  heard_to_ms: 16000,
+  chapters_total: 0,
+  chapters: [
+    {
+      idx: 0,
+      title: "One Of However Many",
+      start_ms: 0,
+      end_ms: 8000,
+      url: "api/audio/900007/0",
+    },
+    {
+      idx: 1,
+      title: "Two Of However Many",
+      start_ms: 8000,
+      end_ms: 16000,
+      url: "api/audio/900007/1",
+    },
+  ],
+};
+
 // A book somebody could actually fall asleep in. The tone book is twenty-four
 // seconds long — shorter than the shortest rewind and a four-hundredth of the
 // shortest sleep timer — so anything measured in minutes needs a book measured
@@ -228,6 +262,7 @@ const MANIFESTS = new Map(
     NIGHT_BOOK,
     HALF_HEARD,
     PART_READ,
+    UNCOUNTED_BOOK,
   ].map((m) => [`api/book/${m.gid}`, m]),
 );
 
@@ -621,8 +656,18 @@ globalThis.__page = {
     swapping,
     wantsSound,
     idx: current && current.idx,
+    // The book, over the chapter, over how many chapters there are. All three
+    // come off the manifest and are drawn in one pass, so a page that named the
+    // book once at boot and then let a chapter swap leave it behind is a
+    // failure here rather than a wrong headline at 2am.
+    book: bookTitle.textContent,
     chapter: chapterTitle.textContent,
+    chapterCount: chapterCount.textContent,
     clock: clock.textContent,
+    // What the corner is offering. It is a label and not a state because that
+    // is the whole of the confirm: the first press changes this word and
+    // nothing else in this object.
+    restart: restart.textContent,
     // The chapter's own clock, and whether there is anywhere left to skip to.
     // Both are drawn from the chapter row rather than from the element, so a
     // test that watches them is watching the book's clock and not the
@@ -722,6 +767,7 @@ export async function boot(t, options = {}) {
     return elements.get(id);
   };
 
+  let minted = 0;
   const fetches = [];
   const posts = [];
   const beacons = [];
@@ -787,7 +833,11 @@ export async function boot(t, options = {}) {
     window: fakeWindow,
     localStorage,
     sessionStorage,
-    crypto: { randomUUID: () => "test-token" },
+    // A fresh one every time it is asked for, which is the whole of what the
+    // page uses it for: starting over throws the conversation away by minting a
+    // new name for it, and a stub that answered the same string twice would let
+    // a page that never minted anything pass.
+    crypto: { randomUUID: () => `test-token-${++minted}` },
     Blob: FakeBlob,
     MediaMetadata: FakeMediaMetadata,
     Date: { now: () => clock.now() },

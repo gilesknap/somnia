@@ -33,7 +33,11 @@ FIXTURE = {
     "text": {
         "book-title": "The Wind in the Willows",
         "chapter-title": "IV. Mr Toad",
-        "chapter-count": "chapter 4 of 37",
+        # The count alone. The word `chapter` above it is on the page as static
+        # markup, because it never changes — and a book nobody counted takes it
+        # away and says "chapter 4" here instead, which is a state worth
+        # photographing by hand and not the one moment this fixture holds.
+        "chapter-count": "4 of 37",
         "chapter-clock": "3:24 of 41:12",
         "clock": "1:12:08 of 9:41:33",
         "sleep": "sleep timer · off",

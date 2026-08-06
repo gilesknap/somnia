@@ -803,6 +803,11 @@ test("starting over leaves no list over the cleared conversation", async (t) => 
   const page = await opened(t);
   page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
   await page.ask("the bit with the cart");
+  // Twice, because starting over asks first. The list has to survive the
+  // question being asked and go with the answer to it — a first press that
+  // took the rows down would be a control that half happened.
+  page.click("restart");
+  assert.equal(page.probe().candidatesUp, true);
   page.click("restart");
   await page.settle();
   // An overlay offering places, with nothing behind it to say what was asked or
