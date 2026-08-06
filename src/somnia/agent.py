@@ -16,13 +16,31 @@ from anthropic import Anthropic, beta_tool
 
 from .abs import AbsClient
 from .config import Config
-from .tools import Library, Moved, format_timestamp
+from .tools import Library, Moved, Offer, Refused, format_timestamp
 
-__all__ = ["SYSTEM_PROMPT", "Conversation", "Turn", "build_tools", "open_library"]
+__all__ = [
+    "OFFER_SENTENCE",
+    "SYSTEM_PROMPT",
+    "Conversation",
+    "Turn",
+    "build_tools",
+    "open_library",
+]
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """\
+# The only sentence that belongs beside a list of places. It names no place, no
+# chapter, no character and no time, because the screen holds all of that and
+# says it better — and because a sentence that summarised the list would leak
+# exactly what the "show me what's there" control exists to withhold. It is
+# quoted in the prompt so the model says it, and used verbatim when the model
+# offers and then says nothing at all.
+OFFER_SENTENCE = "There are a few places that could be it."
+
+# Interpolated rather than typed out again below: the sentence the model is told
+# to say and the sentence said on its behalf when it says nothing have to be the
+# same words, and two copies of a sentence are two sentences eventually.
+SYSTEM_PROMPT = f"""\
 You help someone find their place in an audiobook they are falling asleep to.
 It is the middle of the night and they are half awake, often speaking rather
 than typing, so their words may be garbled or vague. Work with what they give
@@ -50,30 +68,48 @@ to listen to, not for identifying a name they just said.
 
 A search always returns its closest matches, however poor they are, so read the
 passages and judge for yourself whether any is really the moment they meant. If
-none is, say you couldn't find it rather than moving them to the least bad one.
+none is, say you couldn't find it rather than moving them to the least bad one
+or offering four bad guesses.
 
-When they describe a moment they want to get back to, find it and move the book
-there, then tell them roughly where it now sits — "you're back at two hours in,
-in the chapter about X". Moving takes them there: the page jumps to the new
-place and plays from it. Never tell them to press play, and never say whether
-anything is playing — you do not know.
+When they describe a moment they want to get back to, and exactly one of the
+passages is plainly it, find it and move the book there, then tell them roughly
+where it now sits — "you're back at two hours in, in the chapter about X".
+Moving takes them there: the page jumps to the new place and plays from it.
+Never tell them to press play, and never say whether anything is playing — you
+do not know.
+
+When two or more of the passages could plausibly be the moment, do not ask
+which. Call offer_positions with the ones you judge plausible and the page puts
+them on the screen — the time, the chapter and the book's own words for each —
+and they press the one they meant. A list of times is something a thumb can
+answer; a question is something they would have to compose a sentence to
+answer, half asleep, in the dark.
 
 Searches are limited to how far they have listened. When a search reports that
-a closer match lies further on, say that it is ahead of where they have got and
-offer to take them there or answer anyway — and say nothing about what happens
-there until they accept.
+a closer match lies further on, offer it with offer_positions — on its own if
+nothing in range was plausible. The page marks it as ahead of where they have
+got and will not show what is there unless they ask it to. Say nothing about
+what happens there: you have not been told, only that it is there.
 
-Once they accept, search again with allow_spoilers so you can read those
-passages and pick the right one. The timestamp alone is the top-ranked guess
-and the ranking is often a near miss; moving them there unread lands them
-minutes from the moment they asked for. Reading the passage does not oblige you
-to describe it — move them there and tell them only that you have.
+When you offer, say exactly "{OFFER_SENTENCE}" and
+nothing else — no times, no chapter names, no description of any of them, not
+even of the ones they have already heard. The screen says all of that better
+than a sentence can. Never offer and move in the same turn: the list is the
+question, and the answer is theirs to give.
+
+If they say in so many words that they want to be taken past where they have
+listened, search again with allow_spoilers so you can read those passages and
+pick the right one. The timestamp alone is the top-ranked guess and the ranking
+is often a near miss; moving them there unread lands them minutes from the
+moment they asked for. Reading the passage does not oblige you to describe it —
+move them there and tell them only that you have.
 
 Moving them forward is a real jump: they will hear what is there. Never do it
 past where they have listened unless they have just asked you to.
 
-If it is ambiguous which book or which of several passages they mean, ask one
-short question. Otherwise just act.
+If it is ambiguous which book they mean, ask one short question. Which of
+several passages they mean is never a question — that is what offer_positions
+is for. Otherwise just act.
 
 Never end your turn without saying something. Every action needs a sentence
 after it, even when the answer is only "you're there now" — a silent reply is
@@ -96,16 +132,27 @@ class Turn:
     whatever happens to this reply — and both routes end up in the same place.
     What the shortcut buys is those fifteen seconds, which is a long time to sit
     in the dark wondering whether anything happened.
+
+    ``candidates`` is the other outcome, and the two are mutually exclusive: a
+    turn either moved the book or asked which place they meant, never both. The
+    exclusion is enforced in the tools, where a move can still be stopped before
+    it writes anything; by the time a turn is assembled here it is far too late,
+    because a move that has already been written arrives at the page fifteen
+    seconds later as the refusal of its next report and drags a listener who was
+    still reading the list.
     """
 
     reply: str
     move: Moved | None = None
+    candidates: Offer | None = None
 
 
 def build_tools(
     library: Library,
     note: Callable[[str], None] = lambda _: None,
     record: Callable[[Moved], None] = lambda _: None,
+    offer: Callable[[Offer], None] = lambda _: None,
+    acted: dict[str, bool] | None = None,
 ) -> list[Any]:
     """Wrap the tool layer for the runner, as text the model can read.
 
@@ -116,7 +163,29 @@ def build_tools(
 
     ``record`` hears about moves alone, and in numbers rather than prose,
     because the page has to act on one and cannot read a sentence.
+
+    ``offer`` hears about a list of places to choose from. It is a third
+    callback rather than either of the others for the same reason they are
+    separate from each other: an offer is neither prose the listener can be
+    read nor a move the page must follow, and routing it through ``note`` would
+    put passages into the fallback reply, which is the one thing that must never
+    happen there.
+
+    ``acted`` is what stops the model doing both in one turn. Its owner clears
+    it between turns — it belongs to the conversation, while the two lists above
+    belong to a single question — and the tools read it to refuse the second of
+    a move and an offer, whichever way round they come.
     """
+    # Every chunk id any search in this conversation has handed back, hits and
+    # the withheld one alike. An offer may only name passages that were really
+    # found, and this is what proves it: an id the model invented, or read off
+    # the wrong line, resolves to words that are not the passage that matched,
+    # and a list whose rows are not the search results is worse than no list.
+    # It is not cleared per turn, because a passage found while answering one
+    # question is a fair thing to offer while answering the next.
+    seen: set[int] = set()
+    if acted is None:
+        acted = {}
 
     @beta_tool
     def list_books() -> str:
@@ -191,6 +260,12 @@ def build_tools(
                 mind being spoiled.
         """
         search = library.find_passage(gid, description, spoiler_free=not allow_spoilers)
+        # Remembered before anything is written out, and the withheld one too:
+        # it is the passage offer_positions exists for, and the only handle on
+        # it the model is ever given is its id.
+        seen.update(p.chunk_id for p in search.hits)
+        if search.better_ahead is not None:
+            seen.add(search.better_ahead.chunk_id)
         lines: list[str] = []
         if search.searched_to_ms is not None:
             lines.append(
@@ -201,20 +276,69 @@ def build_tools(
             lines.append(
                 "\n\n".join(
                     f"[{format_timestamp(p.start_ms)} in {p.chapter_title!r},"
-                    f" position_ms={p.start_ms}] {p.text}"
+                    f" id={p.chunk_id}, position_ms={p.start_ms}] {p.text}"
                     for p in search.hits
                 )
             )
         else:
             lines.append("Nothing in that stretch.")
         if search.better_ahead is not None:
+            # Its id and its time, and still nothing else — not its words, not
+            # its chapter, not its position_ms. The id is enough to offer it
+            # with, and offering it is the one thing that can be done with a
+            # passage nobody has heard. Widening this line to make the model's
+            # job easier would hand it the very words the screen withholds.
             lines.append(
                 "A closer match lies further on than they have listened, at"
-                f" {format_timestamp(search.better_ahead.start_ms)}. Tell them it is"
-                " ahead of where they are. Offer to take them there or to answer"
-                " anyway, and do not say what happens there unless they accept."
+                f" {format_timestamp(search.better_ahead.start_ms)}"
+                f" (id={search.better_ahead.chunk_id}). Offer it with"
+                " offer_positions, on its own if nothing above was plausible."
+                " Do not say what happens there: you have not been told."
             )
         return "\n\n".join(lines)
+
+    @beta_tool
+    def offer_positions(gid: int, chunk_ids: list[int]) -> str:
+        """Put several places on the screen and let them choose one.
+
+        Use this when more than one passage could plausibly be the moment they
+        described, and when a search reports a closer match further on than
+        they have listened — that one can be offered on its own. They see the
+        time and the book's own words for each place and press the one they
+        meant; you never have to ask. Nothing moves until they press.
+
+        Args:
+            gid: The Gutenberg id of the book. Every place is in one book.
+            chunk_ids: The id= values from find_passage, most likely first. At
+                most four are shown, so name only the plausible ones.
+        """
+        if acted.get("moved"):
+            return (
+                "You have already moved them; do not also offer a list."
+                " They are where you put them."
+            )
+        unknown = [i for i in chunk_ids if i not in seen]
+        if unknown:
+            # Refused outright rather than resolved to whatever is nearest. A
+            # position_ms read off the wrong part of a search line, or an id
+            # from another conversation, would put words on the screen that are
+            # not the passage that matched — and the listener would have no way
+            # of knowing that is what happened.
+            return (
+                f"Passage {unknown[0]} did not come from a search in this"
+                " conversation. A passage id is the id= on a find_passage"
+                " result line, not a position. Search first."
+            )
+        result = library.offer_positions(gid, chunk_ids)
+        if isinstance(result, Refused):
+            return result.reason
+        acted["offered"] = True
+        offer(result)
+        # Counts and instructions, and deliberately not one time, title or word
+        # of what is on the list: everything it would need to narrate the places
+        # is on the screen instead, where the ones they have not heard stay
+        # covered until they ask.
+        return _offered(result)
 
     @beta_tool
     def move_to(gid: int, position_ms: int) -> str:
@@ -228,12 +352,24 @@ def build_tools(
             position_ms: Milliseconds from the start of the book, as returned
                 by find_passage.
         """
+        if acted.get("offered"):
+            # Stopped here, before library.move_to writes anything, because
+            # there is nowhere later to stop it: the row is written before the
+            # call returns, and suppressing the move at the turn or the HTTP
+            # layer would leave the position and its count in the database. The
+            # page would meet it fifteen seconds later as the refusal of its
+            # next report and be dragged off, mid-list, to a place nobody chose.
+            return (
+                "They are choosing between places on screen; the book is not"
+                " yours to move until they have. Say nothing about it."
+            )
         moved = library.move_to(gid, position_ms)
         note(moved.sentence)
         # A move that landed always counts up from zero, so a zero is the one
         # that did not — no such book, and nothing for the page to follow.
         if moved.seq:
             record(moved)
+            acted["moved"] = True
         return moved.sentence
 
     return [
@@ -242,8 +378,32 @@ def build_tools(
         add_book,
         get_position,
         find_passage,
+        offer_positions,
         move_to,
     ]
+
+
+def _offered(offer: Offer) -> str:
+    """What the model is told after a list goes up: how many, and to hush.
+
+    Counts, and nothing that could be narrated. There is no time here, no
+    chapter, no passage and no position_ms, because a tool result is the one
+    place a withheld passage could re-enter a sentence — and the model is asked
+    for a single sentence it has already been given, rather than for its own.
+    """
+    ahead = sum(1 for place in offer.places if place.ahead)
+    places = "place" if len(offer.places) == 1 else "places"
+    if ahead == 0:
+        further = "none of them is further on than they have listened"
+    elif ahead == 1:
+        further = "one of them is further on than they have listened"
+    else:
+        further = f"{ahead} of them are further on than they have listened"
+    return (
+        f"Offered them {len(offer.places)} {places} to choose from; {further}."
+        " The page is showing the list now — it holds the times and the words,"
+        f" so say neither. Say only: {OFFER_SENTENCE}"
+    )
 
 
 def open_library(cfg: Config, conn: sqlite3.Connection) -> Library:
@@ -270,7 +430,19 @@ class Conversation:
         self._client = client or Anthropic(api_key=cfg.anthropic_api_key or None)
         self._actions: list[str] = []
         self._moves: list[Moved] = []
-        self._tools = build_tools(library, self._actions.append, self._moves.append)
+        self._offers: list[Offer] = []
+        # Held here rather than inside the tools because it is the turn that
+        # owns it: the tools are built once and close over it, and only the
+        # thing that knows when a question begins can say that nothing has been
+        # done yet.
+        self._acted: dict[str, bool] = {}
+        self._tools = build_tools(
+            library,
+            self._actions.append,
+            self._moves.append,
+            self._offers.append,
+            self._acted,
+        )
         self.messages: list[Any] = []
 
     def ask(self, question: str) -> Turn:
@@ -285,6 +457,11 @@ class Conversation:
         # into ours is what carries the history to the next question.
         self._actions.clear()
         self._moves.clear()
+        # Without this the last question's list would reappear under this
+        # question's answer, over a book that has since been moved somewhere
+        # else entirely.
+        self._offers.clear()
+        self._acted.clear()
         turn: list[Any] = [*self.messages, {"role": "user", "content": question}]
         runner = self._client.beta.messages.tool_runner(
             model=self._cfg.agent_model,
@@ -312,11 +489,26 @@ class Conversation:
             # ahead past the guard. What it did is better than a blank screen,
             # and the tools that report here are the ones that changed
             # something, never a search full of passages it was withholding.
+            #
+            # A turn that offered answers with the neutral sentence instead of
+            # what it did, because what it did was find places: the note log is
+            # free of passages by construction, but there is nothing useful to
+            # say about a list that the list does not already say, and the one
+            # sentence that belongs beside it is a constant.
             logger.warning("turn produced no text; answering with what it did")
-            reply = self._actions[-1] if self._actions else ""
+            if self._offers:
+                reply = OFFER_SENTENCE
+            else:
+                reply = self._actions[-1] if self._actions else ""
         self.messages = turn
         # The last move, on a turn that made more than one — a search, a move, a
         # second thought, a better move. The page has to end up somewhere, and
         # where it was told to go last is the only place that matches what was
-        # said about it.
-        return Turn(reply=reply, move=self._moves[-1] if self._moves else None)
+        # said about it. The last offer wins for the same reason, and it is the
+        # answer to a runner that may call a tool several times in one turn: a
+        # second list is a change of mind, and nothing has left here yet.
+        return Turn(
+            reply=reply,
+            move=self._moves[-1] if self._moves else None,
+            candidates=self._offers[-1] if self._offers else None,
+        )

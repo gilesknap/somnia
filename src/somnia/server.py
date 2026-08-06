@@ -113,7 +113,22 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             logger.exception("agent turn failed")
             return JSONResponse({"error": "Something went wrong down here."}, 500)
         body: dict[str, Any] = {"reply": turn.reply}
-        if turn.move is not None:
+        if turn.candidates is not None:
+            # The list of places they might have meant, drawn as an overlay over
+            # the one screen. Read by presence, like "move", and shipped whole
+            # from the dataclasses in tools.py so there is exactly one
+            # definition of this shape — the words on each row are the book's
+            # own, and whether a row starts covered up was decided there, beside
+            # the spoiler guard, and is not recomputed here or on the page.
+            #
+            # If a night ever shows the model narrating the places beside the
+            # list, the hardening is one line: replace turn.reply with
+            # agent.OFFER_SENTENCE whenever this key is set. It is not done
+            # today because the model sometimes has something true to add, and
+            # the worst it can say is a sentence about a passage they have
+            # already heard.
+            body["candidates"] = asdict(turn.candidates)
+        elif turn.move is not None:
             # Present only when the book actually moved: the page reads the key
             # rather than its contents. The count travels with the position
             # because adopting one without the other would have the page's next
@@ -123,6 +138,12 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             # This is a head start, not the mechanism. If this reply never
             # arrives the same move lands within fifteen seconds as the refusal
             # of the page's next report, and both routes end in one function.
+            #
+            # An `elif` and not an `if`: a list and a seek in one reply would
+            # move the book under somebody still choosing where to send it. The
+            # tools already refuse the second of an offer and a move, so this is
+            # the belt to that braces — two independent things would have to
+            # fail before the page could be told both.
             body["move"] = {
                 "gid": turn.move.gid,
                 "position_ms": turn.move.position_ms,

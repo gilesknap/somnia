@@ -482,6 +482,241 @@ button:disabled {
   }
 }
 
+/* ------------------------------------------------------ where do you mean?
+
+   Over the page rather than instead of it: the book is still playing behind
+   this, nothing has moved, and cancel puts it away having changed nothing. It
+   is read by the same person in the same dark room as everything above, so the
+   rows are the size of the transport buttons and the gaps between them are the
+   same dead space, for the same reason — a miss onto nothing costs one more
+   press, a miss onto the next row down moves the book to the wrong place. */
+
+#candidates {
+  /* position: fixed and inset, not 100dvh. The keyboard is up on exactly the
+     turns that produce a list, and app.js writes an explicit body height from
+     the visual viewport every time it resizes; a box measured in dvh disagrees
+     with that height by however much keyboard there is, and what falls off the
+     bottom is the way out. */
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  /* Opaque, not a scrim. Half-lit text read through the conversation behind it
+     at 2am without glasses is not text. */
+  background: var(--page);
+  /* Its own safe-area insets: fixed positioning escapes the padding the body
+     carries, so without these the cancel button sits under the home bar. */
+  padding: calc(env(safe-area-inset-top) + 1rem)
+    calc(env(safe-area-inset-right) + 1.2rem)
+    calc(env(safe-area-inset-bottom) + 1.1rem)
+    calc(env(safe-area-inset-left) + 1.2rem);
+}
+
+/* Required, not optional: the rule above sets a display, and an author id rule
+   beats the browser's own [hidden] { display: none } — the same trap #talk
+   carries further up this file. Without this the list is up all night. */
+#candidates[hidden] {
+  display: none;
+}
+
+/* h2 and not h1: somnia's name is the h1 and this is not another document. It
+   echoes the line the conversation opens with, because it is the same question
+   asked back. */
+#candidates-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 400;
+  color: var(--mid);
+}
+
+#candidates-book {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--dim);
+}
+
+#candidates-book[hidden] {
+  display: none;
+}
+
+/* The only thing in here that scrolls, and it contains its own overscroll for
+   the reason #transcript does: there is no scrolling document on this page and
+   the pull-to-refresh gesture must not be handed back. Cancel is outside it, in
+   the foot, so however many rows there are it cannot be pushed below the
+   fold. */
+#candidate-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.candidate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.candidate-go {
+  width: 100%;
+  /* The thumb number again, measured for the transport and not re-guessed
+     here. */
+  min-height: 5.5rem;
+  display: grid;
+  gap: 0.25rem;
+  text-align: left;
+  border: 1px solid var(--edge);
+  border-radius: 1.1rem;
+  background: var(--raised);
+  color: var(--ink);
+  padding: 0.9rem 1.1rem;
+}
+
+.candidate-go:active {
+  background: #20202c;
+}
+
+.candidate-when {
+  color: var(--mid);
+  font-size: 1.15rem;
+  /* So a column of times can be compared down the page rather than read. */
+  font-variant-numeric: tabular-nums;
+}
+
+.candidate-where {
+  color: var(--dim);
+  font-size: 1rem;
+}
+
+/* The book's own words, which are what a place is actually recognised by. */
+.candidate-what {
+  color: var(--ink);
+  font-size: 1.05rem;
+  /* Clamped here as well as truncated on the server, so that what was sent and
+     what is shown roughly agree and four rows plus the one saying where they
+     are still fit on one screen. Both the -webkit-box display and the overflow
+     are load-bearing: without either of them the clamp silently does nothing
+     and four full passages stack up. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.candidate-what[hidden] {
+  display: none;
+}
+
+/* A second, quieter press, shaped like the sleep readout rather than like the
+   transport. Going somewhere and finding out what is there are different
+   decisions, and they must not look like the same button — the whole reason
+   this control exists is that one of them can be taken back and the other
+   cannot. */
+.candidate-show {
+  min-height: 3.5rem;
+  width: 100%;
+  background: none;
+  border: 1px dashed var(--edge);
+  border-radius: 0.9rem;
+  color: var(--dim);
+  font-size: 1rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.candidate-show:active {
+  background: #20202c;
+  color: var(--ink);
+}
+
+.candidate-show[hidden] {
+  display: none;
+}
+
+/* Where they are, in among the times, so that which rows are ahead of them is
+   answered by looking rather than by reading. Not a button: it is the one row
+   in the list that is not somewhere to go. */
+.candidate.here {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.9rem;
+  /* Lined up with the text inside the rows above and below it, which is what
+     makes it read as a mark on the same timeline rather than as another
+     control. */
+  padding: 0 1.1rem;
+  color: var(--glow);
+}
+
+.candidate.here .candidate-where {
+  color: var(--glow);
+}
+
+.candidate.here .candidate-when::before {
+  content: "› ";
+}
+
+#candidates-foot {
+  flex: none;
+}
+
+/* --raised and --ink, never --lit: the warm one is reserved for the control
+   pressed without looking, and this one is pressed on purpose. It is the full
+   width of the screen at the bottom of it, which is the one place a hand
+   already holding the phone arrives at without aiming. */
+#candidates-cancel {
+  width: 100%;
+  min-height: 5.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 1.1rem;
+  background: var(--raised);
+  color: var(--ink);
+  font-size: 1.25rem;
+}
+
+#candidates-cancel:active {
+  background: #20202c;
+}
+
+/* A keyboard over half the screen, or a phone on its side — and a keyboard is
+   the state this page is in at the moment a question has just been asked, which
+   is exactly when a list arrives. The rows shrink, the list scrolls, and cancel
+   stays where a thumb left it. */
+@media (max-height: 34rem) {
+  #candidates {
+    gap: 0.5rem;
+  }
+
+  #candidates-title {
+    font-size: 1.15rem;
+  }
+
+  #candidate-list {
+    gap: 0.8rem;
+  }
+
+  .candidate-go {
+    min-height: 4rem;
+    padding: 0.6rem 0.9rem;
+  }
+
+  .candidate-what {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  #candidates-cancel {
+    min-height: 4rem;
+  }
+}
+
 /* Shorter than this and there is nothing left to arrange: it is a keyboard on
    a phone already lying down, and the reading has to go after all or it takes
    the bottom off the box they are typing into. Well under any phone on its

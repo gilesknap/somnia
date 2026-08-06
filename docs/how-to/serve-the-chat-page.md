@@ -130,15 +130,33 @@ Ask to be taken somewhere and the book goes there and plays from there. If the
 passage is in a book that was not even open, that book opens. Nothing has to be
 pressed afterwards.
 
+When more than one place could be what you meant, it does not ask — it puts
+them on the screen. The list is headed *Where do you mean?* and each row is a
+time, a chapter and the book's own words — its own, never a description of
+them, so you recognise the moment rather than take somnia's word for it, and
+never the words of a place you have not reached yet, which is the paragraph
+after this one. There is a *you are here* marker sitting
+between them in book order so you can see which are behind you and which are
+ahead. Press one and the book goes there and plays. Press *cancel* at the
+bottom and nothing whatever happens: the book carries on exactly as it was, in
+the same place, with the same sleep timer running. Nothing has moved while the
+list is up, so there is nothing to undo. The book keeps playing underneath it
+the whole time, which also means a sleep timer left to run out under a list
+still ends the night — the list is not a reason to keep the book going.
+
 It will not answer about a part of the book you have not heard. The bound is
 the furthest point the page has actually *played through*, not where you are
 now — so being taken back to chapter two does not un-hear chapter twenty, and
 being taken forward does not unlock what you were carried over. What you get
-instead is that the passage is further on than you have got, and an offer to
-take you there anyway. Two things follow from measuring it that way. A book
-somnia has never played is bounded at its opening minute, so if you get that
-answer about a book you have been listening to for a fortnight, the listening
-happened in Audiobookshelf and somnia does not know about it — run
+instead is that place as a row on the list, marked *ahead*, showing its time
+and its chapter number and nothing else — no words, and not even the chapter's
+name, since a chapter called *How Ginger Died* gives away as much as the
+sentence under it. Press *show me what's there* and it uncovers, and you decide
+having read it; press the row and you go there without reading it at all. Two
+things follow from measuring it that way. A book
+somnia has never played is bounded at its opening minute, so if a book you have
+been listening to for a fortnight puts everything on the list as *ahead*, the
+listening happened in Audiobookshelf and somnia does not know about it — run
 `somnia seed-positions`. And skipping forward while the sound is on stops the
 mark where it was until you come back behind it, which is the price of one
 press of *+30* not marking the rest of the book as heard.

@@ -8,10 +8,10 @@ from starlette.testclient import TestClient
 from conftest import ToneBook
 from fakes import RecordingAbs
 from somnia import server
-from somnia.agent import Turn
+from somnia.agent import OFFER_SENTENCE, Turn
 from somnia.config import Config
 from somnia.db import connect
-from somnia.tools import Library
+from somnia.tools import Library, Moved, Offer
 from tone_book import CHAPTERS, GID
 
 TOKEN = "tab-1"
@@ -41,6 +41,65 @@ class MovingConversation:
     def ask(self, question: str) -> Turn:
         moved = self._library.move_to(GID, 12_000)
         return Turn(reply="You're back at the fair.", move=moved)
+
+
+class OfferingConversation:
+    """A turn that asks which place they meant, without a model deciding to.
+
+    The list is built through the real tool layer, so the body the page is
+    handed is filled in by the same dataclasses a real turn fills in — there is
+    exactly one definition of this shape and this is it going over the wire.
+
+    ``places`` comes from the test because only it knows what the fixture book
+    indexed. ``move`` is for the one case the tools already make impossible: a
+    turn carrying both, which the serialiser has to refuse anyway.
+    """
+
+    places: list[int] = []
+    move: Moved | None = None
+
+    def __init__(self, cfg: Config, library: Library) -> None:
+        self._library = library
+
+    def ask(self, question: str) -> Turn:
+        offer = self._library.offer_positions(GID, self.places)
+        assert isinstance(offer, Offer), offer
+        return Turn(reply=OFFER_SENTENCE, move=self.move, candidates=offer)
+
+
+def chunks_at(tone_book: ToneBook, *starts: int) -> list[int]:
+    """The ids of the passages beginning there, the way a search names them."""
+    ids: list[int] = []
+    for start_ms in starts:
+        row = tone_book.conn.execute(
+            "SELECT id FROM chunks WHERE book_gid = ? AND start_ms = ?", (GID, start_ms)
+        ).fetchone()
+        assert row is not None, f"no passage at {start_ms}"
+        ids.append(int(row["id"]))
+    return ids
+
+
+def listening_at(tone_book: ToneBook, position_ms: int, heard_to_ms: int) -> None:
+    """Put the listener somewhere, with a high-water mark behind them.
+
+    The fixture book is heard end to end, which is the one state in which
+    nothing on a list can be ahead of them.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET position_ms = ?, heard_to_ms = ? WHERE gid = ?",
+            (position_ms, heard_to_ms, GID),
+        )
+
+
+def book_row(tone_book: ToneBook) -> dict[str, Any]:
+    """Everything about the book a listener could tell had changed."""
+    row = tone_book.conn.execute(
+        "SELECT position_ms, position_seq, position_at, heard_to_ms FROM books"
+        " WHERE gid = ?",
+        (GID,),
+    ).fetchone()
+    return dict(row)
 
 
 @pytest.fixture
@@ -148,6 +207,145 @@ def test_a_turn_that_moved_the_book_tells_the_page_where_to_go(
         "reply": "You're back at the fair.",
         "move": {"gid": GID, "position_ms": 12_000, "seq": 1},
     }
+
+
+def test_a_turn_that_asks_which_place_they_meant_sends_the_whole_list(
+    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The body is the contract, and it is asserted whole rather than sampled.
+
+    Every field on a row is something the page draws or obeys, and the two that
+    are not here matter as much as the six that are: a passage's surrounding
+    context is three times as much of the book as the reveal was scoped to
+    show, and its distance encodes a judgement that has already been made. A
+    subset check would let either of them arrive unnoticed.
+
+    Whether a row starts covered up is settled in the tool layer, against the
+    Black Beauty fixture, which has a timeline long enough for "ahead" to mean
+    something. What is settled here is that the answer arrives at the page
+    saying so.
+    """
+    listening_at(tone_book, position_ms=8_000, heard_to_ms=12_000)
+    monkeypatch.setattr(server, "Conversation", OfferingConversation)
+    monkeypatch.setattr(
+        OfferingConversation, "places", chunks_at(tone_book, 4_000, 12_000)
+    )
+    with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
+        status, body = ask(client, "the bit with the low tone")
+
+    assert status == 200
+    assert body == {
+        "reply": "There are a few places that could be it.",
+        "candidates": {
+            "gid": GID,
+            "title": "Three Tones",
+            "position_ms": 8_000,
+            "places": [
+                {
+                    "chunk_id": OfferingConversation.places[0],
+                    "start_ms": 4_000,
+                    "chapter_idx": 0,
+                    "chapter_title": "The First Tone",
+                    "ahead": False,
+                    "text": "the low tone holds to the end of the first chapter",
+                },
+                {
+                    "chunk_id": OfferingConversation.places[1],
+                    "start_ms": 12_000,
+                    "chapter_idx": 1,
+                    "chapter_title": "The Second Tone",
+                    "ahead": True,
+                    # The words of the one they have not reached come down with
+                    # the list, and the page keeps them off the screen until
+                    # they ask. There is nothing to fetch them with later, and
+                    # deliberately so — see the route test below.
+                    "text": "the middle tone holds to the end of the second chapter",
+                },
+            ],
+        },
+    }
+
+
+def test_a_list_and_a_seek_never_arrive_in_the_same_answer(
+    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The belt to the tool layer's braces, and this is the belt being tested.
+
+    The tools refuse to move a book once a list exists in the turn, so a turn
+    carrying both cannot be built by a model at all. If one ever were, the safe
+    reading is that nothing has moved and they choose — a move that really
+    happened comes back within fifteen seconds as the refusal of the page's
+    next report, whereas a seek under somebody still reading a list is a
+    listener dragged somewhere nobody chose.
+    """
+    listening_at(tone_book, position_ms=8_000, heard_to_ms=12_000)
+    monkeypatch.setattr(server, "Conversation", OfferingConversation)
+    monkeypatch.setattr(
+        OfferingConversation, "places", chunks_at(tone_book, 4_000, 12_000)
+    )
+    monkeypatch.setattr(
+        OfferingConversation, "move", Moved(GID, 20_000, 3, "Moved to 0:00:20.")
+    )
+    with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
+        status, body = ask(client, "the bit with the low tone")
+
+    assert status == 200
+    assert "candidates" in body
+    assert "move" not in body
+
+
+def test_asking_which_place_they_meant_writes_nothing_to_the_book(
+    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A turn that offers is a question, and a question leaves no mark.
+
+    Not the position, not the count that would have the page's next report
+    refused, and above all not ``heard_to_ms``: showing somebody a list of
+    places they have not been is not having been there, and a guard that could
+    be widened by asking about it would unwind one question at a time.
+    """
+    listening_at(tone_book, position_ms=8_000, heard_to_ms=12_000)
+    monkeypatch.setattr(server, "Conversation", OfferingConversation)
+    monkeypatch.setattr(
+        OfferingConversation, "places", chunks_at(tone_book, 4_000, 12_000)
+    )
+    before = book_row(tone_book)
+    with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
+        assert ask(client, "the bit with the low tone")[0] == 200
+    assert book_row(tone_book) == before
+
+
+def test_there_is_no_second_way_to_ask_what_is_at_a_place_they_have_not_heard(
+    tone_book: ToneBook,
+) -> None:
+    """The words travel with the list because the alternative is an oracle.
+
+    A route that answered "what does chunk 5233 say?" would be a permanent,
+    general-purpose way to read unheard book text, one guessed integer wide,
+    sitting on the server for the life of the deployment — and it would be
+    asked over a tailnet at 2am on the one press where a spinner does the most
+    damage, because they pressed it precisely when they were unsure.
+
+    So the reveal is a hidden span being unhidden, and nothing here hands out a
+    passage by id. The page fetches nothing at all when it is pressed.
+    """
+    # Only the route table is under test, but the app is still started and
+    # stopped properly, because create_app builds a Player that opens its own
+    # connection and only the lifespan closes it. An app built and dropped
+    # leaks that connection to the garbage collector, which raises
+    # ResourceWarning from whichever unrelated test happens to be running when
+    # the collection falls due — an error here, since warnings are errors, and
+    # one that moves about between interpreter versions.
+    app = server.create_app(tone_book.cfg, tone_book.conn)
+    with TestClient(app):
+        paths = [str(getattr(route, "path", "")) for route in app.routes]
+
+    assert "/api/ask" in paths
+    for path in paths:
+        assert "chunk" not in path
+        assert "passage" not in path
+        assert "reveal" not in path
+        assert "candidate" not in path
 
 
 def test_a_turn_that_moved_nothing_says_nothing_about_moving(
