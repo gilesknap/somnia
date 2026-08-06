@@ -15,7 +15,9 @@ $ somnia serve                       # 127.0.0.1:8721 by default
 $ somnia serve --host 0.0.0.0 --port 9000
 ```
 
-It needs the same environment as the rest of somnia, plus a key for the model:
+It needs the same environment as the rest of somnia, plus a key for the model.
+Every setting is in [Configuration](../reference/configuration.md); these are
+the ones a served night depends on:
 
 | Variable | Why |
 |---|---|

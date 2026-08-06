@@ -14,7 +14,14 @@ def _default_data_dir() -> Path:
 
 @dataclass
 class Config:
-    """All somnia settings. Every field can be overridden via SOMNIA_* env vars."""
+    """All somnia settings.
+
+    Nine of these are read from the environment by :func:`load_config`. The
+    rest — the silence lengths, the window shape, the bitrate and the agent's
+    token ceiling — are settable only in code, because changing them changes
+    what a render or an index means and should not be a stray variable in a
+    systemd unit.
+    """
 
     data_dir: Path = field(default_factory=_default_data_dir)
     library_dir: Path = Path("~/library/audiobooks")
