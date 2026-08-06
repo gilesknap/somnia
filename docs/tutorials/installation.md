@@ -62,6 +62,7 @@ an unrelated project, so `pip install somnia` installs a stranger's package.
 Publishing this one as `somnia-reader` is
 [issue #9](https://github.com/gilesknap/somnia/issues/9).
 
+(configure)=
 ## Configure
 
 Everything is environment variables, and every one of them has a working
