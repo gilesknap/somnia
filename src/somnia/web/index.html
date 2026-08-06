@@ -54,7 +54,68 @@
 
     <section id="player-bar" hidden>
       <div id="now-playing">
+        <!-- The title has the whole line to itself. It shared it with the
+             chapter clock for one afternoon, and the clock is the thing that
+             never varies in width while the title is the thing that does: a
+             book with long chapter names spent every night ellipsised to make
+             room for eleven characters that had somewhere better to be. -->
         <p id="chapter-title"></p>
+
+        <!-- The chapter's clock, between the two buttons that change which
+             chapter it is counting. The number and the controls that alter it
+             are one thing, so they are drawn as one.
+
+             It is bare rather than boxed. A border around it would make it the
+             third button in a row of three, and a control that looks pressable
+             and does nothing is a worse thing to meet in the dark than a plain
+             number is. -->
+        <div class="chapter-strip">
+          <button
+            id="prevchapter"
+            type="button"
+            class="chapter-skip"
+            aria-label="Previous chapter"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M17.5 5.5 10 12l7.5 6.5Z" fill="currentColor" />
+              <rect
+                x="6.4"
+                y="5.5"
+                width="2.6"
+                height="13"
+                rx="1.1"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+          <span id="chapter-clock"></span>
+          <button
+            id="nextchapter"
+            type="button"
+            class="chapter-skip"
+            aria-label="Next chapter"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M6.5 5.5 14 12l-7.5 6.5Z" fill="currentColor" />
+              <rect
+                x="15"
+                y="5.5"
+                width="2.6"
+                height="13"
+                rx="1.1"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Deliberately below the chapter strip and not above it. It is the
+             dead band that keeps the chapter buttons off the transport: with
+             the strip directly above −30, a thumb reaching low and landing high
+             gets a whole chapter instead of thirty seconds, and has to work out
+             in the dark where it went and how to come back. The same trick, and
+             the same reason, as the wide margin already under the sleep
+             timer. -->
         <p id="whereabouts">
           <span id="clock"></span>
           <!-- The sleep timer is its own readout: it says how long the night
@@ -75,6 +136,11 @@
           </button>
         </p>
       </div>
+      <!-- Untouched: three buttons, the same three, at the same size they were
+           measured against a thumb. Everything the chapter needs happens a row
+           and a dead band away from here, because this is the row that gets
+           pressed without looking and it only stays that way while what is in
+           it never moves. -->
       <div class="transport">
         <button id="back30" type="button" aria-label="Back thirty seconds">
           −30
