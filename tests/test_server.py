@@ -69,7 +69,7 @@ class OfferingConversation:
 
 def chunks_at(tone_book: ToneBook, *starts: int) -> list[int]:
     """The ids of the passages beginning there, the way a search names them."""
-    ids = []
+    ids: list[int] = []
     for start_ms in starts:
         row = tone_book.conn.execute(
             "SELECT id FROM chunks WHERE book_gid = ? AND start_ms = ?", (GID, start_ms)
@@ -329,8 +329,16 @@ def test_there_is_no_second_way_to_ask_what_is_at_a_place_they_have_not_heard(
     So the reveal is a hidden span being unhidden, and nothing here hands out a
     passage by id. The page fetches nothing at all when it is pressed.
     """
+    # Only the route table is under test, but the app is still started and
+    # stopped properly, because create_app builds a Player that opens its own
+    # connection and only the lifespan closes it. An app built and dropped
+    # leaks that connection to the garbage collector, which raises
+    # ResourceWarning from whichever unrelated test happens to be running when
+    # the collection falls due — an error here, since warnings are errors, and
+    # one that moves about between interpreter versions.
     app = server.create_app(tone_book.cfg, tone_book.conn)
-    paths = [str(getattr(route, "path", "")) for route in app.routes]
+    with TestClient(app):
+        paths = [str(getattr(route, "path", "")) for route in app.routes]
 
     assert "/api/ask" in paths
     for path in paths:

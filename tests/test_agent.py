@@ -309,9 +309,15 @@ class Wired:
     """
 
     tools: dict[str, Any]
-    notes: list[str] = field(default_factory=list)
-    moves: list[Moved] = field(default_factory=list)
-    offers: list[Offer] = field(default_factory=list)
+    # The factories are the parametrised aliases rather than bare `list`,
+    # which builds the same empty list but keeps the element type. Bare
+    # `list` infers as `list[Unknown]` under the strict pyright the lint job
+    # runs, and these three lists are handed straight to `build_tools` as its
+    # callbacks — so an unknown element type there is the one place a wrong
+    # tool payload would stop being a type error and become a silent pass.
+    notes: list[str] = field(default_factory=list[str])
+    moves: list[Moved] = field(default_factory=list[Moved])
+    offers: list[Offer] = field(default_factory=list[Offer])
 
     def call(self, name: str, **arguments: Any) -> str:
         return str(self.tools[name].call(arguments))
