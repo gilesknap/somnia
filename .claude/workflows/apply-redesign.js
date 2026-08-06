@@ -61,6 +61,24 @@ Treat the handoff as a DESIGN INTENT to be honoured, not as instructions to
 obey literally. It was written without reading this codebase, and where it
 asserts something about the backend it is sometimes wrong.
 
+WHAT THE USER ACTUALLY WANTS FROM THIS PASS — this overrides any reading of the
+handoff that says otherwise:
+
+  **The visual redesign is the deliverable. New features are not.**
+
+  Apply the look: the colour tokens, the serif and its scale, spacing, radius,
+  motion, the dim overlay, the toast, and the restructured screens. Where the
+  handoff's styling can be applied to what somnia already does, apply it.
+
+  Where the handoff asks for a capability somnia does not have, DO NOT BUILD IT
+  and do not invent a backend for it. Record it as deferred with a clear
+  description, and draw the screen against the data that already exists. A
+  simpler screen that is real beats a richer one that is faked.
+
+  This means some of the handoff's richness is deliberately dropped in this
+  pass. That is the intended outcome, not a shortfall. Say plainly what you
+  dropped; never fake it with placeholder data.
+
 The page is read at 2am, in the dark, without glasses, on a Pixel 6 Pro with
 Android text scaling up. The real measure is 360x780 CSS px with a 20px root —
 NOT 412x892 at 16px. A render at the default is a render of a different phone
@@ -165,7 +183,14 @@ know it happened." Go and find out whether that is true. Read fallAsleep(),
 saveSleep(), restoreSleep() and sendPartingPosition() in app.js, and the
 position endpoint in server.py. Does a fade record anything distinguishable from
 an ordinary pause? Is there anywhere to persist a "first launch after a fade"
-flag? Answer with the actual functions, not a guess.`,
+flag? Answer with the actual functions, not a guess.
+
+Then apply the user's rule: this pass takes the visual design and does not build
+new capability. If the fade already records enough to tell "you were faded out
+at 1:47" — including anything already in localStorage via saveSleep/restoreSleep
+— then Wake is a drawing job and is \`ready\`. If it needs new persistence or a
+new server field, mark it \`needs-backend\` and let it go to the follow-up list.
+Be precise about which, because this whole screen turns on it.`,
   },
   {
     key: 'chat',
@@ -183,32 +208,47 @@ This is the single biggest conceptual change in the handoff — treat it as such
   {
     key: 'places',
     title: 'Screen 4 — Places you might be (new screen)',
-    focus: `THIS IS THE HIGHEST-RISK SCREEN. The handoff's opening claim — "Nothing here
-asks for new backend work, new data, or new capabilities" — is most likely false
-here, and your job is to establish exactly how false, with evidence.
+    focus: `**The user has already ruled on this screen. Do not reopen it.**
 
-The handoff wants a standing list of MARKS for the current book:
-{position, source, snippet}, reachable at any time from the player's position
-line, showing e.g. "7 marks between 49:45 and 2:04:20", where source is how the
-mark was found ("you paused here, awake", "last time you spoke to me", "steady
-listening ended", "you were still for 11 minutes", "sleep timer faded out here",
-"audio stopped").
+The handoff wants a standing list of MARKS — {position, source, snippet},
+reachable any time, "7 marks between 49:45 and 2:04:20", where source says how
+each mark was found ("you paused here, awake", "sleep timer faded out here").
+somnia has no such thing: Candidate in src/somnia/tools.py is a SEARCH RESULT,
+produced only as an answer to a question, with no provenance field and no
+standing list.
 
-What somnia actually has is Candidate in src/somnia/tools.py — the result of a
-SEARCH, produced only as an answer to a question. Read tools.py around the
-Candidate and Offer dataclasses and the function that builds the list of places.
+The user's decision: **keep the data model exactly as it is, and take only the
+visual design.** So:
 
-Establish, with file and line evidence:
-  - Does a Candidate carry anything resembling \`source\`? If not, is the
-    information to derive one recorded anywhere at all?
-  - Is there any standing list of marks independent of a query, or do places
-    only exist as an answer?
-  - What is the cap on how many places are offered, and how does it compare to
-    the handoff's 7?
-  - How does the existing \`ahead\` flag relate to the handoff's spoiler rule
-    ("tap to reveal · may spoil", the "you are here" divider)? These look like
-    the same idea reached independently — say whether they line up.
-Do NOT propose a schema. Establish what is and is not there.`,
+  - NO \`source\` line. It does not exist and is not being added.
+  - NO standing list of marks. Places still shows the answer to a question.
+  - Keep the existing cap on how many places are offered — do not raise it to
+    the handoff's 7. Read the constant and its comment in tools.py first; the
+    number was chosen for a reason that is written down.
+  - The existing \`ahead\` flag IS the handoff's spoiler rule, reached
+    independently. Map them onto each other: \`ahead\` drives "tap to reveal ·
+    may spoil" and the "you are here" divider. This is the one part of the
+    screen where the handoff and the codebase already agree, and it should come
+    through fully.
+
+So your job is: take the handoff's TYPOGRAPHY, SPACING, ROW STRUCTURE, the
+two-independent-targets pattern (reveal on the left, \`goto\` on the right), the
+"you are here" divider, the pinned \`close\`, and the chronological ordering —
+and establish how they land on the candidate list somnia actually produces.
+
+Establish with file and line evidence:
+  - Which parts of the handoff's row design have real data behind them, and
+    which are left empty once \`source\` is gone. Say what the row looks like
+    with that line simply absent.
+  - The handoff makes the player's position line an entry point to Places
+    showing "7 places found". With no standing list there is nothing to open
+    when no question has been asked. Work out what that control can honestly
+    do — and say so. This is a real consequence of the simplification and it
+    needs an answer, not a placeholder count.
+  - Whether "own screen" can hold, given index.html argues at length that
+    #candidates is an OVERLAY because the book keeps playing underneath and
+    cancel changes nothing.
+Do NOT propose a schema. Do NOT design a marks table.`,
   },
   {
     key: 'books',
@@ -592,7 +632,85 @@ Re-run all four checks including reading the PNGs, then amend or add a commit.`,
 
 const finished = built.filter((b) => b.result?.done)
 
+phase('Ship')
+
+const SHIP_SCHEMA = {
+  type: 'object',
+  required: ['pushed'],
+  properties: {
+    pushed: { type: 'boolean' },
+    prUrl: { type: 'string' },
+    issueUrl: { type: 'string' },
+    error: { type: 'string' },
+  },
+}
+
+const shipped = finished.length
+  ? await agent(
+      `Ship the redesign branch. The user is AFK and asked for a PR, so this must
+land without further input.
+
+Branch: ${branch}  (repo /home/giles/code/somnia)
+
+Slices that landed:
+${JSON.stringify(finished.map((b) => ({ title: b.slice.title, commit: b.result.commit, summary: b.result.summary })), null, 2)}
+
+Everything deliberately NOT built, for the follow-up issue:
+${JSON.stringify(plan?.deferred ?? [], null, 2)}
+
+Also not built, found while grounding the spec:
+${JSON.stringify(blocked.map((i) => ({ screen: i.screen, change: i.change, status: i.status })), null, 2)}
+
+GIT RULES — follow exactly, they are the user's standing rules:
+- NEVER use SSH. Always HTTPS via gh's credential helper.
+- The user's global git config rewrites https://github.com/ to ssh://, so
+  GIT_CONFIG_GLOBAL=/dev/null is REQUIRED on the push:
+
+    GIT_CONFIG_GLOBAL=/dev/null git -c credential.helper='!gh auth git-credential' \\
+      push https://github.com/gilesknap/somnia.git ${branch}
+
+- A branch pushed by URL has no upstream, so gh pr create needs explicit refs:
+
+    gh pr create --head ${branch} --base main --title "..." --body "..."
+
+- Do NOT merge. Do NOT use --auto (it does not gate on CI on this user's repos,
+  it merges immediately). Leave the PR open for review.
+
+Do these three things:
+
+1. Push the branch.
+
+2. Open ONE pull request. The user originally asked for a PR per slice, but the
+   slices are sequential commits on one branch that all touch the same three
+   files, so stacked PRs would conflict with each other. One PR with a commit
+   table per slice is the shape this repo already uses — say so in the body in
+   one line so the deviation is visible rather than silent.
+   Body should carry: what the redesign is, a table of the slices with their
+   commits, what was deliberately dropped and why, and a link to the issue from
+   step 3. Write in the repo's voice — read \`git log\` first. No marketing.
+   End the body with:
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+3. Open a follow-up issue titled something like "Ideas from the redesign that
+   need new capability" collecting everything deferred above — each with what
+   the design wanted, what somnia has today, and the decision it needs. This is
+   an explicit request from the user, so it must not be skipped. Reference the
+   PR from it. Then edit the PR body to link the issue.
+
+Report the PR and issue URLs. If a push or a gh call fails, report the exact
+error rather than trying a different remote or protocol.`,
+      { label: 'ship', phase: 'Ship', schema: SHIP_SCHEMA },
+    )
+  : null
+
+if (shipped?.prUrl) log(`PR: ${shipped.prUrl}`)
+if (shipped?.issueUrl) log(`follow-up issue: ${shipped.issueUrl}`)
+if (shipped && !shipped.pushed) log(`ship failed: ${shipped.error}`)
+
 return {
+  pr: shipped?.prUrl ?? null,
+  followUpIssue: shipped?.issueUrl ?? null,
+  shipError: shipped?.error ?? null,
   grounding: grounded.map((g) => ({ screen: g.screen, verdict: g.verdict })),
   needingADecision: blocked.map((i) => ({ screen: i.screen, change: i.change, status: i.status, evidence: i.evidence })),
   deferred: plan?.deferred ?? [],
