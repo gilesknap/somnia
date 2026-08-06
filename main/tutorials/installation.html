@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Installation &#8212; somnia 0.1.dev48+g6a9fc077f documentation</title>
+    <title>Installation &#8212; somnia 0.6.dev4+g28ee50eea documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=bbc39769"></script>
+    <script src="../_static/documentation_options.js?v=5e26508d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -558,11 +558,14 @@ Publishing this one as <code class="docutils literal notranslate"><span class="p
 <a class="reference external" href="https://github.com/gilesknap/somnia/issues/9">issue #9</a>.</p>
 </section>
 <section id="configure">
-<h2>Configure<a class="headerlink" href="#configure" title="Link to this heading">#</a></h2>
+<span id="id1"></span><h2>Configure<a class="headerlink" href="#configure" title="Link to this heading">#</a></h2>
 <p>Everything is environment variables, and every one of them has a working
 default except the Anthropic key. <code class="docutils literal notranslate"><span class="pre">~/somnia.env</span></code> is where the installer puts
 them and what the how-to guides assume — your shell reads it with <code class="docutils literal notranslate"><span class="pre">source</span></code>, and
 the systemd units read it with <code class="docutils literal notranslate"><span class="pre">EnvironmentFile=</span></code>.</p>
+<p>Two of them matter on the first day. The rest have defaults that are right until
+you have a reason to change them, and are listed in
+<a class="reference internal" href="../reference/configuration.html"><span class="std std-doc">Configuration</span></a>.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Variable</p></th>
@@ -575,37 +578,9 @@ the systemd units read it with <code class="docutils literal notranslate"><span 
 <td><p>—</p></td>
 <td><p>The agent’s model calls. Required for <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">ask</span></code> and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">~/.local/share/somnia</span></code></p></td>
-<td><p>Where <code class="docutils literal notranslate"><span class="pre">somnia.db</span></code> lives</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">~/library/audiobooks</span></code></p></td>
 <td><p>Where rendered chapters are written, and served from</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_VOICE</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">af_heart</span></code></p></td>
-<td><p>The Kokoro voice</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">claude-sonnet-5</span></code></p></td>
-<td><p>The model behind the conversation</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_EMBED_MODEL</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">intfloat/e5-small-v2</span></code></p></td>
-<td><p>Must be 384-dimensional</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_URL</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:13378</span></code></p></td>
-<td><p>Audiobookshelf, if you run one</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code></p></td>
-<td><p>—</p></td>
-<td><p>Unset means no ABS client is built at all</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_LIBRARY_ID</span></code></p></td>
-<td><p>—</p></td>
-<td><p>From <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">libraries</span></code></p></td>
 </tr>
 </tbody>
 </table>

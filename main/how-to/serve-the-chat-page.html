@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.1.dev48+g6a9fc077f documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.6.dev4+g28ee50eea documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=bbc39769"></script>
+    <script src="../_static/documentation_options.js?v=5e26508d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -59,7 +59,7 @@
     <link rel="icon" href="../_static/dls-logo.svg"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Explanations" href="../explanations.html" />
+    <link rel="next" title="Upgrade to a new version" href="upgrade.html" />
     <link rel="prev" title="Run in a container" href="run-container.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -422,9 +422,12 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="back-up-and-move.html">Back it up, and move it</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribute to the project</a></li>
+<li class="toctree-l1"><a class="reference internal" href="keep-renders-running.html">Keep a long render running</a></li>
 <li class="toctree-l1"><a class="reference internal" href="run-container.html">Run in a container</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Serve the page that plays the book</a></li>
+<li class="toctree-l1"><a class="reference internal" href="upgrade.html">Upgrade to a new version</a></li>
 </ul>
 </div>
 </nav></div>
@@ -500,7 +503,9 @@ both the certificate and the only network path to it.</p>
 $ somnia serve --host 0.0.0.0 --port 9000
 </pre></div>
 </div>
-<p>It needs the same environment as the rest of somnia, plus a key for the model:</p>
+<p>It needs the same environment as the rest of somnia, plus a key for the model.
+Every setting is in <a class="reference internal" href="../reference/configuration.html"><span class="std std-doc">Configuration</span></a>; these are
+the ones a served night depends on:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Variable</p></th>
@@ -741,11 +746,11 @@ diagnostic nobody runs, and this is the one question the whole pivot rests on.</
       </div>
     </a>
     <a class="right-next"
-       href="../explanations.html"
+       href="upgrade.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Explanations</p>
+        <p class="prev-next-title">Upgrade to a new version</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

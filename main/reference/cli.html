@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Add a book and ask it something &#8212; somnia 0.6.dev4+g28ee50eea documentation</title>
+    <title>Command line &#8212; somnia 0.6.dev4+g28ee50eea documentation</title>
   
   
   
@@ -47,7 +47,7 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=30646c52"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/first-book';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/cli';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://gilesknap.github.io/somnia/switcher.json';
@@ -59,8 +59,8 @@
     <link rel="icon" href="../_static/dls-logo.svg"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="How-to Guides" href="../how-to.html" />
-    <link rel="prev" title="Installation" href="installation.html" />
+    <link rel="next" title="Configuration" href="configuration.html" />
+    <link rel="prev" title="Reference" href="../reference.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -153,7 +153,7 @@
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-<li class="nav-item current active">
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="../tutorials.html">
     Tutorials
   </a>
@@ -174,7 +174,7 @@
 </li>
 
 
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="../reference.html">
     Reference
   </a>
@@ -306,7 +306,7 @@
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-<li class="nav-item current active">
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="../tutorials.html">
     Tutorials
   </a>
@@ -327,7 +327,7 @@
 </li>
 
 
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="../reference.html">
     Reference
   </a>
@@ -422,8 +422,12 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Add a book and ask it something</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Command line</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="http.html">HTTP surface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../_api/somnia.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../genindex.html">Index</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/gilesknap/somnia/releases">Release Notes</a></li>
 </ul>
 </div>
 </nav></div>
@@ -465,9 +469,9 @@
       </a>
     </li>
     
-    <li class="breadcrumb-item"><a href="../tutorials.html" class="nav-link">Tutorials</a></li>
+    <li class="breadcrumb-item"><a href="../reference.html" class="nav-link">Reference</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Add a book and ask it something</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Command line</span></li>
   </ul>
 </nav>
 </div>
@@ -484,108 +488,229 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="add-a-book-and-ask-it-something">
-<h1>Add a book and ask it something<a class="headerlink" href="#add-a-book-and-ask-it-something" title="Link to this heading">#</a></h1>
-<p>Fifteen minutes, most of which is waiting for a chapter to be read aloud. By
-the end you will have a book rendering, an index you can search, and a page on
-your phone that plays it.</p>
-<p>This assumes you have <a class="reference internal" href="installation.html"><span class="std std-doc">installed somnia</span></a> and that
-<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">search</span></code> finds things.</p>
-<section id="pick-a-book">
-<h2>Pick a book<a class="headerlink" href="#pick-a-book" title="Link to this heading">#</a></h2>
-<p>somnia reads Project Gutenberg. Search the local catalog for a Gutenberg id —
-the <code class="docutils literal notranslate"><span class="pre">gid</span></code> is the only handle anything else uses:</p>
+  <section id="command-line">
+<h1>Command line<a class="headerlink" href="#command-line" title="Link to this heading">#</a></h1>
+<p>Nine commands. <code class="docutils literal notranslate"><span class="pre">somnia</span></code> on its own prints the help and stops, and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">--version</span></code> prints the version and nothing else.</p>
+<p>Results go to <strong>stdout</strong> and progress to <strong>stderr</strong>, so <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">search</span> <span class="pre">bee</span> <span class="pre">&gt;</span> <span class="pre">books.txt</span></code> captures the books and leaves the logging in the terminal. Every
+command loads the settings, creates <code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR</span></code> if it is not there, opens
+<code class="docutils literal notranslate"><span class="pre">somnia.db</span></code> and runs the migrations before it does anything else — including the
+commands that then turn out to have nothing to do. A first run on a clean box
+therefore leaves a database behind whatever else happens.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Command</p></th>
+<th class="head"><p>What it does</p></th>
+<th class="head"><p>Needs</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#cli-catalog-update"><code class="docutils literal notranslate"><span class="pre">catalog-update</span></code></a></p></td>
+<td><p>Download the Gutenberg catalog</p></td>
+<td><p>the network</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cli-search"><code class="docutils literal notranslate"><span class="pre">search</span></code></a></p></td>
+<td><p>Find a book id in that catalog</p></td>
+<td><p>a catalog</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cli-add"><code class="docutils literal notranslate"><span class="pre">add</span></code></a></p></td>
+<td><p>Render and index a book</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[ml]</span></code>, ffmpeg, espeak-ng</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cli-find"><code class="docutils literal notranslate"><span class="pre">find</span></code></a></p></td>
+<td><p>Semantic search inside one rendered book</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[ml]</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cli-ask"><code class="docutils literal notranslate"><span class="pre">ask</span></code></a></p></td>
+<td><p>Put the agent in front of it</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ANTHROPIC_API_KEY</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cli-serve"><code class="docutils literal notranslate"><span class="pre">serve</span></code></a></p></td>
+<td><p>The page that plays the book</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ANTHROPIC_API_KEY</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cli-libraries"><code class="docutils literal notranslate"><span class="pre">libraries</span></code></a></p></td>
+<td><p>List Audiobookshelf library ids</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cli-seed-positions"><code class="docutils literal notranslate"><span class="pre">seed-positions</span></code></a></p></td>
+<td><p>Take your place across from ABS, once</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Settings come from the environment, and from nowhere else — there is no config
+file and no flag that overrides one. They are listed in
+<a class="reference internal" href="configuration.html"><span class="std std-doc">Configuration</span></a>.</p>
+<section id="catalog-update">
+<span id="cli-catalog-update"></span><h2><code class="docutils literal notranslate"><span class="pre">catalog-update</span></code><a class="headerlink" href="#catalog-update" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>catalog-update
+</pre></div>
+</div>
+<p>Downloads the official Gutenberg CSV dump (~20MB) and replaces the local
+catalog table with it. Only rows of type <code class="docutils literal notranslate"><span class="pre">Text</span></code> with a title are kept.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>catalog-update
+<span class="go">catalog updated: 76421 books</span>
+</pre></div>
+</div>
+<p>It <strong>replaces</strong>, rather than merges: the table is emptied first, so a run that
+fails part way leaves you with what you started with, and a book that Gutenberg
+has withdrawn disappears from your catalog too. Nothing else needs the network,
+so after this the browsing is entirely offline.</p>
+</section>
+<section id="search">
+<span id="cli-search"></span><h2><code class="docutils literal notranslate"><span class="pre">search</span></code><a class="headerlink" href="#search" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>search<span class="w"> </span>QUERY<span class="w"> </span><span class="o">[</span>--language<span class="w"> </span>en<span class="o">]</span>
+</pre></div>
+</div>
+<p>Full-text search over titles, authors, subjects and bookshelves, returning <strong>at
+most ten</strong> rows ordered by FTS rank. The <code class="docutils literal notranslate"><span class="pre">gid</span></code> in the first column is the only
+handle the rest of somnia uses.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;black beauty&quot;</span>
 <span class="go">   271  Black Beauty — Sewell, Anna</span>
 </pre></div>
 </div>
+<p>Words are ANDed: every term has to appear somewhere in the row. Punctuation is
+dropped rather than interpreted, so an apostrophe cannot produce a syntax error,
+and single-character fragments — the <code class="docutils literal notranslate"><span class="pre">s</span></code> left by a possessive — are thrown away
+instead of being required. <code class="docutils literal notranslate"><span class="pre">--language</span></code> is an exact match against the catalog’s
+language code, and it defaults to <code class="docutils literal notranslate"><span class="pre">en</span></code>; there is no way to ask for all
+languages at once.</p>
+<p>No results usually means no catalog: run <a class="reference internal" href="#cli-catalog-update"><code class="docutils literal notranslate"><span class="pre">catalog-update</span></code></a>.</p>
 </section>
-<section id="render-it">
-<h2>Render it<a class="headerlink" href="#render-it" title="Link to this heading">#</a></h2>
+<section id="add">
+<span id="cli-add"></span><h2><code class="docutils literal notranslate"><span class="pre">add</span></code><a class="headerlink" href="#add" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>add<span class="w"> </span>GID<span class="w"> </span><span class="o">[</span>--voice<span class="w"> </span>af_heart<span class="o">]</span>
+</pre></div>
+</div>
+<p>Fetches the book from Gutenberg, renders every chapter with Kokoro, and indexes
+each one the moment it is finished. This is the command that takes hours, and
+the only one that needs the <code class="docutils literal notranslate"><span class="pre">[ml]</span></code> extra, ffmpeg and espeak-ng.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>add<span class="w"> </span><span class="m">271</span>
 <span class="go">2026-08-06 21:04:11 INFO rendering chapter 1/49: 01. My Early Home</span>
 <span class="go">2026-08-06 21:09:38 INFO rendering chapter 2/49: 02. The Hunt</span>
 <span class="go">...</span>
+<span class="go">2026-08-07 02:31:55 INFO finished Black Beauty: 49 chapters, 6.2 hours</span>
 </pre></div>
 </div>
-<p>This takes hours — Kokoro runs at about 1.15× realtime, so a six-hour book is
-roughly a five-hour render — but <strong>you do not wait for it</strong>. Each chapter is
-written to the library folder and indexed the moment it finishes, so chapter
-one is listenable within a few minutes and the rest arrives while you sleep.</p>
-<p>Leave it running in a <code class="docutils literal notranslate"><span class="pre">tmux</span></code> session, or let the agent start it for you later
-(<code class="docutils literal notranslate"><span class="pre">add_book</span></code> spawns exactly this command in the background).</p>
-<p>One rule: never re-render a book with a different voice. Every timestamp in the
-database — chapter marks, index entries, the place you fell asleep — is tied to
-the audio that was actually produced.</p>
+<p>Audio lands in <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR/&lt;author&gt;/&lt;title&gt;/NNN</span> <span class="pre">-</span> <span class="pre">&lt;chapter&gt;.m4a</span></code>, and
+the database row is what everything else reads: chapters are never served by
+path. The book is marked <code class="docutils literal notranslate"><span class="pre">rendering</span></code> at the start and <code class="docutils literal notranslate"><span class="pre">done</span></code> at the end, which
+is how the page knows the difference between a book that is still growing and a
+render that died.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--voice</span></code> overrides <code class="docutils literal notranslate"><span class="pre">SOMNIA_VOICE</span></code> for this render only. <strong>Never re-render a
+book with a different voice.</strong> Every timestamp somnia holds — chapter marks,
+index entries, the place you fell asleep — belongs to the audio that was
+actually produced.</p>
+<p>Two things to know before re-running it on a book it has already rendered:</p>
+<ul class="simple">
+<li><p>It starts again at chapter one. There is no resume; each chapter is rendered
+and its file overwritten, so a render that died at chapter 40 costs you those
+40 chapters again.</p></li>
+<li><p>The index gains a <strong>second copy</strong> of every passage, because chapters are
+replaced but chunks are only ever inserted. Searches still work; they just
+return the same passage more than once. Both are
+<a class="reference external" href="https://github.com/gilesknap/somnia/issues/11">#11</a>.</p></li>
+</ul>
+<p>What it does not touch is where you have got to. A re-render writes the title,
+the authors, the voice and the status, and nothing about your position or how
+far you have heard.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code> and <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_LIBRARY_ID</span></code> are both set, Audiobookshelf
+is rescanned and given chapter marks after each chapter. A failure there is
+logged and the render carries on.</p>
 </section>
-<section id="search-what-has-been-rendered">
-<h2>Search what has been rendered<a class="headerlink" href="#search-what-has-been-rendered" title="Link to this heading">#</a></h2>
+<section id="find">
+<span id="cli-find"></span><h2><code class="docutils literal notranslate"><span class="pre">find</span></code><a class="headerlink" href="#find" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>find<span class="w"> </span>GID<span class="w"> </span>QUERY
+</pre></div>
+</div>
+<p>Semantic search within one rendered book: the <strong>five</strong> nearest passages, closest
+first.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>find<span class="w"> </span><span class="m">271</span><span class="w"> </span><span class="s2">&quot;the horse is beaten in the street&quot;</span>
 <span class="go">[2:47h  d=0.284] 32. A Horse Fair</span>
 <span class="go">    A poor old brown horse was there... he was being beaten about the head</span>
 <span class="go">    while the crowd looked on.</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">d</span></code> is the distance — smaller is closer. Concrete events, characters and places
-search well; atmosphere (“the bit that felt strange”) does not, and that is a
-known limitation rather than a bug.</p>
-<p><code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">find</span></code> searches the whole book. The agent, in the next step, does not.</p>
+<p>The bracket holds the position in the book and <code class="docutils literal notranslate"><span class="pre">d</span></code>, the embedding distance —
+smaller is closer. Concrete events, characters and places search well;
+atmosphere (“the bit that felt strange”) does not, and that is a known
+limitation rather than a bug.</p>
+<p><code class="docutils literal notranslate"><span class="pre">find</span></code> searches the <strong>whole</strong> book. It is the raw index, so it has no spoiler
+guard: <a class="reference internal" href="#cli-ask"><code class="docutils literal notranslate"><span class="pre">ask</span></code></a> is where that lives.</p>
 </section>
-<section id="ask-it-in-words">
-<h2>Ask it in words<a class="headerlink" href="#ask-it-in-words" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>~/somnia.env
-somnia<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;which chapter is the one with the horse fair?&quot;</span>
+<section id="ask">
+<span id="cli-ask"></span><h2><code class="docutils literal notranslate"><span class="pre">ask</span></code><a class="headerlink" href="#ask" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;which chapter is the one with the horse fair?&quot;</span>
+somnia<span class="w"> </span>ask
 </pre></div>
 </div>
-<p>The key lives in <code class="docutils literal notranslate"><span class="pre">~/somnia.env</span></code> rather than in the command, which keeps it out
-of your shell history and out of <code class="docutils literal notranslate"><span class="pre">ps</span></code> — it is the same file the systemd units
-read. Give no question and you get an interactive prompt; a blank line ends it.</p>
-<p>The first thing you will probably see is the agent telling you that the passage
-is further on than you have got, and offering to take you there. That is the
-spoiler guard working. It bounds every search at the furthest point somnia has
-actually <em>played</em> — and from the command line, nothing has played anything, so
-the bound is the first minute of the book. Say yes and it will search the whole
-thing.</p>
-<p>The guard is why the agent exists in this shape at all: a question at 2am must
-never be answered with something you have not heard yet.</p>
+<p>Puts the agent in front of the index. With a question it answers and exits;
+with none it prompts with <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> until you give it a blank line. Its own logging
+is turned down to warnings so that it does not drown one-line answers.</p>
+<p>Answers are bounded by the furthest point somnia has ever <em>played</em> — and from a
+terminal it has played nothing, so the bound is the opening of the book. What
+you get is that the passage lies further on than you have got, and an offer to
+go there anyway. That is the spoiler guard working, not a fault. Say yes and it
+searches the whole thing.</p>
+<p>The key comes from <code class="docutils literal notranslate"><span class="pre">ANTHROPIC_API_KEY</span></code>, which is the Anthropic SDK’s own
+variable, so a key already exported for other tools is picked up here.</p>
 </section>
-<section id="play-it-from-your-phone">
-<h2>Play it from your phone<a class="headerlink" href="#play-it-from-your-phone" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>serve
+<section id="serve">
+<span id="cli-serve"></span><h2><code class="docutils literal notranslate"><span class="pre">serve</span></code><a class="headerlink" href="#serve" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>serve<span class="w"> </span><span class="o">[</span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="o">]</span><span class="w"> </span><span class="o">[</span>--port<span class="w"> </span><span class="m">8721</span><span class="o">]</span>
 </pre></div>
 </div>
-<p>That serves the page, the agent behind it, and the book itself, on
-<code class="docutils literal notranslate"><span class="pre">127.0.0.1:8721</span></code>. <strong>Leave it on localhost.</strong> There is no login of any kind; the
-only thing protecting it is that nothing but <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach the
-port. Publish it, and install it on the phone, by following
+<p>Serves the player, the agent behind it and the audio itself. It runs in the
+foreground; <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">localhost:8721/api/health</span></code> answers <code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">true}</span></code>.</p>
+<p><strong>Leave <code class="docutils literal notranslate"><span class="pre">--host</span></code> on localhost.</strong> There is no login of any kind — reachability is
+the authentication, and the only path in is meant to be <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code>. See
 <a class="reference internal" href="../how-to/serve-the-chat-page.html"><span class="std std-doc">Serve the page that plays the book</span></a>.</p>
-<p>Once it is on your phone, a night looks like this:</p>
-<ul class="simple">
-<li><p>The page opens the book you were last in, at the place you left it, and does
-<strong>not</strong> start it. Opening the app to ask a question is not the same as asking
-for the book.</p></li>
-<li><p>Press play, then lock the phone. From there the book is driven from the lock
-screen, the notification and anything paired over Bluetooth.</p></li>
-<li><p>Tap <strong>sleep</strong> to walk the timer through 15, 30, 45, 60 minutes and the end of
-the chapter. It counts listening time, so pausing to ask a question does not
-spend it, and it ends in a twenty-second fade.</p></li>
-<li><p>Half asleep, hold the talk button and say <em>“go back to where the horse gets
-hurt”</em>. The book goes there and plays from there. There is nothing to press
-afterwards.</p></li>
-</ul>
 </section>
-<section id="if-you-already-listened-in-audiobookshelf">
-<h2>If you already listened in Audiobookshelf<a class="headerlink" href="#if-you-already-listened-in-audiobookshelf" title="Link to this heading">#</a></h2>
-<p>Run this once, before the first night:</p>
+<section id="libraries">
+<span id="cli-libraries"></span><h2><code class="docutils literal notranslate"><span class="pre">libraries</span></code><a class="headerlink" href="#libraries" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>libraries
+</pre></div>
+</div>
+<p>Prints the id and name of each Audiobookshelf library, which is where
+<code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_LIBRARY_ID</span></code> comes from.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>libraries
+<span class="go">lib_8x2k1p9  Audiobooks</span>
+</pre></div>
+</div>
+<p>It needs <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code> and a reachable server; without them it fails rather
+than returning nothing.</p>
+</section>
+<section id="seed-positions">
+<span id="cli-seed-positions"></span><h2><code class="docutils literal notranslate"><span class="pre">seed-positions</span></code><a class="headerlink" href="#seed-positions" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>seed-positions
+</pre></div>
+</div>
+<p>The one command that reads Audiobookshelf. Run it once, by hand, before the
+first night, if you have been listening in ABS: it brings each book’s position
+and how far you had heard into somnia’s own database.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>seed-positions
 <span class="go">   271  Black Beauty: seeded at 3:12:40 (2026-08-01 22:41:03); heard to 3:12:40</span>
 <span class="go">1 of 1 books changed.</span>
 </pre></div>
 </div>
-<p>It is the only thing that ever reads Audiobookshelf. Without it, somnia thinks
-you have heard nothing, opens the wrong book, and bounds every search at the
-first minute. It never moves a position backwards and running it twice changes
-nothing.</p>
+<p>It says what it did to every book, in a sentence, because the only person
+running it is watching a terminal and deciding whether to trust the night to it.
+Two rules make it safe to run again: a position somnia already holds is never
+overwritten, and the heard-to mark only ever rises.</p>
+<p>With no token it says there is nothing to read and stops. If Audiobookshelf
+cannot be reached it says so and changes nothing — every read happens before the
+first write, so an interrupted run really did leave the database alone.</p>
+</section>
+<section id="when-something-goes-wrong">
+<h2>When something goes wrong<a class="headerlink" href="#when-something-goes-wrong" title="Link to this heading">#</a></h2>
+<p>These are not polished-failure commands. Beyond the two cases
+<code class="docutils literal notranslate"><span class="pre">seed-positions</span></code> handles by hand, a missing key, an unreachable server or a book
+Gutenberg does not have will end in a traceback and a non-zero exit.</p>
+<p><code class="docutils literal notranslate"><span class="pre">somnia-doctor.sh</span></code> is the thing to run first: it checks the install, the
+settings, the catalog, and that every rendered chapter is still on disk and
+still inside <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code> — the failure that otherwise reaches you at
+2am as one chapter that didn’t arrive.</p>
 </section>
 </section>
 
@@ -600,20 +725,20 @@ nothing.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="installation.html"
+       href="../reference.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Installation</p>
+        <p class="prev-next-title">Reference</p>
       </div>
     </a>
     <a class="right-next"
-       href="../how-to.html"
+       href="configuration.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">How-to Guides</p>
+        <p class="prev-next-title">Configuration</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -636,12 +761,15 @@ nothing.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pick-a-book">Pick a book</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#render-it">Render it</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#search-what-has-been-rendered">Search what has been rendered</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ask-it-in-words">Ask it in words</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#play-it-from-your-phone">Play it from your phone</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#if-you-already-listened-in-audiobookshelf">If you already listened in Audiobookshelf</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#catalog-update"><code class="docutils literal notranslate"><span class="pre">catalog-update</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#search"><code class="docutils literal notranslate"><span class="pre">search</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#add"><code class="docutils literal notranslate"><span class="pre">add</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#find"><code class="docutils literal notranslate"><span class="pre">find</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ask"><code class="docutils literal notranslate"><span class="pre">ask</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#serve"><code class="docutils literal notranslate"><span class="pre">serve</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#libraries"><code class="docutils literal notranslate"><span class="pre">libraries</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#seed-positions"><code class="docutils literal notranslate"><span class="pre">seed-positions</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#when-something-goes-wrong">When something goes wrong</a></li>
 </ul>
   </nav></div>
 
@@ -649,7 +777,7 @@ nothing.</p>
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/gilesknap/somnia/edit/main/docs/tutorials/first-book.md">
+    <a href="https://github.com/gilesknap/somnia/edit/main/docs/reference/cli.md">
       <i class="fa-solid fa-pencil"></i>
       
       
@@ -664,7 +792,7 @@ nothing.</p>
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../_sources/tutorials/first-book.md.txt">
+    <a href="../_sources/reference/cli.md.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
