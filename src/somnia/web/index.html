@@ -212,20 +212,39 @@
                do is offer to end the night early, and the next tap takes it
                back.
 
+               What it says is one string — `sleep timer · off` — and drawSleep
+               assembles the whole of it. The label used to be `sleep` when
+               there was no timer and `sleep 30m` when there was, which meant
+               the same word was the control's name on most nights and a state
+               on the rest, and the only thing telling them apart was whether
+               anything followed it. The text below is the off state written
+               out, so a page whose script has not run yet says what it will
+               say once it has.
+
                It is here and not in the transport below on purpose. A control
                that can end the night early — or fail to — has no business
                within a thumb's width of the one button that gets pressed
                without looking. -->
           <button id="sleep" type="button" aria-label="Sleep timer, off">
-            sleep
+            sleep timer · off
           </button>
         </p>
       </div>
-      <!-- Untouched: three buttons, the same three, at the same size they were
-           measured against a thumb. Everything the chapter needs happens a row
-           and a dead band away from here, because this is the row that gets
-           pressed without looking and it only stays that way while what is in
-           it never moves. -->
+      <!-- Three buttons, the same three, at the same size they were measured
+           against a thumb. Everything the chapter needs happens a row and a
+           dead band away from here, because this is the row that gets pressed
+           without looking and it only stays that way while what is in it never
+           moves.
+
+           The design has been applied to how this row looks and to nothing
+           about how big it is. It gave the middle slab a warmer fill, an amber
+           edge and a bigger, plainer glyph — all of which can be taken without
+           anybody's thumb noticing. It also asked for 96dp cells in a
+           `1fr 1.05fr 1fr` grid, and that is the one part refused: 110px is the
+           number this row was measured at, the centre slab is half again as
+           wide as its neighbours so that play is found by reaching for the
+           middle rather than by reading anything, and the design's own rule
+           says to take space from spacing before tap targets. -->
       <div class="transport">
         <button id="back30" type="button" aria-label="Back thirty seconds">
           −30
@@ -234,20 +253,29 @@
              the phone's symbol font decided, sitting on a baseline rather than
              in the middle of the button; this is the same shape everywhere and
              it is the size it was meant to be. Which half shows is a class,
-             set in drawPlayer. -->
+             set in drawPlayer.
+
+             The sheet draws this box at 48px on the phone it is read on, and
+             the box is 48 units across, so one unit here is one of the design's
+             dp and its sizes are the numbers below rather than something
+             derived from them: two 10x38 bars 8 apart, and a 26x34 triangle. The triangle is 5 to the right
+             of centre and that is not a mistake to be tidied up — a triangle
+             centred on its bounding box reads as sitting left of centre,
+             because its weight is all down the flat edge. The half-stroke of
+             the round join is counted in those 26 and 34. -->
         <button id="playpause" type="button" aria-label="Play">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
             <path
               class="play"
-              d="M8.5 5.5 18 12 8.5 18.5Z"
+              d="M17.5 8.5 40.5 24 17.5 39.5Z"
               fill="currentColor"
               stroke="currentColor"
-              stroke-width="2.4"
+              stroke-width="3"
               stroke-linejoin="round"
             />
             <g class="pause" fill="currentColor">
-              <rect x="7.2" y="5" width="3.8" height="14" rx="1.4" />
-              <rect x="13" y="5" width="3.8" height="14" rx="1.4" />
+              <rect x="10" y="5" width="10" height="38" rx="2" />
+              <rect x="28" y="5" width="10" height="38" rx="2" />
             </g>
           </svg>
         </button>

@@ -849,25 +849,39 @@ function sleepSentence() {
   return `fading out in ${choice} min`;
 }
 
+// What the pill says, and what it says out loud, decided in one place.
+//
+// The visible label is one pre-assembled string — `sleep timer · 30m` — and
+// not a word with a value appended to it. `sleep` on its own was the control's
+// name on the nights it was off and a state on the nights it was on, and the
+// only thing telling those two readings apart was whether anything followed
+// it. Half asleep that is not a distinction anybody makes. Now the pill always
+// says both what it is and what it is set to, which is also what makes it the
+// one control on the page that can be read without being understood first.
+//
+// The spoken form is built from the same branch rather than beside it, so a
+// state cannot be added to one and forgotten in the other — and it stays a
+// sentence rather than the pill's own string, because a screen reader saying
+// "sleep timer middle dot thirty m" is not what the pill means.
 function drawSleep() {
   const choice = SLEEP_CHOICES[sleepChoice];
-  let label = "sleep";
-  let spoken = "Sleep timer, off";
+  let says = "off";
+  let spoken = "off";
   if (fade?.thenSleep) {
-    label = "fading";
-    spoken = "Sleep timer, fading out";
+    says = "fading";
+    spoken = "fading out";
   } else if (choice === "chapter") {
-    label = "chapter end";
-    spoken = "Sleep timer, at the end of this chapter";
+    says = "chapter end";
+    spoken = "at the end of this chapter";
   } else if (sleepLeftMs !== null) {
     // Rounded up, and never zero: a countdown that says nothing is left has
     // nothing left to say, and by then the sound itself is the announcement.
     const minutes = Math.max(1, Math.ceil(sleepLeftMs / 60_000));
-    label = `sleep ${minutes}m`;
-    spoken = `Sleep timer, ${minutes} minutes left`;
+    says = `${minutes}m`;
+    spoken = `${minutes} minutes left`;
   }
-  sleepButton.textContent = label;
-  sleepButton.setAttribute("aria-label", spoken);
+  sleepButton.textContent = `sleep timer · ${says}`;
+  sleepButton.setAttribute("aria-label", `Sleep timer, ${spoken}`);
   sleepButton.classList.toggle("armed", choice !== null);
 }
 

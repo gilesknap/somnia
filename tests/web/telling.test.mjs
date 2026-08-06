@@ -64,7 +64,7 @@ test("a second sentence replaces the first rather than stacking under it", async
 test("the end of the chapter is said in words, not in minutes", async (t) => {
   const page = await boot(t);
   for (let tap = 0; tap < 5; tap++) page.click("sleep");
-  assert.equal(page.probe().sleep, "chapter end");
+  assert.equal(page.probe().sleep, "sleep timer · chapter end");
   assert.equal(page.probe().toast, "fading out at the end of the chapter");
 });
 

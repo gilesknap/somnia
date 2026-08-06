@@ -560,18 +560,33 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
-/* Where the night has got to, and when it is due to end, on one row. That they
-   fit on one row is the whole reason this is 0.9rem and not the 1.05rem it was:
-   in Newsreader at 1.05rem, `1:12:08 of 9:41:33` and the longest sleep label
-   the page can write would not share 320px, and what wrapped was the book's
-   clock — broken between `1:12:08 of` and `9:41:33`, which is the worst place
-   on the page to put a line break. Measured in a render, both ways. */
+/* Where the night has got to, and when it is due to end — two readouts, one
+   under the other, both left-aligned with the rest of the stack.
+
+   They shared a row for as long as the timer's label was one word. It is a
+   sentence now, and `1:12:08 of 9:41:33` beside `sleep timer · off` does not
+   fit 320px at any size this page is allowed to set type at, so what happened
+   in the render was the clock breaking between `1:12:08 of` and `9:41:33` —
+   the worst line break on the page. Stacking them is the cheaper answer than
+   shrinking either: it costs about 30px of a screen that has them, and both
+   numbers stay the size they were measured at.
+
+   0.9rem stays for its own reason and not for the row's. It is the design's
+   size for a position readout, and it is a step under the chapter's name
+   above, which is what keeps the clock a footnote rather than a second title.
+
+   The pill starts the line rather than ending it, which is the only alignment
+   left once it has a line to itself: everything else in this stack begins at
+   the gutter, and a control pushed out to the right edge on its own row reads
+   as belonging to something off the screen. What keeps it off the transport is
+   what always kept it off — the 1.7rem of dead band under this whole block,
+   now with the clock's line above it as well. */
 #whereabouts {
   margin: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
   font-size: 0.9rem;
   color: var(--mid);
 }
@@ -582,17 +597,25 @@ h1 {
 }
 
 /* The sleep timer says what it is doing and a tap changes it, so the readout
-   and the control are one thing in one place. Padding rather than a height:
-   what it needs is a target a deliberate reach can land on, and it is reached
-   for while still awake enough to have decided something.
+   and the control are one thing in one place. 48dp of height and 24dp either
+   side of the words: what it needs is a target a deliberate reach can land on,
+   and it is reached for while still awake enough to have decided something.
 
    Quiet when there is no timer, because most nights there is not one, and warm
    when there is. Whether the night already has an end scheduled has to be
-   answerable at a glance, without reading the number. */
+   answerable at a glance, without reading the number.
+
+   Quiet is now a hairline rather than nothing at all. The edge was transparent
+   for as long as the label was the single word `sleep`, which read as a
+   caption whether or not it had a box round it; the label is a sentence now —
+   `sleep timer · off` — and a sentence with no edge is something to read
+   rather than something to press. The hairline is the same one every other
+   outlined control on the page wears, so what tells the two states apart is
+   still that one of them is amber. */
 #sleep {
   flex: none;
   white-space: nowrap;
-  border: 1px solid transparent;
+  border: 1px solid var(--hairline);
   /* A pill, not a rounded box. On this page a slab is the transport — the three
      things pressed without looking — and everything round is something reached
      for on purpose: the chapter circles above, and this. The sleep timer is the
@@ -601,7 +624,7 @@ h1 {
      be mistaken for. */
   border-radius: 999px;
   background: none;
-  color: var(--dim);
+  color: var(--mid);
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
   min-height: 2.4rem;
@@ -633,7 +656,12 @@ h1 {
    The gaps between these are dead space on purpose: each button is big enough
    that a thumb lands on one, and on the occasions it does not, landing on
    nothing and pressing again is far better than being thrown thirty seconds
-   the wrong way by a near miss. */
+   the wrong way by a near miss.
+
+   1.45fr in the middle and not the design's 1.05fr. The extra width is not
+   decoration and it is not a hierarchy either: it is how the middle of this row
+   is found in the dark by a thumb that has not read anything. Three cells of
+   nearly equal width are three cells that have to be counted. */
 .transport {
   display: grid;
   grid-template-columns: 1fr 1.45fr 1fr;
@@ -641,9 +669,11 @@ h1 {
 }
 
 .transport button {
-  /* 88px tall, and none of them narrower than about the same. The one number on
-     this page that was measured against a thumb rather than chosen to look
-     right. */
+  /* 110px tall at the root this page is read at, and none of them narrower than
+     about the same. The one number on this page that was measured against a
+     thumb rather than chosen to look right — which is why the design's 96dp
+     cells were not taken: 96 would be a number chosen to make a column fit, and
+     the same design says to take space out of spacing before tap targets. */
   min-height: 5.5rem;
   display: grid;
   place-items: center;
@@ -676,9 +706,14 @@ h1 {
   background: var(--accent-surface-active);
 }
 
+/* 48dp square, because the glyph inside it is drawn in dp: at this size one
+   unit of the viewBox is one of the design's units and the bars are the 10x38
+   it asks for. Bigger than the shape it replaced, and plainer — the old play
+   triangle was a small rounded arrow at the middle of a large slab, and what
+   this button owes somebody who cannot focus on it is a mass, not a symbol. */
 #playpause svg {
-  width: 2.9rem;
-  height: 2.9rem;
+  width: 2.4rem;
+  height: 2.4rem;
 }
 
 #playpause .pause {
@@ -709,6 +744,13 @@ h1 {
   padding: 1.3rem 1rem 0.9rem;
 }
 
+/* 76dp, and the microphone beside it is 76 square: the box and the button are
+   one dock and the design sizes them together, so a row that was 70 of box and
+   100 of circle is now one height across. The circle came down and the box went
+   up, which is the trade the design intends — the box is what a question is
+   typed into and it was the smaller of the two, and a 100dp circle beside a
+   70dp box read as the microphone being the way in and typing being the
+   fallback. It is the other way round on most nights. */
 #question {
   /* It is a search field for the keyboard's benefit, so the platform styling
      that comes with one has to be taken back off before the pill survives. */
@@ -716,7 +758,7 @@ h1 {
   -webkit-appearance: none;
   flex: 1;
   min-width: 0;
-  min-height: 3.5rem;
+  min-height: 3.8rem;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 999px;
@@ -744,8 +786,8 @@ h1 {
 
 #talk {
   flex: none;
-  width: 5rem;
-  height: 5rem;
+  width: 3.8rem;
+  height: 3.8rem;
   border-radius: 50%;
   border: 1px solid var(--hairline);
   background: var(--surface);
@@ -847,20 +889,18 @@ button:disabled {
     min-height: 3.5rem;
   }
 
+  /* The same fraction of the button it is in as at full height, so the glyph
+     shrinks with the slab rather than swelling inside it. */
   #playpause svg {
-    width: 2rem;
-    height: 2rem;
+    width: 1.6rem;
+    height: 1.6rem;
   }
 
-  #talk {
-    width: 3.75rem;
-    height: 3.75rem;
-  }
-
-  #talk svg {
-    width: 1.7rem;
-    height: 1.7rem;
-  }
+  /* The dock is not in this rule and has nothing left to give: at 76dp square
+     it is already the smallest the design draws it, and it used to be here only
+     because the microphone was a 100dp circle that could afford to lose a
+     quarter of itself. What is under the keyboard is the same dock as what is
+     over it. */
 
   #composer {
     padding-top: 0.55rem;
@@ -906,15 +946,6 @@ button:disabled {
   #now-playing {
     display: flex;
     margin: 0;
-  }
-
-  /* Beside the clock rather than pushed out to the far side of its column.
-     Upright, the dead space under the sleep timer is what keeps it clear of the
-     button pressed without looking; on its side, sending it to the right edge
-     would land it a thumb's width from −30 instead. The slack belongs between
-     the two, whichever way the phone is being held. */
-  #whereabouts {
-    justify-content: flex-start;
   }
 }
 
