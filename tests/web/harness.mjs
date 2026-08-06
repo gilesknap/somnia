@@ -568,6 +568,12 @@ globalThis.__page = {
     idx: current && current.idx,
     chapter: chapterTitle.textContent,
     clock: clock.textContent,
+    // The chapter's own clock, and whether there is anywhere left to skip to.
+    // Both are drawn from the chapter row rather than from the element, so a
+    // test that watches them is watching the book's clock and not the
+    // decoder's — which is the distinction the whole timeline rests on.
+    chapterClock: chapterClock.textContent,
+    canSkipOn: !nextChapter.disabled,
     status: statusLine.textContent,
     sleep: sleepButton.textContent,
     spokenSleep: sleepButton.getAttribute("aria-label"),
@@ -594,7 +600,7 @@ globalThis.__page = {
   // reaching for directly: every clamp in them is there because a decoder, a
   // render clock or a book shorter than a thirty-second step disagreed with
   // the arithmetic once, and none of those are reproducible on demand.
-  math: { locate, toElementSeconds, toGlobalMs, timestamp, rewindFor },
+  math: { locate, toElementSeconds, toGlobalMs, timestamp, chapterTime, rewindFor },
 };
 `;
 

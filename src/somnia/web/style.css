@@ -176,7 +176,9 @@ h1 {
 
 /* One line, whatever the book is called. This strip has to be the same height
    with every chapter of every book in it, because what sits under it is the
-   button a hand arrives at without looking first. */
+   button a hand arrives at without looking first. The clock is laid out first
+   and never shrinks: a title long enough to need the ellipsis is a title being
+   glanced at, and the number beside it is being read. */
 #chapter-title {
   margin: 0;
   font-size: 1.15rem;
@@ -184,6 +186,66 @@ h1 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The chapter's own row: skip, clock, skip. The buttons are laid out at a fixed
+   width and the clock takes what is left, so the number stays in the middle of
+   the screen whatever the chapter is called and whatever hour it has got to. */
+.chapter-strip {
+  display: grid;
+  grid-template-columns: 4.6rem 1fr 4.6rem;
+  align-items: center;
+  gap: 0.5rem;
+  /* Its own space above and below. Under it sits the book's clock, and under
+     that the transport: this row must not read as the top of the button
+     cluster, because it is not one. */
+  margin: 0.35rem 0 0.15rem;
+}
+
+/* Shorter and quieter than the transport below — no raised fill, dimmer ink,
+   a smaller glyph. Everything about it says "reached for on purpose", which is
+   the only way it should ever be reached for: a press here costs a whole
+   chapter, and the row that costs thirty seconds is the warm one further
+   down. */
+.chapter-skip {
+  min-height: 4rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--edge);
+  border-radius: 1.1rem;
+  background: none;
+  color: var(--dim);
+  transition: background-color 90ms linear;
+}
+
+.chapter-skip svg {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+/* The platform's tap flash is off page-wide, so every button shows its own. */
+.chapter-skip:active {
+  background: #20202c;
+  color: var(--ink);
+}
+
+/* At the end of the book there is nowhere to skip to. Dimmed rather than
+   removed: a row that changes shape under a thumb is worse than a button that
+   plainly does nothing, and taking it away would slide the clock off centre on
+   the one chapter where somebody is most likely to be looking at it. */
+.chapter-skip:disabled {
+  opacity: 0.3;
+}
+
+/* Dimmer and smaller than the book's clock below it. Both are on screen at
+   once and they are not equals: the one that says where the night has got to
+   is the book's, and two numbers of the same weight would have to be read to
+   be told apart. */
+#chapter-clock {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
 }
 
 #whereabouts {

@@ -29,6 +29,9 @@ const sleepButton = document.getElementById("sleep");
 const playpause = document.getElementById("playpause");
 const back30 = document.getElementById("back30");
 const fwd30 = document.getElementById("fwd30");
+const chapterClock = document.getElementById("chapter-clock");
+const prevChapter = document.getElementById("prevchapter");
+const nextChapter = document.getElementById("nextchapter");
 const candidates = document.getElementById("candidates");
 const candidatesBook = document.getElementById("candidates-book");
 const candidateList = document.getElementById("candidate-list");
@@ -151,6 +154,12 @@ const SWAP_LEAD_S = 0.4;
 
 // What "back a bit" means, in the absence of anyone able to say.
 const SEEK_STEP_S = 30;
+
+// How far into a chapter "previous" stops meaning the one before and starts
+// meaning the top of this one. The same five seconds every music player has
+// used for forty years, and the reason a double press goes back a whole
+// chapter while a single one only starts this chapter again.
+const CHAPTER_RESTART_MS = 5000;
 
 // The ways to be asleep before the book is, in minutes, with the end of the
 // chapter after them and nothing at either end of the list. One tap walks it.
@@ -328,11 +337,32 @@ function timestamp(ms) {
   return `${Math.floor(seconds / 3600)}:${mm}:${ss}`;
 }
 
+// The same clock at chapter scale, which is nearly always minutes. Carrying the
+// book's leading "0:" onto a twelve-minute chapter would put the least
+// informative digit on the page in the position the eye reads first, and make
+// the two clocks on screen look like the same number twice.
+function chapterTime(ms) {
+  const seconds = Math.floor(Math.max(0, ms) / 1000);
+  const ss = String(seconds % 60).padStart(2, "0");
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}:${ss}`;
+  const mm = String(Math.floor(seconds / 60) % 60).padStart(2, "0");
+  return `${Math.floor(seconds / 3600)}:${mm}:${ss}`;
+}
+
 function drawPlayer() {
   if (!manifest || !current) return;
   chapterTitle.textContent = current.chapter.title;
   const whole = timestamp(manifest.total_ms);
   clock.textContent = `${timestamp(positionMs)} of ${whole}`;
+  // Off the chapter row and the book's own clock, never off the element's
+  // currentTime: that number restarts at zero on every swap, and during one it
+  // belongs to whichever of the two chapters the element happens to be holding.
+  const into = positionMs - current.chapter.start_ms;
+  const length = current.chapter.end_ms - current.chapter.start_ms;
+  chapterClock.textContent = `${chapterTime(into)} of ${chapterTime(length)}`;
+  // A book still being read grows a chapter at a time, so this is asked every
+  // draw rather than once when the manifest lands.
+  nextChapter.disabled = !manifest.chapters[current.idx + 1];
   // Which half of the button's drawing shows. A class rather than the glyph it
   // used to hold: how big the symbol is and where in the button it sits are no
   // longer whatever the phone's symbol font happened to think.
@@ -1153,6 +1183,32 @@ const nudge = (seconds) => seekGlobal(positionMs + seconds * 1000);
 back30.addEventListener("click", () => nudge(-SEEK_STEP_S));
 fwd30.addEventListener("click", () => nudge(SEEK_STEP_S));
 
+// Five seconds in, "previous" means the start of this chapter — what it means
+// on every music player anyone has used, and the more forgiving of the two
+// answers for a thumb that missed. On the first chapter it is the only answer
+// there is, which is why the check is for a previous chapter existing and not
+// for the index being zero.
+function toPreviousChapter() {
+  if (!current) return;
+  const previous = manifest.chapters[current.idx - 1];
+  const into = positionMs - current.chapter.start_ms;
+  seekGlobal(
+    into > CHAPTER_RESTART_MS || !previous
+      ? current.chapter.start_ms
+      : previous.start_ms,
+  );
+}
+
+function toNextChapter() {
+  const next = current && manifest.chapters[current.idx + 1];
+  if (next) seekGlobal(next.start_ms);
+}
+
+// The same two functions the lock screen and a Bluetooth remote call, so the
+// button on the page and the button on a pillow speaker cannot drift apart.
+prevChapter.addEventListener("click", toPreviousChapter);
+nextChapter.addEventListener("click", toNextChapter);
+
 // All eight of them, whether or not this phone has anything to press. Android
 // only surfaces the buttons it has a handler for, so an unregistered nexttrack
 // is a pillow speaker whose skip button does nothing at all, and finding that
@@ -1190,21 +1246,8 @@ function listenForRemoteControls() {
     if (!current || typeof d?.seekTime !== "number") return;
     seekGlobal(current.chapter.start_ms + d.seekTime * 1000);
   });
-  handle("previoustrack", () => {
-    if (!current) return;
-    // Five seconds in, "previous" means the start of this chapter — what it
-    // means on every music player anyone has used, and the more forgiving of
-    // the two answers for a thumb that missed.
-    const previous = manifest.chapters[current.idx - 1];
-    const into = positionMs - current.chapter.start_ms;
-    seekGlobal(
-      into > 5000 || !previous ? current.chapter.start_ms : previous.start_ms,
-    );
-  });
-  handle("nexttrack", () => {
-    const next = current && manifest.chapters[current.idx + 1];
-    if (next) seekGlobal(next.start_ms);
-  });
+  handle("previoustrack", toPreviousChapter);
+  handle("nexttrack", toNextChapter);
 }
 
 listenForRemoteControls();
