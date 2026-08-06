@@ -1,8 +1,9 @@
 # Design decisions
 
 This records the load-bearing decisions made while designing somnia, and why.
-The original scratch brief is in [original-brief.md](original-brief.md); this
-document is what actually got built and supersedes it where they differ.
+It describes what actually got built; the scratch brief it grew out of has been
+dropped, because a document nothing was checked against had started to read like
+one that things were.
 
 ## The core insight
 
