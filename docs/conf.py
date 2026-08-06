@@ -49,10 +49,16 @@ extensions = [
     "sphinx_design",
     # So we can write markdown files
     "myst_parser",
+    # Architecture diagrams, rendered from ```mermaid fences
+    "sphinxcontrib.mermaid",
 ]
 
 # So we can use the ::: syntax
 myst_enable_extensions = ["colon_fence"]
+
+# Plain ```mermaid fences become the directive, so the same source renders both
+# here and in GitHub's markdown viewer.
+myst_fence_as_directive = ["mermaid"]
 
 # If true, Sphinx will warn about all references where the target cannot
 # be found.
@@ -88,6 +94,10 @@ autosummary_ignore_module_all = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
+
+# The extension pins every diagram to 500px tall, which squashes anything with
+# more than a few rows until its labels are unreadable. Let the viewBox decide.
+mermaid_height = "auto"
 
 # Output graphviz directive produced images in a scalable format
 graphviz_output_format = "svg"

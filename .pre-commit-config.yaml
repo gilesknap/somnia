@@ -48,3 +48,12 @@ repos:
     rev: v8.28.0
     hooks:
       - id: gitleaks
+
+  # The install scripts are the one thing here a stranger runs before they have
+  # any of somnia, so a shell mistake in them lands on a machine we cannot see.
+  # shellcheck-py ships the binary in a wheel, so this needs no Go, no docker
+  # and no system package.
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck

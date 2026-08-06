@@ -7,8 +7,26 @@
 
 Bedtime audiobook reader with semantic seek: TTS-rendered public-domain books plus a conversational agent that finds your place again
 
-This is where you should write a short paragraph that describes what your module does,
-how it does it, and why people should use it.
+You fall asleep to an audiobook, wake at 2am somewhere unfamiliar, and have no
+idea how far back the last thing you remember was. somnia renders Project
+Gutenberg books to audio itself — which means it knows exactly which span of
+audio every sentence occupies — and puts a conversation in front of that index.
+Say *"go back to where the horse gets hurt"*, half asleep and in the dark, and
+the book goes there and plays from there. Nothing to press afterwards.
+
+It will not tell you anything from a part of the book you have not heard yet.
+That bound is measured from audio that really came out of the speaker, so being
+carried forward does not unlock the ending.
+
+```bash
+somnia add 271                      # render + index a Gutenberg book
+somnia find 271 "the horse is beaten in the street"
+somnia serve                        # the page that plays it, and the agent
+```
+
+The page is the player: an installable PWA served over your tailnet, with a
+sleep timer, lock-screen controls and a rewind sized by how long the sound was
+off. There is no login — reachability is the authentication.
 
 What            | Where
 :---:           | :---:
@@ -16,22 +34,6 @@ Source          | <https://github.com/gilesknap/somnia>
 Docker          | `docker run ghcr.io/gilesknap/somnia:latest`
 Documentation   | <https://gilesknap.github.io/somnia>
 Releases        | <https://github.com/gilesknap/somnia/releases>
-
-This is where you should put some images or code snippets that illustrate
-some relevant examples. If it is a library then you might put some
-introductory code here:
-
-```python
-from somnia import __version__
-
-print(f"Hello somnia {__version__}")
-```
-
-Or if it is a commandline tool then you might put some example commands here:
-
-```
-python -m somnia --version
-```
 
 <!-- README only content. Anything below this line won't be included in index.md -->
 
