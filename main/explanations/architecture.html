@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; somnia 0.6.dev9+g4871a95e9 documentation</title>
+    <title>Architecture &#8212; somnia 0.6.dev20+g9076a62fe documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=606ed6ed"></script>
+    <script src="../_static/documentation_options.js?v=8f4bb777"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -784,6 +784,7 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0002-switched-to-python-copier-template.html">2. Adopt python-copier-template for project structure</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0003-play-the-book-in-the-page.html">3. Play the book in the page, not in Audiobookshelf</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="design.html">Design decisions</a></li>
@@ -861,11 +862,16 @@ free, and a question at 2am can be answered with a timestamp rather than a
 guess.</p>
 <p>Three things run, and they share one sqlite file and one folder of audio:</p>
 <ul class="simple">
-<li><p><strong>the renderer</strong> (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span></code>) — turns a Gutenberg id into per-chapter m4a
-files plus a semantic index, streaming chapter by chapter</p></li>
+<li><p><strong>the renderer</strong> (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">worker</span></code>) — a supervisor that takes one book at a
+time off the queue and spawns a child to turn a Gutenberg id into per-chapter
+m4a files plus a semantic index, streaming chapter by chapter</p></li>
 <li><p><strong>the server</strong> (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>) — serves the page, the audio, and the agent</p></li>
 <li><p><strong>the page</strong> (the installed PWA) — plays the book and carries the conversation</p></li>
 </ul>
+<p>The renderer is a separate unit from the server on purpose, and
+<a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a> has the argument:
+restarting the page’s process, which is what a deploy is, must not kill a
+render, and Kokoro must never compete with a seek for two cores.</p>
 <pre  class="mermaid">
         flowchart TB
   subgraph Phone[&quot;Phone — installed PWA&quot;]
@@ -878,7 +884,8 @@ files plus a semantic index, streaming chapter by chapter</p></li>
     serve[&quot;somnia serve&quot;]
     player[&quot;Player&lt;br&gt;fast lane&quot;]
     agent[&quot;Conversation&lt;br&gt;agent lane&quot;]
-    ingest[&quot;somnia add&lt;br&gt;renderer&quot;]
+    worker[&quot;somnia worker&lt;br&gt;supervisor, no torch&quot;]
+    ingest[&quot;somnia worker --once&lt;br&gt;renderer, one book&quot;]
     db[(&quot;somnia.db&quot;)]
     files[/&quot;library dir&lt;br&gt;.m4a per chapter&quot;/]
   end
@@ -891,7 +898,9 @@ files plus a semantic index, streaming chapter by chapter</p></li>
   ts --&gt; serve
   serve --&gt; player &amp; agent
   agent --&gt; api
-  agent -.-&gt;|&quot;spawns&quot;| ingest
+  agent -.-&gt;|&quot;queues a book&quot;| db
+  worker --&gt;|&quot;claims one, spawns&quot;| ingest
+  worker --&gt; db
   gut --&gt;|&quot;book HTML&quot;| ingest
   player --&gt; db &amp; files
   agent --&gt; db
@@ -902,9 +911,13 @@ files plus a semantic index, streaming chapter by chapter</p></li>
 and, while a night is running, never read</strong> — it is somewhere else the book
 might be opened, not the record of anything, and a write that fails is logged
 and forgotten. The single exception is <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>, which reads it
-once by hand before the first night and never again. The renderer is
-dotted for a different reason: the agent starts it and does not wait for it,
-which is how a book gets added at 2am.</p>
+once by hand before the first night and never again. The agent’s edge is dotted
+for a different reason: asking for a book writes a queue row and nothing else,
+so the answer comes back at once and the render happens in another process
+entirely, minutes or hours later. That is how a book gets added at 2am without
+anything waiting for it — and how two books asked for a minute apart cannot
+both be rendering, because the worker claims one at a time and the claim is a
+single guarded UPDATE.</p>
 <p>There is no login anywhere. Reachability <em>is</em> the authentication: the server
 binds to localhost, and only <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach the port. The VPS
 joins the tailnet tagged <code class="docutils literal notranslate"><span class="pre">tag:vps</span></code> and the ACL never lists that tag as a
@@ -925,16 +938,25 @@ in chapter four, the way a listener means it.</p>
 </section>
 <section id="making-a-book">
 <h2>Making a book<a class="headerlink" href="#making-a-book" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span> <span class="pre">&lt;gid&gt;</span></code> streams: each chapter is written into the library folder and
-indexed the moment it finishes, so listening can start minutes after picking a
-book while the rest arrives overnight.</p>
+<p>Asking for a book writes a row into <code class="docutils literal notranslate"><span class="pre">queue</span></code> and returns. The worker claims the
+oldest waiting row — while nothing else holds a live lease — and spawns a child
+that streams it: each chapter is written into the library folder and indexed
+the moment it finishes, so listening can start minutes after picking a book
+while the rest arrives overnight.</p>
 <pre  class="mermaid">
         flowchart TD
+  Q[(&quot;queue row&lt;br&gt;claimed under a lease&quot;)] --&gt; A
   A[&quot;fetch_book — Gutenberg HTML edition&quot;] --&gt; B[&quot;parse_book_html&lt;br&gt;chapters of paragraphs&quot;]
-  B --&gt; C
+  B --&gt; T[&quot;books.chapters_total written&lt;br&gt;the only honest denominator&quot;]
+  T --&gt; R{&quot;chapters already on disk?&quot;}
+  R --&gt;|&quot;yes&quot;| S[&quot;resume at the first missing one,&lt;br&gt;carrying the global clock on&quot;]
+  R --&gt;|&quot;no&quot;| C
+  S --&gt; C
 
   subgraph loop[&quot;for each chapter&quot;]
-    C[&quot;sentences — pysbd&quot;] --&gt; D[&quot;engine.render — Kokoro-82M&lt;br&gt;one sentence at a time&quot;]
+    C[&quot;sentences — pysbd&quot;] --&gt; P{&quot;beat: still ours,&lt;br&gt;and not cancelled?&quot;}
+    P --&gt;|&quot;no&quot;| X[&quot;stop here — this chapter&lt;br&gt;leaves no trace at all&quot;]
+    P --&gt;|&quot;yes&quot;| D[&quot;engine.render — Kokoro-82M&lt;br&gt;one sentence at a time&quot;]
     D --&gt; E[&quot;ChapterAudio&lt;br&gt;+120ms between sentences&lt;br&gt;+500ms between paragraphs&lt;br&gt;clock counted in samples&quot;]
     E --&gt; F[&quot;ffmpeg → 'NNN - Title.m4a'&lt;br&gt;AAC 64k, faststart&quot;]
     E --&gt; G[&quot;TimedSentence[]&lt;br&gt;exact global start and end&quot;]
@@ -949,7 +971,12 @@ book while the rest arrives overnight.</p>
   L --&gt; N[&quot;listenable now — the page re-asks&lt;br&gt;for the manifest while status is 'rendering'&quot;]
     </pre><p>Rendering per <strong>sentence</strong> rather than per chunk or per paragraph is what makes
 the timestamps exact by construction, and it is why the engine is swappable:
-anything that can render one sentence satisfies the <code class="docutils literal notranslate"><span class="pre">TTSEngine</span></code> protocol.</p>
+anything that can render one sentence satisfies the <code class="docutils literal notranslate"><span class="pre">TTSEngine</span></code> protocol. It is
+also where a stop is allowed to happen, and nowhere else: a chapter is encoded
+on the last line of rendering it, so a render stopped between sentences leaves
+no m4a, no chunks and no chapters row for the chapter it was in — which is what
+makes the window between indexing a chapter and writing its row unreachable,
+and therefore what makes cancelling and resuming safe at all.</p>
 <p>Never re-render a book with a different engine or voice. Durations change, and
 every timestamp — every index entry, every chapter mark, and the position they
 went to sleep at — is invalidated.</p>
@@ -970,11 +997,24 @@ and their chapter timelines, the indexed text windows, and the vectors.</p>
     text title
     text status &quot;pending, rendering, done&quot;
     int total_ms &quot;grows while rendering&quot;
+    int chapters_total &quot;how many it HAS; 0 = unknown&quot;
     int heard_to_ms &quot;high-water mark&quot;
     int position_ms &quot;nullable: never started&quot;
     int position_seq &quot;agent moves only&quot;
     text position_at &quot;last report taken&quot;
     text abs_item_id
+  }
+  queue {
+    int id PK
+    int gid &quot;one live row per book&quot;
+    text state &quot;queued, rendering, done, cancelled, failed&quot;
+    int cancel &quot;asked to stop&quot;
+    text lease &quot;uuid4 of the renderer, never a pid&quot;
+    int pid &quot;which process claimed it&quot;
+    text beat_at &quot;liveness, read at read time&quot;
+    text chapter_at &quot;a second clock: long chapter vs dead process&quot;
+    int attempts &quot;bounded at three&quot;
+    text error &quot;one plain sentence&quot;
   }
   chapters {
     int book_gid PK, FK
@@ -1000,11 +1040,20 @@ and their chapter timelines, the indexed text windows, and the vectors.</p>
   books ||--o{ chapters : &quot;timeline&quot;
   books ||--o{ chunks : &quot;index&quot;
   chunks ||--|| vec_chunks : &quot;rowid&quot;
-    </pre><p>A book is a few thousand windows, so brute-force exact nearest-neighbour search
+  books ||--o{ queue : &quot;every time it was asked for&quot;
+    </pre><p><code class="docutils literal notranslate"><span class="pre">queue</span></code> has no foreign key to <code class="docutils literal notranslate"><span class="pre">books</span></code>, and that is not an oversight: a book is
+asked for before it exists, and its <code class="docutils literal notranslate"><span class="pre">books</span></code> row is not written until the parse
+finishes. A partial unique index on <code class="docutils literal notranslate"><span class="pre">gid</span></code> over the waiting and rendering states
+is what keeps one live job per book — enforced by the database rather than by a
+check that two presses a millisecond apart would both pass.</p>
+<p>A book is a few thousand windows, so brute-force exact nearest-neighbour search
 is milliseconds. No database server, no shared infrastructure. The file is in
-WAL mode because three writers exist — an agent turn, the player, and a render
-running in another process entirely — and a reader must never block on any of
-them.</p>
+WAL mode because several writers exist — an agent turn, the player, the worker,
+and a render running in another process entirely — and a reader must never
+block on any of them. That the render is in another process is also why the
+queue lives in this file rather than in a lock file or a socket: sqlite is the
+one thing every process in somnia already shares, so a render’s progress and
+the request to stop it need no channel of their own.</p>
 <p><code class="docutils literal notranslate"><span class="pre">chunks</span></code> earns a second job it was not designed for: because its rows are
 overlapping windows taken every second sentence, a window start is always a
 sentence start. That is how the page’s long rewind lands on the beginning of a
@@ -1159,7 +1208,13 @@ fling them past the spoiler guard into the ending.</p>
 <td><p>Store chunk embeddings; search one book, optionally bounded</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ingest</span></code></p></td>
-<td><p>The streaming pipeline that joins all of the above</p></td>
+<td><p>The streaming pipeline that joins all of the above — resumable, stoppable</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">queue</span></code></p></td>
+<td><p>The ingest queue as pure functions: submit, claim, beat, stop, reconcile</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">worker</span></code></p></td>
+<td><p>The supervisor and the one-book child that holds the lease</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">db</span></code></p></td>
 <td><p>The schema, the migrations, WAL, and loading sqlite-vec</p></td>

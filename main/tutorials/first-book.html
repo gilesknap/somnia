@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Add a book and ask it something &#8212; somnia 0.6.dev9+g4871a95e9 documentation</title>
+    <title>Add a book and ask it something &#8212; somnia 0.6.dev20+g9076a62fe documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=606ed6ed"></script>
+    <script src="../_static/documentation_options.js?v=8f4bb777"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -499,21 +499,30 @@ the <code class="docutils literal notranslate"><span class="pre">gid</span></cod
 <span class="go">   271  Black Beauty — Sewell, Anna</span>
 </pre></div>
 </div>
+<p>The page can do this too, once you have one: <em>books</em> in the corner searches the
+same local catalog and queues what you press, and so does asking out loud. This
+is the same act by three routes, and all three end up in the same queue.</p>
 </section>
 <section id="render-it">
 <h2>Render it<a class="headerlink" href="#render-it" title="Link to this heading">#</a></h2>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>add<span class="w"> </span><span class="m">271</span>
+<span class="go">Black Beauty is next to be rendered.</span>
 <span class="go">2026-08-06 21:04:11 INFO rendering chapter 1/49: 01. My Early Home</span>
 <span class="go">2026-08-06 21:09:38 INFO rendering chapter 2/49: 02. The Hunt</span>
 <span class="go">...</span>
 </pre></div>
 </div>
-<p>This takes hours — Kokoro runs at about 1.15× realtime, so a six-hour book is
-roughly a five-hour render — but <strong>you do not wait for it</strong>. Each chapter is
-written to the library folder and indexed the moment it finishes, so chapter
-one is listenable within a few minutes and the rest arrives while you sleep.</p>
-<p>Leave it running in a <code class="docutils literal notranslate"><span class="pre">tmux</span></code> session, or let the agent start it for you later
-(<code class="docutils literal notranslate"><span class="pre">add_book</span></code> spawns exactly this command in the background).</p>
+<p>This takes hours — Kokoro runs at about 1.15× realtime, which is the
+conservative end of <a class="reference internal" href="../explanations/design.html"><span class="std std-doc">the benchmark</span></a>, so a six-hour
+book is roughly a five-hour render — but <strong>you do not wait for it</strong>. Each
+chapter is written to the library folder and indexed the moment it finishes, so
+chapter one is listenable within a few minutes and the rest arrives while you
+sleep. The page will show you how far it has got: <em>books</em>, in the corner.</p>
+<p>Leave it running in a <code class="docutils literal notranslate"><span class="pre">tmux</span></code> session. Better, run the worker as a unit and
+never type this again: books are rendered one at a time from a queue, so
+asking for one from a terminal, or by voice later, both come to the same place.
+<a class="reference internal" href="../how-to/keep-renders-running.html"><span class="std std-doc">Keep a long render running</span></a> has the unit,
+and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">queue</span></code> shows you the line.</p>
 <p>One rule: never re-render a book with a different voice. Every timestamp in the
 database — chapter marks, index entries, the place you fell asleep — is tied to
 the audio that was actually produced.</p>

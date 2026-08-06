@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.6.dev9+g4871a95e9 documentation</title>
+    <title>HTTP surface &#8212; somnia 0.6.dev20+g9076a62fe documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=606ed6ed"></script>
+    <script src="../_static/documentation_options.js?v=8f4bb777"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -493,9 +493,9 @@
 <p>What <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code> answers. The page is the only client this was written for,
 but nothing about it is private to the page.</p>
 <p><strong>There is no authentication on any of it.</strong> Anything that can reach the port
-can list your books, read the agent, spend your API credit and move your
-position. Reachability is the authentication, which is why the server binds to
-localhost and the only path in is <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code>.</p>
+can list your books, read the agent, spend your API credit, move your position,
+and start or stop hours of rendering. Reachability is the authentication, which
+is why the server binds to localhost and the only path in is <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code>.</p>
 <p>Everything the page fetches lives under <code class="docutils literal notranslate"><span class="pre">/api/</span></code>, and that prefix does work: the
 service worker knows never to cache it — the Cache API throws when asked to
 store the 206 a seek produces — and it keeps these routes ahead of the static
@@ -532,6 +532,14 @@ would tell you.</p>
 <td><p>GET</p></td>
 <td><p>Where the sentence being spoken at <code class="docutils literal notranslate"><span class="pre">ms</span></code> began</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Books to add, from the local Gutenberg catalog</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>What is rendering, what is waiting, what went wrong</p></td>
+</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>The agent’s reply, and a move if it made one</p></td>
@@ -543,6 +551,14 @@ would tell you.</p>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>What became of a report — always 200</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Ask for a book — always 200</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Stop a render, or take a book out of the line</p></td>
 </tr>
 </tbody>
 </table>
@@ -573,7 +589,7 @@ on the play button, and two fetches at 2am on a tailnet is two chances to be
 left with a player showing nothing.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">  </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">22320000</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">22320000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapters_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">&quot;chapters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span><span class="nt">&quot;idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;01. My Early Home&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;start_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
@@ -587,6 +603,12 @@ growing from a render that died. <code class="docutils literal notranslate"><spa
 spoiler guard uses, which is not <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>: the agent can move someone
 backwards, and doing so must not shrink what may be searched. Chapter <code class="docutils literal notranslate"><span class="pre">url</span></code> is
 relative, because the app may be mounted under a path.</p>
+<p><code class="docutils literal notranslate"><span class="pre">chapters_total</span></code> is how many chapters the book <strong>has</strong>, against <code class="docutils literal notranslate"><span class="pre">chapters</span></code>,
+which is how many can be played. While a render is going those differ, and the
+difference is the only way to tell running out of audio three chapters into
+thirty-nine — which is not the end of the book — from reaching the end of one.
+It is <code class="docutils literal notranslate"><span class="pre">0</span></code> for every book rendered before the column existed, and <code class="docutils literal notranslate"><span class="pre">0</span></code> means
+nobody wrote it down, so say nothing rather than “3 of 0”.</p>
 <p>404 for a book that is not there.</p>
 </section>
 <section id="get-api-audio-gid-idx">
@@ -610,6 +632,65 @@ cannot reproduce on a development machine.</p>
 pauses, never when they press play: a resume has to be instant, and a phone
 that has been face down for an hour is the least likely thing on the tailnet to
 answer quickly.</p>
+</section>
+<section id="get-api-catalog">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code><a class="headerlink" href="#get-api-catalog" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;black beauty&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;entries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;have&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>An FTS5 search of the local catalog — the copy <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code> writes —
+so there is no round trip to Gutenberg and no wait. <code class="docutils literal notranslate"><span class="pre">language</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">en</span></code>.
+Punctuation is the caller’s own: terms are quoted before they reach FTS5, so an
+apostrophe is a search rather than a syntax error.</p>
+<p>At most <strong>eight</strong> entries. Eight is what fits on a phone above a raised
+keyboard, and a list that has to be scrolled to be read is a second screen
+wearing a hat; someone who cannot see the book they meant should type more of
+its name.</p>
+<p><code class="docutils literal notranslate"><span class="pre">have</span></code> is what somnia already thinks of that gid — <code class="docutils literal notranslate"><span class="pre">done</span></code>, <code class="docutils literal notranslate"><span class="pre">rendering</span></code> or
+<code class="docutils literal notranslate"><span class="pre">pending</span></code> from the book itself, <code class="docutils literal notranslate"><span class="pre">queued</span></code> or <code class="docutils literal notranslate"><span class="pre">rendering</span></code> from a live queue row —
+and <code class="docutils literal notranslate"><span class="pre">null</span></code> if it has never heard of it. A live queue row wins, because a
+<code class="docutils literal notranslate"><span class="pre">pending</span></code> book that has just been asked for again is coming. It travels with the
+row so a book that is already on its way is <em>marked</em> rather than offered and
+then refused.</p>
+</section>
+<section id="get-api-queue">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code><a class="headerlink" href="#get-api-queue" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;items&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rendering&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;place&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapters_done&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;chapters_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rendered_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1840000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;stopping&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;responding&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;submitted_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-08-05 22:14:03&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-08-05 22:14:11&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Everything worth showing, in one request: what is rendering, then what is
+waiting in the order it will be taken, then what ended in the last 24 hours.
+After a day a failure is history rather than news, and history is in
+<code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">--user</span> <span class="pre">-u</span> <span class="pre">somnia-worker</span></code> — which is why nothing here has to be
+dismissed.</p>
+<p><code class="docutils literal notranslate"><span class="pre">state</span></code> is <code class="docutils literal notranslate"><span class="pre">queued</span></code>, <code class="docutils literal notranslate"><span class="pre">rendering</span></code>, <code class="docutils literal notranslate"><span class="pre">done</span></code>, <code class="docutils literal notranslate"><span class="pre">cancelled</span></code> or <code class="docutils literal notranslate"><span class="pre">failed</span></code>. That is the
+queue’s own vocabulary and is <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">books.status</span></code>, which is still exactly
+<code class="docutils literal notranslate"><span class="pre">pending</span></code>, <code class="docutils literal notranslate"><span class="pre">rendering</span></code>, <code class="docutils literal notranslate"><span class="pre">done</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">place</span></code> is the rank among the books that are waiting, and <code class="docutils literal notranslate"><span class="pre">0</span></code> for anything that
+is not waiting — the one being rendered has left the line rather than being at
+the head of it. <code class="docutils literal notranslate"><span class="pre">chapters_done</span></code> is counted from chapters that really exist,
+because a chapters row is written only once its audio does. <code class="docutils literal notranslate"><span class="pre">chapters_total</span></code> is
+<code class="docutils literal notranslate"><span class="pre">0</span></code> until the parse finishes, and <code class="docutils literal notranslate"><span class="pre">0</span></code> means unknown. <code class="docutils literal notranslate"><span class="pre">stopping</span></code> is a render that
+has been asked to stop and will, at the end of the sentence it is reading.</p>
+<p><code class="docutils literal notranslate"><span class="pre">responding</span></code> is worked out from the heartbeat when you ask, and is stored
+nowhere: it is <code class="docutils literal notranslate"><span class="pre">false</span></code> for a render that has gone quiet for five minutes, which
+is the only way a crashed renderer can be told from a slow one. It is honest
+even when the worker unit has been stopped and there is nobody left to write
+anything.</p>
 </section>
 <section id="post-api-ask">
 <h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code><a class="headerlink" href="#post-api-ask" title="Link to this heading">#</a></h2>
@@ -661,6 +742,55 @@ be unreadable to the <code class="docutils literal notranslate"><span class="pre
 rather than sent: a report about a book that is gone has no position to talk
 about, and <code class="docutils literal notranslate"><span class="pre">&quot;position_ms&quot;:</span> <span class="pre">null</span></code> would read as one.</p>
 <p>400 is reserved for a body with no <code class="docutils literal notranslate"><span class="pre">gid</span></code> or no <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>.</p>
+</section>
+<section id="post-api-queue">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue</span></code><a class="headerlink" href="#post-api-queue" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Always 200</strong>, in one of two shapes:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty is next to be rendered.&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty is already here, all of it.&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">said</span></code> is a sentence to show somebody — it is the <em>same string</em>
+<code class="docutils literal notranslate"><span class="pre">Library.add_book</span></code> gives the agent, out of the same function, so the page and
+the voice cannot disagree about what just happened. A refusal is an answer, not
+an error, for the reason <code class="docutils literal notranslate"><span class="pre">/api/position</span></code> gives above: a 409 would put a red line
+in the console at 2am for something working exactly as designed and invite a
+throw in the fetch wrapper that skipped the one line that mattered.</p>
+<p>Two things are refused: a book with a live queue row, which is already coming,
+and a book somnia has all of. A render that died, was stopped, or was killed by
+a deploy is <strong>accepted</strong> — that is the retry that used to be impossible.</p>
+<p>Nothing is fetched here. Whether Gutenberg has this book, and has it as HTML,
+costs a round trip and a parse, and a control that thinks for three seconds
+reads as broken — so an unknown gid is taken and fails minutes later in the
+worker with a sentence saying which of the two it was.</p>
+<p>400 is reserved for a body with no positive integer <code class="docutils literal notranslate"><span class="pre">gid</span></code>. Nothing starts a
+render in <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>: this writes one row, and the <code class="docutils literal notranslate"><span class="pre">somnia-worker</span></code> unit
+drains it one book at a time — see
+<a class="reference internal" href="../explanations/decisions/0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a>.</p>
+</section>
+<section id="post-api-queue-id-stop">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue/{id}/stop</span></code><a class="headerlink" href="#post-api-queue-id-stop" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cancelled&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty has been taken out of the queue.&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Keyed on the queue row and not on the book: a gid owns several rows over its
+life — every attempt that failed or was stopped stays as the record of itself —
+so stopping by gid could reach into last week’s.</p>
+<p>A job that was only waiting is <code class="docutils literal notranslate"><span class="pre">cancelled</span></code> by the time this answers. A job that
+is rendering is still <code class="docutils literal notranslate"><span class="pre">rendering</span></code>: nothing reaches into that process, it only
+raises a flag the render notices between sentences, so it stops at the end of
+the one it is reading, up to about twenty seconds later. Every chapter already
+finished stays playable.</p>
+<p>POST rather than DELETE, and the row does not go away — it becomes the record of
+a render somebody stopped.</p>
+<p>200 with <code class="docutils literal notranslate"><span class="pre">&quot;ok&quot;:</span> <span class="pre">false</span></code> for a job that has already ended, which is a button
+pressed a second too late. <strong>404</strong> only for a job that does not exist, which is a
+page holding an id from a database that has moved on; its body carries <code class="docutils literal notranslate"><span class="pre">said</span></code>
+too.</p>
 </section>
 </section>
 
@@ -715,9 +845,13 @@ about, and <code class="docutils literal notranslate"><span class="pre">&quot;po
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-book-gid"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-audio-gid-idx"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-sentence-gid-ms"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-catalog"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-queue"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-ask"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-forget"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/forget</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-position"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/position</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-queue"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-queue-id-stop"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue/{id}/stop</span></code></a></li>
 </ul>
   </nav></div>
 

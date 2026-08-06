@@ -4,9 +4,9 @@ What `somnia serve` answers. The page is the only client this was written for,
 but nothing about it is private to the page.
 
 **There is no authentication on any of it.** Anything that can reach the port
-can list your books, read the agent, spend your API credit and move your
-position. Reachability is the authentication, which is why the server binds to
-localhost and the only path in is `tailscale serve`.
+can list your books, read the agent, spend your API credit, move your position,
+and start or stop hours of rendering. Reachability is the authentication, which
+is why the server binds to localhost and the only path in is `tailscale serve`.
 
 Everything the page fetches lives under `/api/`, and that prefix does work: the
 service worker knows never to cache it — the Cache API throws when asked to
@@ -25,9 +25,13 @@ would tell you.
 | `/api/book/{gid}` | GET | One book, whole — or 404 |
 | `/api/audio/{gid}/{idx}` | GET | The chapter's audio — or 404 |
 | `/api/sentence/{gid}/{ms}` | GET | Where the sentence being spoken at `ms` began |
+| `/api/catalog?q=…` | GET | Books to add, from the local Gutenberg catalog |
+| `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
 | `/api/ask` | POST | The agent's reply, and a move if it made one |
 | `/api/forget` | POST | Drops one conversation |
 | `/api/position` | POST | What became of a report — always 200 |
+| `/api/queue` | POST | Ask for a book — always 200 |
+| `/api/queue/{id}/stop` | POST | Stop a render, or take a book out of the line |
 
 ## `GET /api/books`
 
@@ -58,7 +62,7 @@ left with a player showing nothing.
 ```json
 {
   "gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
-  "status": "done", "total_ms": 22320000,
+  "status": "done", "total_ms": 22320000, "chapters_total": 49,
   "position_ms": 11560000, "seq": 3, "heard_to_ms": 12040000,
   "chapters": [
     {"idx": 0, "title": "01. My Early Home", "start_ms": 0,
@@ -72,6 +76,13 @@ growing from a render that died. `heard_to_ms` is the high-water mark the
 spoiler guard uses, which is not `position_ms`: the agent can move someone
 backwards, and doing so must not shrink what may be searched. Chapter `url` is
 relative, because the app may be mounted under a path.
+
+`chapters_total` is how many chapters the book **has**, against `chapters`,
+which is how many can be played. While a render is going those differ, and the
+difference is the only way to tell running out of audio three chapters into
+thirty-nine — which is not the end of the book — from reaching the end of one.
+It is `0` for every book rendered before the column existed, and `0` means
+nobody wrote it down, so say nothing rather than "3 of 0".
 
 404 for a book that is not there.
 
@@ -99,6 +110,72 @@ Where the sentence being spoken at `ms` began. The page asks when someone
 pauses, never when they press play: a resume has to be instant, and a phone
 that has been face down for an hour is the least likely thing on the tailnet to
 answer quickly.
+
+## `GET /api/catalog`
+
+```json
+{
+  "query": "black beauty",
+  "entries": [
+    {"gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
+     "have": "done"}
+  ]
+}
+```
+
+An FTS5 search of the local catalog — the copy `somnia catalog-update` writes —
+so there is no round trip to Gutenberg and no wait. `language` defaults to `en`.
+Punctuation is the caller's own: terms are quoted before they reach FTS5, so an
+apostrophe is a search rather than a syntax error.
+
+At most **eight** entries. Eight is what fits on a phone above a raised
+keyboard, and a list that has to be scrolled to be read is a second screen
+wearing a hat; someone who cannot see the book they meant should type more of
+its name.
+
+`have` is what somnia already thinks of that gid — `done`, `rendering` or
+`pending` from the book itself, `queued` or `rendering` from a live queue row —
+and `null` if it has never heard of it. A live queue row wins, because a
+`pending` book that has just been asked for again is coming. It travels with the
+row so a book that is already on its way is *marked* rather than offered and
+then refused.
+
+## `GET /api/queue`
+
+```json
+{
+  "items": [
+    {"id": 7, "gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
+     "state": "rendering", "place": 0, "chapters_done": 4,
+     "chapters_total": 49, "rendered_ms": 1840000, "stopping": false,
+     "responding": true, "error": "",
+     "submitted_at": "2026-08-05 22:14:03", "started_at": "2026-08-05 22:14:11"}
+  ]
+}
+```
+
+Everything worth showing, in one request: what is rendering, then what is
+waiting in the order it will be taken, then what ended in the last 24 hours.
+After a day a failure is history rather than news, and history is in
+`journalctl --user -u somnia-worker` — which is why nothing here has to be
+dismissed.
+
+`state` is `queued`, `rendering`, `done`, `cancelled` or `failed`. That is the
+queue's own vocabulary and is **not** `books.status`, which is still exactly
+`pending`, `rendering`, `done`.
+
+`place` is the rank among the books that are waiting, and `0` for anything that
+is not waiting — the one being rendered has left the line rather than being at
+the head of it. `chapters_done` is counted from chapters that really exist,
+because a chapters row is written only once its audio does. `chapters_total` is
+`0` until the parse finishes, and `0` means unknown. `stopping` is a render that
+has been asked to stop and will, at the end of the sentence it is reading.
+
+`responding` is worked out from the heartbeat when you ask, and is stored
+nowhere: it is `false` for a render that has gone quiet for five minutes, which
+is the only way a crashed renderer can be told from a slow one. It is honest
+even when the worker unit has been stopped and there is nobody left to write
+anything.
 
 ## `POST /api/ask`
 
@@ -161,3 +238,62 @@ rather than sent: a report about a book that is gone has no position to talk
 about, and `"position_ms": null` would read as one.
 
 400 is reserved for a body with no `gid` or no `position_ms`.
+
+## `POST /api/queue`
+
+```json
+{"gid": 271}
+```
+
+**Always 200**, in one of two shapes:
+
+```json
+{"ok": true,  "id": 7, "said": "Black Beauty is next to be rendered."}
+{"ok": false, "id": 0, "said": "Black Beauty is already here, all of it."}
+```
+
+`said` is a sentence to show somebody — it is the *same string*
+`Library.add_book` gives the agent, out of the same function, so the page and
+the voice cannot disagree about what just happened. A refusal is an answer, not
+an error, for the reason `/api/position` gives above: a 409 would put a red line
+in the console at 2am for something working exactly as designed and invite a
+throw in the fetch wrapper that skipped the one line that mattered.
+
+Two things are refused: a book with a live queue row, which is already coming,
+and a book somnia has all of. A render that died, was stopped, or was killed by
+a deploy is **accepted** — that is the retry that used to be impossible.
+
+Nothing is fetched here. Whether Gutenberg has this book, and has it as HTML,
+costs a round trip and a parse, and a control that thinks for three seconds
+reads as broken — so an unknown gid is taken and fails minutes later in the
+worker with a sentence saying which of the two it was.
+
+400 is reserved for a body with no positive integer `gid`. Nothing starts a
+render in `somnia serve`: this writes one row, and the `somnia-worker` unit
+drains it one book at a time — see
+[ADR 5](../explanations/decisions/0005-render-one-book-at-a-time.md).
+
+## `POST /api/queue/{id}/stop`
+
+```json
+{"ok": true, "state": "cancelled",
+ "said": "Black Beauty has been taken out of the queue."}
+```
+
+Keyed on the queue row and not on the book: a gid owns several rows over its
+life — every attempt that failed or was stopped stays as the record of itself —
+so stopping by gid could reach into last week's.
+
+A job that was only waiting is `cancelled` by the time this answers. A job that
+is rendering is still `rendering`: nothing reaches into that process, it only
+raises a flag the render notices between sentences, so it stops at the end of
+the one it is reading, up to about twenty seconds later. Every chapter already
+finished stays playable.
+
+POST rather than DELETE, and the row does not go away — it becomes the record of
+a render somebody stopped.
+
+200 with `"ok": false` for a job that has already ended, which is a button
+pressed a second too late. **404** only for a job that does not exist, which is a
+page holding an id from a database that has moved on; its body carries `said`
+too.

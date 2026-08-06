@@ -17,22 +17,32 @@ $ somnia search "black beauty"
    271  Black Beauty — Sewell, Anna
 ```
 
+The page can do this too, once you have one: *books* in the corner searches the
+same local catalog and queues what you press, and so does asking out loud. This
+is the same act by three routes, and all three end up in the same queue.
+
 ## Render it
 
 ```console
 $ somnia add 271
+Black Beauty is next to be rendered.
 2026-08-06 21:04:11 INFO rendering chapter 1/49: 01. My Early Home
 2026-08-06 21:09:38 INFO rendering chapter 2/49: 02. The Hunt
 ...
 ```
 
-This takes hours — Kokoro runs at about 1.15× realtime, so a six-hour book is
-roughly a five-hour render — but **you do not wait for it**. Each chapter is
-written to the library folder and indexed the moment it finishes, so chapter
-one is listenable within a few minutes and the rest arrives while you sleep.
+This takes hours — Kokoro runs at about 1.15× realtime, which is the
+conservative end of [the benchmark](../explanations/design.md), so a six-hour
+book is roughly a five-hour render — but **you do not wait for it**. Each
+chapter is written to the library folder and indexed the moment it finishes, so
+chapter one is listenable within a few minutes and the rest arrives while you
+sleep. The page will show you how far it has got: *books*, in the corner.
 
-Leave it running in a `tmux` session, or let the agent start it for you later
-(`add_book` spawns exactly this command in the background).
+Leave it running in a `tmux` session. Better, run the worker as a unit and
+never type this again: books are rendered one at a time from a queue, so
+asking for one from a terminal, or by voice later, both come to the same place.
+[Keep a long render running](../how-to/keep-renders-running.md) has the unit,
+and `somnia queue` shows you the line.
 
 One rule: never re-render a book with a different voice. Every timestamp in the
 database — chapter marks, index entries, the place you fell asleep — is tied to

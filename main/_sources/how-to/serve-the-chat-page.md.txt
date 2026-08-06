@@ -55,9 +55,9 @@ nothing — so if you are unsure whether it worked, run it again.
 and mostly held up; set `SOMNIA_AGENT_MODEL=claude-haiku-4-5` to go back to it.
 
 **Keep `--host` as localhost.** The page has no login of any kind: anyone who
-can reach it can drive the agent, spend your API credit and listen to your
-books. Its only protection is that nothing but `tailscale serve` can reach the
-port.
+can reach it can drive the agent, spend your API credit, listen to your books,
+and start or stop hours of rendering. Its only protection is that nothing but
+`tailscale serve` can reach the port.
 
 ## Publish it on the tailnet
 
@@ -170,9 +170,11 @@ all of them.
 
 The page opens the book you were last listening to, at the place you left it,
 and does not start it — opening the app at 2am to ask a question is not the
-same as asking for the book. Press play when you want it. There is no library
-to browse: another book is something you ask for, the same way you ask for a
-passage.
+same as asking for the book. Press play when you want it. There is still no
+library to browse: *another book* is something you ask for, the same way you
+ask for a passage. The *books* control in the corner adds books and watches
+them being rendered; it never opens one, and nothing on it changes what is
+playing.
 
 On the page there are three buttons: back thirty seconds, play/pause, forward
 thirty seconds. Most nights you will use none of them, because the screen is
@@ -212,10 +214,18 @@ will play those three, say *waiting for the next chapter to be read*, and go
 on when chapter four arrives. A book with nothing rendered at all says *the
 first chapter is still being read*, and the player appears when that chapter
 lands — already playing if the agent took you to that book, waiting to be
-pressed if you only opened the app. A book
-whose render is not running and has no audio says *nothing to play yet* and
-shows no player: that is a render that died, and it needs `somnia add` again,
-not waiting for.
+pressed if you only opened the app. A book whose render is not running and has
+no audio at all says *nothing yet — press books to add one*, which is also what
+a somnia with no books in it says.
+
+When a render stopped part way — you stopped it, or a reboot did — the audio
+runs out mid-book, and the page says *the rest of this book hasn't been read
+yet* rather than *that is the end of the book*. It knows the difference because
+the parse writes down how many chapters the book has, so a book three chapters
+into thirty-nine is tellable from one that is over. Nothing ends: the sleep
+timer keeps counting and the page keeps wanting the sound. Queue the book
+again — from *books*, or by asking — and it picks up at the chapter after the
+last finished one.
 
 When the tailnet goes — wifi power save and a tailscale re-key both do it for a
 few seconds — the page says *the book stopped arriving* and keeps trying,
@@ -225,6 +235,48 @@ server is unreachable says *couldn't reach the book — trying again*, and does.
 It stops the moment you pause — nothing reloads chapters under a book somebody
 has put down — and waking the phone, or the wifi coming back, makes it try
 again at once, so there is nothing to press.
+
+## Adding a book from the page
+
+*books*, in the corner beside *start over*, opens a panel over the page. The
+book keeps playing underneath it, nothing on it opens a book or moves the one
+you are listening to, and *close* puts it away having changed nothing at all.
+
+What is at the top is what is happening: the book being rendered, saying which
+chapter it is on and how much of it can be played now — *chapter 4 of 39 ·
+1h12m read so far* — and under it whatever is waiting, saying how far down the
+line it is. One book renders at a time, always, so a queue of three is three
+books' worth of waiting and not three renders fighting over two cores.
+
+A render that has not been heard from for five minutes says *not responding*
+instead of pretending. That is a real answer: it means the worker died, or the
+box did, or nobody ever started `somnia-worker`. Check
+`journalctl --user -u somnia-worker`.
+
+Under those are the renders that ended in the last day, and a failed one says
+why in a sentence — *Gutenberg has book 4321 but no HTML edition, so somnia
+cannot read it*. They go away by themselves after a day. There is nothing to
+dismiss and no badge or count anywhere on the panel: a book finishing at 3am is
+not news to somebody asleep.
+
+To add one, type part of a title or an author and press *find*. That searches
+the copy of the Gutenberg catalog on this machine, so it answers in the time a
+tap takes and works with the internet down — run `somnia catalog-update` if a
+book you know exists is not in it. A book somnia already has, or already has
+coming, is marked and offers no button; a render that died is marked *part
+rendered* and offers *finish this one*, which picks it up at the chapter after
+the last finished one. One press queues it, and the sentence underneath is the
+server's own — the same sentence the agent says when you ask it out loud.
+
+*stop reading this* takes two presses, and the second one only asks. The render
+stops at the end of the sentence it is reading, about twenty seconds later,
+which is what keeps every chapter that was finished playable and stops the
+index filling up with half a chapter. The row stays as the record of a render
+somebody stopped.
+
+The panel asks the server how things are going every five seconds while it is
+open, and stops the moment it is closed or the phone goes in a pocket. Nothing
+about the queue is polled otherwise.
 
 ## Check screen-off playback before you trust a night to it
 

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Command line &#8212; somnia 0.6.dev9+g4871a95e9 documentation</title>
+    <title>Command line &#8212; somnia 0.6.dev20+g9076a62fe documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=606ed6ed"></script>
+    <script src="../_static/documentation_options.js?v=8f4bb777"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -490,7 +490,7 @@
                   
   <section id="command-line">
 <h1>Command line<a class="headerlink" href="#command-line" title="Link to this heading">#</a></h1>
-<p>Nine commands. <code class="docutils literal notranslate"><span class="pre">somnia</span></code> on its own prints the help and stops, and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">--version</span></code> prints the version and nothing else.</p>
+<p>Eleven commands. <code class="docutils literal notranslate"><span class="pre">somnia</span></code> on its own prints the help and stops, and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">--version</span></code> prints the version and nothing else.</p>
 <p>Results go to <strong>stdout</strong> and progress to <strong>stderr</strong>, so <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">search</span> <span class="pre">bee</span> <span class="pre">&gt;</span> <span class="pre">books.txt</span></code> captures the books and leaves the logging in the terminal. Every
 command loads the settings, creates <code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR</span></code> if it is not there, opens
 <code class="docutils literal notranslate"><span class="pre">somnia.db</span></code> and runs the migrations before it does anything else — including the
@@ -513,7 +513,15 @@ therefore leaves a database behind whatever else happens.</p>
 <td><p>a catalog</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#cli-add"><code class="docutils literal notranslate"><span class="pre">add</span></code></a></p></td>
-<td><p>Render and index a book</p></td>
+<td><p>Ask for a book and render it here and now</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[ml]</span></code>, ffmpeg, espeak-ng</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cli-queue"><code class="docutils literal notranslate"><span class="pre">queue</span></code></a></p></td>
+<td><p>Ask for a book, see what is rendering, stop one</p></td>
+<td><p>nothing</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cli-worker"><code class="docutils literal notranslate"><span class="pre">worker</span></code></a></p></td>
+<td><p>Empty the queue, one book at a time</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[ml]</span></code>, ffmpeg, espeak-ng</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#cli-find"><code class="docutils literal notranslate"><span class="pre">find</span></code></a></p></td>
@@ -583,16 +591,37 @@ languages at once.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>add<span class="w"> </span>GID<span class="w"> </span><span class="o">[</span>--voice<span class="w"> </span>af_heart<span class="o">]</span>
 </pre></div>
 </div>
-<p>Fetches the book from Gutenberg, renders every chapter with Kokoro, and indexes
-each one the moment it is finished. This is the command that takes hours, and
-the only one that needs the <code class="docutils literal notranslate"><span class="pre">[ml]</span></code> extra, ffmpeg and espeak-ng.</p>
+<p>Puts the book in the <a class="reference internal" href="#cli-queue">queue</a> and then renders the head of the line
+in this process: fetches from Gutenberg, renders every chapter with Kokoro, and
+indexes each one the moment it is finished. This is the command that takes
+hours, and one of the two that need the <code class="docutils literal notranslate"><span class="pre">[ml]</span></code> extra, ffmpeg and espeak-ng.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>add<span class="w"> </span><span class="m">271</span>
+<span class="go">Black Beauty is next to be rendered.</span>
+<span class="go">2026-08-06 21:04:11 INFO claimed job 7: book 271</span>
 <span class="go">2026-08-06 21:04:11 INFO rendering chapter 1/49: 01. My Early Home</span>
 <span class="go">2026-08-06 21:09:38 INFO rendering chapter 2/49: 02. The Hunt</span>
 <span class="go">...</span>
 <span class="go">2026-08-07 02:31:55 INFO finished Black Beauty: 49 chapters, 6.2 hours</span>
 </pre></div>
 </div>
+<p>It takes the <strong>same claim</strong> the worker’s child takes, so it is not a second
+renderer: if something else is already rendering it says so in the first second
+and stops, leaving the book in the line for the worker to reach.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>add<span class="w"> </span><span class="m">120</span>
+<span class="go">Treasure Island is in the queue, behind one other book.</span>
+<span class="go">Something else is being rendered, so this one waits its turn. Run `somnia</span>
+<span class="go">queue` to see the line.</span>
+</pre></div>
+</div>
+<p>Two consequences of going through the queue. A book somnia already has in full
+is refused, and nothing is rendered — this command was asked about one book and
+has no business spending six hours on another; use
+<a class="reference internal" href="#cli-worker"><code class="docutils literal notranslate"><span class="pre">worker</span> <span class="pre">--once</span></code></a> to drain the line by hand. And what it renders
+is the head of the line, which is the book you named unless you had already
+asked for others, so read the <code class="docutils literal notranslate"><span class="pre">claimed</span> <span class="pre">job</span></code> line if you care which.</p>
+<p>Ctrl-C stops it the way a <code class="docutils literal notranslate"><span class="pre">queue</span> <span class="pre">stop</span></code> does: at the end of the sentence it is
+speaking, leaving every finished chapter playable, and the book goes back into
+the queue rather than being cancelled — nobody stopped wanting it.</p>
 <p>Audio lands in <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR/&lt;author&gt;/&lt;title&gt;/NNN</span> <span class="pre">-</span> <span class="pre">&lt;chapter&gt;.m4a</span></code>, and
 the database row is what everything else reads: chapters are never served by
 path. The book is marked <code class="docutils literal notranslate"><span class="pre">rendering</span></code> at the start and <code class="docutils literal notranslate"><span class="pre">done</span></code> at the end, which
@@ -602,22 +631,155 @@ render that died.</p>
 book with a different voice.</strong> Every timestamp somnia holds — chapter marks,
 index entries, the place you fell asleep — belongs to the audio that was
 actually produced.</p>
-<p>Two things to know before re-running it on a book it has already rendered:</p>
-<ul class="simple">
-<li><p>It starts again at chapter one. There is no resume; each chapter is rendered
-and its file overwritten, so a render that died at chapter 40 costs you those
-40 chapters again.</p></li>
-<li><p>The index gains a <strong>second copy</strong> of every passage, because chapters are
-replaced but chunks are only ever inserted. Searches still work; they just
-return the same passage more than once. Both are
-<a class="reference external" href="https://github.com/gilesknap/somnia/issues/11">#11</a>.</p></li>
-</ul>
+<p>Re-running it on a book it has already rendered is the ordinary way to finish
+one that died, and it <strong>resumes</strong>: it starts at the first chapter that has no
+row — the first missing one, not the one after the highest, so a hole in the
+middle is filled rather than stepped over — and carries the global clock on
+from where that chapter ended. Re-indexing a chapter replaces its passages
+rather than adding a second copy of every one of them. Both of those were
+<a class="reference external" href="https://github.com/gilesknap/somnia/issues/11">#11</a>, and both are fixed.</p>
+<p>The one case that starts from zero is a book whose chapter <em>count</em> has changed
+since it was last rendered, which means Gutenberg has re-issued the text.
+Chapter four of one edition is not chapter four of another, so the old
+chapters, chunks and vectors are dropped and the book is rendered again from
+the start; it says so in a warning naming both counts.</p>
 <p>What it does not touch is where you have got to. A re-render writes the title,
 the authors, the voice and the status, and nothing about your position or how
 far you have heard.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code> and <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_LIBRARY_ID</span></code> are both set, Audiobookshelf
 is rescanned and given chapter marks after each chapter. A failure there is
 logged and the render carries on.</p>
+</section>
+<section id="queue">
+<span id="cli-queue"></span><h2><code class="docutils literal notranslate"><span class="pre">queue</span></code><a class="headerlink" href="#queue" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>queue<span class="w"> </span><span class="o">[</span>list<span class="o">]</span>
+somnia<span class="w"> </span>queue<span class="w"> </span>add<span class="w"> </span>GID
+somnia<span class="w"> </span>queue<span class="w"> </span>stop<span class="w"> </span>ID
+</pre></div>
+</div>
+<p>The ingest queue: what is being rendered, what is waiting behind it, and what
+died overnight. <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">queue</span></code> on its own prints it, and needs nothing but the
+database — no key, no network, no <code class="docutils literal notranslate"><span class="pre">[ml]</span></code>.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>queue
+<span class="go">   1  rendering       Black Beauty — Sewell, Anna, 1820-1878  (chapter 4 of 49)</span>
+<span class="go">   2  1st in line     Treasure Island — Stevenson, Robert Louis</span>
+<span class="go">   3  cancelled       Moby Dick — Melville, Herman</span>
+</pre></div>
+</div>
+<p>The first column is the <strong>job id</strong>, and it is what <code class="docutils literal notranslate"><span class="pre">stop</span></code> takes. It is not the
+Gutenberg id: a book can be queued, stopped and asked for again, and each of
+those is a separate row, so stopping by book would be ambiguous about which
+attempt you meant.</p>
+<p>The second column is the whole state of the thing:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Word</p></th>
+<th class="head"><p>What it means</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rendering</span></code></p></td>
+<td><p>A renderer holds this book and said so within the last five minutes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">not</span> <span class="pre">responding</span></code></p></td>
+<td><p>It still holds it, but has not said anything for five minutes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stopping</span></code></p></td>
+<td><p>It has been asked to stop and will, at the end of the sentence it is on</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Nth</span> <span class="pre">in</span> <span class="pre">line</span></code></p></td>
+<td><p>Waiting, with N−1 books ahead of it</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">done</span></code></p></td>
+<td><p>Rendered, all of it</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cancelled</span></code></p></td>
+<td><p>Somebody stopped it</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">failed</span></code></p></td>
+<td><p>It broke, and the reason is in brackets at the end of the line</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">not</span> <span class="pre">responding</span></code> is worked out when you look, from the last heartbeat, and is
+stored nowhere — so it is honest even when the renderer has been stopped
+altogether and there is nobody left to write anything down. The chapter number
+in brackets is the one being worked on, which is the same number the renderer
+logs as <code class="docutils literal notranslate"><span class="pre">rendering</span> <span class="pre">chapter</span> <span class="pre">4/49</span></code>.</p>
+<p>Rows that have ended drop off after <strong>24 hours</strong>. There is nothing to press to
+make one go away: after a day a failure is history rather than news, and
+history is in the journal.</p>
+<p><code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">queue</span> <span class="pre">add</span> <span class="pre">GID</span></code> asks for a book. It writes a row and returns at once —
+there is no network in it — so an id Gutenberg has never heard of is accepted
+here and fails later, with a sentence saying so, rather than making you wait
+three seconds to be told no.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>queue<span class="w"> </span>add<span class="w"> </span><span class="m">120</span>
+<span class="go">Treasure Island is in the queue, behind one other book.</span>
+</pre></div>
+</div>
+<p>The name comes from the <strong>local catalog</strong>, so a book queued before
+<a class="reference internal" href="#cli-catalog-update"><code class="docutils literal notranslate"><span class="pre">catalog-update</span></code></a> has ever run reads as <code class="docutils literal notranslate"><span class="pre">book</span> <span class="pre">120</span></code> in the
+list. That is cosmetic and nothing else depends on it. Two refusals: a book
+that is already queued or already rendering, and a book somnia has rendered in
+full. A render that died, was stopped, or was killed by a reboot is <strong>not</strong>
+refused — asking again is how you retry one, and that was impossible before
+this command existed.</p>
+<p><code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">queue</span> <span class="pre">stop</span> <span class="pre">ID</span></code> takes a book out of the line, or asks a running render
+to stop.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>queue<span class="w"> </span>stop<span class="w"> </span><span class="m">2</span>
+<span class="go">Treasure Island has been taken out of the queue.</span>
+</pre></div>
+</div>
+<p>A book that was only waiting goes immediately. A render that is running is only
+<em>asked</em>: nothing signals it and nothing kills it, so it reads to the end of the
+sentence it is on and stops on the next chapter boundary, which can take about
+twenty seconds. Every chapter it had already finished stays exactly where it
+is, and stays playable.</p>
+<p>What empties the queue is <a class="reference internal" href="#cli-worker"><code class="docutils literal notranslate"><span class="pre">worker</span></code></a>, and if nothing is running it
+nothing renders: rows sit there with their place in line and the readout says
+so honestly. See <a class="reference internal" href="../how-to/keep-renders-running.html"><span class="std std-doc">Keep a long render
+running</span></a> for the unit that runs it.</p>
+</section>
+<section id="worker">
+<span id="cli-worker"></span><h2><code class="docutils literal notranslate"><span class="pre">worker</span></code><a class="headerlink" href="#worker" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>worker
+somnia<span class="w"> </span>worker<span class="w"> </span>--once
+</pre></div>
+</div>
+<p>Empties the queue, one book at a time, and is meant to be a systemd user unit
+rather than something you type. It reconciles whatever the last crash left
+behind, then loops: if a book is waiting it spawns a child — <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">worker</span> <span class="pre">--once</span></code> — and waits for it, and either way it sleeps ten seconds and looks
+again.</p>
+<p>The supervisor itself imports nothing expensive. Kokoro and the embedder live
+in the child, which exits between books and takes every megabyte with it, and
+the child’s stdout and stderr are <strong>inherited</strong>, so its chapter lines and any
+traceback land in the journal:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>journalctl<span class="w"> </span>--user<span class="w"> </span>-u<span class="w"> </span>somnia-worker<span class="w"> </span>-f
+<span class="go">INFO worker watching /home/reader/.local/share/somnia/somnia.db: 1 requeued, 0 given up on, 1 books freed</span>
+<span class="go">INFO claimed job 7: book 271</span>
+<span class="go">INFO rendering chapter 1/49: 01. My Early Home</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--once</span></code> claims the next book, renders it and exits — which is also what
+<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span></code> does after submitting, under the same claim. Use it to drain the
+line by hand without asking for anything new. If something else is already
+rendering it claims nothing and exits at once, saying so at INFO.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SIGTERM</span></code> — which is what <code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">--user</span> <span class="pre">stop</span></code> sends — stops the render at
+the end of the sentence it is speaking, puts the book <strong>back in the queue</strong>
+rather than cancelling it, and exits. Nobody stopped wanting the book, so the
+next worker to start picks it up at the chapter after the last one that
+finished. The chapter that was in flight is lost, deliberately: the child will
+not gamble on finishing a chapter inside a stop timeout, because a chapter
+killed part way through the encode is the one death that can leave the index
+holding words the player cannot see.</p>
+<p>A render that is interrupted this way is retried, bounded at <strong>three</strong>
+attempts, after which the job is failed with a sentence saying it was
+interrupted three times. A child that dies without recording anything — an OOM,
+a SIGKILL, a segfault underneath — is failed straight away with its exit code
+in the sentence, and never retried: a real error recurs, and a queue that
+spends the night failing the same book is worse than one that stops and says
+why.</p>
 </section>
 <section id="find">
 <span id="cli-find"></span><h2><code class="docutils literal notranslate"><span class="pre">find</span></code><a class="headerlink" href="#find" title="Link to this heading">#</a></h2>
@@ -764,6 +926,8 @@ still inside <code class="docutils literal notranslate"><span class="pre">SOMNIA
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#catalog-update"><code class="docutils literal notranslate"><span class="pre">catalog-update</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#search"><code class="docutils literal notranslate"><span class="pre">search</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#add"><code class="docutils literal notranslate"><span class="pre">add</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#queue"><code class="docutils literal notranslate"><span class="pre">queue</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#worker"><code class="docutils literal notranslate"><span class="pre">worker</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#find"><code class="docutils literal notranslate"><span class="pre">find</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ask"><code class="docutils literal notranslate"><span class="pre">ask</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#serve"><code class="docutils literal notranslate"><span class="pre">serve</span></code></a></li>
