@@ -16,6 +16,7 @@ from somnia.agent import OFFER_SENTENCE, SYSTEM_PROMPT, Conversation, build_tool
 from somnia.config import Config
 from somnia.db import connect
 from somnia.embed import Embedder
+from somnia.queue import claim
 from somnia.tools import Library, Moved, Offer
 
 
@@ -867,3 +868,44 @@ def test_a_move_on_the_last_question_does_not_stop_a_list_on_this_one(
     second = conversation.ask("no, the other one")
     assert second.candidates is not None
     assert second.move is None
+
+
+# ------------------------------------------------------------ asking for a book
+
+
+def test_list_books_names_a_book_that_is_only_waiting_to_be_rendered(
+    searchable: Searchable,
+) -> None:
+    """Otherwise the only true answer to "did that get added?" is "no such book".
+
+    A book asked for tonight has no `books` row until its parse finishes, which
+    is behind however many hours of rendering are in front of it. For the whole
+    of that time the agent used to say the book was not there — while the queue
+    said it was second in line, which is the sort of disagreement between the
+    voice and the screen that ends with somebody asking for it twice.
+    """
+    ready = wired(searchable)
+
+    ready.call("add_book", gid=120)
+    listed = ready.call("list_books")
+
+    assert "gid 271" in listed
+    assert "waiting to be rendered, 1 in the line" in listed
+
+
+def test_list_books_says_a_book_being_rendered_is_being_rendered(
+    searchable: Searchable,
+) -> None:
+    """And says which part of it is happening, in the queue's own words.
+
+    A claimed job whose book has no row yet is still fetching and parsing the
+    text, which is minutes; the number of chapters it has is not known until
+    that finishes, so there is nothing yet to count towards.
+    """
+    ready = wired(searchable)
+    ready.call("add_book", gid=120)
+    claim(searchable.conn, lease="somebody", pid=1)
+
+    listed = ready.call("list_books")
+
+    assert "still fetching the text" in listed

@@ -98,6 +98,14 @@ class Manifest:
     Deliberately one round trip. The page needs all of this before it can put a
     finger on the play button, and two fetches at 2am on a tailnet is two
     chances to be left with a player that shows nothing.
+
+    ``chapters_total`` is how many chapters the book *has*, against the
+    ``chapters`` list, which is how many of them can be played. While a render
+    is going those two differ, and the difference is the only way the page can
+    tell running out of audio three chapters into thirty-nine — which is not the
+    end of the book — from reaching the end of one. It is 0 for every book
+    rendered before that column existed, and 0 means nobody wrote it down, so a
+    page that finds one has to say nothing rather than say "3 of 0".
     """
 
     gid: int
@@ -105,6 +113,7 @@ class Manifest:
     authors: str
     status: str
     total_ms: int
+    chapters_total: int
     position_ms: int | None
     seq: int
     heard_to_ms: int
@@ -189,8 +198,8 @@ class Player:
         """The whole timeline of one book, or None if there is no such book."""
         with self._lock:
             book = self._conn.execute(
-                "SELECT gid, title, authors, status, total_ms, position_ms,"
-                " position_seq, heard_to_ms FROM books WHERE gid = ?",
+                "SELECT gid, title, authors, status, total_ms, chapters_total,"
+                " position_ms, position_seq, heard_to_ms FROM books WHERE gid = ?",
                 (gid,),
             ).fetchone()
             if book is None:
@@ -206,6 +215,7 @@ class Player:
             authors=book["authors"],
             status=book["status"],
             total_ms=book["total_ms"],
+            chapters_total=book["chapters_total"],
             position_ms=book["position_ms"],
             seq=book["position_seq"],
             heard_to_ms=book["heard_to_ms"],

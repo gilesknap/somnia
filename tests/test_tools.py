@@ -1,4 +1,5 @@
 import sqlite3
+import subprocess
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -359,14 +360,28 @@ def chunk_at(fixture: Fixture, start_ms: int) -> int:
 
 
 def add_passage(fixture: Fixture, chapter_idx: int, text: str, start_ms: int) -> int:
-    """Index one more passage into the book, and say what it is called."""
-    add_chunks(
-        fixture.conn,
-        fixture.embedder,
-        271,
-        chapter_idx,
-        [Window(text=text, start_ms=start_ms, end_ms=start_ms + 10_000)],
-    )
+    """Index one more passage into the book, and say what it is called.
+
+    Deliberately not through :func:`somnia.index.add_chunks`, which owns the
+    chapter it is handed and clears it first — the thing that stops a re-render
+    adding a second copy of every passage. That is the right contract for a
+    renderer, which always has a whole chapter's windows, and the wrong one for
+    a test that wants a fourth place to offer alongside the three already
+    there: it would take the other three away. So this appends, which is what
+    it says, and the identity ``chunks.id == vec_chunks.rowid`` is honoured here
+    exactly as the real thing honours it.
+    """
+    (vec,) = fixture.embedder.encode_passages([text])
+    with fixture.conn:
+        cur = fixture.conn.execute(
+            "INSERT INTO chunks (book_gid, chapter_idx, start_ms, end_ms, text)"
+            " VALUES (271, ?, ?, ?, ?)",
+            (chapter_idx, start_ms, start_ms + 10_000, text),
+        )
+        fixture.conn.execute(
+            "INSERT INTO vec_chunks (rowid, embedding) VALUES (?, ?)",
+            (cur.lastrowid, vec.tobytes()),
+        )
     return chunk_at(fixture, start_ms)
 
 
@@ -773,3 +788,46 @@ def test_a_book_they_have_finished_still_covers_up_what_they_never_heard(
         (10_000, False),
         (700_000, True),
     ]
+
+
+# ------------------------------------------------------------ asking for a book
+
+
+def test_add_book_puts_it_in_the_queue_and_starts_no_process(
+    fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The whole of what changed: a row, and not a detached renderer.
+
+    It used to spawn `somnia add` with all three of its stdio at /dev/null and
+    throw the handle away, so two questions a minute apart gave two Kokoro
+    processes on two cores — and the second one halved a margin the whole of
+    streaming ingest rests on. There has never been a test of that path, in
+    either shape, so the Popen that must not happen is booby-trapped rather
+    than merely unasserted.
+    """
+
+    def spawns_nothing(*args: object, **kwargs: object) -> None:
+        raise AssertionError("add_book must not start a process")
+
+    monkeypatch.setattr(subprocess, "Popen", spawns_nothing)
+
+    said = fixture.library.add_book(120)
+
+    rows = fixture.conn.execute("SELECT gid, state FROM queue").fetchall()
+    assert [(r["gid"], r["state"]) for r in rows] == [(120, "queued")]
+    assert "next to be rendered" in said
+
+
+def test_add_book_refuses_a_book_somnia_already_has_all_of(fixture: Fixture) -> None:
+    """Black Beauty is rendered, so asking for it again would buy nothing."""
+    said = fixture.library.add_book(271)
+    assert "already here, all of it" in said
+    assert fixture.conn.execute("SELECT COUNT(*) AS n FROM queue").fetchone()["n"] == 0
+
+
+def test_add_book_refuses_a_book_that_is_already_coming(fixture: Fixture) -> None:
+    """Asked twice at 2am, which is exactly how somebody half asleep asks."""
+    fixture.library.add_book(120)
+    said = fixture.library.add_book(120)
+    assert "already in the queue" in said
+    assert fixture.conn.execute("SELECT COUNT(*) AS n FROM queue").fetchone()["n"] == 1
