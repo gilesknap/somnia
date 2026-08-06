@@ -1,9 +1,12 @@
 # Serve the chat page
 
 `somnia serve` runs the 2am surface: a small chat page that talks to the agent,
-with the Anthropic key held server-side. Voice input uses the browser's Web
-Speech API, so the page must be reached over HTTPS (or localhost) — `tailscale
-serve` provides both the certificate and the only network path to it.
+with the Anthropic key held server-side. It is also the player — the page holds
+the book somnia rendered and plays it, which is why asking to be taken
+somewhere now ends in sound instead of in an instruction. Voice input uses the
+browser's Web Speech API and the lock screen controls need a media session, so
+the page must be reached over HTTPS (or localhost); `tailscale serve` provides
+both the certificate and the only network path to it.
 
 ## Run it
 
@@ -17,13 +20,33 @@ It needs the same environment as the rest of somnia, plus a key for the model:
 | Variable | Why |
 |---|---|
 | `ANTHROPIC_API_KEY` | the agent's model calls, paid by you not the phone |
-| `SOMNIA_ABS_URL`, `SOMNIA_ABS_TOKEN` | reading listening position, planting bookmarks |
+| `SOMNIA_LIBRARY_DIR` | where the rendered chapters are; the page streams them |
 | `SOMNIA_DATA_DIR` | where `somnia.db` lives, if not the default |
-| `SOMNIA_AGENT_MODEL` | override Haiku for harder disambiguation |
+| `SOMNIA_ABS_URL`, `SOMNIA_ABS_TOKEN` | optional: keeping Audiobookshelf roughly in step |
+| `SOMNIA_AGENT_MODEL` | another model; the default is Sonnet 5 |
+
+`SOMNIA_LIBRARY_DIR` is the one that has become load-bearing since the page
+became the player, and it fails quietly if it is wrong. Chapters are never
+served by path — the request names a book and a chapter number, and the file
+comes from the database row — but a row pointing outside the library directory
+is refused all the same, because a database carried over from another machine
+can point anywhere. What you see on the phone is *that chapter didn't arrive*;
+the real reason is a warning in the journal. It defaults to
+`~/library/audiobooks`, which is right only if that is genuinely where `somnia
+add` put things.
+
+Audiobookshelf is now optional. somnia writes your position to it when you
+stop, as a courtesy, so the ABS app finds roughly the right place if you open
+it somewhere else — but it is never read, and a write that fails is logged and
+forgotten. Leave `SOMNIA_ABS_TOKEN` unset and no ABS client is built at all.
+
+`SOMNIA_AGENT_MODEL` overrides Sonnet 5. Haiku was the first choice, on cost,
+and mostly held up; set `SOMNIA_AGENT_MODEL=claude-haiku-4-5` to go back to it.
 
 **Keep `--host` as localhost.** The page has no login of any kind: anyone who
-can reach it can drive the agent and spend your API credit. Its only protection
-is that nothing but `tailscale serve` can reach the port.
+can reach it can drive the agent, spend your API credit and listen to your
+books. Its only protection is that nothing but `tailscale serve` can reach the
+port.
 
 ## Publish it on the tailnet
 
@@ -35,9 +58,20 @@ $ tailscale serve status
 ```
 
 The page is then at `https://<node>.<tailnet>.ts.net:8443/`, reachable from
-your own devices and from nowhere else. Open it on the phone and use the
-browser's *Add to home screen* — it installs as a standalone app with its own
-icon, which is one tap in the dark instead of a browser and a URL.
+your own devices and from nowhere else. The whole night goes over that path now
+— the audio as well as the questions — so a phone that drops off the tailnet at
+3am loses the book. Nothing is downloaded ahead of time.
+
+## Install it on the phone
+
+Open the page in Chrome and use *Add to home screen*. It installs as a
+standalone app with its own icon, which is one tap in the dark instead of a
+browser and a URL, and it is worth doing for more than the icon: an installed
+app is the shape the media notification and the screen-off playback were built
+for and tested in.
+
+Nothing else is needed. The page keeps no login, and the conversation is
+started fresh each time it is launched.
 
 ## Keep it running
 
@@ -59,6 +93,10 @@ RestartSec=5
 WantedBy=default.target
 ```
 
+The environment file must carry `SOMNIA_LIBRARY_DIR` if the library is not in
+the default place. A unit that lacks it starts perfectly happily, answers
+questions perfectly happily, and 404s every chapter.
+
 ```
 $ loginctl enable-linger $USER          # survive logout
 $ systemctl --user daemon-reload
@@ -66,28 +104,93 @@ $ systemctl --user enable --now somnia-serve
 $ curl -s localhost:8721/api/health     # {"ok": true}
 ```
 
-## Using it
+## Asking it things
 
 Type, or hold the button and speak — it listens only while held, because a
 bedroom is full of speech that was not meant for somnia. Answers are read, not
-spoken: nothing on the page makes a sound.
+spoken back: the only thing the page makes a sound with is the book.
 
 The button glows and pulses while it is listening, and the phone buzzes when it
 starts and stops. Android's own speech recogniser plays a start and stop tone
 that no web page can turn off; silencing it means muting system sounds on the
 phone.
 
-Ask to be taken somewhere and somnia moves your position in the book, so the
-next tap on play starts there.
-
-If a player is running it is stopped first, because a live playback session
-syncs its own position back and would undo the move within seconds. Audio
-already buffered keeps playing for a moment either way — nothing can make an
-already-playing client jump, so **press play again** to hear the new place.
-Two players open at once (say a phone and a desktop) will also overwrite each
-other's position, with or without somnia.
+Ask to be taken somewhere and the book goes there and plays from there. If the
+passage is in a book that was not even open, that book opens. Nothing has to be
+pressed afterwards.
 
 Conversations are held in memory, keyed by a token the page mints when it
 starts, and nothing is written to disk. *Start over* drops the history when the
 agent has got the wrong end of a mumbled question; restarting the service drops
 all of them.
+
+## Playing the book
+
+The page opens the book you were last listening to, at the place you left it,
+and does not start it — opening the app at 2am to ask a question is not the
+same as asking for the book. Press play when you want it. There is no library
+to browse: another book is something you ask for, the same way you ask for a
+passage.
+
+On the page there are three buttons: back thirty seconds, play/pause, forward
+thirty seconds. Most nights you will use none of them, because the screen is
+off. With the phone locked the book is driven from the notification, the lock
+screen and whatever is paired over Bluetooth: play, pause, back and forward,
+previous and next chapter, and a scrubber. The scrubber covers the chapter, not
+the book — three minutes to the pixel across a whole novel is no use for the
+nudge you actually want, and one sleepy thumb from the ending.
+
+Pressing play again gives you back a little of what you missed, sized by how
+long the sound was off: nothing under half a minute, then eight seconds, twenty
+after a few minutes, and half a minute after an hour — and that longest one
+lands on the start of the sentence you were in rather than in the middle of it.
+
+**The sleep timer is the word *sleep* next to the clock.** Tapping it walks
+fifteen, thirty, forty-five and sixty minutes, then the end of the chapter,
+then off again, and it always says which it is on. It counts listening time, so
+pausing to ask a question does not spend it. It ends in a twenty-second fade
+that reaches silence at the time it named; tapping the control during that fade
+brings the sound back, on the grounds that anyone reaching for it is awake
+enough to have changed their mind. It lives only in the open page — reloading
+disarms it silently.
+
+If something else takes the sound — a call, an alarm — the book stops and stays
+stopped, and the page says so. If the phone refuses to start audio without
+being touched first, the page says *tap anywhere to carry on*, and anywhere
+means anywhere.
+
+One thing to know about a book that is still rendering: the page is given the
+chapter list once, when it opens the book, and holds whatever existed at that
+moment. Open one that is three chapters in and it will play those three and
+then tell you that is the end of the book. It is not — close the app and open
+it again to pick up everything rendered since. A book with nothing rendered yet
+says *nothing to play yet* and shows no player at all.
+
+## Check screen-off playback before you trust a night to it
+
+Everything above rests on an installed PWA being allowed to keep playing with
+the screen off, and on its notification surviving a chapter boundary. That is a
+property of the handset, not of this code, and it cannot be tested from a desk.
+There is a spike page for it — `scratch/spike-background-audio.html`, a
+throwaway harness that generates its own audio, swaps chapters and logs every
+media-session event to a log that survives the page being discarded.
+
+It is not part of the app, so it is not served. Put it where the app is for as
+long as the test takes:
+
+```
+$ cp scratch/spike-background-audio.html src/somnia/web/spike.html
+```
+
+It carries no manifest of its own, so on the phone it runs as a browser tab
+rather than as an installed app, and it says which in its log — worth reading
+before you read the result.
+
+Open `https://<node>.<tailnet>.ts.net:8443/spike.html` on the phone, press
+*Start*, confirm you can hear a tick once a second, lock the phone and leave it
+two minutes. Wake it: if
+**shortfall** is under a couple of seconds, nothing ever stopped it. Then press
+every button you own — the lock screen, the pillow speaker, the headphones —
+and check each one appears in the log, and use *Agent move* to confirm the book
+can be moved and played with no gesture at all. Delete `src/somnia/web/spike.html`
+when you are done.
