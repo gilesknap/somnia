@@ -209,8 +209,12 @@ again at once, so there is nothing to press.
 ## Check screen-off playback before you trust a night to it
 
 Everything above rests on an installed PWA being allowed to keep playing with
-the screen off, and on its notification surviving a chapter boundary. That is a
-property of the handset, not of this code, and it cannot be tested from a desk.
+the screen off, and on its notification surviving a chapter boundary. Both were
+confirmed on 2026-08-06 — so this is not an open question, it is the check to
+run again on a new phone, after an Android update, or on the first night that
+goes quiet. It is a property of the handset, not of this code, and it cannot be
+tested from a desk.
+
 It is checked with a page of its own, which generates its own audio so it needs
 no library, swaps chapters the way the player does, and writes every
 media-session event to a log held in local storage — so the evidence survives
