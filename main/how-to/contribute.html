@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Contribute to the project &#8212; somnia 0.1.dev23+g5d44c487d documentation</title>
+    <title>Contribute to the project &#8212; somnia 0.1.dev42+g08d558f75 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=e82140ae"></script>
+    <script src="../_static/documentation_options.js?v=68ffa3c5"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -424,7 +424,7 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Contribute to the project</a></li>
 <li class="toctree-l1"><a class="reference internal" href="run-container.html">Run in a container</a></li>
-<li class="toctree-l1"><a class="reference internal" href="serve-the-chat-page.html">Serve the chat page</a></li>
+<li class="toctree-l1"><a class="reference internal" href="serve-the-chat-page.html">Serve the page that plays the book</a></li>
 </ul>
 </div>
 </nav></div>
@@ -504,6 +504,22 @@ raise it as a discussion instead.</p>
 reduces the number of easily caught bugs! Please make sure coverage remains the
 same or is improved by a pull request!</p>
 </section>
+<section id="the-page-has-tests-of-its-own">
+<h2>The page has tests of its own<a class="headerlink" href="#the-page-has-tests-of-its-own" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">tox</span></code> runs pytest, and pytest cannot see a line of <code class="docutils literal notranslate"><span class="pre">src/somnia/web/app.js</span></code> —
+which is where most of somnia’s behaviour now lives, because the page is the
+player. That code has its own suite under <code class="docutils literal notranslate"><span class="pre">tests/web/</span></code>, written against node’s
+built-in test runner and a fake media element, so it needs no npm install and
+no browser:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ node --test                    # every *.test.mjs in the repo, in under a second
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">pre-commit</span></code> runs it whenever the page or those tests change, so <code class="docutils literal notranslate"><span class="pre">tox</span> <span class="pre">-e</span> <span class="pre">pre-commit</span></code> covers it too and CI runs it on every pull request. What it cannot
+tell you is whether the audio decodes, whether a Range request really comes
+back 206, or whether the lock screen follows a chapter boundary. Those are
+properties of a handset and are checked in a real browser against a real
+<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code> — the how-to guide <em>Serve the chat page</em> ends with how.</p>
+</section>
 <section id="developer-information">
 <h2>Developer Information<a class="headerlink" href="#developer-information" title="Link to this heading">#</a></h2>
 <p>It is recommended that developers use a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">vscode devcontainer</a>. This repository contains configuration to set up a containerized development environment that suits its own needs.</p>
@@ -561,6 +577,7 @@ same or is improved by a pull request!</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#issue-or-discussion">Issue or Discussion?</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-coverage">Code Coverage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-page-has-tests-of-its-own">The page has tests of its own</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#developer-information">Developer Information</a></li>
 </ul>
   </nav></div>
