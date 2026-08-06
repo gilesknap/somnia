@@ -18,10 +18,10 @@ It will not tell you anything from a part of the book you have not heard yet.
 That bound is measured from audio that really came out of the speaker, so being
 carried forward does not unlock the ending.
 
-```
-$ somnia add 271                      # render + index a Gutenberg book
-$ somnia find 271 "the horse is beaten in the street"
-$ somnia serve                        # the page that plays it, and the agent
+```bash
+somnia add 271                      # render + index a Gutenberg book
+somnia find 271 "the horse is beaten in the street"
+somnia serve                        # the page that plays it, and the agent
 ```
 
 The page is the player: an installable PWA served over your tailnet, with a

@@ -54,8 +54,10 @@ flowchart TB
 ```
 
 The dotted edges are the ones nothing waits on. Audiobookshelf is **written to
-and never read** — it is somewhere else the book might be opened, not the record
-of anything, and a write that fails is logged and forgotten. The renderer is
+and, while a night is running, never read** — it is somewhere else the book
+might be opened, not the record of anything, and a write that fails is logged
+and forgotten. The single exception is `somnia seed-positions`, which reads it
+once by hand before the first night and never again. The renderer is
 dotted for a different reason: the agent starts it and does not wait for it,
 which is how a book gets added at 2am.
 
@@ -137,7 +139,7 @@ erDiagram
     text abs_item_id
   }
   chapters {
-    int book_gid FK
+    int book_gid PK, FK
     int idx PK
     text title
     int start_ms "global"

@@ -12,14 +12,14 @@ This assumes you have [installed somnia](installation.md) and that
 somnia reads Project Gutenberg. Search the local catalog for a Gutenberg id —
 the `gid` is the only handle anything else uses:
 
-```
+```console
 $ somnia search "black beauty"
    271  Black Beauty — Sewell, Anna
 ```
 
 ## Render it
 
-```
+```console
 $ somnia add 271
 2026-08-06 21:04:11 INFO rendering chapter 1/49: 01. My Early Home
 2026-08-06 21:09:38 INFO rendering chapter 2/49: 02. The Hunt
@@ -40,7 +40,7 @@ the audio that was actually produced.
 
 ## Search what has been rendered
 
-```
+```console
 $ somnia find 271 "the horse is beaten in the street"
 [2:47h  d=0.284] 32. A Horse Fair
     A poor old brown horse was there... he was being beaten about the head
@@ -55,12 +55,14 @@ known limitation rather than a bug.
 
 ## Ask it in words
 
-```
-$ export ANTHROPIC_API_KEY=sk-ant-...
-$ somnia ask "which chapter is the one with the horse fair?"
+```bash
+source ~/somnia.env
+somnia ask "which chapter is the one with the horse fair?"
 ```
 
-Give no question and you get an interactive prompt; a blank line ends it.
+The key lives in `~/somnia.env` rather than in the command, which keeps it out
+of your shell history and out of `ps` — it is the same file the systemd units
+read. Give no question and you get an interactive prompt; a blank line ends it.
 
 The first thing you will probably see is the agent telling you that the passage
 is further on than you have got, and offering to take you there. That is the
@@ -74,8 +76,8 @@ never be answered with something you have not heard yet.
 
 ## Play it from your phone
 
-```
-$ somnia serve
+```bash
+somnia serve
 ```
 
 That serves the page, the agent behind it, and the book itself, on
@@ -102,7 +104,7 @@ Once it is on your phone, a night looks like this:
 
 Run this once, before the first night:
 
-```
+```console
 $ somnia seed-positions
    271  Black Beauty: seeded at 3:12:40 (2026-08-01 22:41:03); heard to 3:12:40
 1 of 1 books changed.
