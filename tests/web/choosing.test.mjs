@@ -1,4 +1,4 @@
-// Where do you mean?
+// Places you might be
 //
 // Some questions have more than one answer, and the old way of saying so was a
 // conversation held in the dark by someone half asleep. This is that
@@ -142,23 +142,56 @@ function armed(choice, leftMs, at = START_MS - 60_000) {
 // read out of the DOM rather than out of the payload on purpose: what the
 // payload said is the server's business, and the only thing worth asserting
 // here is what ended up on the screen.
+//
+// A row is two targets now — the reading on the left, `goto` on the right — so
+// nothing below counts children by position. Each part is found by the class
+// the sheet styles it with, which is the same name the page has to keep for the
+// row to look like anything at all.
+function part(node, name) {
+  for (const child of node.children) {
+    if (child.classList.contains(name)) return child;
+    const deeper = part(child, name);
+    if (deeper) return deeper;
+  }
+  return null;
+}
+
 function rows(page) {
   return page.el("candidate-list").children.map((li) => {
     if (li.classList.contains("here")) {
-      const [when, where] = li.children;
-      return { kind: "here", when: when.textContent, where: where.textContent };
+      // A rule with one composed label on it, and beneath it the caveat about
+      // what is under the rule — which is absent when nothing is.
+      const [mark, caveat] = li.children;
+      return {
+        kind: "here",
+        label: mark.textContent,
+        // The label is one string on purpose, so the time is read back out of
+        // it rather than out of a span that only exists for the test.
+        when: mark.textContent.split(" · ").at(-1),
+        caveat: caveat ? caveat.textContent : null,
+      };
     }
-    const [go, show] = li.children;
-    const [when, where, what] = go.children;
+    const show = part(li, "candidate-show");
+    const what = part(li, "candidate-what");
+    const hint = part(li, "candidate-hint");
     return {
       kind: li.classList.contains("ahead") ? "ahead" : "heard",
-      when: when.textContent,
-      where: where.textContent,
+      when: part(li, "candidate-when").textContent,
+      where: part(li, "candidate-where").textContent,
       // Null rather than "" so that a row whose words are withheld and a row
       // whose words happen to be empty cannot be mistaken for each other.
       what: what.hidden ? null : what.textContent,
       revealed: li.classList.contains("revealed"),
-      canShow: Boolean(show) && !show.hidden,
+      // What the row offers to uncover, or nothing — which is both the state of
+      // a row that has already been asked and the state of a row that never had
+      // anything withheld.
+      hint: hint && !hint.hidden ? hint.textContent : null,
+      // The left of the row is a button only where there is something to ask
+      // for. A press on the words of a place they have already heard must do
+      // nothing at all, and the cheapest way to promise that is for there to be
+      // nothing to press.
+      asks: show.tagName === "BUTTON",
+      goes: Boolean(part(li, "candidate-go")),
     };
   });
 }
@@ -177,7 +210,12 @@ function overlayText(page) {
     if (node.textContent) found.push(node.textContent);
     for (const child of node.children) walk(child);
   };
-  for (const id of ["candidates", "candidates-book", "candidate-list"]) {
+  for (const id of [
+    "candidates",
+    "candidates-book",
+    "candidates-summary",
+    "candidate-list",
+  ]) {
     walk(page.el(id));
   }
   return found.join(" | ");
@@ -275,7 +313,52 @@ test("the places are in time order with where they are among them", async (t) =>
       ["0:40:00", "ahead"],
     ],
   );
-  assert.equal(rows(page)[1].where, "you are here");
+  // One composed string on the rule, and under it the sentence the whole
+  // arrangement exists to make legible.
+  assert.equal(rows(page)[1].label, "you are here · 0:16:40");
+  assert.equal(
+    rows(page)[1].caveat,
+    "anything below this line you may not have heard",
+  );
+});
+
+test("the places screen says how many places and what they span", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  // Counted off the payload that drew the rows and nothing else. No
+  // denominator: somnia has no idea how many places in this book would have
+  // fitted the question, and a "of 7" nobody counted would be read and
+  // believed.
+  assert.equal(
+    page.el("candidates-summary").textContent,
+    "4 places between 0:05:00 and 0:40:00",
+  );
+});
+
+test("one place is not counted as though there were more", async (t) => {
+  const page = await opened(t);
+  page.answers({
+    reply: OFFER_SENTENCE,
+    candidates: {
+      gid: OTHER_BOOK.gid,
+      title: OTHER_BOOK.title,
+      position_ms: null,
+      places: [elsewhere()],
+    },
+  });
+  await page.ask("the bit in the other book");
+  assert.equal(page.el("candidates-summary").textContent, "1 place, at 0:00:12");
+});
+
+test("the count goes when the list does", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidates-cancel");
+  // A subhead left standing over an empty list is the page describing something
+  // that is not there.
+  assert.equal(page.el("candidates-summary").textContent, "");
 });
 
 test("a here time past every place is drawn at the bottom", async (t) => {
@@ -292,6 +375,10 @@ test("a here time past every place is drawn at the bottom", async (t) => {
     ["heard", "heard", "here"],
   );
   assert.equal(rows(page).at(-1).when, "0:50:00");
+  // And nothing is said about what is below the line, because nothing is. A
+  // warning about an empty screen is prose defending a thing that is not
+  // there.
+  assert.equal(rows(page).at(-1).caveat, null);
 });
 
 test("the position drawn for the open book is this page's, not the server's", async (t) => {
@@ -358,24 +445,24 @@ test("a place at the mark is ahead of them and the one before it is not", async 
   await page.ask("the bit where the horse goes down");
   const [, before, at] = rows(page);
   // Behind it: the book's own words and the chapter they are in, on the screen
-  // at once, because painting them leaks nothing they have not been told.
+  // at once, because painting them leaks nothing they have not been told. There
+  // is no line offering to reveal anything and nothing on the left to press —
+  // everything that could be uncovered is already up.
   assert.deepEqual(
-    [before.kind, before.where, before.what, before.canShow],
-    [
-      "heard",
-      "Ch 1 · What They Have Heard",
-      RAIN_TEXT,
-      false,
-    ],
+    [before.kind, before.where, before.what, before.hint, before.asks],
+    ["heard", "Ch 1 · What They Have Heard", RAIN_TEXT, null, false],
   );
   // On it: the sentence they have not heard yet. Nothing of it is drawn — not
   // the words, and not the chapter title, which on a real book is itself a
-  // spoiler. What is drawn is the time, the chapter number and the fact that it
-  // is ahead, which is all anyone needs to decide with.
+  // spoiler. What is drawn is the time, the chapter number, the fact that it is
+  // ahead, and what pressing would cost.
   assert.deepEqual(
-    [at.kind, at.where, at.what, at.canShow],
-    ["ahead", "Ch 2 · ahead", null, true],
+    [at.kind, at.where, at.what, at.hint, at.asks],
+    ["ahead", "Ch 2 · ahead", null, "tap to reveal · may spoil", true],
   );
+  // And both of them can be gone to. The reveal is the row's other target and
+  // never a substitute for this one.
+  assert.deepEqual([before.goes, at.goes], [true, true]);
 });
 
 test("the words of a place they have not reached are not on the page at all", async (t) => {
@@ -389,7 +476,10 @@ test("the words of a place they have not reached are not on the page at all", as
   // screenshot cannot contain it.
   assert.equal(text.includes(HIDDEN_TEXT), false);
   assert.equal(text.includes("What They Have Not"), false);
-  const shown = page.el("candidate-go-13").children[2];
+  // The element the words would go in exists and is empty. Hidden is not the
+  // promise; empty is.
+  const row = page.el("candidate-list").children[3];
+  const shown = part(row, "candidate-what");
   assert.equal(shown.textContent, "");
   assert.equal(shown.hidden, true);
 });
@@ -472,7 +562,7 @@ test("asking what is there fills in that row and nothing else", async (t) => {
       revealed.where,
       revealed.what,
       revealed.revealed,
-      revealed.canShow,
+      revealed.hint,
     ],
     [
       "ahead",
@@ -481,12 +571,28 @@ test("asking what is there fills in that row and nothing else", async (t) => {
       "Ch 2 · What They Have Not · ahead",
       HIDDEN_TEXT,
       true,
-      false,
+      // The warning has been heeded and is over.
+      null,
     ],
   );
-  // And the row above it is untouched, which is the difference between a reveal
+  // And the row below it is untouched, which is the difference between a reveal
   // and a change of mind about the whole list.
   assert.equal(rows(page)[4].what, null);
+  assert.equal(rows(page)[4].hint, "tap to reveal · may spoil");
+});
+
+test("a second press on a revealed row does not put the words back", async (t) => {
+  const page = await playing(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit where the horse goes down");
+  page.click("candidate-show-13");
+  const after = rows(page)[3];
+  page.click("candidate-show-13");
+  // A control whose meaning depends on how many times it has been pressed,
+  // read by somebody who is not counting, is the wrong thing to hand a listener
+  // at 2am — and the one direction it must never go in is back.
+  assert.deepEqual(rows(page)[3], after);
+  assert.equal(page.probe().revealed, 1);
 });
 
 test("finding out what is there does not move the book or tell anybody", async (t) => {
@@ -567,6 +673,47 @@ test("a row goes to the millisecond it names and plays it", async (t) => {
   // Reproducing "now press play yourself" in JavaScript would be a joke.
   assert.deepEqual(page.order.slice(from), ["play", "state:playing"]);
   assert.equal(page.audio.paused, false);
+  // And it says so once, at the bottom of the screen near the thumb that did
+  // it. The screen it was said on has gone, so there is nowhere else it could
+  // be said.
+  assert.equal(page.probe().toast, "moved · playing");
+});
+
+test("the move is announced on the seek and not on a timer", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  const waits = page.waits().length;
+  page.click("candidate-go-12");
+  // Nothing was scheduled to make it true later. The design's prototype waits
+  // ~900ms and then says this, and on a real page that window is long enough
+  // for the agent to move the book by the other route — the refusal of the next
+  // report — after which the sentence would be about a press whose effect had
+  // been overwritten. The only wake asked for is the toast taking itself off.
+  assert.deepEqual(page.waits().slice(waits), [2800]);
+  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().toast, "moved · playing");
+});
+
+test("a move that arrived by the other route says nothing about a press", async (t) => {
+  const page = await playing(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  // The agent moved the book itself, which is how a move that really happened
+  // always arrives in the end. Nobody pressed `goto`, so nothing is owed a
+  // sentence about what their press did.
+  page.reply({
+    accepted: false,
+    gid: HALF_HEARD.gid,
+    position_ms: 2_000_000,
+    seq: 3,
+    reason: "moved",
+  });
+  page.tick(15_000);
+  page.audio.advance(0.5);
+  await page.settle();
+  assert.equal(page.probe().positionMs, 2_000_000);
+  assert.equal(page.probe().toast, "");
 });
 
 test("a chosen row is reported as the seek it is, and bumps no count", async (t) => {
@@ -659,6 +806,30 @@ test("a row in another book opens that book and lands in the right place", async
     ["metadata:Elsewhere Two"],
   );
   assert.equal(page.audio.paused, false);
+  assert.equal(page.probe().toast, "moved · playing");
+});
+
+test("a row in a book that has not been read yet moves nothing and says so", async (t) => {
+  const page = await playing(t);
+  page.answers({
+    reply: OFFER_SENTENCE,
+    candidates: {
+      gid: RENDERING_BOOK.gid,
+      title: RENDERING_BOOK.title,
+      position_ms: null,
+      places: [{ ...elsewhere(), chunk_id: 31 }],
+    },
+  });
+  await page.ask("the bit in the book being read");
+  page.click("candidate-go-31");
+  for (let turn = 0; turn < 3; turn++) await page.settle();
+  // The book has rows and no audio, so openBook adopts nothing and this page is
+  // still on the book it was on. "moved · playing" over a book that did not
+  // move is the one thing a toast must never say — the standing sentence on the
+  // status line is the true one, and it is the only thing said.
+  assert.equal(page.probe().gid, HALF_HEARD.gid);
+  assert.equal(page.probe().toast, "");
+  assert.equal(page.probe().status, "the first chapter is still being read");
 });
 
 // -------------------------------------------------------------------- cancel

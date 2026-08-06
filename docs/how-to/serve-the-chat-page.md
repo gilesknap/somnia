@@ -131,14 +131,15 @@ passage is in a book that was not even open, that book opens. Nothing has to be
 pressed afterwards.
 
 When more than one place could be what you meant, it does not ask — it puts
-them on the screen. The list is headed *Where do you mean?* and each row is a
+them on the screen. The screen is headed *Places you might be*, with a line
+under it saying how many there are and what they span, and each row is a
 time, a chapter and the book's own words — its own, never a description of
 them, so you recognise the moment rather than take somnia's word for it, and
 never the words of a place you have not reached yet, which is the paragraph
 after this one. There is a *you are here* marker sitting
 between them in book order so you can see which are behind you and which are
-ahead. Press one and the book goes there and plays. Press *cancel* at the
-bottom and nothing whatever happens: the book carries on exactly as it was, in
+ahead. Press *goto* on a row and the book goes there and plays. Press *close* at
+the bottom and nothing whatever happens: the book carries on exactly as it was, in
 the same place, with the same sleep timer running. Nothing has moved while the
 list is up, so there is nothing to undo. The book keeps playing underneath it
 the whole time, which also means a sleep timer left to run out under a list
@@ -151,8 +152,9 @@ being taken forward does not unlock what you were carried over. What you get
 instead is that place as a row on the list, marked *ahead*, showing its time
 and its chapter number and nothing else — no words, and not even the chapter's
 name, since a chapter called *How Ginger Died* gives away as much as the
-sentence under it. Press *show me what's there* and it uncovers, and you decide
-having read it; press the row and you go there without reading it at all. Two
+sentence under it. What it says instead is *tap to reveal · may spoil*: press
+anywhere on the row's reading and it uncovers, and you decide having read it;
+press *goto* and you go there without reading it at all. Two
 things follow from measuring it that way. A book
 somnia has never played is bounded at its opening minute, so if a book you have
 been listening to for a fortnight puts everything on the list as *ahead*, the

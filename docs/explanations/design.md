@@ -232,7 +232,7 @@ is the way through, asked for by them and by nobody else.
 
 **What it offers is a list of places, not a question.** That passage becomes a
 row on screen with its time and its chapter number, and its words and its
-chapter title covered up behind a second press labelled *show me what's there*;
+chapter title covered up until the row is pressed — *tap to reveal · may spoil*;
 the same screen is what several plausible matches produce, so "did you mean the
 one an hour in or the one at four hours?" is now a thing a thumb answers rather
 than a sentence somebody half asleep has to compose. [ADR

@@ -37,6 +37,7 @@ const prevChapter = document.getElementById("prevchapter");
 const nextChapter = document.getElementById("nextchapter");
 const candidates = document.getElementById("candidates");
 const candidatesBook = document.getElementById("candidates-book");
+const summaryLine = document.getElementById("candidates-summary");
 const candidateList = document.getElementById("candidate-list");
 const candidatesCancel = document.getElementById("candidates-cancel");
 // The books panel. `queuePanel` rather than `queue` because "the queue" in this
@@ -1604,7 +1605,7 @@ function follow(move) {
   seekGlobal(move.position_ms, { play: true });
 }
 
-// ------------------------------------------------------- where do you mean?
+// ------------------------------------------------------ places you might be
 
 // Some questions have more than one answer, and the old way of saying so was a
 // conversation: "did you mean the one an hour in, or the one at four hours?"
@@ -1626,9 +1627,28 @@ function follow(move) {
 // a sentence is that they read the book's own sentence and recognise it — but a
 // place they have not reached yet cannot show its words, or its chapter title
 // ("How Ginger Died" is as much of a spoiler as the paragraph under it), so
-// those rows say only when they are and that they are ahead, and offer a second
-// press to find out more. Going somewhere and finding out what is there are
-// different decisions and they are different buttons.
+// those rows say only when they are and that they are ahead, and offer a press
+// to find out more.
+//
+// Going somewhere and finding out what is there are different decisions, and a
+// row is two targets rather than one: the reading, which is the whole left of
+// the row, and `goto`, which is a pill on the right. Which of the two is the
+// bigger one is the ruling this list turns on. It used to be the jump — the row
+// itself was the button and the reveal was a small dashed thing under it — and
+// that is the wrong way round for a screen read at 2am. The press wanted most
+// often is "what is there?", it is the one that can be taken back, and the one
+// that cannot be taken back is the one that should have to be aimed at. So the
+// reveal is the row and `goto` is the pill beside it. Nothing about that
+// changes what either press does: revealing still moves no playback and tells
+// nobody, and it is still not possible to arrive somewhere by asking what is
+// there.
+//
+// What the design asked for and this list does not have: a reason per row
+// ("most likely · fits what you said") and a source per row ("you paused here,
+// awake", "sleep timer faded out here"). The agent returns neither and there is
+// nowhere in somnia either could be read from, so neither is drawn. A list of
+// places is the one screen on this page where a plausible sentence nobody has
+// evidence for is a lie a thumb then acts on.
 
 // The offer currently on screen, or null. It holds the only copy of the words
 // of any place they have not heard yet, which is why it is a variable and not a
@@ -1672,14 +1692,38 @@ function chapterLabel(place, { title }) {
   return parts.join(" · ");
 }
 
+// What the list is, said in one line above it, and out of nothing but the
+// payload that drew the rows. It counts what is on the screen and names the
+// first and last time on it — no denominator, because somnia has no idea how
+// many places in this book would have fitted the question, and "4 of 7" with a
+// 7 nobody counted is a number that would be read and believed.
+function candidatesSummary(places) {
+  if (!places.length) return "";
+  const first = timestamp(places[0].start_ms);
+  if (places.length === 1) return `1 place, at ${first}`;
+  const last = timestamp(places[places.length - 1].start_ms);
+  return `${places.length} places between ${first} and ${last}`;
+}
+
 function candidateRow(place) {
   const li = document.createElement("li");
   li.className = place.ahead ? "candidate ahead" : "candidate";
 
-  const go = document.createElement("button");
-  go.type = "button";
-  go.className = "candidate-go";
-  go.id = `candidate-go-${place.chunk_id}`;
+  // Everything known about the place, and the whole left of the row. It is a
+  // button only where something is being withheld: on a place they have already
+  // heard there is nothing left to ask for, so the words are simply there and
+  // the reading is not a control at all. A target that answers a press by doing
+  // nothing is worse in the dark than no target — it reads as a page that has
+  // stopped responding.
+  const show = document.createElement(place.ahead ? "button" : "div");
+  show.className = "candidate-show";
+  if (place.ahead) {
+    show.type = "button";
+    show.id = `candidate-show-${place.chunk_id}`;
+  }
+
+  const line = document.createElement("p");
+  line.className = "candidate-line";
 
   const when = document.createElement("span");
   when.className = "candidate-when";
@@ -1689,7 +1733,10 @@ function candidateRow(place) {
   where.className = "candidate-where";
   where.textContent = chapterLabel(place, { title: !place.ahead });
 
-  const what = document.createElement("span");
+  line.append(when);
+  line.append(where);
+
+  const what = document.createElement("p");
   what.className = "candidate-what";
   // A place ahead of where they have listened starts with nothing in it at
   // all — not hidden text, no text. Held in the closure below instead, so that
@@ -1700,18 +1747,18 @@ function candidateRow(place) {
   if (place.ahead) what.hidden = true;
   else what.textContent = place.text;
 
-  go.append(when);
-  go.append(where);
-  go.append(what);
-  go.addEventListener("click", () => chooseCandidate(place));
-  li.append(go);
+  show.append(line);
+  show.append(what);
 
   if (place.ahead) {
-    const show = document.createElement("button");
-    show.type = "button";
-    show.className = "candidate-show";
-    show.id = `candidate-show-${place.chunk_id}`;
-    show.textContent = "show me what's there";
+    // The only line on the page that says what a press will cost. Amber,
+    // because amber on this page is the warm thing and a warning is one, and
+    // said in the row rather than under the list: whether the words are worth
+    // uncovering is a question about this place and not about the screen.
+    const hint = document.createElement("p");
+    hint.className = "candidate-hint";
+    hint.textContent = "tap to reveal · may spoil";
+    show.append(hint);
     // Five writes to this row's own DOM and nothing else in the whole page: no
     // request, no seek, no report, nothing touched that the spoiler guard
     // measures. The words came down with the answer and were already in hand,
@@ -1722,31 +1769,62 @@ function candidateRow(place) {
     // where a control that does nothing for three seconds reads as broken and
     // gets pressed again — with a list on screen, into a row.
     show.addEventListener("click", () => {
+      // Once. A second press on a revealed row is a thumb that has already got
+      // what it asked for, and the one thing it must never do is put the words
+      // back — a reveal that toggled would be a control whose meaning depends
+      // on how many times it has been pressed, read by somebody who is not
+      // counting.
+      if (li.classList.contains("revealed")) return;
       what.textContent = place.text;
       what.hidden = false;
       // The title arrives at the same press and never before it.
       where.textContent = chapterLabel(place, { title: true });
-      show.hidden = true;
-      // It is still ahead of them, and that is what they are deciding about.
+      // The warning has been heeded and is over. What is left saying the row is
+      // ahead of them is the word in the chapter line, which stays.
+      hint.hidden = true;
       li.classList.add("revealed");
     });
-    li.append(show);
   }
+  li.append(show);
+
+  // The other target, and the smaller one on purpose: it is the press that
+  // cannot be taken back. 60dp of pill, and the nearest other `goto` is 52px
+  // below it — the row's padding twice over and the hairline between, none of
+  // which listens for a press. The reveal sits beside the pill and never under
+  // it, so nothing catches a low miss except that distance; style.css keeps it,
+  // and `.candidate`'s padding is not a spacing choice to be tuned.
+  const go = document.createElement("button");
+  go.type = "button";
+  go.className = "candidate-go";
+  go.id = `candidate-go-${place.chunk_id}`;
+  // Not "jump": at this size and in this position "jump" reads like the ±30
+  // below, and this moves the whole book.
+  go.textContent = "goto";
+  go.addEventListener("click", () => chooseCandidate(place));
+  li.append(go);
   return li;
 }
 
-function hereRow(ms) {
+// Not a row and not somewhere to go: a rule drawn across the list at the point
+// they have got to. `more` is whether there is anything under it — the sentence
+// beneath the rule is about what follows it, and printed with nothing following
+// it, it would be a warning about an empty screen.
+function hereRow(ms, { more }) {
   const li = document.createElement("li");
   li.className = "candidate here";
   li.setAttribute("aria-current", "true");
-  const when = document.createElement("span");
-  when.className = "candidate-when";
-  when.textContent = timestamp(ms);
-  const where = document.createElement("span");
-  where.className = "candidate-where";
-  where.textContent = "you are here";
-  li.append(when);
-  li.append(where);
+  // One string, mono and small: it is a label on a rule rather than something
+  // to read, and it is the only place on this screen that is not a place.
+  const mark = document.createElement("p");
+  mark.className = "section-label here-mark";
+  mark.textContent = `you are here · ${timestamp(ms)}`;
+  li.append(mark);
+  if (more) {
+    const caveat = document.createElement("p");
+    caveat.className = "here-caveat";
+    caveat.textContent = "anything below this line you may not have heard";
+    li.append(caveat);
+  }
   return li;
 }
 
@@ -1758,6 +1836,7 @@ function showCandidates(list) {
   const elsewhere = list.gid !== gid;
   candidatesBook.textContent = elsewhere ? `in ${list.title}` : "";
   candidatesBook.hidden = !elsewhere;
+  summaryLine.textContent = candidatesSummary(list.places);
 
   const rows = list.places.map(candidateRow);
   const here = hereTime(list);
@@ -1769,7 +1848,8 @@ function showCandidates(list) {
     // never updated — a number moving under a finger is worse than a number
     // that is a moment old.
     const at = list.places.findIndex((place) => place.start_ms > here);
-    rows.splice(at < 0 ? rows.length : at, 0, hereRow(here));
+    const mark = at < 0 ? rows.length : at;
+    rows.splice(mark, 0, hereRow(here, { more: mark < rows.length }));
   }
   for (const row of rows) candidateList.append(row);
 
@@ -1796,6 +1876,10 @@ function closeCandidates() {
   candidates.hidden = true;
   // The rows, and with them any words a reveal press put on the screen.
   candidateList.replaceChildren();
+  // The line that counted them goes with them. It is only times and a number,
+  // but a subhead left standing over an empty list is the page describing
+  // something that is not there.
+  summaryLine.textContent = "";
   // And the words it did not: the only other copy in the page.
   offered = null;
 }
@@ -1803,6 +1887,12 @@ function closeCandidates() {
 // Cancel, and only cancel. It is three assignments and at most one listener put
 // back, and that is the whole of it: no move, no report, no seq bump, no write
 // to Audiobookshelf, and nothing said on the status line.
+//
+// The button says `close` now and this still is the cancel. `cancel` was the
+// word while the list read as a question with an answer owed; it is a screen of
+// places now, and a screen is left rather than called off. Nothing under the
+// word changed — it is still the one way out that gives back the tap the list
+// took, and still the only one that has to.
 //
 // What it deliberately does not undo, because none of it was the list's doing:
 // a sleep fade running underneath keeps running, and if it finishes the book
@@ -1843,6 +1933,14 @@ async function chooseCandidate(place) {
       await refreshManifest().catch(() => {});
     }
     seekGlobal(place.start_ms, { play: true });
+    // On the line after the seek, and never on a timer. The design's prototype
+    // waits ~900ms and then says this, which on a real page is a sentence that
+    // can outlive what it describes: the agent can move the book by the other
+    // route — the refusal of the next report — inside that window, and a toast
+    // fired afterwards would be telling them about a press whose effect has
+    // been overwritten. Said here it is true when it is written, or it is not
+    // written.
+    toast("moved · playing");
     return;
   }
   // Another book, which has had nothing written to it: `at` is what carries the
@@ -1851,10 +1949,19 @@ async function chooseCandidate(place) {
   // the status line rather than engineered around, because threading a position
   // through a wait that can last a quarter of an hour is a promise this page
   // cannot keep.
-  openBook(list.gid, { play: true, at: place.start_ms }).catch((error) => {
+  try {
+    await openBook(list.gid, { play: true, at: place.start_ms });
+  } catch (error) {
     setStatus("couldn't reach that book");
     console.error(error);
-  });
+    return;
+  }
+  // Hung off the swap having happened, for the same reason as above, and it
+  // really can not happen: a book whose first chapter has not been rendered yet
+  // comes back from openBook having changed nothing but the status line, and
+  // the page is still on the book it was on. "moved · playing" over a book that
+  // did not move is the one thing a toast must never say.
+  if (gid === list.gid) toast("moved · playing");
 }
 
 // Told once, as the page dies. fetch does not survive teardown — the document
