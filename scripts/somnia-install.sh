@@ -192,7 +192,14 @@ else
     spec="somnia$extras @ git+$REPO_URL@$ref"
 fi
 
+# Two passes, because pip will not reinstall a package whose name and version
+# it already has: a plain install of a new --ref into an existing environment
+# clones the repo, decides it is satisfied and changes nothing, which would
+# make this script useless for upgrading. The first pass replaces somnia and
+# only somnia; the second brings in any dependency the new version added,
+# without disturbing the ones — torch, above all — that are already right.
 say "installing $spec"
+"$vpy" -m pip install --quiet --force-reinstall --no-deps "$spec"
 "$vpy" -m pip install --quiet "$spec"
 
 # --- settings ----------------------------------------------------------------

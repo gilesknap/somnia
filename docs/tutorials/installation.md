@@ -70,17 +70,14 @@ default except the Anthropic key. `~/somnia.env` is where the installer puts
 them and what the how-to guides assume — your shell reads it with `source`, and
 the systemd units read it with `EnvironmentFile=`.
 
+Two of them matter on the first day. The rest have defaults that are right until
+you have a reason to change them, and are listed in
+[Configuration](../reference/configuration.md).
+
 | Variable | Default | What it is |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | — | The agent's model calls. Required for `somnia ask` and `somnia serve` |
-| `SOMNIA_DATA_DIR` | `~/.local/share/somnia` | Where `somnia.db` lives |
 | `SOMNIA_LIBRARY_DIR` | `~/library/audiobooks` | Where rendered chapters are written, and served from |
-| `SOMNIA_VOICE` | `af_heart` | The Kokoro voice |
-| `SOMNIA_AGENT_MODEL` | `claude-sonnet-5` | The model behind the conversation |
-| `SOMNIA_EMBED_MODEL` | `intfloat/e5-small-v2` | Must be 384-dimensional |
-| `SOMNIA_ABS_URL` | `http://127.0.0.1:13378` | Audiobookshelf, if you run one |
-| `SOMNIA_ABS_TOKEN` | — | Unset means no ABS client is built at all |
-| `SOMNIA_ABS_LIBRARY_ID` | — | From `somnia libraries` |
 
 `SOMNIA_LIBRARY_DIR` is the one that fails quietly. Get it wrong and the server
 starts happily, answers questions happily, and 404s every chapter — the real

@@ -23,7 +23,7 @@ therefore leaves a database behind whatever else happens.
 
 Settings come from the environment, and from nowhere else — there is no config
 file and no flag that overrides one. They are listed in
-[Installation](#configure).
+[Configuration](configuration.md).
 
 (cli-catalog-update)=
 ## `catalog-update`
@@ -107,7 +107,8 @@ Two things to know before re-running it on a book it has already rendered:
   40 chapters again.
 - The index gains a **second copy** of every passage, because chapters are
   replaced but chunks are only ever inserted. Searches still work; they just
-  return the same passage more than once.
+  return the same passage more than once. Both are
+  [#11](https://github.com/gilesknap/somnia/issues/11).
 
 What it does not touch is where you have got to. A re-render writes the title,
 the authors, the voice and the status, and nothing about your position or how
