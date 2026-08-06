@@ -5,6 +5,47 @@
    is easy to forget, a miss that costs nothing rather than a miss that does the
    wrong thing. Where those two pull against each other, the second one wins. */
 
+/* One serif, and it ships with the page.
+
+   The page used to ask for `ui-serif, Georgia, serif` and get whatever the
+   phone felt like — on Android that is Noto Serif, which is a fine face and is
+   not this one, and the sizes below were measured against Newsreader. A type
+   scale drawn against one face and rendered in another is a scale nobody
+   chose.
+
+   Self-hosted, as two woff2 files beside this sheet, and never a <link> to a
+   font CDN. Three reasons, all of them the same reason: a cross-origin font is
+   an opaque response, an opaque response cannot be cached by the service
+   worker, and the first launch at 2am with no signal is the one launch that
+   matters. They are in sw.js's SHELL for the same reason. Roman and italic are
+   one variable file each, carrying 300–400, so the whole family is two
+   requests.
+
+   No unicode-range: these are latin-only subsets, and leaving the range off
+   means anything outside them falls through to the stack below rather than
+   being drawn as a box. `swap`, not `optional`: once the shell is cached the
+   swap has nothing to wait for, and on the one launch where it does, arriving
+   late is better than not arriving until next time.
+
+   Georgia is second and generic serif last, because this is what the page has
+   to look like when the fonts have not landed — including in headless Chrome
+   on a build machine, which has neither installed. */
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-weight: 300 400;
+  font-display: swap;
+  src: url("newsreader-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Newsreader";
+  font-style: italic;
+  font-weight: 300 400;
+  font-display: swap;
+  src: url("newsreader-latin-italic.woff2") format("woff2");
+}
+
 /* One hue, and no blue in it.
 
    Everything the page is made of used to be a blue-grey: slabs at #12121a,
@@ -71,6 +112,32 @@ html {
   overscroll-behavior-y: none;
 }
 
+/* The scale, and why it is written in rem.
+
+   The design gives its sizes in dp against this phone's real metric: 360x780
+   with a 20px root, which is a Pixel 6 Pro with Android's text scaling turned
+   up, because the page is read without glasses. Every one of those numbers is
+   divided by 20 and written as rem rather than typed back in as px. Px would
+   freeze the page at one night's setting: the whole reason the root is 20 and
+   not 16 is that the reader turned the OS scale up, and a page in px is a page
+   that stops listening the next time they turn it up again.
+
+   Descending, so a size can be checked against the design without arithmetic:
+   1.7 a page title · 1.45 a book · 1.35 what somnia says · 1.2 what you said,
+   and a time on a list · 1.1 what you are typing, and a chapter · 1.05 the way
+   out, and a search result · 0.95 a chapter count, and the book's own words ·
+   0.9 a second-rank control, and where you are in the book · 0.825 what a row
+   is, under its name · 0.775 a footnote.
+
+   Nothing meant to be read goes below 0.75rem — 15dp — and the one thing under
+   that, .section-label at 0.55rem, is not read: it is mono, uppercase and
+   tracked wide enough to be a rule with a name on it.
+
+   Spacing divides the same way: 1rem gutters, 1.7rem between sections, 1rem
+   between turns, 0.6rem between siblings. Radii are 999px for a pill, 1rem for
+   a slab, 0.9rem for the quieter presses. Where a gap on this page is wider
+   than the scale says — the dead band under the sleep timer, the gap beside the
+   microphone — it is dead space on purpose and the comment above it says so. */
 body {
   /* dvh, not %: the dynamic viewport is the one that shrinks for the on-screen
      keyboard, so the composer stays above it instead of below the fold. */
@@ -82,7 +149,10 @@ body {
   flex-direction: column;
   background: var(--bg);
   color: var(--ink);
-  font: 400 1.25rem/1.55 ui-serif, Georgia, serif;
+  /* The base size is the conversation's, because the conversation is this
+     page's body text: what somnia says is 1.35rem and every other size on the
+     page is measured away from it. */
+  font: 400 1.35rem/1.45 "Newsreader", Georgia, ui-serif, serif;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
   -webkit-text-size-adjust: 100%;
@@ -104,16 +174,34 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.4rem 0.4rem 0.2rem 1.2rem;
+  padding: 0.4rem 0.4rem 0.2rem 1rem;
 }
 
+/* The wordmark, and the smallest tracking on the page that is still tracking.
+   It came down from 0.4em because at the size the rest of the page now reads
+   at, a name spaced that far apart stops being a word and starts being seven
+   letters — and this is the one thing on the screen nobody has to read. */
 h1 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 400;
-  letter-spacing: 0.4em;
+  letter-spacing: 0.3em;
   color: var(--dim);
   text-transform: lowercase;
+}
+
+/* A name for a stretch of the page, at the one size on it that is not meant to
+   be read. Mono, uppercase and tracked to 0.18em: at 0.55rem a serif would be a
+   smudge, and this is not a sentence — it is a rule with a word on it, and what
+   it does is tell the eye where one part of a panel stops and the next starts.
+   Everything readable is 0.75rem and up; this is the exception, and it earns it
+   by not being text. */
+.section-label {
+  margin: 0;
+  font: 400 0.55rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faint);
 }
 
 /* The far corner, and both of the controls that live in it. They are side by
@@ -135,7 +223,7 @@ h1 {
   background: none;
   border: 0;
   color: var(--dim);
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   padding: 0.7rem 1rem;
 }
 
@@ -150,7 +238,7 @@ h1 {
      top of the conversation scrolls out of reach. */
   min-height: 0;
   overflow-y: auto;
-  padding: 0.6rem 1.2rem 0;
+  padding: 0.6rem 1rem 0;
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
@@ -166,25 +254,35 @@ h1 {
   margin-top: auto;
 }
 
+/* What somnia says is the largest run of text on the page and the base size the
+   rest is measured from. A turn is one paragraph with one turn's worth of air
+   under it — 1rem, the same as the gutters, so the column reads as a column. */
 .said {
-  margin: 0 0 1.5rem;
+  margin: 0 0 1rem;
   max-width: 34rem;
 }
 
 /* Their own words, kept a shade back from the answer without being dropped so
-   far into the dark that they cannot be read again. The dash is what tells the
-   two apart; the colour only leans. */
+   far into the dark that they cannot be read again, and a step smaller as well
+   as dimmer. The dash is what tells the two apart; the size and the colour only
+   lean. */
 .said.you {
   color: var(--mid);
+  font-size: 1.2rem;
 }
 
 .said.you::before {
   content: "— ";
 }
 
+/* An answer on its way. It has never held anything but an ellipsis — app.js
+   writes "…" here and overwrites the whole turn when the reply lands — so the
+   italic it used to carry was styling one character that has no upright form to
+   be told apart from. Italic now means two things on this page and nothing
+   else: words that are not somnia's own, and words from the book you may not
+   have heard yet. Neither of them is this. */
 .said.pending {
   color: var(--dim);
-  font-style: italic;
 }
 
 .said.failed {
@@ -198,19 +296,25 @@ h1 {
 
    One line is reserved and a longer message takes two. It grows upwards into
    the transcript rather than pushing the transport down, because a button that
-   has moved since the last glance is a button that gets missed. */
+   has moved since the last glance is a button that gets missed.
+
+   Upright, not italic. It used to lean, along with every other quiet line on
+   the page, back when italic was simply how this page said "quietly". Italic
+   now means words that are not somnia's own — and "listening…" is somnia's own,
+   said about itself. What sets this line apart instead is that it is the only
+   amber text on the page, which is a difference that survives being glanced
+   at. */
 #status {
   margin: 0;
-  padding: 0 1.3rem;
+  padding: 0 1rem;
   min-height: 1.6rem;
-  font-size: 1rem;
-  font-style: italic;
+  font-size: 1.05rem;
   color: var(--accent);
   opacity: 0.75;
 }
 
 #player-bar {
-  padding: 0.3rem 1.2rem 0;
+  padding: 0.3rem 1rem 0;
 }
 
 /* The band at the bottom is dead space between the sleep timer and the button
@@ -222,7 +326,12 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  margin: 0 0 1.05rem;
+  /* 1.7rem is the design's gap between one section of a screen and the next,
+     and this is the most literal section boundary on the page: above it is
+     everything that is read, below it is everything that is pressed. It was
+     1.05rem, which was already dead space chosen by hand for the reason above;
+     the scale wanted it wider and there is height to spend. */
+  margin: 0 0 1.7rem;
 }
 
 /* One line, whatever the book is called: cut with an ellipsis rather than
@@ -240,7 +349,7 @@ h1 {
    be. They are in .chapter-strip below. */
 #chapter-title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   color: var(--mid);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -254,7 +363,7 @@ h1 {
   display: grid;
   grid-template-columns: 4.6rem 1fr 4.6rem;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   /* Its own space above and below. Under it sits the book's clock, and under
      that the transport: this row must not read as the top of the button
      cluster, because it is not one. */
@@ -271,7 +380,7 @@ h1 {
   display: grid;
   place-items: center;
   border: 1px solid var(--hairline);
-  border-radius: 1.1rem;
+  border-radius: 1rem;
   background: none;
   color: var(--dim);
   transition: background-color 90ms linear;
@@ -300,24 +409,37 @@ h1 {
   opacity: 0.3;
 }
 
-/* Dimmer and smaller than the book's clock below it. Both are on screen at
-   once and they are not equals: the one that says where the night has got to
-   is the book's, and two numbers of the same weight would have to be read to
-   be told apart. */
+/* Dimmer and smaller than the book's clock below it, and now smaller again.
+   Both are on screen at once and they are not equals: the one that says where
+   the night has got to is the book's, and two numbers of the same weight would
+   have to be read to be told apart.
+
+   The size is load-bearing and was measured in a render, not chosen. `3:24 of
+   41:12` has 116px between the two chapter buttons; in Newsreader at the size
+   this was — 1rem — it wrapped onto a second line, which pushed the whole
+   transport down the screen on every chapter whose clock ran past ten minutes.
+   At 0.825rem it fits with room, and 0.825rem is what the design asks for
+   anyway. */
 #chapter-clock {
   text-align: center;
-  font-size: 1rem;
+  font-size: 0.825rem;
   color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
 
+/* Where the night has got to, and when it is due to end, on one row. That they
+   fit on one row is the whole reason this is 0.9rem and not the 1.05rem it was:
+   in Newsreader at 1.05rem, `1:12:08 of 9:41:33` and the longest sleep label
+   the page can write would not share 320px, and what wrapped was the book's
+   clock — broken between `1:12:08 of` and `9:41:33`, which is the worst place
+   on the page to put a line break. Measured in a render, both ways. */
 #whereabouts {
   margin: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   color: var(--mid);
 }
 
@@ -338,12 +460,18 @@ h1 {
   flex: none;
   white-space: nowrap;
   border: 1px solid transparent;
-  border-radius: 0.9rem;
+  /* A pill, not a rounded box. On this page a pill is a thing that can be set
+     and a slab is a thing that can be pressed, and the sleep timer is the one
+     control that is both a readout and a setting — so it takes the shape of the
+     readout it also is, rather than the shape of the transport it must not be
+     mistaken for. */
+  border-radius: 999px;
   background: none;
   color: var(--dim);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
-  padding: 0.6rem 0.85rem;
+  min-height: 2.4rem;
+  padding: 0.5rem 1.2rem;
 }
 
 /* A wash and an edge, not the filled slab the play button wears. Both are
@@ -375,7 +503,7 @@ h1 {
 .transport {
   display: grid;
   grid-template-columns: 1fr 1.45fr 1fr;
-  gap: 0.7rem;
+  gap: 0.6rem;
 }
 
 .transport button {
@@ -386,10 +514,10 @@ h1 {
   display: grid;
   place-items: center;
   border: 1px solid var(--hairline);
-  border-radius: 1.1rem;
+  border-radius: 1rem;
   background: var(--surface);
   color: var(--ink);
-  font-size: 1.45rem;
+  font-size: 1.5rem;
   font-variant-numeric: tabular-nums;
   transition: background-color 90ms linear;
 }
@@ -444,7 +572,7 @@ h1 {
      it looks like it needs to be for the same reason as the gap: the
      microphone and the forward-thirty button are the two controls a right hand
      reaches for, one directly above the other. */
-  padding: 1.3rem 1.2rem 0.9rem;
+  padding: 1.3rem 1rem 0.9rem;
 }
 
 #question {
@@ -460,7 +588,7 @@ h1 {
   border-radius: 999px;
   color: var(--ink);
   font: inherit;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   padding: 0.85rem 1.2rem;
 }
 
@@ -605,8 +733,13 @@ button:disabled {
     padding-bottom: 0.55rem;
   }
 
+  /* Tighter than the 1rem a turn gets with the whole screen, because with a
+     keyboard up there are 470px to hold the question, the answer and the box
+     being typed into. It is the air between turns that gives, not their
+     size: shrinking the type is how a page becomes unreadable at the exact
+     moment somebody is composing a sentence into it. */
   .said {
-    margin-bottom: 1rem;
+    margin-bottom: 0.7rem;
   }
 }
 
@@ -671,16 +804,16 @@ button:disabled {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 1rem;
   /* Opaque, not a scrim. Half-lit text read through the conversation behind it
      at 2am without glasses is not text. */
   background: var(--bg);
   /* Its own safe-area insets: fixed positioning escapes the padding the body
      carries, so without these the cancel button sits under the home bar. */
   padding: calc(env(safe-area-inset-top) + 1rem)
-    calc(env(safe-area-inset-right) + 1.2rem)
+    calc(env(safe-area-inset-right) + 1rem)
     calc(env(safe-area-inset-bottom) + 1.1rem)
-    calc(env(safe-area-inset-left) + 1.2rem);
+    calc(env(safe-area-inset-left) + 1rem);
 }
 
 /* Required, not optional: the rule above sets a display, and an author id rule
@@ -695,14 +828,14 @@ button:disabled {
    asked back. */
 #candidates-title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.7rem;
   font-weight: 400;
   color: var(--mid);
 }
 
 #candidates-book {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.85rem;
   color: var(--dim);
 }
 
@@ -725,7 +858,7 @@ button:disabled {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 1rem;
 }
 
 .candidate {
@@ -743,7 +876,7 @@ button:disabled {
   gap: 0.25rem;
   text-align: left;
   border: 1px solid var(--hairline);
-  border-radius: 1.1rem;
+  border-radius: 1rem;
   background: var(--surface);
   color: var(--ink);
   padding: 0.9rem 1.1rem;
@@ -755,20 +888,26 @@ button:disabled {
 
 .candidate-when {
   color: var(--mid);
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   /* So a column of times can be compared down the page rather than read. */
   font-variant-numeric: tabular-nums;
 }
 
 .candidate-where {
   color: var(--dim);
-  font-size: 1rem;
+  font-size: 0.825rem;
 }
 
-/* The book's own words, which are what a place is actually recognised by. */
+/* The book's own words, which are what a place is actually recognised by — and
+   the second of the two things italic means on this page. It leans because it
+   is a quotation: not somnia talking about the book, but the book, at a place
+   somebody has not necessarily heard yet. Every other quiet line on the page
+   gave its italic up in this pass so that this one would still mean
+   something. */
 .candidate-what {
   color: var(--ink);
-  font-size: 1.05rem;
+  font-size: 0.95rem;
+  font-style: italic;
   /* Clamped here as well as truncated on the server, so that what was sent and
      what is shown roughly agree and four rows plus the one saying where they
      are still fit on one screen. Both the -webkit-box display and the overflow
@@ -797,7 +936,7 @@ button:disabled {
   border: 1px dashed var(--hairline);
   border-radius: 0.9rem;
   color: var(--dim);
-  font-size: 1rem;
+  font-size: 0.9rem;
   padding: 0.6rem 0.85rem;
 }
 
@@ -846,10 +985,10 @@ button:disabled {
   width: 100%;
   min-height: 5.5rem;
   border: 1px solid var(--hairline);
-  border-radius: 1.1rem;
+  border-radius: 1rem;
   background: var(--surface);
   color: var(--ink);
-  font-size: 1.25rem;
+  font-size: 1.05rem;
 }
 
 #candidates-cancel:active {
@@ -862,15 +1001,18 @@ button:disabled {
    stays where a thumb left it. */
 @media (max-height: 34rem) {
   #candidates {
-    gap: 0.5rem;
+    gap: 0.6rem;
   }
 
+  /* Down two steps of the scale rather than to a size of its own: a page title
+     with a keyboard up is still a page title, and it is the only thing on the
+     screen saying which of the two overlays this is. */
   #candidates-title {
-    font-size: 1.15rem;
+    font-size: 1.2rem;
   }
 
   #candidate-list {
-    gap: 0.8rem;
+    gap: 0.7rem;
   }
 
   .candidate-go {
@@ -922,17 +1064,17 @@ button:disabled {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 1rem;
   background: var(--bg);
   padding: calc(env(safe-area-inset-top) + 1rem)
-    calc(env(safe-area-inset-right) + 1.2rem)
+    calc(env(safe-area-inset-right) + 1rem)
     calc(env(safe-area-inset-bottom) + 1.1rem)
-    calc(env(safe-area-inset-left) + 1.2rem);
+    calc(env(safe-area-inset-left) + 1rem);
 }
 
 #queue-title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.7rem;
   font-weight: 400;
   color: var(--mid);
 }
@@ -959,7 +1101,7 @@ button:disabled {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
 /* An empty list must take no room at all, or three of them stack up a screen of
@@ -968,6 +1110,15 @@ button:disabled {
 #queue-gone:empty,
 #queue-results:empty {
   display: none;
+}
+
+/* A label belongs to what is under it, so it sits a sibling's gap from that and
+   a section's gap from whatever came before. #queue-scroll's own 1rem does half
+   the work; these two make the space above 1.7rem and the space below 0.6rem
+   without wrapping the form in a box to say so. */
+#queue-scroll .section-label {
+  margin-top: 0.7rem;
+  margin-bottom: -0.4rem;
 }
 
 /* A row is a readout. It is not a button, it does not look like one, and
@@ -983,13 +1134,13 @@ button:disabled {
 .job-name,
 .found-name {
   color: var(--ink);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
 }
 
 .job-state,
 .found-have {
   color: var(--dim);
-  font-size: 1rem;
+  font-size: 0.825rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1012,7 +1163,7 @@ button:disabled {
   border: 1px dashed var(--hairline);
   border-radius: 0.9rem;
   color: var(--dim);
-  font-size: 1rem;
+  font-size: 0.9rem;
   padding: 0.6rem 0.85rem;
 }
 
@@ -1030,11 +1181,15 @@ button:disabled {
   color: var(--stop-armed);
 }
 
+/* Upright, for the reason #status is: these are somnia's own sentences about
+   itself — whether it could be reached, and what it did with the last press —
+   and italic on this page is now reserved for words that are not somnia's. They
+   are still the only amber text on the panel, which is what was doing the work
+   all along. */
 #queue-note,
 #queue-said {
   margin: 0;
-  font-size: 1rem;
-  font-style: italic;
+  font-size: 0.825rem;
   color: var(--accent);
   opacity: 0.75;
 }
@@ -1047,7 +1202,7 @@ button:disabled {
 #queue-search {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.6rem;
 }
 
 #queue-query {
@@ -1061,7 +1216,7 @@ button:disabled {
   border-radius: 999px;
   color: var(--ink);
   font: inherit;
-  font-size: 1.15rem;
+  font-size: 1rem;
   padding: 0.85rem 1.2rem;
 }
 
@@ -1086,7 +1241,7 @@ button:disabled {
   border-radius: 0.9rem;
   background: var(--surface);
   color: var(--ink);
-  font-size: 1.05rem;
+  font-size: 1rem;
   padding: 0.6rem 1.1rem;
 }
 
@@ -1103,10 +1258,10 @@ button:disabled {
   width: 100%;
   text-align: left;
   border: 1px solid var(--hairline);
-  border-radius: 1.1rem;
+  border-radius: 1rem;
   background: var(--surface);
   color: var(--ink);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   padding: 0.7rem 1.1rem;
 }
 
@@ -1127,10 +1282,10 @@ button:disabled {
   width: 100%;
   min-height: 5.5rem;
   border: 1px solid var(--hairline);
-  border-radius: 1.1rem;
+  border-radius: 1rem;
   background: var(--surface);
   color: var(--ink);
-  font-size: 1.25rem;
+  font-size: 1.05rem;
 }
 
 #queue-close:active {
@@ -1142,11 +1297,14 @@ button:disabled {
    and close stays where a thumb left it. */
 @media (max-height: 34rem) {
   #queue {
-    gap: 0.5rem;
+    gap: 0.6rem;
   }
 
+  /* The same two steps down #candidates-title takes, and for the same reason:
+     with a keyboard up this word is the only thing saying which overlay is
+     open. */
   #queue-title {
-    font-size: 1.15rem;
+    font-size: 1.2rem;
   }
 
   #queue-scroll {

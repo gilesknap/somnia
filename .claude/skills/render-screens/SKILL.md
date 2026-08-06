@@ -57,9 +57,16 @@ inlined `<style>` block; it is self-contained and needs no server and no JS.
 ## What the snapshot does
 
 `snapshot.py` reads `src/somnia/web/index.html` and `style.css` **every time**,
-inlines the CSS, drops `app.js`, and fills one fixed moment of one book —
+inlines the CSS, folds the page's own `.woff2` files in as data URIs, drops
+`app.js`, and fills one fixed moment of one book —
 chapter 4 of 37, 3:24 into a 41:12 chapter, 1:12:08 into a 9:41:33 book. Same
 data every render, so any two pictures can be put side by side.
+
+The fonts matter as much as the CSS: the snapshot lands in `/tmp`, so a relative
+`url("newsreader-latin.woff2")` would resolve beside the snapshot and find
+nothing, and this machine has neither Newsreader nor Georgia installed. The
+render would quietly fall back to a face none of the sizes in `style.css` were
+measured against, and look entirely plausible.
 
 It fills by element **id**, from a script injected at load, not by rewriting
 markup. Ids are the stable part of this page; the markup around them is the part
@@ -73,10 +80,17 @@ photographs empty.
 
 ## Sizes worth knowing before you argue with a render
 
-- transport buttons **4.5rem**; chapter skips and the microphone **3.5rem**
-- the text column is **312px** — 360 less the 1.2rem margin each side
-- `chapter 4 of 37` is about **150px**; `book 1:12:08 of 9:41:33` about **250px**
-- the header — `somnia`, `books`, `clear` — measures **277px** of the 312
+- transport buttons **5.5rem**; chapter skips **4rem**; the microphone **5rem**
+- the text column is **320px** — 360 less the 1rem gutter each side
+- `1:12:08 of 9:41:33` and the sleep pill share one row and only just: at the
+  sizes before the type scale landed they wrapped, and they still wrap if the
+  sleep label grows past about eleven characters
+- the header — `somnia`, `books`, `start over` — fills most of the 320 and has
+  no room for a fourth thing
+
+Measure these off the PNG, not off `getBoundingClientRect` in an injected
+script: instrumentation run inside a headless screenshot has reported a viewport
+half again too wide here, while the picture itself was correct.
 
 When width and height fight, **spend height**. Stacking beats cramming; that is
 a standing preference, not a tie-break.

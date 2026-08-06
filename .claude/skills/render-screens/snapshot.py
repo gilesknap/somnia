@@ -17,8 +17,10 @@ redesign removed.
 """
 
 import argparse
+import base64
 import json
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -101,9 +103,29 @@ FILL = """
 """
 
 
+def inline_fonts(css):
+    """Fold the page's own woff2 files into the stylesheet as data URIs.
+
+    The snapshot is written to /tmp, so a relative `url("newsreader-latin.woff2")`
+    resolves next to the snapshot and finds nothing — and a render in the wrong
+    serif is a render of the wrong page, because every size in style.css was
+    measured against this one. This machine has neither Newsreader nor Georgia
+    installed, so the miss is silent and looks plausible.
+    """
+
+    def swap(match):
+        path = WEB / match.group(1)
+        if not path.exists():
+            sys.exit(f"snapshot: style.css asks for {match.group(1)} and it is not in {WEB}")
+        data = base64.b64encode(path.read_bytes()).decode()
+        return f'url("data:font/woff2;base64,{data}")'
+
+    return re.sub(r'url\("([^"]+\.woff2)"\)', swap, css)
+
+
 def build(out):
     html = (WEB / "index.html").read_text()
-    css = (WEB / "style.css").read_text()
+    css = inline_fonts((WEB / "style.css").read_text())
 
     for old, new in [
         ('<link rel="stylesheet" href="style.css" />', f"<style>\n{css}\n</style>"),
