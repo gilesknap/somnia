@@ -32,9 +32,14 @@ export const meta = {
 //    while the next slice waits).
 // ---------------------------------------------------------------------------
 
-const projectId = args?.projectId
-const outDir = args?.outDir
-const branch = args?.branch ?? 'feat/apply-redesign'
+// args can arrive as an object or, depending on how the launcher serialised it,
+// as a JSON string. A run that dies on argument plumbing wastes a whole AFK
+// window, so accept both rather than being right about which one it should be.
+const input = typeof args === 'string' ? JSON.parse(args) : (args ?? {})
+
+const projectId = input.projectId
+const outDir = input.outDir
+const branch = input.branch ?? 'feat/apply-redesign'
 
 if (!projectId) throw new Error('args.projectId is required — the Claude Design project UUID')
 if (!outDir) throw new Error('args.outDir is required — where to put the fetched design files')
@@ -211,13 +216,31 @@ Do NOT propose a schema. Establish what is and is not there.`,
     focus: `Restructuring the existing #queue panel: "reading now" with a new non-destructive
 "pick it up at ..." action, "on the shelf", the gutenberg search, and the queue
 panel with per-item progress.
-Check especially: the handoff asks for statuses \`queued\`, \`fetching text\`,
-\`narrating\`, \`ready\` with a progress hairline. Read src/somnia/queue.py — the
-real states are queued, rendering, done, cancelled, failed, and LIVE is
-("queued", "rendering"). So the handoff's four do not exist as written. Work out
-whether they map onto the real ones or whether the extra granularity is new
-work. Also: does the ingest job emit any progress fraction at all, or only a
-state? The handoff's progress hairline needs a number.
+Two things here are already settled with the user — do NOT re-litigate them, and
+do NOT mark either as needs-backend:
+
+  1. The handoff's statuses \`queued\`, \`fetching text\`, \`narrating\`, \`ready\`
+     are DISPLAY LABELS, not states. src/somnia/queue.py's real states are
+     queued, rendering, done, cancelled, failed, with LIVE = ("queued",
+     "rendering"). Map them: queued->"queued", rendering->"narrating",
+     done->"ready". \`fetching text\` has no signal behind it and simply never
+     shows. This is a label map in app.js. It is \`ready\`.
+
+  2. The progress hairline HAS a real fraction already. QueueRow
+     (src/somnia/queue.py:161) carries \`chapters_done\` and \`chapters_total\`,
+     and the queue_view endpoint already serves them. chapters_done is counted
+     from the chapters table rather than kept as a counter, because a chapters
+     row exists only once its m4a does — so it cannot claim a chapter is
+     listenable before it is. Rendering chapters is the bulk of the work, so
+     this is an honest progress bar. It is \`ready\`.
+
+     The one thing to get right: read QueueRow's docstring. \`chapters_total\` is
+     **0 for every book rendered before that column existed, and 0 means
+     "nobody wrote it down"** — not "no chapters". So the hairline must check
+     for 0 and draw nothing, rather than rendering a 0% bar that says a book
+     has not started when nobody actually knows.
+
+Your job on this screen is the REST of it.
 Also note the handoff wants tapping a shelf row to open that book, and check
 that against index.html's standing claim that "nothing on it opens a book".`,
   },

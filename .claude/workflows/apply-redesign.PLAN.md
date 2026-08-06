@@ -10,51 +10,79 @@ changes, some changes to the flow, and "a couple of new minor features". It has
 to become the real page — drawn, wired, tested — landing as one commit per
 slice rather than one large diff.
 
-## Step 0 — get the design on disk (BLOCKING)
+## Step 0 — getting the design (RESOLVED)
 
-**This is the only thing standing in the way, and it was not resolved before the
-user went AFK.**
+`DesignSync list_projects` returns `[]` even after `/design consent` and
+`/design-login` both succeed. That is not an auth failure: **`list_projects`
+only lists `PROJECT_TYPE_DESIGN_SYSTEM` projects.** This one is
+`PROJECT_TYPE_PROJECT` ("Somnia Night Reading App"), so it can never be
+enumerated — but `get_project` / `list_files` / `get_file` against its UUID work
+perfectly.
 
-What was tried and what happened:
+    projectId: 7cae092a-04f8-4319-b510-86b2f73f853a
 
-| Attempt | Result |
-|---|---|
-| `DesignSync list_projects` | `[]` |
-| `/design consent` + `/design-login`, then `list_projects` again | `[]` — still empty after both authorizations |
-| `Artifact action:list scope:all` | Only 4 artifacts, all published by Claude in earlier sessions (old proposals, not the redesign) |
+The workflow's first phase fetches the files to disk itself, so this is handled.
 
-`list_projects` returns only design-system projects the user can **write** to.
-An org-owned project, or a project that is not
-`PROJECT_TYPE_DESIGN_SYSTEM`, is invisible to it. So the empty list does not
-mean the redesign is not there — it means it cannot be enumerated from here.
+## The handoff, and what it actually is
 
-Ways in, best first:
+Not a picture — a **written spec**. `design_handoff_somnia_night_client/README.md`
+is a per-screen diff with sizes in dp, and it is far cheaper to read than the
+prototype HTML. Five screens: Player, **Wake (new)**, Chat, **Places (new)**,
+Books, plus a global design system (one accent hue, one serif, a new full-screen
+dim overlay, a toast).
 
-1. **Project UUID.** If the user supplies the claude.ai/design project URL, pull
-   the UUID out of it and call `DesignSync get_project` then `list_files`
-   directly. This works even when `list_projects` cannot enumerate it — worth
-   trying before anything else.
-2. **A URL to fetch.** If the redesign was published as artifacts or any
-   shareable page, `WebFetch` each screen and save the HTML/CSS locally.
-3. **A local export.** The user saves the screens to a directory and names the
-   path. No auth in the loop; most reliable.
+It agrees with us on the measure — 360x780 at a 20px root — and adds a hard
+rule: **the player must not scroll at that size, and nothing tappable goes below
+44dp.**
 
-Whichever route, the outcome is the same: **the redesigned screens as files in
-one directory.** Everything downstream reads from disk, not from the API.
+### Where the spec is wrong about this codebase
 
-Do not start without it. There is nothing safe to assume about a redesign you
-have not seen, and a plausible invention would be indistinguishable from the
-real thing until the user looked at it.
+The README opens with "Nothing here asks for new backend work, new data, or new
+capabilities." That holds for Books and **breaks on Places**:
+
+- **Places wants marks** — `{position, source, snippet}`, a standing list for
+  the current book, reachable any time, where `source` is *how the mark was
+  found* ("you paused here, awake", "sleep timer faded out here", "steady
+  listening ended").
+- **somnia has `Candidate`** (`src/somnia/tools.py:78`) — a *search result*,
+  produced only as an answer to a question. No provenance field, no standing
+  list, and the cap is 4 places against the design's 7.
+
+That is a real design decision for the user, deferred with a question rather
+than invented.
+
+Smaller, already settled with the user:
+
+- **Queue statuses** (`queued` / `fetching text` / `narrating` / `ready`) are
+  display labels, not states. They map onto the real ones —
+  `queued`→`queued`, `rendering`→`narrating`, `done`→`ready` — and
+  `fetching text` simply never shows. A label map in `app.js`, no backend.
+- **The queue progress hairline** has a real fraction already, and it does not
+  need backend work. `QueueRow` (`src/somnia/queue.py:161`) carries
+  `chapters_done` and `chapters_total`, and `queue_view` already serves them.
+  `chapters_done` is counted from the `chapters` table rather than kept as a
+  counter, because a chapters row exists only once its m4a does — it cannot
+  claim a chapter is listenable before it is. Rendering chapters is the bulk of
+  the work, so it is an honest bar.
+
+  The trap: `chapters_total` is **0 for every book rendered before that column
+  existed, and 0 means "nobody wrote it down"**, not "no chapters". The hairline
+  must check for 0 and draw nothing, rather than a 0% bar claiming a book has
+  not started when nobody knows.
+
+One happy accident: somnia's existing `ahead` flag and the design's spoiler rule
+("tap to reveal · may spoil", the "you are here" divider) are the same idea
+reached independently.
 
 ## Step 1 — run the workflow
 
 ```
 Workflow({
-  name: 'apply-redesign',
+  scriptPath: '.claude/workflows/apply-redesign.js',
   args: {
-    designDir: '<absolute path to the exported screens>',
-    screens: ['<file>.html', ...],
-    notes: '<whatever the user said about the redesign and its new features>',
+    projectId: '7cae092a-04f8-4319-b510-86b2f73f853a',
+    outDir: '<repo>/.claude/design/somnia-redesign',
+    branch: 'feat/apply-redesign',
   },
 })
 ```
