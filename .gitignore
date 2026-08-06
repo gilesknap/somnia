@@ -72,3 +72,6 @@ lockfiles/
 
 # throwaway spikes, never committed
 scratch/
+
+# Claude Code scratch: git worktrees live here and are checkouts, not source.
+.claude/worktrees/
