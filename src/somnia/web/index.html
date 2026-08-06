@@ -34,10 +34,33 @@
          all. It is not a route and there is nothing to come back from: the ways
          out are a row, cancel, and the agent moving the book itself, and every
          one of them leaves the page in a state it already knows how to be
-         in. -->
+         in.
+
+         And now a second one — #queue, after it — which is the harder of the
+         two to justify, because the first answers a question the listener has
+         just asked and this one is a thing somebody goes looking for. Three
+         things make it the same screen rather than a route. It is opened only
+         on purpose, from the far corner, by the smallest control on the page.
+         It holds no payload, so nothing else on the page ever has to close it
+         and there is nothing in it to go stale — which is why the six places
+         that take the candidate list down have no twin here. And it adds books
+         rather than switching between them: nothing on it opens a book, so
+         "the page opens the book they were last listening to; changing books is
+         done by asking" is still true word for word. The way out is `close`,
+         and close changes nothing at all. -->
     <header>
       <h1>somnia</h1>
-      <button id="restart" type="button" class="quiet">start over</button>
+      <!-- Both of the page's quiet controls, in the corner a one-handed grip
+           has to stretch for. `books` is here rather than anywhere nearer the
+           thumb for the same reason `start over` is: opening a picker over a
+           playing book must be something somebody decided to do, not something
+           a hand finds on the way to the microphone. It carries no badge and no
+           count — a book finishing at 3am is not news to somebody asleep, and a
+           dot that has to be cleared is a second thing to press. -->
+      <div id="corner">
+        <button id="books" type="button" class="quiet">books</button>
+        <button id="restart" type="button" class="quiet">start over</button>
+      </div>
     </header>
 
     <main id="transcript" aria-live="polite">
@@ -232,6 +255,62 @@
            the phone is. -->
       <div id="candidates-foot">
         <button id="candidates-cancel" type="button">cancel</button>
+      </div>
+    </section>
+
+    <!-- The books panel. Sibling of #candidates and after it, built to the same
+         rules and for the same reasons: over the page rather than away from it,
+         the book still playing underneath, not a <dialog>, showModal() never
+         called, no role and no aria-modal — because aria-modal is a promise
+         that everything behind it is inert, and everything behind it is a book
+         somebody is listening to.
+
+         The order down it is the order the questions are asked in. Is anything
+         happening — the live rows, at the top, where the eye lands. Did
+         anything go wrong — the rows that ended in the last day, under them,
+         because a failure is worth reading once and is not news twice. And then
+         adding one, which is the reason somebody opened this at all but is also
+         the only part of it that wants a keyboard, so it sits below the reading
+         where the keyboard can cover it without covering anything else.
+
+         #queue-foot is outside the scrolling part, so `close` is in the same
+         place however many rows there are and whatever the keyboard is doing.
+         That matters more here than on the list of places: this panel can be
+         open with a keyboard up, and a way out that has been pushed under the
+         keyboard is a way out that does not exist. -->
+    <section id="queue" hidden aria-labelledby="queue-title">
+      <h2 id="queue-title">Books</h2>
+      <div id="queue-scroll">
+        <ul id="queue-live"></ul>
+        <ul id="queue-gone"></ul>
+        <!-- Whether what is above is what somnia thinks, or the last thing it
+             said before the tailnet went. An empty queue and an unreachable
+             server look identical and mean opposite things. -->
+        <p id="queue-note"></p>
+        <!-- A search box, and a button, and no round trip per keystroke: the
+             tailnet is a phone talking to a VPS, and a request per letter of
+             "treasure island" is fifteen requests for one answer. autocomplete
+             off on both, as on the composer, so Android does not offer to fill
+             in a password over the top of the results. -->
+        <form id="queue-search" autocomplete="off">
+          <input
+            id="queue-query"
+            type="search"
+            enterkeyhint="search"
+            autocomplete="off"
+            placeholder="a title, or an author"
+            aria-label="Which book?"
+          />
+          <button id="queue-find" type="submit">find</button>
+        </form>
+        <ul id="queue-results"></ul>
+        <!-- Whatever the server said about the last press. It is the server's
+             own sentence, from the same function the agent's add_book returns,
+             so the panel and the voice cannot disagree about what happened. -->
+        <p id="queue-said"></p>
+      </div>
+      <div id="queue-foot">
+        <button id="queue-close" type="button">close</button>
       </div>
     </section>
 

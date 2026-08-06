@@ -34,13 +34,28 @@ Benchmarks on the target VPS (2 vCPU AMD EPYC 9354P slice):
 
 Kokoro sounds much better and the owner preferred it decisively. At ~1.15×
 realtime the renderer still outruns 1× listening, so streaming works with a
-thin margin. If underruns bite in practice: more vCPUs, or a render worker on
-a faster home machine pushing chapters up. Never re-render a book with a
-different engine/voice: durations change and every timestamp — every index
-entry, every chapter mark, and the position they went to sleep at — would be
-invalidated.
+thin margin — and that margin is the sentence the ingest queue exists to
+defend, because two renders at once halve it and the whole of streaming ingest
+stops working. **One book renders at a time**, in its own systemd unit, which
+is [ADR 5](decisions/0005-render-one-book-at-a-time.md). If underruns bite in
+practice: more vCPUs, or a render worker on a faster home machine pushing
+chapters up — the lease a renderer holds is deliberately process-agnostic, so
+another machine drops into the same slot without a second queue. The 1.15×
+above is the conservative end of the benchmark and has not been re-measured
+against a real book on the live box; doing that, and writing the number down
+with its date, is one of the two things ADR 5 leaves open. Never
+re-render a book with a different engine/voice: durations change and every
+timestamp — every index entry, every chapter mark, and the position they went
+to sleep at — would be invalidated.
 
 ## Streaming ingest: pick a book and go
+
+Asking for a book writes a row into a queue and answers at once. A separate
+unit — `somnia worker` — takes the oldest waiting row while nothing else holds
+a live lease, and spawns one child to render it. That is the whole of the
+serialisation, and it is a property of the database rather than a convention:
+the claim is a single guarded `UPDATE ... RETURNING`, so two books asked for a
+millisecond apart cannot both start.
 
 The pipeline emits **one m4a file per chapter** into the Audiobookshelf
 library folder as each chapter finishes, then triggers a library rescan.
@@ -55,6 +70,13 @@ Multi-file books are ABS's native format with a single global timeline, so:
 - per-chapter files are simultaneously the streaming unit, the ABS-native
   unit, the re-render unit and — since the page became the player — the unit
   the phone fetches over HTTP (a single M4B would defeat all four)
+- a chapter is also the unit a render can be **stopped and taken up again**
+  at. The render asks between sentences and encodes a chapter on the last
+  line, so a stop leaves no audio, no chunks and no row for the chapter it was
+  in, and starting again picks up at the first chapter that has no row and
+  carries the global clock on from where that one ended. Re-indexing a chapter
+  replaces its passages rather than adding a second copy of every one of them,
+  which is what makes any of that safe
 
 All timestamps everywhere are **global milliseconds from book start** —
 `chapters` rows carry each chapter's global start, so index hits, the saved
@@ -286,19 +308,26 @@ must not queue behind it — a dead player while a question is being answered is
 exactly the moment the phone gets put down — so `somnia.player.Player` has its
 own sqlite connection, its own lock and its own ABS client, and shares nothing
 with a conversation but the file on disk. sqlite is in WAL for the same reason:
-three writers now exist (a turn, the player, and `somnia add` in another
-process entirely) and a reader must never block on any of them.
+several writers now exist (a turn, the player, the render worker, and the
+render itself in another process entirely) and a reader must never block on any
+of them. The renderer is not merely a separate connection but a separate
+**unit**, which is the same argument taken one step further: a model turn can
+be waited out, but Kokoro holding both cores cannot, and restarting the page's
+process to deploy must not kill a render that is four hours in.
 
 ## Agent surface
 
-- Tool layer is a plain Python library: `list_books`, `search_catalog`,
-  `add_book`, `find_passage` (bounded by the guard unless they say otherwise),
-  `get_position` (reads somnia's own record of where they are), `move_to`
-  (writes it, and counts the move so the page follows), and `offer_positions`
-  (writes nothing, and puts several places on the screen for them to choose
-  between). The model is never told to tell them to press play, because there
-  is nothing to press. Which *book* they meant is still one short spoken
-  question; which *passage* they meant never is.
+- Tool layer is a plain Python library: `list_books` (which names what is
+  waiting to be rendered as well as what exists, since a book asked for
+  tonight has no `books` row for hours), `search_catalog`, `add_book` (which
+  writes a queue row and starts nothing, so what it can honestly say is where
+  in the line the book landed), `find_passage` (bounded by the guard unless
+  they say otherwise), `get_position` (reads somnia's own record of where they
+  are), `move_to` (writes it, and counts the move so the page follows), and
+  `offer_positions` (writes nothing, and puts several places on the screen for
+  them to choose between). The model is never told to tell them to press play,
+  because there is nothing to press. Which *book* they meant is still one short
+  spoken question; which *passage* they meant never is.
 - 2am surface: a small **PWA chat page** served from the VPS. The server runs
   the agent loop (Anthropic Python SDK tool runner) with an API key held
   server-side — no OAuth. Voice input via the browser's Web Speech API
@@ -356,11 +385,17 @@ at 3am takes the book with it.
 
 ## Deployment shape
 
-- One installable package, subcommands per role (`somnia add`, `somnia serve`
-  later, etc.). Heavy ML dependencies (torch, kokoro, sentence-transformers)
-  live in the `[ml]` extra — install `somnia[ml]` on the rendering machine;
-  CI and light installs skip them. On CPU-only machines install the CPU torch
-  wheel (`--extra-index-url https://download.pytorch.org/whl/cpu`).
+- One installable package, subcommands per role (`somnia serve`, `somnia
+  worker`, `somnia add`, etc.). Heavy ML dependencies (torch, kokoro,
+  sentence-transformers) live in the `[ml]` extra — install `somnia[ml]` on the
+  rendering machine; CI and light installs skip them. On CPU-only machines
+  install the CPU torch wheel
+  (`--extra-index-url https://download.pytorch.org/whl/cpu`).
+- **Two systemd user units**, `somnia-serve` and `somnia-worker`, and deploying
+  is pull main and restart both. They are separate so that restarting the one
+  that serves the page cannot kill a render — which, before the worker existed,
+  it silently did on every deploy, because `start_new_session` escapes the
+  process group but not the cgroup.
 - Audiobookshelf runs as a rootless podman container (quadlet systemd unit)
   under a dedicated user, bound to localhost, fronted by tailscale serve.
 - `ffmpeg` and `espeak-ng` are required system packages on the render host.

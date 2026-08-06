@@ -42,6 +42,11 @@ export const TONE_BOOK = {
   position_ms: null,
   seq: 0,
   heard_to_ms: 24000,
+  // How many chapters the book HAS, as against how many have been rendered.
+  // Equal here, and in every fixture below that is finished, because that is
+  // what a finished book looks like — the interesting case, where the two
+  // disagree, is PART_READ.
+  chapters_total: 3,
   chapters: [
     {
       idx: 0,
@@ -79,6 +84,7 @@ export const OTHER_BOOK = {
   position_ms: 4000,
   seq: 7,
   heard_to_ms: 16000,
+  chapters_total: 2,
   chapters: [
     {
       idx: 0,
@@ -109,7 +115,39 @@ export const RENDERING_BOOK = {
   position_ms: null,
   seq: 0,
   heard_to_ms: 0,
+  // Nobody has written it down: the fetch and the parse are what produce this
+  // number and neither has finished. 0 is what every book rendered before the
+  // column existed says as well, which is every book on the live VPS, so the
+  // page has to read it as "don't know" rather than as "no chapters".
+  chapters_total: 0,
   chapters: [],
+};
+
+// A render that stopped part way and is not running: three chapters were
+// written down at the parse, one of them has audio, and nothing is going to
+// add the other two until somebody asks again. It is the one shape that tells
+// "the end of the book" and "the end of what has been read of it" apart, and
+// before chapters_total existed there was no way for the page to know which of
+// the two it had reached.
+export const PART_READ = {
+  gid: 900006,
+  title: "Stopped Part Way",
+  authors: "Somnia Test",
+  status: "pending",
+  total_ms: 8000,
+  position_ms: 0,
+  seq: 0,
+  heard_to_ms: 0,
+  chapters_total: 3,
+  chapters: [
+    {
+      idx: 0,
+      title: "As Far As It Got",
+      start_ms: 0,
+      end_ms: 8000,
+      url: "api/audio/900006/0",
+    },
+  ],
 };
 
 // A book with the mark somewhere in the middle of it, which is the one shape
@@ -131,6 +169,7 @@ export const HALF_HEARD = {
   position_ms: 1_000_000,
   seq: 2,
   heard_to_ms: 1_800_000,
+  chapters_total: 2,
   chapters: [
     {
       idx: 0,
@@ -162,6 +201,7 @@ export const NIGHT_BOOK = {
   position_ms: 0,
   seq: 0,
   heard_to_ms: 3_600_000,
+  chapters_total: 2,
   chapters: [
     {
       idx: 0,
@@ -181,10 +221,14 @@ export const NIGHT_BOOK = {
 };
 
 const MANIFESTS = new Map(
-  [TONE_BOOK, OTHER_BOOK, RENDERING_BOOK, NIGHT_BOOK, HALF_HEARD].map((m) => [
-    `api/book/${m.gid}`,
-    m,
-  ]),
+  [
+    TONE_BOOK,
+    OTHER_BOOK,
+    RENDERING_BOOK,
+    NIGHT_BOOK,
+    HALF_HEARD,
+    PART_READ,
+  ].map((m) => [`api/book/${m.gid}`, m]),
 );
 
 // The eight the page registers. A browser throws for an action it has never
@@ -288,6 +332,16 @@ class FakeSession {
     return handler(details);
   }
 }
+
+// Every id index.html gives a `hidden` attribute to. Kept as a list here
+// because the page has no way of knowing: it shows these and never hides them
+// at boot, so their starting state is the document's word and nothing else's.
+const BORN_HIDDEN = new Set([
+  "player-bar",
+  "candidates",
+  "candidates-book",
+  "queue",
+]);
 
 // Enough of a DOM node to build a list of places out of, and no more.
 //
@@ -591,6 +645,13 @@ globalThis.__page = {
     revealed: candidateList.children.filter((li) =>
       li.classList.contains("revealed"),
     ).length,
+    // Whether the books panel is over the page, and whether it has a wake
+    // scheduled. Both are in the probe for the same reason as the two above:
+    // close promises that everything else in this object is unchanged, and a
+    // timer still running after close is exactly the promise being broken —
+    // a radio wake every five seconds, all night, beside somebody asleep.
+    queueUp: !queuePanel.hidden,
+    queuePolling: queuePoll !== 0,
   }),
   seekGlobal,
   openBook,
@@ -619,6 +680,11 @@ export async function boot(t, options = {}) {
     sentenceStart = null,
     stored = {},
     answer = { reply: "…" },
+    // Which books there are at all. Every fixture, unless a test says
+    // otherwise — and the one that says otherwise says `[]`, which is a somnia
+    // that has never rendered anything and is the state the books panel exists
+    // for.
+    library = null,
   } = options;
 
   // Everything the element and the media session did, in the order they did
@@ -632,7 +698,16 @@ export async function boot(t, options = {}) {
   const sessionStorage = new FakeStorage();
 
   const el = (id) => {
-    if (!elements.has(id)) elements.set(id, new FakeElement(id, elements));
+    if (!elements.has(id)) {
+      const node = new FakeElement(id, elements);
+      // index.html ships these with a `hidden` attribute on them, and a fake
+      // that handed every element back visible would let an overlay pass a test
+      // it fails in a browser: the page never hides these itself, it only ever
+      // shows them, so their starting state comes from the document or from
+      // nowhere at all.
+      node.hidden = BORN_HIDDEN.has(id);
+      elements.set(id, node);
+    }
     return elements.get(id);
   };
 
@@ -646,6 +721,24 @@ export async function boot(t, options = {}) {
   let holding = false;
   let dropping = false;
   const held = [];
+
+  // The queue, as the panel sees it. Everything about it is per-test, because
+  // there is no such thing as a default queue: an empty one and an unreachable
+  // one look identical on the wire and mean opposite things, which is half of
+  // what the panel is judged on.
+  const submits = [];
+  const stops = [];
+  const searches = [];
+  let queueItems = [];
+  let catalogFound = [];
+  let submitAnswer = { ok: true, id: 1, said: "It is next to be rendered." };
+  let stopAnswer = { ok: true, state: "cancelled", said: "Taken out." };
+  // Which of the four the tailnet is eating at the moment. Held apart rather
+  // than as one switch because the interesting failures are one-sided: a submit
+  // that never landed while the list is still arriving is the press that must
+  // leave no row behind, and it cannot be staged with a server that is simply
+  // gone.
+  const gone = { queue: false, submit: false, stop: false, catalog: false };
 
   const fakeWindow = new FakeElement("window");
   const fakeDocument = new FakeElement("document");
@@ -662,6 +755,20 @@ export async function boot(t, options = {}) {
   // Cleared when the test ends. The page has no idea it is in one, and it is
   // entitled to be waiting five seconds for a chapter that will never come.
   const timers = new Set();
+  // The same waits, with what they were asked for and what they will do — so a
+  // test can say "there is a five second wake pending" and then have it happen,
+  // instead of waiting five real seconds for it. Everything else in this
+  // harness fires events by hand for exactly this reason; a poll is no
+  // different from a boundary, and a suite that slept for its timers would take
+  // longer than the night it is testing.
+  const scheduled = new Map();
+  // Whether the test is over. A request that was in flight when it ended still
+  // comes back, and what it does when it comes back is usually to ask for
+  // another wake — so without this the last thing a torn-down page does is
+  // schedule a timer nobody will ever clear, and the whole run sits there until
+  // it fires. The page is entitled to do that; a browser would simply have
+  // thrown the document away underneath it.
+  let over = false;
 
   const context = {
     console: { error() {}, log() {}, warn() {} },
@@ -683,15 +790,19 @@ export async function boot(t, options = {}) {
       },
     },
     setTimeout: (fn, ms) => {
+      if (over) return 0;
       const id = setTimeout(() => {
         timers.delete(id);
+        scheduled.delete(id);
         fn();
       }, ms);
       timers.add(id);
+      scheduled.set(id, { ms, fn });
       return id;
     },
     clearTimeout: (id) => {
       timers.delete(id);
+      scheduled.delete(id);
       clearTimeout(id);
     },
     fetch: async (url, init) => {
@@ -699,7 +810,8 @@ export async function boot(t, options = {}) {
       if (url === "api/books") {
         return json({
           last_gid: lastGid,
-          books: [...MANIFESTS.values()].map((m) => ({ gid: m.gid })),
+          books:
+            library ?? [...MANIFESTS.values()].map((m) => ({ gid: m.gid })),
         });
       }
       if (MANIFESTS.has(url)) return json(MANIFESTS.get(url));
@@ -709,6 +821,30 @@ export async function boot(t, options = {}) {
       if (url === "api/ask") {
         asks.push(JSON.parse(init.body));
         return json(typeof askReply === "function" ? askReply() : askReply);
+      }
+      // The queue and the catalog, which between them are the whole of the
+      // panel's conversation with the server. Every one of them is answered
+      // exactly as server.py answers it — a refusal is a 200 with a sentence in
+      // it, not a status code — because a page that treated "already here" as a
+      // failure would be a page tested against a server somnia does not run.
+      if (url === "api/queue" && init?.method === "POST") {
+        if (gone.submit) throw new Error("no route to host");
+        submits.push(JSON.parse(init.body));
+        return json(submitAnswer);
+      }
+      if (url === "api/queue") {
+        if (gone.queue) throw new Error("no route to host");
+        return json({ items: queueItems });
+      }
+      if (url.startsWith("api/queue/")) {
+        if (gone.stop) throw new Error("no route to host");
+        stops.push(url);
+        return json(stopAnswer);
+      }
+      if (url.startsWith("api/catalog")) {
+        if (gone.catalog) throw new Error("no route to host");
+        searches.push(url);
+        return json({ query: url, entries: catalogFound });
       }
       if (url.startsWith("api/sentence/")) {
         sentenceAsks.push(url);
@@ -796,6 +932,27 @@ export async function boot(t, options = {}) {
     answers: (body) => {
       askReply = body;
     },
+    // What the queue is, what the catalog finds in it, and what the two write
+    // routes say back. Set per test in the style of `answers` above: the panel
+    // is a readout of somebody else's state machine, so every test that draws a
+    // row has to say what the server would have said.
+    queueView: (items) => {
+      queueItems = items;
+    },
+    catalogEntries: (entries) => {
+      catalogFound = entries;
+    },
+    submitReply: (body) => {
+      submitAnswer = body;
+    },
+    stopReply: (body) => {
+      stopAnswer = body;
+    },
+    // The tailnet eating one endpoint and not the others.
+    unreachable: (which) => Object.assign(gone, which),
+    submits,
+    stops,
+    searches,
     reply: (answer) => {
       positionReply = answer;
     },
@@ -813,9 +970,30 @@ export async function boot(t, options = {}) {
     // every assertion about them reads.
     reports: () =>
       posts.map((p) => [p.body.gid, p.body.reason, p.body.position_ms]),
+    // Every wake the page is still waiting on, in the order it asked for them,
+    // said as the delays it asked for. A cleared timer is gone from here, which
+    // is what makes "nothing is scheduled" assertable at all.
+    waits: () => [...scheduled.values()].map((wake) => wake.ms),
+    // That wake, now. The oldest one asked for exactly this delay, and only
+    // that one: two different things waiting the same five seconds is the
+    // ordinary case — the queue poll and a confirmation forgetting itself both
+    // do — and a helper that fired both together could not tell a page that
+    // survives one of them from a page that does not.
+    wake: (ms) => {
+      const due = [...scheduled].find(([, wake]) => wake.ms === ms);
+      if (!due) return false;
+      const [id, wake] = due;
+      clearTimeout(id);
+      timers.delete(id);
+      scheduled.delete(id);
+      wake.fn();
+      return true;
+    },
     stop: () => {
+      over = true;
       for (const id of timers) clearTimeout(id);
       timers.clear();
+      scheduled.clear();
     },
   };
   t?.after(page.stop);
