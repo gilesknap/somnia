@@ -179,26 +179,32 @@ says *nothing to play yet* and shows no player at all.
 Everything above rests on an installed PWA being allowed to keep playing with
 the screen off, and on its notification surviving a chapter boundary. That is a
 property of the handset, not of this code, and it cannot be tested from a desk.
-There is a spike page for it — `scratch/spike-background-audio.html`, a
-throwaway harness that generates its own audio, swaps chapters and logs every
-media-session event to a log that survives the page being discarded.
+It is checked with a page of its own, which generates its own audio so it needs
+no library, swaps chapters the way the player does, and writes every
+media-session event to a log held in local storage — so the evidence survives
+the page being discarded, which is one of the things being tested for.
 
-It is not part of the app, so it is not served. Put it where the app is for as
-long as the test takes:
+It is served alongside the app, at:
 
 ```
-$ cp scratch/spike-background-audio.html src/somnia/web/spike.html
+https://<node>.<tailnet>.ts.net:8443/spike-background-audio.html
 ```
 
-It carries no manifest of its own, so on the phone it runs as a browser tab
-rather than as an installed app, and it says which in its log — worth reading
-before you read the result.
+Open that on the phone. The line under the readout says whether it is running
+as a browser tab or as an installed app; the installed case is the one
+everything rests on, and it is the one Android treats more generously, so a tab
+that keeps playing is good news for both while a tab that stops is not by itself
+proof about the app.
 
-Open `https://<node>.<tailnet>.ts.net:8443/spike.html` on the phone, press
-*Start*, confirm you can hear a tick once a second, lock the phone and leave it
-two minutes. Wake it: if
-**shortfall** is under a couple of seconds, nothing ever stopped it. Then press
-every button you own — the lock screen, the pillow speaker, the headphones —
-and check each one appears in the log, and use *Agent move* to confirm the book
-can be moved and played with no gesture at all. Delete `src/somnia/web/spike.html`
-when you are done.
+Press *Start* and confirm you can hear a tick once a second — the tick is the
+cheapest stall detector there is, because you can hear time passing with the
+screen off. Lock the phone, leave it two minutes, and wake it. If **shortfall**
+is under a couple of seconds, nothing ever stopped it. Then press every button
+you own — the lock screen, the pillow speaker, the headphones — and check each
+one appears in the log, and use *Agent move* to confirm the book can be moved
+and played again with no gesture at all, which is what the agent does every
+time it takes you somewhere.
+
+It is a spike and it is meant to read like one. It is served rather than kept
+out of the way because a diagnostic nobody can open from the handset is a
+diagnostic nobody runs, and this is the one question the whole pivot rests on.

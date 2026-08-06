@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>somnia spike — background audio</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+    background: #0b0d12;
+    color: #d7dce5;
+    font: 16px/1.45 system-ui, -apple-system, sans-serif;
+  }
+  h1 { font-size: 1.05rem; margin: 0 0 10px; color: #8fa3c0; font-weight: 600; }
+  .verdict {
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: #161b26;
+    border: 2px solid #2a3446;
+  }
+  .verdict.pass { border-color: #2f7d4f; background: #10261a; }
+  .verdict.fail { border-color: #a33b3b; background: #2a1414; }
+  .verdict.idle { border-color: #2a3446; }
+  #headline { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-variant-numeric: tabular-nums; }
+  .grid dt { color: #8590a6; }
+  .grid dd { margin: 0; font-family: ui-monospace, monospace; }
+  .big { font-size: 1.15rem; font-weight: 600; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  button {
+    flex: 1 1 auto;
+    min-width: 44%;
+    min-height: 52px;
+    border-radius: 10px;
+    border: 1px solid #37415a;
+    background: #1c2333;
+    color: #dfe5ef;
+    font: inherit;
+    font-weight: 600;
+    padding: 10px 12px;
+  }
+  button.primary { background: #2b4a7a; border-color: #3f6bad; }
+  button:active { filter: brightness(1.35); }
+  button:disabled { opacity: 0.45; }
+  #log {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    background: #0f131c;
+    border: 1px solid #232c3d;
+    border-radius: 10px;
+    padding: 8px 10px;
+    max-height: 46vh;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #log div { border-bottom: 1px solid #171d29; padding: 2px 0; }
+  .t { color: #6f7c93; }
+  .bad { color: #ff8080; font-weight: 600; }
+  .good { color: #79d99b; }
+  .note { color: #d8b878; }
+  .env { font-size: 12.5px; color: #7e8ba3; margin-bottom: 10px; font-family: ui-monospace, monospace; }
+  p.hint { font-size: 13px; color: #8590a6; margin: 10px 0 6px; }
+</style>
+</head>
+<body>
+
+<h1>somnia spike — does an installed PWA keep playing with the screen off?</h1>
+
+<div class="verdict idle" id="verdict">
+  <div id="headline">Not started</div>
+  <dl class="grid">
+    <dt>wall clock</dt><dd class="big" id="v-wall">—</dd>
+    <dt>audio played</dt><dd class="big" id="v-audio">—</dd>
+    <dt>shortfall</dt><dd class="big" id="v-drift">—</dd>
+    <dt>chapter</dt><dd id="v-chapter">—</dd>
+    <dt>swaps</dt><dd id="v-swaps">0</dd>
+    <dt>paused</dt><dd id="v-paused">0s in 0 pauses</dd>
+    <dt>largest event gap</dt><dd id="v-stall">—</dd>
+  </dl>
+</div>
+
+<div class="buttons">
+  <button id="start" class="primary">Start</button>
+  <button id="pause">Pause</button>
+  <button id="agent-now">Agent move (3s, no gesture)</button>
+  <button id="agent-later">Agent move in 20s</button>
+  <button id="copy">Copy log</button>
+  <button id="reset">Reset log</button>
+</div>
+
+<p class="hint">
+  Start, confirm you hear a tick once a second, lock the phone, wait two minutes,
+  wake it. If <b>shortfall</b> is still under a couple of seconds it never stopped.
+  Every lock-screen and Bluetooth button you press should appear in the log.
+</p>
+
+<div class="env" id="env"></div>
+<div id="log"></div>
+
+<audio id="audio" preload="auto"></audio>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// The whole point of this page is that the evidence has to survive being
+// unobserved. Nothing here may depend on a timer firing while the screen is
+// off: Chrome throttles background timers to about one wake a minute, so a
+// heartbeat interval would report a stall that never happened. Progress is
+// therefore read straight off the media element's currentTime whenever the
+// page is looked at, and the log is written to localStorage as it happens so
+// that even a discarded, reloaded page still shows what went wrong.
+// ---------------------------------------------------------------------------
+
+const audio = document.getElementById("audio");
+const logEl = document.getElementById("log");
+const LOG_KEY = "somnia-spike-log";
+const MAX_LINES = 400;
+
+let lines = [];
+try { lines = JSON.parse(localStorage.getItem(LOG_KEY) || "[]"); } catch (e) { lines = []; }
+
+function stamp(d) {
+  const p = (n, w = 2) => String(n).padStart(w, "0");
+  return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds()) +
+         "." + p(d.getMilliseconds(), 3);
+}
+
+function log(text, cls) {
+  lines.push({ t: stamp(new Date()), text: text, cls: cls || "" });
+  if (lines.length > MAX_LINES) lines = lines.slice(-MAX_LINES);
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(lines)); } catch (e) { /* full */ }
+  paintLog();
+}
+
+function paintLog() {
+  const frag = document.createDocumentFragment();
+  for (const l of lines) {
+    const div = document.createElement("div");
+    const t = document.createElement("span");
+    t.className = "t";
+    t.textContent = l.t + "  ";
+    const m = document.createElement("span");
+    if (l.cls) m.className = l.cls;
+    m.textContent = l.text;
+    div.append(t, m);
+    frag.append(div);
+  }
+  logEl.replaceChildren(frag);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// --- tone generation ------------------------------------------------------
+// A real <audio> element is not optional. Web Audio alone never takes Android
+// audio focus and never earns a media notification, which is the thing that
+// keeps Chrome alive in the background — so the tone is a WAV blob fed to the
+// element, exactly like a chapter of a book would be.
+
+const SAMPLE_RATE = 16000;
+const CHAPTER_SECONDS = 45;
+const CHAPTERS = [
+  { title: "Chapter 1 — 440 Hz", freq: 440 },
+  { title: "Chapter 2 — 330 Hz", freq: 330 },
+  { title: "Chapter 3 — 262 Hz", freq: 262 },
+];
+
+function makeWav(seconds, freq) {
+  const n = Math.floor(seconds * SAMPLE_RATE);
+  const buf = new ArrayBuffer(44 + n * 2);
+  const dv = new DataView(buf);
+  const str = (off, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(off + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); dv.setUint32(4, 36 + n * 2, true); str(8, "WAVE");
+  str(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+  dv.setUint16(22, 1, true); dv.setUint32(24, SAMPLE_RATE, true);
+  dv.setUint32(28, SAMPLE_RATE * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+  str(36, "data"); dv.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const t = i / SAMPLE_RATE;
+    // One soft tick per second. You can hear time passing with the screen off,
+    // which is the cheapest possible stall detector.
+    const phase = t % 1;
+    const env = 0.30 * Math.exp(-phase * 6) + 0.05;
+    const s = Math.sin(2 * Math.PI * freq * t) * env;
+    dv.setInt16(44 + i * 2, Math.max(-1, Math.min(1, s)) * 32767, true);
+  }
+  return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}
+
+function makeArtwork(size, label) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  g.fillStyle = "#161b26"; g.fillRect(0, 0, size, size);
+  g.fillStyle = "#4d7fc4";
+  g.beginPath(); g.arc(size / 2, size / 2, size * 0.32, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#dfe5ef";
+  g.font = "bold " + Math.floor(size * 0.34) + "px sans-serif";
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText(label, size / 2, size / 2 + size * 0.02);
+  return c.toDataURL("image/png");
+}
+
+// --- accounting -----------------------------------------------------------
+
+let firstPlayWall = null;   // when playback first began
+let completedMs = 0;        // audio finished in chapters we have left behind
+let pausedTotalMs = 0;      // wall time spent deliberately paused
+let pausedAt = null;
+let pauseCount = 0;
+let swaps = 0;
+let maxGapMs = 0;           // largest gap between timeupdate events (diagnostic)
+let lastTickWall = null;
+let pauseReason = null;     // set just before any pause we asked for
+let index = 0;
+let srcs = [];
+
+function audioMs() {
+  const ct = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+  return completedMs + ct * 1000;
+}
+
+function wallMs() {
+  if (firstPlayWall === null) return 0;
+  const paused = pausedTotalMs + (pausedAt === null ? 0 : Date.now() - pausedAt);
+  return Date.now() - firstPlayWall - paused;
+}
+
+const secs = (ms) => (ms / 1000).toFixed(1) + "s";
+
+function render() {
+  const w = wallMs(), a = audioMs(), drift = w - a;
+  document.getElementById("v-wall").textContent = firstPlayWall ? secs(w) : "—";
+  document.getElementById("v-audio").textContent = firstPlayWall ? secs(a) : "—";
+  document.getElementById("v-drift").textContent = firstPlayWall ? secs(drift) : "—";
+  document.getElementById("v-chapter").textContent = CHAPTERS[index].title;
+  document.getElementById("v-swaps").textContent = String(swaps);
+  document.getElementById("v-paused").textContent =
+    secs(pausedTotalMs + (pausedAt === null ? 0 : Date.now() - pausedAt)) +
+    " in " + pauseCount + " pauses";
+  document.getElementById("v-stall").textContent = maxGapMs ? secs(maxGapMs) : "—";
+
+  const v = document.getElementById("verdict");
+  const h = document.getElementById("headline");
+  if (firstPlayWall === null) {
+    v.className = "verdict idle"; h.textContent = "Not started";
+  } else if (audio.paused) {
+    v.className = "verdict idle"; h.textContent = "Paused";
+  } else if (drift < 4000) {
+    v.className = "verdict pass"; h.textContent = "STILL PLAYING — no gap";
+  } else {
+    v.className = "verdict fail"; h.textContent = "LOST " + secs(drift) + " OF AUDIO";
+  }
+}
+
+function frame() { if (!document.hidden) render(); requestAnimationFrame(frame); }
+
+// --- media session --------------------------------------------------------
+// Metadata is set before play(), not after: the notification is built from
+// whatever mediaSession.metadata holds at the moment playback starts.
+
+const ART = [
+  { src: makeArtwork(96, "S"), sizes: "96x96", type: "image/png" },
+  { src: makeArtwork(512, "S"), sizes: "512x512", type: "image/png" },
+];
+
+function setMetadata() {
+  if (!("mediaSession" in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: CHAPTERS[index].title,
+    artist: "somnia background-audio spike",
+    album: "Screen-off proof",
+    artwork: ART,
+  });
+}
+
+function setPosition() {
+  if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+  const d = audio.duration;
+  if (!Number.isFinite(d) || d <= 0) return;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: d,
+      playbackRate: audio.playbackRate || 1,
+      position: Math.min(Math.max(audio.currentTime, 0), d),
+    });
+  } catch (e) {
+    // A position past duration throws TypeError and leaves the scrubber stale.
+    log("setPositionState refused: " + e.message, "bad");
+  }
+}
+
+function installHandlers() {
+  if (!("mediaSession" in navigator)) { log("no navigator.mediaSession", "bad"); return; }
+  const set = (name, fn) => {
+    try { navigator.mediaSession.setActionHandler(name, fn); }
+    catch (e) { log("handler unsupported: " + name, "note"); }
+  };
+  set("play", () => { log("ACTION play (lock screen / bluetooth)", "good"); start("action"); });
+  set("pause", () => { log("ACTION pause (lock screen / bluetooth)", "good"); doPause("action"); });
+  set("stop", () => { log("ACTION stop", "good"); doPause("action"); });
+  set("nexttrack", () => { log("ACTION nexttrack", "good"); swap(+1); });
+  set("previoustrack", () => { log("ACTION previoustrack", "good"); swap(-1); });
+  set("seekforward", (d) => {
+    log("ACTION seekforward " + (d.seekOffset || 10));
+    audio.currentTime = Math.min(audio.currentTime + (d.seekOffset || 10), audio.duration || 0);
+    setPosition();
+  });
+  set("seekbackward", (d) => {
+    log("ACTION seekbackward " + (d.seekOffset || 10));
+    audio.currentTime = Math.max(audio.currentTime - (d.seekOffset || 10), 0);
+    setPosition();
+  });
+  set("seekto", (d) => {
+    log("ACTION seekto " + (d.seekTime || 0).toFixed(1) + (d.fastSeek ? " (fast)" : ""));
+    if (d.fastSeek && audio.fastSeek) audio.fastSeek(d.seekTime); else audio.currentTime = d.seekTime;
+    setPosition();
+  });
+  log("action handlers installed");
+}
+
+// --- transport ------------------------------------------------------------
+
+function loadChapter() {
+  setMetadata();
+  audio.src = srcs[index];
+  audio.load();
+}
+
+// One element, reused. Two elements handed off to each other make Android
+// tear down audio focus for the old one and take it again for the new one,
+// which is what makes the notification blink out between chapters.
+function swap(dir) {
+  completedMs += (Number.isFinite(audio.currentTime) ? audio.currentTime : 0) * 1000;
+  index = (index + dir + CHAPTERS.length) % CHAPTERS.length;
+  swaps++;
+  log("swap -> " + CHAPTERS[index].title);
+  // Assigning src runs the load algorithm, which fires a pause event of its
+  // own. Claim it before it arrives or the swap reads as the browser having
+  // stopped us, which is the very thing this page exists to detect.
+  pauseReason = "swap";
+  loadChapter();
+  play("swap");
+}
+
+function play(why) {
+  const p = audio.play();
+  if (p && p.catch) {
+    p.then(() => log("play() resolved (" + why + ")", "good"))
+     .catch((e) => log("play() REJECTED (" + why + "): " + e.name + " — " + e.message, "bad"));
+  }
+}
+
+function start(why) {
+  if (!audio.src) loadChapter();
+  play(why);
+}
+
+function doPause(why) { pauseReason = why; audio.pause(); }
+
+// --- element events -------------------------------------------------------
+
+audio.addEventListener("play", () => {
+  if (firstPlayWall === null) { firstPlayWall = Date.now(); log("playback began", "good"); }
+  if (pausedAt !== null) { pausedTotalMs += Date.now() - pausedAt; pausedAt = null; }
+  lastTickWall = Date.now();
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+  setPosition();
+  render();
+});
+
+audio.addEventListener("pause", () => {
+  if (pauseReason === "swap") { pauseReason = null; return; }
+  if (pausedAt === null) { pausedAt = Date.now(); pauseCount++; }
+  if (pauseReason) log("paused by us (" + pauseReason + ")");
+  else log("PAUSED BY SOMETHING ELSE — browser, audio focus or the system", "bad");
+  pauseReason = null;
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+  render();
+});
+
+audio.addEventListener("ended", () => { log("chapter ended"); swap(+1); });
+
+audio.addEventListener("loadedmetadata", () => { setPosition(); });
+audio.addEventListener("ratechange", setPosition);
+audio.addEventListener("seeked", () => { log("seeked to " + audio.currentTime.toFixed(1)); setPosition(); });
+audio.addEventListener("stalled", () => log("stalled", "bad"));
+audio.addEventListener("waiting", () => log("waiting (rebuffering)", "note"));
+audio.addEventListener("error", () => log("element error: " + (audio.error && audio.error.message), "bad"));
+
+let lastPositionPush = 0;
+audio.addEventListener("timeupdate", () => {
+  const now = Date.now();
+  if (lastTickWall !== null && !audio.paused) {
+    const gap = now - lastTickWall;
+    if (gap > maxGapMs) maxGapMs = gap;
+  }
+  lastTickWall = now;
+  if (now - lastPositionPush > 1000) { lastPositionPush = now; setPosition(); }
+  if (!document.hidden) render();
+});
+
+// --- lifecycle ------------------------------------------------------------
+// The two log lines either side of a screen-off are the evidence. Compare the
+// shortfall in the "hidden" line with the shortfall in the "visible" line.
+
+function snapshot(label, cls) {
+  log(label + " — wall " + secs(wallMs()) + ", audio " + secs(audioMs()) +
+      ", shortfall " + secs(wallMs() - audioMs()) +
+      ", " + (audio.paused ? "PAUSED" : "playing"), cls);
+}
+
+document.addEventListener("visibilitychange", () => {
+  snapshot(document.hidden ? "screen off / backgrounded" : "back in view",
+           document.hidden ? "note" : (wallMs() - audioMs() < 4000 ? "good" : "bad"));
+  render();
+});
+window.addEventListener("pagehide", () => snapshot("pagehide", "note"));
+window.addEventListener("freeze", () => log("PAGE FROZEN by Chrome", "bad"));
+window.addEventListener("resume", () => log("page resumed from frozen", "note"));
+
+// --- buttons --------------------------------------------------------------
+
+document.getElementById("start").addEventListener("click", () => start("button"));
+document.getElementById("pause").addEventListener("click", () => doPause("button"));
+document.getElementById("copy").addEventListener("click", async () => {
+  const text = lines.map((l) => l.t + "  " + l.text).join("\n");
+  try { await navigator.clipboard.writeText(text); log("log copied"); }
+  catch (e) { log("clipboard refused: " + e.message, "bad"); }
+});
+document.getElementById("reset").addEventListener("click", () => {
+  lines = []; localStorage.removeItem(LOG_KEY); paintLog(); log("log cleared");
+});
+
+// The agent moving the book is a seek with no gesture behind it. If Chrome's
+// autoplay policy is going to bite, it bites here — and it is silent, so the
+// rejection has to be caught and shown.
+function agentMove(delay) {
+  log("agent move scheduled in " + delay + "s", "note");
+  setTimeout(() => {
+    const target = Math.min((audio.duration || 45) - 8, audio.currentTime + 12);
+    log("agent move firing: pause, seek to " + target.toFixed(1) + ", play");
+    pauseReason = "agent";
+    audio.pause();
+    audio.currentTime = Math.max(target, 0);
+    setPosition();
+    play("agent, no gesture");
+  }, delay * 1000);
+}
+document.getElementById("agent-now").addEventListener("click", () => agentMove(3));
+document.getElementById("agent-later").addEventListener("click", () => agentMove(20));
+
+// --- boot -----------------------------------------------------------------
+
+const standalone = window.matchMedia("(display-mode: standalone)").matches;
+document.getElementById("env").textContent =
+  "display-mode: " + (standalone ? "standalone (installed)" : "browser tab") +
+  " | mediaSession: " + ("mediaSession" in navigator) +
+  " | setPositionState: " + !!(navigator.mediaSession && navigator.mediaSession.setPositionState) +
+  " | secure: " + window.isSecureContext;
+
+if (lines.length) { paintLog(); log("--- new page load ---", "note"); }
+if (document.wasDiscarded) log("PAGE WAS DISCARDED AND RELOADED BY CHROME", "bad");
+
+const t0 = performance.now();
+srcs = CHAPTERS.map((c) => makeWav(CHAPTER_SECONDS, c.freq));
+log("built " + CHAPTERS.length + " x " + CHAPTER_SECONDS + "s tones in " +
+    Math.round(performance.now() - t0) + "ms");
+log(standalone ? "running installed (standalone)" : "running in a browser tab", standalone ? "good" : "note");
+
+installHandlers();
+loadChapter();
+render();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
