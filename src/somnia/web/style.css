@@ -174,11 +174,19 @@ h1 {
   margin: 0 0 1.05rem;
 }
 
-/* One line, whatever the book is called. This strip has to be the same height
-   with every chapter of every book in it, because what sits under it is the
-   button a hand arrives at without looking first. The clock is laid out first
-   and never shrinks: a title long enough to need the ellipsis is a title being
-   glanced at, and the number beside it is being read. */
+/* One line, whatever the book is called: cut with an ellipsis rather than
+   allowed to wrap. This has to be the same height with every chapter of every
+   book in it, because everything below it — the chapter strip, the clock, the
+   transport — would be shifted down by the one chapter whose name ran to two
+   lines, and the bottom of that stack is the button a hand arrives at without
+   looking first.
+
+   It has the whole width to itself, which is why the ellipsis is now rare
+   enough to be an edge case rather than most nights. It shared the line with
+   the chapter clock for one afternoon: the clock never varies in width and the
+   title always does, so a book with long chapter names spent every night
+   truncated to make room for eleven characters that had somewhere better to
+   be. They are in .chapter-strip below. */
 #chapter-title {
   margin: 0;
   font-size: 1.15rem;
