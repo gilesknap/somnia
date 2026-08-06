@@ -160,6 +160,44 @@ def test_a_deleted_chapter_file_is_absent_rather_than_an_error(
     assert player.chapter_file(GID, 0) is not None
 
 
+# -------------------------------------------------- where a sentence began
+
+
+def test_the_sentence_being_spoken_is_where_a_long_pause_resumes(
+    player: Player,
+) -> None:
+    """Landing mid-clause after an hour asleep is worse than the silence was."""
+    assert player.sentence_start(GID, 5_000) == 4_000
+    # On a boundary already: there is nothing to snap back to, and pretending
+    # otherwise would cost a sentence they had not heard.
+    assert player.sentence_start(GID, 4_000) == 4_000
+
+
+def test_a_sentence_is_looked_for_across_the_book_not_within_one_chapter(
+    player: Player,
+) -> None:
+    """A rewind out of the first seconds of a chapter lands in the one before.
+
+    The page counts in the book's own milliseconds and so does this: which file
+    a point falls in is not something either end has to agree about.
+    """
+    assert player.sentence_start(GID, 7_900) == 4_000
+    assert player.sentence_start(GID, 8_100) == 8_000
+
+
+def test_a_book_with_nothing_indexed_has_no_sentence_to_offer(
+    player: Player,
+) -> None:
+    """The page asked whether it could do better, and the answer is no.
+
+    A book still rendering, or one that is not here at all, both arrive here,
+    and neither is a reason to refuse to resume.
+    """
+    assert player.sentence_start(GID + 1, 5_000) is None
+    # Before the first word of the book there is nothing behind them either.
+    assert player.sentence_start(GID, -1) is None
+
+
 # ------------------------------------------------- what the page reports back
 
 

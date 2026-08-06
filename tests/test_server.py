@@ -402,3 +402,23 @@ def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
         report(client, position_ms=2_000, reason="pause")
         report(client, position_ms=3_000, reason="unload")
     assert recorder.moves == [("abs-item-1", 2.0), ("abs-item-1", 3.0)]
+
+
+# ---------------------------------------------------- coming back to the book
+
+
+def test_the_page_can_ask_where_the_sentence_it_stopped_in_began(
+    tone_client: TestClient,
+) -> None:
+    """Asked at the pause, spent at the resume — see the handler for why."""
+    body = tone_client.get(f"/api/sentence/{GID}/5000").json()
+    assert body == {"gid": GID, "ms": 5_000, "start_ms": 4_000}
+
+
+def test_a_book_with_no_sentence_to_offer_is_not_an_error(
+    tone_client: TestClient,
+) -> None:
+    """The page can always resume without this. It is only ever an improvement."""
+    response = tone_client.get(f"/api/sentence/{GID + 1}/5000")
+    assert response.status_code == 200
+    assert response.json()["start_ms"] is None

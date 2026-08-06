@@ -291,6 +291,34 @@ class Player:
         except Exception:
             logger.warning("ABS position write failed; continuing", exc_info=True)
 
+    def sentence_start(self, gid: int, ms: int) -> int | None:
+        """Where the sentence being spoken at ``ms`` began, if anything knows.
+
+        For the page's smart rewind. Someone who paused for an hour was asleep
+        long before the sound stopped, so coming back needs more than the last
+        few seconds — and dropping them into the middle of a sentence gives them
+        a clause with no beginning, which is worse than the silence was.
+
+        The chunks table is the only record of where sentences fall. Its rows
+        are overlapping three-sentence windows taken every second sentence, so a
+        window start is always a sentence start, and the nearest one at or
+        before a point is at most two sentences back. That is close enough to be
+        the thing the page snaps to, and it is already indexed by
+        ``chunks_book`` on (book_gid, start_ms).
+
+        None when there is nothing to say: no such book, or a book whose text
+        was never indexed. The page's question is only ever "is there a better
+        place to land than the one I worked out?", and to that, "no" and "no
+        such book" are the same answer.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT start_ms FROM chunks WHERE book_gid = ? AND start_ms <= ?"
+                " ORDER BY start_ms DESC LIMIT 1",
+                (gid, ms),
+            ).fetchone()
+        return int(row["start_ms"]) if row is not None else None
+
     def chapter_file(self, gid: int, idx: int) -> Path | None:
         """The audio of one chapter, or None if it cannot honestly be served.
 

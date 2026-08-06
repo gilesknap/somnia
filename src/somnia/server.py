@@ -146,6 +146,19 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             return JSONResponse({"error": "no such book"}, 404)
         return JSONResponse(asdict(manifest))
 
+    async def sentence(request: Request) -> Response:
+        """Where the sentence being spoken at a point began.
+
+        Asked once, when they pause — never when they press play. A resume has
+        to be instant, and a phone that has been face down for an hour is the
+        least likely thing on the tailnet to answer quickly, so the page fetches
+        this while the connection is still warm and holds it for later.
+        """
+        gid = int(request.path_params["gid"])
+        ms = int(request.path_params["ms"])
+        start_ms = await run_in_threadpool(player.sentence_start, gid, ms)
+        return JSONResponse({"gid": gid, "ms": ms, "start_ms": start_ms})
+
     async def audio(request: Request) -> Response:
         gid = int(request.path_params["gid"])
         idx = int(request.path_params["idx"])
@@ -220,6 +233,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/books", books),
             Route("/api/book/{gid:int}", book),
             Route("/api/audio/{gid:int}/{idx:int}", audio),
+            Route("/api/sentence/{gid:int}/{ms:int}", sentence),
             Route("/api/position", position, methods=["POST"]),
             Mount("/", StaticFiles(directory=WEB_DIR, html=True)),
         ],

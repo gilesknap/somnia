@@ -25,6 +25,7 @@ const player = document.getElementById("player");
 const playerBar = document.getElementById("player-bar");
 const chapterTitle = document.getElementById("chapter-title");
 const clock = document.getElementById("clock");
+const sleepButton = document.getElementById("sleep");
 const playpause = document.getElementById("playpause");
 const back30 = document.getElementById("back30");
 const fwd30 = document.getElementById("fwd30");
@@ -126,6 +127,25 @@ const SWAP_LEAD_S = 0.4;
 // What "back a bit" means, in the absence of anyone able to say.
 const SEEK_STEP_S = 30;
 
+// The ways to be asleep before the book is, in minutes, with the end of the
+// chapter after them and nothing at either end of the list. One tap walks it.
+const SLEEP_CHOICES = [null, 15, 30, 45, 60, "chapter"];
+
+// Twenty seconds of getting quieter, ending in silence at the moment the timer
+// named — so it begins before that moment, not at it. Long enough that the
+// book leaving is not itself the thing that wakes someone, and short enough
+// that "fifteen minutes" stays an honest description of fifteen minutes.
+const FADE_OUT_MS = 20_000;
+
+// Short, because this is the sound they just asked for.
+const FADE_IN_MS = 900;
+
+// The most a rewind ever gives back, and how far behind it a sentence may
+// begin and still be worth going to. Beyond that the index has a hole in it,
+// and two minutes of a book someone has already heard is not a kindness.
+const LONG_REWIND_MS = 30_000;
+const SENTENCE_REACH_MS = 45_000;
+
 // How often a playing book says where it has got to. Fifteen seconds is what a
 // phone dying costs: few enough writes that a night is a few hundred of them,
 // close enough together that waking up never means hearing a chapter twice.
@@ -174,6 +194,20 @@ let pendingOffsetMs = null;
 let swapping = false; // a chapter change is in flight
 let weArePausing = false; // tell our own pause from the platform's
 let lastPublishedAt = 0; // when the lock screen was last told the time
+// When the sound stopped, so that pressing play again can tell a moment's
+// silence from a night's. Zero once it has been spent, so the same pause is
+// never given back twice.
+let lastPauseAt = 0;
+// A fade in flight: where the volume came from, where it is going, and whether
+// silence is the end of the night at the other side of it.
+let fade = null;
+let sleepChoice = 0; // an index into SLEEP_CHOICES
+// Listening time left before the fade begins, or null when the night has no
+// end scheduled.
+let sleepLeftMs = null;
+let sleepCountedAt = 0;
+// Where the sentence they stopped in began, found out at the pause.
+let sentenceHint = null;
 
 // Global milliseconds -> the chapter that owns them, and how far into its file.
 // A linear scan: a book is a few hundred chapters and this runs once per seek.
@@ -224,6 +258,7 @@ function drawPlayer() {
   // longer whatever the phone's symbol font happened to think.
   playpause.classList.toggle("playing", !player.paused);
   playpause.setAttribute("aria-label", player.paused ? "Play" : "Pause");
+  drawSleep();
 }
 
 // What the notification says. The chapter is the title because it is the part
@@ -302,6 +337,10 @@ function seekGlobal(ms, { play = null } = {}) {
   // Somebody meant this — a thumb, a lock screen, or the agent. Whatever
   // happens next is worth recording, even if they never press play.
   untouched = false;
+  // Nobody who is asleep skips forward thirty seconds or asks to be taken to
+  // the fair, so a jump during the fade is somebody still awake. The sound
+  // comes back rather than stopping under them mid-sentence.
+  if (fade?.thenSleep) startFade(1, FADE_IN_MS);
   const at = locate(ms);
   positionMs = Math.max(0, Math.min(ms, manifest.total_ms));
   if (current && at.idx === current.idx && player.readyState > 0) {
@@ -316,13 +355,219 @@ function seekGlobal(ms, { play = null } = {}) {
   drawPlayer();
 }
 
-function ensurePlaying() {
+// `rewind` is true for the two controls a listener presses themselves, and for
+// nothing else. A move the agent made lands exactly where it said it would, a
+// chapter boundary carries straight on, and opening the app does not start the
+// book at all, so none of those want anything given back.
+function ensurePlaying({ rewind = false } = {}) {
+  const to = rewind ? resumePoint() : positionMs;
+  lastPauseAt = 0;
+  // From silence, however short the fade. A book coming back at full volume in
+  // a dark room is the loudest thing that happens all night, and the sound of
+  // it is what someone reaching for the phone at 3am is trying to avoid.
+  //
+  // Only when it really is stopped: a platform that sends `play` to something
+  // already playing fires no play event back, so there would be nothing left
+  // to bring the volume up again and the book would go silently on.
+  if (rewind && player.paused) player.volume = 0;
+  // An element that has reached the end of its file starts the chapter over
+  // from nothing if it is simply told to play — so a night that ended on a
+  // chapter boundary would begin the morning with the whole chapter again.
+  // Going back through the timeline lands on the start of the next one, which
+  // is where the book actually is.
+  if (player.ended || to !== positionMs) {
+    seekGlobal(to, { play: true });
+    return;
+  }
   player.play().catch(onPlayRejected);
 }
 
 function pauseHere() {
   weArePausing = true;
   player.pause();
+}
+
+// ------------------------------------------------------- the end of the night
+
+// The two things the Audiobookshelf app did that this page had to learn: stop
+// the book before it plays all night, and give back the last thing they heard
+// before they stopped taking it in. Still to come, and deliberately not here:
+// shaking the phone to buy another quarter of an hour, which needs a motion
+// permission and a threshold nobody can guess at from a desk.
+//
+// Everything below is driven from timeupdate, for the reason given at
+// HEARTBEAT_MS: a backgrounded page's timers are throttled to roughly one wake
+// a minute, and a fade stepped once a minute is not a fade. timeupdate comes
+// off the media pipeline four times a second for as long as there is sound,
+// which is exactly as long as either of these has anything to do.
+
+function startFade(to, ms, { thenSleep = false } = {}) {
+  fade = { from: player.volume, to, ms, at: Date.now(), thenSleep };
+  stepFade();
+}
+
+// Volume back to whole, whatever was being done to it. The invariant this
+// keeps is that a paused player is always at full volume: nothing else on the
+// page has to remember that the sleep timer turned the sound down, and a
+// resume by any route — a thumb, the lock screen, the agent — is never silent.
+function endFade() {
+  fade = null;
+  player.volume = 1;
+}
+
+function stepFade() {
+  if (!fade) return;
+  const ratio = fade.ms > 0 ? Math.min(1, (Date.now() - fade.at) / fade.ms) : 1;
+  // Ramped on the square root of the volume rather than on the volume itself.
+  // Loudness as an ear hears it falls away far more slowly than amplitude
+  // does, so a straight line from one to zero stays sounding like full volume
+  // for most of its length and then drops off in the last second or two —
+  // which is the shape of being woken up, not of falling asleep.
+  const from = Math.sqrt(fade.from);
+  const level = (from + (Math.sqrt(fade.to) - from) * ratio) ** 2;
+  // iOS does not let a page set the volume at all. There this does nothing
+  // until the pause at the end of it, which is abrupt, but still puts the book
+  // down at the time it was asked to.
+  player.volume = Math.min(1, Math.max(0, level));
+  if (ratio < 1) return;
+  const sleeping = fade.thenSleep;
+  fade = null;
+  if (sleeping) fallAsleep();
+}
+
+function fallAsleep() {
+  pauseHere();
+  // Only now, with the sound already stopped. Putting the volume back an
+  // instant sooner would be twenty seconds of fading out followed by one
+  // moment at full volume, which is the one thing this was here to prevent.
+  player.volume = 1;
+  setStatus("goodnight");
+  drawPlayer();
+}
+
+function sleepsAtChapterEnd() {
+  return SLEEP_CHOICES[sleepChoice] === "chapter";
+}
+
+function clearSleep() {
+  sleepChoice = 0;
+  sleepLeftMs = null;
+}
+
+sleepButton.addEventListener("click", () => {
+  sleepChoice = (sleepChoice + 1) % SLEEP_CHOICES.length;
+  const choice = SLEEP_CHOICES[sleepChoice];
+  sleepLeftMs = typeof choice === "number" ? choice * 60_000 : null;
+  sleepCountedAt = Date.now();
+  // A fade already running is the timer having fired. Reaching for the control
+  // at all means they are awake enough to have changed their mind about it, so
+  // the sound comes back rather than the setting quietly applying to a book
+  // that is already going quiet.
+  if (fade?.thenSleep) startFade(1, FADE_IN_MS);
+  drawSleep();
+  buzz(10);
+});
+
+function drawSleep() {
+  const choice = SLEEP_CHOICES[sleepChoice];
+  let label = "sleep";
+  let spoken = "Sleep timer, off";
+  if (fade?.thenSleep) {
+    label = "fading";
+    spoken = "Sleep timer, fading out";
+  } else if (choice === "chapter") {
+    label = "chapter end";
+    spoken = "Sleep timer, at the end of this chapter";
+  } else if (sleepLeftMs !== null) {
+    // Rounded up, and never zero: a countdown that says nothing is left has
+    // nothing left to say, and by then the sound itself is the announcement.
+    const minutes = Math.max(1, Math.ceil(sleepLeftMs / 60_000));
+    label = `sleep ${minutes}m`;
+    spoken = `Sleep timer, ${minutes} minutes left`;
+  }
+  sleepButton.textContent = label;
+  sleepButton.setAttribute("aria-label", spoken);
+  sleepButton.classList.toggle("armed", choice !== null);
+}
+
+// The timer counts listening time, not clock time. Someone who pauses to ask a
+// question and then reads the answer meant to hear the rest of what they had
+// asked for — and a timer that had run out while they read would answer them
+// by ending the night, which is the opposite of what pressing play just said.
+function countDownToSleep() {
+  const now = Date.now();
+  // Clamped: a gap this wide was a stall, a chapter arriving slowly or a
+  // question being answered, and none of that was anybody listening.
+  const spent = Math.min(now - sleepCountedAt, 2_000);
+  sleepCountedAt = now;
+  // Seeking fires timeupdate whether or not there is any sound, which is the
+  // one way a paused book could otherwise be charged for the time.
+  if (player.paused || fade || sleepLeftMs === null) return;
+  sleepLeftMs -= spent;
+  if (sleepLeftMs > FADE_OUT_MS) return;
+  // Spent: the fade is the last thing the timer does, and once it has started
+  // the control reads as off again. Coming back afterwards is a decision to
+  // set another one, which is one tap and takes no thinking about.
+  clearSleep();
+  startFade(0, FADE_OUT_MS, { thenSleep: true });
+}
+
+// How far back to go when they press play again, by how long the book was
+// silent. A pause is three unlike things wearing the same name: a moment taken
+// to hear something in the room, a question asked and answered, and falling
+// asleep with the phone still in a hand. Only the last of them means the last
+// thing they took in was well before where the sound stopped.
+function rewindFor(silentMs) {
+  if (silentMs < 30_000) return 0;
+  if (silentMs < 5 * 60_000) return 8_000;
+  if (silentMs < 60 * 60_000) return 20_000;
+  return LONG_REWIND_MS;
+}
+
+function resumePoint() {
+  if (!lastPauseAt) return positionMs;
+  const back = rewindFor(Date.now() - lastPauseAt);
+  const target = Math.max(0, positionMs - back);
+  // Only the longest rung snaps. The sentence was looked up half a minute
+  // behind where they stopped, because that is where the long rewind lands, so
+  // applying it to one of the shorter ones would quietly turn eight seconds
+  // back into half a minute back — a rewind three times the size of the one
+  // the silence asked for, and it would happen on the most ordinary pause
+  // there is.
+  if (back < LONG_REWIND_MS) return target;
+  if (!sentenceHint || sentenceHint.from !== Math.round(positionMs)) {
+    // Nothing was found out at the pause, or the book has been moved since and
+    // what was found out is about somewhere else entirely.
+    return target;
+  }
+  // Long enough that they were asleep: land on the start of the sentence
+  // rather than in the middle of one. A clause with no beginning is worse than
+  // the silence was, and after an hour they have the whole of it to place.
+  const extra = target - sentenceHint.start_ms;
+  return extra >= 0 && extra <= SENTENCE_REACH_MS ? sentenceHint.start_ms : target;
+}
+
+// Asked at the pause and spent at the resume, never the other way round.
+// Pressing play has to make a sound now, and a phone that has been face down
+// for an hour is the least likely thing on the tailnet to answer quickly.
+async function rememberTheSentence() {
+  sentenceHint = null;
+  if (gid === null) return;
+  const from = Math.round(positionMs);
+  try {
+    const response = await fetch(
+      `api/sentence/${gid}/${Math.max(0, from - LONG_REWIND_MS)}`,
+    );
+    if (!response.ok) return;
+    const body = await response.json();
+    if (typeof body.start_ms === "number") {
+      sentenceHint = { from, start_ms: body.start_ms };
+    }
+  } catch (error) {
+    // Offline, most likely, which is where the night usually ends. The flat
+    // rewind above is the whole answer then, and a perfectly good one.
+    console.error(error);
+  }
 }
 
 function onPlayRejected(error) {
@@ -362,6 +607,13 @@ player.addEventListener("timeupdate", () => {
   // chapter being left, which would report a position they are no longer at.
   if (swapping || !current) return;
   positionMs = toGlobalMs(current.chapter, player.currentTime);
+  // Both of these are here rather than above the guard so that neither can
+  // land in the middle of a chapter change: a fade that finished mid-swap
+  // would pause an element that is between two sources, and the pause it
+  // caused would be swallowed as the spurious one a src assignment fires.
+  // A swap costs a few hundred milliseconds of a twenty-second fade.
+  stepFade();
+  countDownToSleep();
   drawPlayer();
 
   // At most once a second. The platform interpolates between these from the
@@ -374,7 +626,9 @@ player.addEventListener("timeupdate", () => {
   }
   if (!player.paused && now - lastSentAt >= HEARTBEAT_MS) sendPosition("tick");
 
-  const next = manifest.chapters[current.idx + 1];
+  // Not while the night is set to end here: the whole of what "end of chapter"
+  // asks for is that this boundary is not crossed.
+  const next = sleepsAtChapterEnd() ? null : manifest.chapters[current.idx + 1];
   const left = player.duration - player.currentTime;
   if (next && !player.paused && Number.isFinite(left) && left <= SWAP_LEAD_S) {
     showChapter(locate(next.start_ms), { play: true });
@@ -393,6 +647,12 @@ player.addEventListener("seeked", () => {
 
 player.addEventListener("play", () => {
   untouched = false;
+  // The timer measures listening, so it starts counting from here and not from
+  // whenever it was last looked at.
+  sleepCountedAt = Date.now();
+  // Belt and braces on the invariant that a paused player is at full volume:
+  // whatever route the sound came back by, it must not come back inaudible.
+  if (!fade && player.volume < 1) startFade(1, FADE_IN_MS);
   reportPlaybackState("playing");
   drawPlayer();
   publishPosition();
@@ -417,6 +677,10 @@ player.addEventListener("pause", () => {
   // and it redraws the button, or worse decides the page is finished with the
   // sound. The state only ever changes here for a pause that really happened.
   if (swapping || player.ended || player.error) return;
+  // How long the sound has been off is the whole of what the resume knows, so
+  // it is written down before anything else can take time over it.
+  lastPauseAt = Date.now();
+  endFade();
   reportPlaybackState("paused");
   drawPlayer();
   publishPosition();
@@ -424,6 +688,10 @@ player.addEventListener("pause", () => {
   // this is the position that has to be right, and it is worth a request of
   // its own however recently the last one went.
   sendPosition("pause");
+  // While the connection is still warm. If this pause turns out to have been
+  // the end of the night, the answer is what stops the morning starting in the
+  // middle of a sentence.
+  rememberTheSentence();
   if (!weArePausing) {
     // Audio focus went elsewhere: a call, an alarm, another app. Do not
     // resume. An alarm should stop the book, not be talked over.
@@ -441,14 +709,25 @@ player.addEventListener("ended", () => {
   if (swapping || !current) return;
   positionMs = current.chapter.end_ms;
   const next = manifest.chapters[current.idx + 1];
-  if (next) {
+  const goodnight = sleepsAtChapterEnd();
+  if (next && !goodnight) {
     showChapter(locate(next.start_ms), { play: true });
     return;
   }
-  setStatus("that is the end of the book");
-  // The pause that preceded this one was swallowed as spurious, quite rightly,
-  // so this is the only place left to say that the sound has stopped. Without
-  // it the lock screen offers a pause button for a book that finished.
+  // Either the book has run out or the night has. A chapter ending is its own
+  // fade — ingest leaves half a second of silence at the end of every one, and
+  // the last words of a chapter are a place a book means to be put down — so
+  // this way of stopping needs no fading at all.
+  setStatus(goodnight ? "goodnight" : "that is the end of the book");
+  clearSleep();
+  endFade();
+  // The pause that came with this was swallowed as spurious, quite rightly, so
+  // everything that pause would have done has to happen here instead: writing
+  // down when the sound stopped, because the morning's rewind is measured from
+  // it, and saying so, because otherwise the lock screen goes on offering a
+  // pause button for a book that has finished.
+  lastPauseAt = Date.now();
+  rememberTheSentence();
   reportPlaybackState("paused");
   drawPlayer();
   sendPosition("ended");
@@ -469,7 +748,7 @@ player.addEventListener("error", () => {
 });
 
 playpause.addEventListener("click", () => {
-  if (player.paused) ensurePlaying();
+  if (player.paused) ensurePlaying({ rewind: true });
   else pauseHere();
 });
 const nudge = (seconds) => seekGlobal(positionMs + seconds * 1000);
@@ -490,7 +769,10 @@ function listenForRemoteControls() {
       // That is one button that will not appear, not a reason to stop.
     }
   };
-  handle("play", () => ensurePlaying());
+  // The lock screen and a button on a pillow speaker are the same press as the
+  // one on this page, made by the same person, and get the same few seconds
+  // back — most of the night this is the only one of the two they can reach.
+  handle("play", () => ensurePlaying({ rewind: true }));
   handle("pause", () => pauseHere());
   // Stop pauses, and does nothing else. The obvious reading — release the
   // sound, clear the element — is the documented way to dismiss the media

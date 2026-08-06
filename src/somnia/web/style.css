@@ -162,11 +162,16 @@ h1 {
   padding: 0.3rem 1.2rem 0;
 }
 
+/* The band at the bottom is dead space between the sleep timer and the button
+   directly below it, and it is wider than it looks like it needs to be for the
+   same reason as every other gap on this page: a miss that lands on nothing
+   costs one more press, and a miss that lands on +30 costs thirty seconds of a
+   book someone is falling asleep to. */
 #now-playing {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  margin: 0 0 0.7rem;
+  margin: 0 0 1.05rem;
 }
 
 /* One line, whatever the book is called. This strip has to be the same height
@@ -184,6 +189,7 @@ h1 {
 #whereabouts {
   margin: 0;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   font-size: 1.05rem;
@@ -195,9 +201,40 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
-/* Nothing writes to it yet. Until something does it takes up no room. */
-#sleep:empty {
-  display: none;
+/* The sleep timer says what it is doing and a tap changes it, so the readout
+   and the control are one thing in one place. Padding rather than a height:
+   what it needs is a target a deliberate reach can land on, and it is reached
+   for while still awake enough to have decided something.
+
+   Quiet when there is no timer, because most nights there is not one, and warm
+   when there is. Whether the night already has an end scheduled has to be
+   answerable at a glance, without reading the number. */
+#sleep {
+  flex: none;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: 0.9rem;
+  background: none;
+  color: var(--dim);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0.6rem 0.85rem;
+}
+
+#sleep.armed {
+  background: var(--lit);
+  border-color: #3a2e16;
+  color: var(--glow);
+}
+
+/* The platform's tap flash is off page-wide, so every button shows its own. */
+#sleep:active {
+  background: #20202c;
+  color: var(--ink);
+}
+
+#sleep.armed:active {
+  background: #241a09;
 }
 
 /* Where they are, and the three things they might want to do about it.

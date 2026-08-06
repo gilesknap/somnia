@@ -47,15 +47,22 @@
         <p id="chapter-title"></p>
         <p id="whereabouts">
           <span id="clock"></span>
-          <!-- Where the sleep timer will say how long it has left to run. It
-               stays empty until there is one, and an empty slot is given no
-               room, so reserving it costs nothing tonight.
+          <!-- The sleep timer is its own readout: it says how long the night
+               has left, and a tap is what sets it. Taps walk 15, 30, 45 and 60
+               minutes, then the end of the chapter, then off again — one
+               target that is always in the same place and always says what it
+               is doing, rather than a menu to be opened, read and dismissed
+               with the lights off. Six taps wrap, so the worst a mis-tap can
+               do is offer to end the night early, and the next tap takes it
+               back.
 
                It is here and not in the transport below on purpose. A control
                that can end the night early — or fail to — has no business
                within a thumb's width of the one button that gets pressed
                without looking. -->
-          <span id="sleep"></span>
+          <button id="sleep" type="button" aria-label="Sleep timer, off">
+            sleep
+          </button>
         </p>
       </div>
       <div class="transport">
