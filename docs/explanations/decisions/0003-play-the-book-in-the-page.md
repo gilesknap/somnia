@@ -97,9 +97,11 @@ now ends in sound rather than in an instruction.
 The position becomes somnia's own record. `books.position_ms` holds it,
 `position_seq` counts agent moves and nothing else, and `position_at` is how a
 cold launch knows which book to open. The page says where it has got to every
-fifteen seconds and at every stop; a report carrying a stale count is refused,
-and the refusal is also the instruction to jump. Audiobookshelf is told
-afterwards, best effort, only when the listener has stopped — and never read.
+fifteen seconds while it plays, at every jump and boundary, whenever the sound
+starts or stops, and once more on the way out of a book it is leaving; a report
+carrying a stale count is refused, and the refusal is also the instruction to
+jump. Audiobookshelf is told afterwards, best effort, only when the listener
+has stopped — and never read.
 
 ## Consequences
 
@@ -122,11 +124,31 @@ Cache API refuses to store one, so the audio is deliberately excluded from it.
 The book therefore needs the tailnet all night. Wifi that drops at 3am takes
 the book with it, where the app would have played on from a local file.
 
+Everything that used to be somebody else's problem about a bad night is now
+this page's. A media element that has taken a network error never fetches
+again, so the page has to notice the silence and put the chapter back under
+them, from where they had got to, waiting longer each time. A manifest is a
+photograph of a book that is still rendering, so it has to be asked for again
+or the night ends three chapters into forty-nine. And the page is discarded
+whenever the phone wants the memory, so anything meant to outlive tonight has
+to be written down rather than held in a variable. None of that is visible with
+the phone locked — it all looks like a notification saying paused — which is
+why each of them says what is happening where it can be read as well as doing
+something about it. The other cost of the same move is that most of somnia's
+behaviour now lives in JavaScript, so it is tested there too: Node's own test
+runner over a fake media element, no browser and no npm install, because pytest
+can see none of it.
+
 The sleep timer is reimplemented and does not match. Fifteen, thirty, forty-five
 or sixty minutes, or the end of the chapter, counted in listening time rather
 than clock time, ending in a twenty-second fade. There is no shake-to-extend:
 it needs a motion permission and a threshold nobody can guess at from a desk.
-The timer also lives in a variable, so reloading the page disarms it silently.
+It is written to `localStorage` as it counts, because a timer kept only in a
+variable was disarmed by every reload and by the phone discarding a
+backgrounded tab, silently and with nothing on screen to say so, and the book
+then played until morning — which is the failure the timer exists to prevent.
+A timer more than six hours old is not restored: opening the book the next
+evening is starting a night, not finishing one.
 
 Smart rewind is reimplemented as a ladder on how long the sound was off —
 nothing under half a minute, then eight seconds, twenty, and thirty at an hour —

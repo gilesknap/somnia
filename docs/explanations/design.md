@@ -46,8 +46,11 @@ library folder as each chapter finishes, then triggers a library rescan.
 Multi-file books are ABS's native format with a single global timeline, so:
 
 - listening can start when chapter one is rendered (minutes after picking)
-- the semantic index grows chapter by chapter; you can only ask about
-  passages you could have heard
+- the semantic index grows chapter by chapter, so a book can be asked about
+  while it is still being read — but it is not what keeps the ending back. A
+  book is indexed whole on the evening it renders and listened to over the
+  fortnight after, so from the second night on, the only thing between a
+  question and the last page is the spoiler guard below
 - per-chapter files are simultaneously the streaming unit, the ABS-native
   unit, the re-render unit and — since the page became the player — the unit
   the phone fetches over HTTP (a single M4B would defeat all four)
@@ -109,15 +112,39 @@ published there is chapter-scale on purpose: a whole-book scrubber on a
 twelve-hour novel gives three minutes to the pixel, and one sleepy thumb would
 fling them past the spoiler guard into the ending.
 
+**Stopping the book is as much of the job as starting it.** The two things the
+ABS app did that a bedtime player cannot do without: a sleep timer — fifteen,
+thirty, forty-five or sixty minutes, or the end of the chapter — counted in
+listening time rather than clock time, so pausing to ask a question does not
+spend it, and ending in a twenty-second fade that reaches silence at the moment
+it named rather than beginning there. And a rewind sized by how long the sound
+was off, since a pause is three unlike things wearing one name: a moment taken
+to hear something in the room, a question asked and answered, and falling
+asleep with the phone in a hand. Only the last of those means the last thing
+they took in was well before where the sound stopped, so only the longest rung
+of the ladder goes back half a minute, and only that one lands on the start of
+the sentence — which somnia can do and ABS could not, because ABS does not know
+where sentences are. Shake-to-extend is the one thing from the app not
+reimplemented: it wants a motion permission and a threshold nobody can guess at
+from a desk.
+
 **The position lives in sqlite, and nothing fights over it.** `position_ms` is
 where they are, `position_seq` counts agent moves and nothing else, and
 `position_at` is how a cold launch knows which book to open. The asymmetry is
 the whole protocol: the page's own reports — every fifteen seconds while it
-plays, and whenever the sound starts or stops — leave the count alone, so a report carrying a stale
-count can only mean the agent moved the book, and the refusal that comes back
-is also the instruction to jump. That is why a refusal is a 200 with a body and
-not a 409: the last report of the night is a beacon, and a beacon can read
-nothing else.
+plays, at every jump and every chapter boundary, and whenever the sound starts
+or stops — leave the count alone, so a report carrying a stale count can only
+mean the agent moved the book, and the refusal that comes back is also the
+instruction to jump. That is why a refusal is a 200 with a body and not a 409:
+the last report of the night is a beacon, and a beacon can read nothing else.
+
+A book being left behind gets a report of its own, sent while the page is still
+on it and saying the sound is off, because it is the last thing that page will
+ever say about that book: the pause a chapter swap fires is swallowed as
+spurious — quite rightly, or the notification would be torn down at every
+boundary — so without it a book they were moved out of would keep whatever
+position its last heartbeat happened to catch, and the clock the spoiler guard
+counts against would still be running for a book nothing is playing.
 
 Nothing else in somnia may write those four columns. Ingest upserts the `books`
 row rather than replacing it, and updates only what a render knows — title,
@@ -159,15 +186,66 @@ wall clock has moved since the last report that said the sound was on
 (`books.playing_at`, cleared by any report that says it is off, which is why
 the page reports the moment the sound comes back on: a stretch of listening
 needs a beginning or the first heartbeat after every pause looks like a jump).
-Elapsed time
-rather than a reported number is what makes a passage heard: a press of the
-skip button is thirty seconds of book in no seconds of clock, while four
-minutes the phone spent playing off the network is covered honestly. Two costs,
-both chosen: after a skip forward the mark stops until they go back, and a book
-nobody has played is bounded at its start rather than left unbounded, so on
-night one the agent has to say the passage is further on than they have got and
-offer to take them there. Failing that way costs a question in the dark;
-failing the other way costs them the book.
+Elapsed time rather than a reported number is what makes a passage heard: a
+press of the skip button is thirty seconds of book in no seconds of clock,
+while four minutes the phone spent playing off the network is covered honestly.
+Two costs, both chosen: after a skip forward the mark stops until they go back,
+and a book nobody has played is bounded at its start rather than left
+unbounded, so on night one the agent has to say the passage is further on than
+they have got and offer to take them there. Failing that way costs a question
+in the dark; failing the other way costs them the book.
+
+A bounded search does not simply come back empty. It also runs unbounded and
+says whether a closer match lies past the mark — never what it is — which is
+what lets the agent offer rather than shrug, and `find_passage(allow_spoilers)`
+is the way through, asked for by them and by nobody else.
+
+## Getting through the night is the page's job now
+
+Three things the ABS app used to absorb, which nothing absorbs any more. All
+three end the same way if they are not handled — silence, with a notification
+that says paused — and none of them can be seen without unlocking the phone,
+which is why each of them says what is happening on the status line as well as
+doing something about it.
+
+**The book grows while it is being played.** A manifest is a photograph of a
+book that is still arriving: ingest writes each chapter row as it finishes and
+bumps `total_ms` with it, so a book fetched once at boot is frozen at whatever
+existed an instant after the page opened. Chapter three of forty-nine ended the
+night with "that is the end of the book". The page asks again for as long as
+the status says rendering — when the audio runs out, which is the ask the
+listener is waiting on, and when the page comes back in front of them, which is
+the ask that costs nothing — backing off from five seconds to a minute in
+between, because Kokoro takes minutes over a chapter. Only the timeline is
+adopted from the answer: `position_ms` and `seq` in it are the page's own last
+report come back fifteen seconds late, and taking them would drag the listener
+backwards every time the book grew.
+
+**The tailnet goes, briefly, most nights.** Wifi power save, a DHCP renewal and
+a tailscale re-key each take it away for a few seconds, and a media element
+comes back from none of them by itself: once it has taken a network error it
+never fetches again, and a buffer that ran dry with nothing behind it sits
+there silently. So the page reloads the chapter — assigning `src` is the whole
+of what makes an element try again — from where they had got to rather than
+from the top of it, so five seconds off the network costs five seconds and not
+the last ten minutes over again. It waits longer each time, two seconds to thirty,
+because a VPS that is down is down and a phone that retried flat out until
+morning is a phone with no battery in the morning; and it stops entirely when
+they were the ones who stopped it, because a page reloading chapters under a
+book somebody put down is spending the battery on nobody. The boot does the
+same thing for the same reason: the service worker serves the shell when the
+server cannot be reached, which is right, and what they land on otherwise is a
+page that looks perfectly alive with no book in it.
+
+**The page itself dies.** A backgrounded tab is discarded whenever the phone
+wants the memory back, and reloading is the first thing anyone does to a page
+that looks stuck. The conversation is meant to die that way — it is keyed in
+`sessionStorage` and starting fresh is the point — but an armed sleep timer is
+an instruction about tonight that nobody has cancelled, so it is written to
+`localStorage` as it counts down and restored with the minutes it had left.
+Not a timer older than six hours: someone opening the book the next evening is
+starting a night rather than finishing one, and a timer they could not remember
+setting would end it early for no reason they could see.
 
 ## Serving the audio and answering the questions are separate lanes
 
@@ -181,10 +259,11 @@ process entirely) and a reader must never block on any of them.
 
 ## Agent surface
 
-- Tool layer is a plain Python library: `search_catalog`, `add_book`,
-  `find_passage`, `get_position` (reads somnia's own record of where they are),
-  `move_to` (writes it, and counts the move so the page follows). The model is
-  never told to tell them to press play, because there is nothing to press.
+- Tool layer is a plain Python library: `list_books`, `search_catalog`,
+  `add_book`, `find_passage` (bounded by the guard unless they say otherwise),
+  `get_position` (reads somnia's own record of where they are), `move_to`
+  (writes it, and counts the move so the page follows). The model is never told
+  to tell them to press play, because there is nothing to press.
 - 2am surface: a small **PWA chat page** served from the VPS. The server runs
   the agent loop (Anthropic Python SDK tool runner) with an API key held
   server-side — no OAuth. Voice input via the browser's Web Speech API
@@ -194,10 +273,12 @@ process entirely) and a reader must never block on any of them.
   name as the title of a book somnia does not have and said so — a spoken
   half-sentence at 2am is exactly the disambiguation this is here to do. The
   difference is a few cents a night.
-- MCP server (FastMCP wrapper over the tool layer) is a dev-time convenience,
-  not the primary surface. claude.ai custom connectors were rejected for v1:
-  they require a publicly reachable MCP endpoint plus OAuth, which conflicts
-  with the network model below.
+- MCP server: designed for, never built, and nothing needs it. A FastMCP
+  wrapper over the tool layer would be a dev-time convenience only — the 2am
+  surface is the page, and the tools are a library any test can call directly.
+  claude.ai custom connectors were rejected for v1 outright: they require a
+  publicly reachable MCP endpoint plus OAuth, which conflicts with the network
+  model below.
 
 As built (`somnia serve`, Starlette + uvicorn): `POST /api/ask` and
 `/api/forget` for the conversation, `/api/health`, and five routes the player

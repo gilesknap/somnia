@@ -1,4 +1,4 @@
-# Serve the chat page
+# Serve the page that plays the book
 
 `somnia serve` runs the 2am surface: a small chat page that talks to the agent,
 with the Anthropic key held server-side. It is also the player — the page holds
@@ -22,7 +22,7 @@ It needs the same environment as the rest of somnia, plus a key for the model:
 | `ANTHROPIC_API_KEY` | the agent's model calls, paid by you not the phone |
 | `SOMNIA_LIBRARY_DIR` | where the rendered chapters are; the page streams them |
 | `SOMNIA_DATA_DIR` | where `somnia.db` lives, if not the default |
-| `SOMNIA_ABS_URL`, `SOMNIA_ABS_TOKEN` | optional: keeping Audiobookshelf roughly in step |
+| `SOMNIA_ABS_URL`, `SOMNIA_ABS_TOKEN` | optional: keeping Audiobookshelf roughly in step, and the one-off below |
 | `SOMNIA_AGENT_MODEL` | another model; the default is Sonnet 5 |
 
 `SOMNIA_LIBRARY_DIR` is the one that has become load-bearing since the page
@@ -37,11 +37,12 @@ add` put things.
 
 Audiobookshelf is now optional. somnia writes your position to it when you
 stop, as a courtesy, so the ABS app finds roughly the right place if you open
-it somewhere else — but it is never read, and a write that fails is logged and
-forgotten. Leave `SOMNIA_ABS_TOKEN` unset and no ABS client is built at all.
+it somewhere else — but nothing reads it while a night is running, and a write
+that fails is logged and forgotten. Leave `SOMNIA_ABS_TOKEN` unset and no ABS
+client is built at all.
 
 Run `somnia seed-positions` once before the first night, if you have been
-listening in Audiobookshelf. It is the only thing that reads ABS: it takes
+listening in Audiobookshelf. It is the one thing that reads ABS: it takes
 where you had got to in each book, and how far you had heard, and puts them in
 somnia's own database, so the page opens the book you were actually in rather
 than the one added most recently, at the beginning. It says what it did for
@@ -127,6 +128,19 @@ Ask to be taken somewhere and the book goes there and plays from there. If the
 passage is in a book that was not even open, that book opens. Nothing has to be
 pressed afterwards.
 
+It will not answer about a part of the book you have not heard. The bound is
+the furthest point the page has actually *played through*, not where you are
+now — so being taken back to chapter two does not un-hear chapter twenty, and
+being taken forward does not unlock what you were carried over. What you get
+instead is that the passage is further on than you have got, and an offer to
+take you there anyway. Two things follow from measuring it that way. A book
+somnia has never played is bounded at its opening minute, so if you get that
+answer about a book you have been listening to for a fortnight, the listening
+happened in Audiobookshelf and somnia does not know about it — run
+`somnia seed-positions`. And skipping forward while the sound is on stops the
+mark where it was until you come back behind it, which is the price of one
+press of *+30* not marking the rest of the book as heard.
+
 Conversations are held in memory, keyed by a token the page mints when it
 starts, and nothing is written to disk. *Start over* drops the history when the
 agent has got the wrong end of a mumbled question; restarting the service drops
@@ -159,20 +173,38 @@ then off again, and it always says which it is on. It counts listening time, so
 pausing to ask a question does not spend it. It ends in a twenty-second fade
 that reaches silence at the time it named; tapping the control during that fade
 brings the sound back, on the grounds that anyone reaching for it is awake
-enough to have changed their mind. It lives only in the open page — reloading
-disarms it silently.
+enough to have changed their mind. It is written down as it counts, so a reload
+— or the phone throwing the app out of memory while it is in the background —
+brings it back with the minutes it had left on it. A timer more than six hours
+old is not brought back: opening the book the next evening is starting a night,
+not finishing one.
 
 If something else takes the sound — a call, an alarm — the book stops and stays
 stopped, and the page says so. If the phone refuses to start audio without
 being touched first, the page says *tap anywhere to carry on*, and anywhere
 means anywhere.
 
-One thing to know about a book that is still rendering: the page is given the
-chapter list once, when it opens the book, and holds whatever existed at that
-moment. Open one that is three chapters in and it will play those three and
-then tell you that is the end of the book. It is not — close the app and open
-it again to pick up everything rendered since. A book with nothing rendered yet
-says *nothing to play yet* and shows no player at all.
+A book that is still being rendered grows underneath you, and the page keeps
+up with it: while the render is running it asks again for the chapter list —
+when the audio runs out, and whenever you come back to the app — and carries
+on into whatever has landed since. Open one that is three chapters in and it
+will play those three, say *waiting for the next chapter to be read*, and go
+on when chapter four arrives. A book with nothing rendered at all says *the
+first chapter is still being read*, and the player appears when that chapter
+lands — already playing if the agent took you to that book, waiting to be
+pressed if you only opened the app. A book
+whose render is not running and has no audio says *nothing to play yet* and
+shows no player: that is a render that died, and it needs `somnia add` again,
+not waiting for.
+
+When the tailnet goes — wifi power save and a tailscale re-key both do it for a
+few seconds — the page says *the book stopped arriving* and keeps trying,
+waiting longer between attempts up to half a minute, and puts the chapter back
+where you had got to rather than at the top of it. Opening the app while the
+server is unreachable says *couldn't reach the book — trying again*, and does.
+It stops the moment you pause — nothing reloads chapters under a book somebody
+has put down — and waking the phone, or the wifi coming back, makes it try
+again at once, so there is nothing to press.
 
 ## Check screen-off playback before you trust a night to it
 

@@ -47,9 +47,11 @@ function say(text, kind) {
   return line;
 }
 
-// Answers are read, never spoken. Nothing here makes a sound: the phone is on
-// a bedside table next to someone who may be asleep again by the time the
-// answer lands.
+// Answers are read, never spoken back. The book is the only thing this page
+// says out loud — nothing below turns an answer into speech — because an
+// answer read over the book would be somnia interrupting itself, and the phone
+// is on a bedside table next to someone who may be asleep again by the time it
+// lands.
 function setStatus(text) {
   statusLine.textContent = text;
 }
