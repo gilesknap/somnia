@@ -1333,22 +1333,23 @@ button:disabled {
    the time it belongs to, so that on a row whose words run to three lines it
    has not drifted halfway down somebody else's sentence.
 
-   1.25rem of padding and not the 0.6rem this started at, because on this list
-   the padding is the only thing standing between two `goto` pills. A row whose
-   words are still covered is 61px of reading beside a 60px pill, so the row is
-   barely taller than the pill is, and the whole fall from one pill's bottom
-   edge to the next pill's top edge is that one pixel plus this padding twice
-   over and the hairline: 52px, where 0.6rem gave 26px and a thumb aiming at one
-   `goto` and landing low hit the next one instead. The reading is beside the
-   pill and never under it, so there is nothing else in that column to catch a
-   miss — the height has to be bought here or it does not exist. It costs 26px a
-   row, and four places ahead of them and the mark still fit 360x780 without
-   scrolling, which is checked in a render. */
+   A column, and the design's 20dp over 22dp of padding. Nothing on the row sits
+   beside anything else: at 360dp a time, a chapter and a pill on one line cut
+   the chapter's own name short and squeezed the book's own words into what was
+   left, and both of those are the row.
+
+   The padding is still the only thing between one row's `goto` and the next
+   one's: 42px of list that listens for nothing, which is what a thumb aiming at
+   one `goto` and landing low falls into. That is the miss worth buying height
+   against, because it moves the book somewhere nobody asked for. The other miss
+   — a low reach for the words landing on this row's own pill — is no longer
+   defended by geometry, and is not meant to be: it moves the book to the place
+   they were reading about. */
 .candidate {
   display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
-  padding: 1.25rem 0;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 1rem 0 1.1rem;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -1361,7 +1362,9 @@ button:disabled {
    under a press has somewhere to be: the text stays lined up with the title
    above it, and what lights up is a band a little wider than the words. */
 .candidate-show {
-  flex: 1;
+  /* The whole width of the row, which is the point: the lines inside it decide
+     their own length against the screen and not against a pill. */
+  width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1380,38 +1383,29 @@ button.candidate-show:active {
   background: var(--surface);
 }
 
-.candidate-line {
-  margin: 0;
-  /* A time and a label, not a paragraph: 1.45 is leading for prose and this
-     line never has a second one. */
-  line-height: 1.25;
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  min-width: 0;
-}
-
+/* The time, on its own line and the largest thing on the row — 30dp, up from
+   24, which it can afford now that nothing shares the line with it. It is what
+   a place is picked out by when the words are still covered. */
 .candidate-when {
+  margin: 0;
+  line-height: 1.2;
   color: var(--ink);
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   white-space: nowrap;
   /* So a column of times can be compared down the page rather than read. */
   font-variant-numeric: tabular-nums;
 }
 
-/* One line, cut with an ellipsis, never wrapped — the same discipline the book
-   and chapter titles on the player are held to and for a harder version of the
-   same reason. A chapter called "The Further Adventures of the Water Rat"
-   wrapping here costs a whole line on that row alone, and four rows that each
-   decide their own height for themselves are four rows that do not fit the
-   screen they were counted for. */
+/* The chapter, under the time and across the whole row, so it never truncates.
+   It was cut to one line with an ellipsis while it shared a line with the time
+   and the pill, and "Ch 2 · 02 The Hu…" is the row's name being lost on the row
+   it names. Four rows no longer fit one screen because of this and the two
+   lines below it; the list scrolls instead, which is what it is for. */
 .candidate-where {
+  margin: 0.2rem 0 0;
   color: var(--dim);
-  font-size: 0.825rem;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
 /* The book's own words, which are what a place is actually recognised by — and
@@ -1421,58 +1415,39 @@ button.candidate-show:active {
    gave its italic up in this pass so that this one would still mean
    something. */
 .candidate-what {
-  margin: 0.3rem 0 0;
+  margin: 0.45rem 0 0;
   color: var(--mid);
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-style: italic;
-  /* Clamped here as well as truncated on the server, so that what was sent and
-     what is shown roughly agree and four rows plus the mark among them still
-     fit on one screen. Both the -webkit-box display and the overflow are
-     load-bearing: without either of them the clamp silently does nothing and
-     four full passages stack up. */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
+  /* Whole, or not at all — the design's rule, and the right one for this
+     screen. It was clamped to three lines, which on a long passage cut the
+     sentence somebody was reading to recognise the place, and half a sentence
+     is worse than no sentence: it can be recognised wrongly. What was bought
+     with the clamp was four rows on one screen, and that is now spent anyway.
+     The passage is still truncated on the server, which is where a bound on
+     this belongs. */
+  line-height: 1.5;
 }
 
 .candidate-what[hidden] {
   display: none;
 }
 
-/* The one row allowed to run long. A reveal hands over two things — the words
-   and the chapter's name — and the name is the half that would be lost to the
-   ellipsis above, on the one press whose whole purpose was to hand it over. So
-   a revealed row lets it wrap and takes the height. That the list may then have
-   to be scrolled is the right way round: it started fitting, and it stopped
-   because somebody asked it for more.
-
-   The line stops being a flex row to do it. Wrapped as a flex item the name
-   comes out as a narrow column beside the time with a hand's depth of nothing
-   to the left of it; set running, it is a time and then a name, which is what
-   it reads as when it fits on one line. */
-.candidate.revealed .candidate-line {
-  display: block;
-}
-
-.candidate.revealed .candidate-when {
-  margin-right: 0.6rem;
-}
-
-.candidate.revealed .candidate-where {
-  white-space: normal;
-  overflow: visible;
-}
+/* Nothing here any more. Three rules used to undo the truncation on a revealed
+   row — the chapter's name is half of what a reveal hands over, and it was the
+   half the ellipsis ate — and they are gone because nothing on the row is
+   truncated in the first place now. Kept as a note rather than deleted
+   silently: a revealed row is still the tallest thing on this screen, and that
+   is still the right way round. */
 
 /* What the press will cost, in the only place on the page that says so. Amber
    and italic: amber because on this page amber is the warm thing and a warning
    is one, italic because the line is standing in for words that are not there
    yet — the same italic those words will arrive in. */
 .candidate-hint {
-  margin: 0.35rem 0 0;
+  margin: 0.45rem 0 0;
   color: var(--accent);
-  font-size: 0.825rem;
+  font-size: 0.95rem;
   font-style: italic;
 }
 
@@ -1480,24 +1455,29 @@ button.candidate-show:active {
   display: none;
 }
 
-/* The press that moves the book, and the small one on purpose. 60dp of pill,
-   which is well over the 44dp floor and well under the 110px slabs on the
-   transport: this is aimed at, not landed on.
+/* The press that moves the book: its own line at the foot of the row, ranged
+   right, 132dp across and 64dp tall — the design's size, and up from 92x60.
 
-   Down is the expensive direction and the only one. Left of the pill at every
-   height is the reveal, which changes nothing but what is on the screen; right
-   and above it is the edge of the screen or the row before. Below it is the
-   next place's `goto`, and pressing that moves the book somewhere nobody asked
-   for. So the whole defence is distance, and it is bought in `.candidate`:
-   1.25rem of padding each side of the hairline puts 52px of dead list between
-   one pill and the next. Nothing in that band listens for a press — the reveal
-   is beside the pill, not under it — so a low miss costs one more press and
-   never a seek. For scale, `#now-playing` holds 34px of dead band over the ±30
-   buttons, and this is the more expensive miss of the two. */
+   Ranged right and not full width, because a full-width slab at the bottom of
+   every row would read as the row itself being the button, which is the one
+   thing this screen must not say: the big target reveals and the small one
+   moves. It is bigger than it was and still much smaller than the reading above
+   it, which is the proportion that carries the meaning.
+
+   Down is still the expensive direction: below it is the next place's `goto`,
+   and pressing that moves the book somewhere nobody asked for. `.candidate`'s
+   padding either side of the hairline keeps 42px of list between the two, and
+   nothing in that band listens for a press.
+
+   Up is no longer defended. The reading is the full width of the row now, so
+   its bottom edge is this pill's top edge and a low reach for the words lands
+   here — taken deliberately, because that miss moves the book to the place they
+   were reading about rather than to somebody else's. */
 .candidate-go {
-  flex: none;
-  min-width: 4.6rem;
-  min-height: 3rem;
+  align-self: flex-end;
+  margin-top: 0.7rem;
+  min-width: 6.6rem;
+  min-height: 3.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1505,7 +1485,7 @@ button.candidate-show:active {
   border-radius: 999px;
   background: none;
   color: var(--mid);
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   padding: 0 0.9rem;
 }
 
@@ -1546,7 +1526,7 @@ button.candidate-show:active {
    of. */
 .here-caveat {
   margin: 0.4rem 0 0;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-style: italic;
   color: var(--faint);
 }
@@ -1556,7 +1536,7 @@ button.candidate-show:active {
    read on the first night and skipped over on every night after it. */
 #candidates-note {
   margin: 0.6rem 0 0;
-  font-size: 0.775rem;
+  font-size: 0.85rem;
   font-style: italic;
   color: var(--faint);
 }
