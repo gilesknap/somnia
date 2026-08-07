@@ -244,11 +244,20 @@ again at once, so there is nothing to press.
 book keeps playing underneath it, nothing on it opens a book or moves the one
 you are listening to, and *close* puts it away having changed nothing at all.
 
-What is at the top is what is happening: the book being rendered, saying which
-chapter it is on and how much of it can be played now — *chapter 4 of 39 ·
-1h12m read so far* — and under it whatever is waiting, saying how far down the
-line it is. One book renders at a time, always, so a queue of three is three
-books' worth of waiting and not three renders fighting over two cores.
+What is at the top is what is happening, in a box headed *the server is
+working*: the book being rendered, with *narrating* in the corner of its line
+and, under the name, which chapter it is on and how much of it can be played
+now — *chapter 4 of 39 · 1h12m read so far* — over a hairline that fills as the
+chapters land. Under it is whatever is waiting, marked *queued*, saying how far
+down the line it is. One book renders at a time, always, so a queue of three is
+three books' worth of waiting and not three renders fighting over two cores.
+
+The word in the corner is the stage — *queued*, *narrating*, *ready*, *failed*,
+*stopped* — and the line under the name is what is actually going on inside it.
+A book whose text has not been parsed yet has no hairline at all rather than one
+sitting at nothing: until the parse has run, nobody has written down how many
+chapters there are, and the line says *fetching the text* instead of counting.
+The box is not drawn at all when nothing is rendering.
 
 A render that has not been heard from for five minutes says *not responding*
 instead of pretending. That is a real answer: it means the worker died, or the

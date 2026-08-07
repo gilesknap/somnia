@@ -1413,15 +1413,15 @@ button.candidate-show:active {
 
    The second overlay, built out of the first one's parts: the same fixed
    inset, the same opaque background, the same safe-area padding, the same
-   scrolling middle with the way out held outside it. Two overlays measured
-   separately would drift, and the drift would land on a thumb in the dark.
+   scrolling middle with the way out held outside it and pulled up over the last
+   of the reading on its own fade. Two overlays measured separately would drift,
+   and the drift would land on a thumb in the dark.
 
-   The two are not the same size any more, and that is a debt rather than a
-   decision. The list of places has had its pass — its way out is 68dp and its
-   rows are hairlines — and this panel is still drawn at the numbers both of
-   them started from. Whichever of the two is looked at, `close` is the full
-   width of the bottom of the screen; how tall it is depends on which one, until
-   this panel has had the same pass. */
+   They are the same size now, which is the debt this pass paid. `close` is the
+   same 68dp slab at the same place at the bottom of both, so a hand that has
+   learned where the way out is has learned it for whichever overlay is up. That
+   matters more here than on the list of places, because this is the panel that
+   is read with a keyboard up. */
 
 /* First, before anything else in this block sets a display. An author id rule
    beats the browser's own [hidden] { display: none } — the same trap #talk and
@@ -1437,7 +1437,9 @@ button.candidate-show:active {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  /* No gap, as on the list of places: the space between the reading and the way
+     out is an overlap and not a gap, and a gap here would cancel the pull that
+     puts the fade over the last row. */
   background: var(--bg);
   padding: calc(env(safe-area-inset-top) + 1rem)
     calc(env(safe-area-inset-right) + 1rem)
@@ -1445,10 +1447,14 @@ button.candidate-show:active {
     calc(env(safe-area-inset-left) + 1rem);
 }
 
+/* The page title, at the page-title size, and the same one #candidates-title
+   uses — the two overlays are the same kind of screen and neither is more of a
+   document than the other. */
 #queue-title {
   margin: 0;
   font-size: 1.7rem;
   font-weight: 400;
+  line-height: 1.15;
   color: var(--mid);
 }
 
@@ -1477,6 +1483,13 @@ button.candidate-show:active {
   gap: 1rem;
 }
 
+/* The results are hairline rows and carry their own padding, so a gap on top of
+   that would be a second, wider gap doing the same job — and it is the one list
+   here that can run to a screenful. */
+#queue-results {
+  gap: 0;
+}
+
 /* An empty list must take no room at all, or three of them stack up a screen of
    gaps above the search box on a night when nothing is rendering. */
 #queue-live:empty,
@@ -1494,27 +1507,108 @@ button.candidate-show:active {
   margin-bottom: -0.4rem;
 }
 
+/* The one card on the page. Everything else here is type on the background, so
+   a hairline and a radius are the whole of what says "this part is not yours —
+   it is the box getting on with something". It is drawn only while there is
+   something in it; app.js hides it with its rows. */
+.card {
+  border: 1px solid var(--hairline);
+  border-radius: 0.7rem;
+  padding: 0.9rem 1rem;
+}
+
+/* The sentence over the rows, at the size of a second-rank line rather than a
+   heading: it is a caption for the box, not a section of the panel. */
+.card-head {
+  margin: 0 0 0.7rem;
+  font-size: 0.9rem;
+  color: var(--mid);
+}
+
 /* A row is a readout. It is not a button, it does not look like one, and
    nothing happens if a thumb lands on it — which is the whole reason the only
    pressable thing on it is its own action. */
-.job,
-.found {
+.job {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
 }
 
-.job-name,
-.found-name {
+/* The name of the book, and at the far end of the same line the stage it is
+   at. Baseline-aligned, because the two are different sizes and a stage word
+   hung from the top of a title reads as a badge. */
+.job-line {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  line-height: 1.25;
+}
+
+/* Allowed to run long, and to take the height that costs. The name column
+   inside the card is about 196px, which is nineteen characters of this serif —
+   so cut, two volumes of the same work are the same row, and the two-press
+   `stop reading this` under them does not say which render it will throw away.
+   Nothing else on the row identifies the book. The candidate list makes the
+   same trade for the same reason: see `.candidate.revealed .candidate-where`.
+
+   min-width: 0 so the flex item is free to be narrower than its longest word;
+   overflow-wrap so a title with no spaces in it breaks rather than pushing the
+   stage word off the card. */
+.job-name {
   color: var(--ink);
   font-size: 1.05rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Which of the four stages, in a word, in the corner. flex: none so the title
+   is what gives way — the word is short, and it is the thing being looked for.
+   Baseline alignment on .job-line uses the name's FIRST baseline, so however
+   many lines the title wraps to, the word stays on the top one: the corner of
+   the row is still where the answer is. */
+.job-stage {
+  flex: none;
+  color: var(--dim);
+  font-size: 0.825rem;
+}
+
+/* Warm only while a book is really being read. Everything else on this panel —
+   waiting, stopped, failed, and a render that has gone quiet — is the same
+   cream at the same weight, so the one amber word on the screen means the box
+   is working. */
+.job-stage.now {
+  color: var(--accent);
 }
 
 .job-state,
-.found-have {
+.found-meta {
+  margin: 0;
   color: var(--dim);
   font-size: 0.825rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* How far through the chapters, as a rule and not a number — see jobProgress
+   for why there is nothing here at all when nobody has written the total down.
+   2dp, because it is a status readout and not a control: there is nothing to
+   press, nothing to drag, and the only thing it is claiming is that something
+   is moving.
+
+   The transition is why app.js keeps the fill across redraws. The list is
+   rebuilt every five seconds, and a bar that was made fresh each time would
+   jump between two widths with no state to move from. */
+.job-track {
+  height: 2px;
+  margin-top: 0.15rem;
+  background: var(--hairline);
+}
+
+.job-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.5s ease;
 }
 
 /* The rows that are over. Quieter than the live ones, because they are being
@@ -1524,19 +1618,27 @@ button.candidate-show:active {
   color: var(--mid);
 }
 
-/* Ending hours of rendering, and nothing like a transport button. Dashed,
-   unfilled, and half the height of the things that are pressed on purpose:
-   going somewhere and throwing something away must not look like the same
-   press. It takes two of them, and the label says so in between. */
+.job.gone .job-fill {
+  background: var(--accent-line);
+}
+
+/* Ending hours of rendering, and nothing like a transport button. Dashed and
+   unfilled, which is the design's mark for the recessive half of a pair — the
+   press that undoes rather than the press that does — and no wider than its own
+   words. It was a slab the width of the card, and inside the card that read as
+   the row's main action rather than as the thing you would rather not have to
+   do. Still 56dp, still well over the floor, still aimed at rather than landed
+   on. It takes two presses, and the label says so in between. */
 .job-stop {
-  min-height: 3.5rem;
-  width: 100%;
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  min-height: 2.8rem;
   background: none;
   border: 1px dashed var(--hairline);
-  border-radius: 0.9rem;
+  border-radius: 999px;
   color: var(--dim);
-  font-size: 0.9rem;
-  padding: 0.6rem 0.85rem;
+  font-size: 0.875rem;
+  padding: 0.5rem 1.1rem;
 }
 
 .job-stop:active {
@@ -1577,14 +1679,20 @@ button.candidate-show:active {
   gap: 0.6rem;
 }
 
+/* A 68dp pill and a 96x68 slab beside it, which is the shape the design gives
+   this pairing everywhere it appears. The box is filled and edgeless — the fill
+   is what says "type here", and an outline as well would make it the loudest
+   thing on a panel whose subject is the rows above it. The border is kept and
+   made transparent rather than dropped, so that focusing it warms the edge
+   without moving anything by a pixel. */
 #queue-query {
   appearance: none;
   -webkit-appearance: none;
   flex: 1;
   min-width: 0;
-  min-height: 3.5rem;
+  min-height: 3.4rem;
   background: var(--surface);
-  border: 1px solid var(--hairline);
+  border: 1px solid transparent;
   border-radius: 999px;
   color: var(--ink);
   font: inherit;
@@ -1606,57 +1714,134 @@ button.candidate-show:active {
   border-color: var(--accent-line);
 }
 
+/* 96 by 68, and squared off at 18dp where the box beside it is a pill: the two
+   are the same height and different shapes, which is how a thumb tells the
+   thing it types in from the thing it presses without reading either. */
 #queue-find {
   flex: none;
-  min-height: 3.5rem;
-  border: 1px solid var(--hairline);
+  width: 4.8rem;
+  min-height: 3.4rem;
+  border: 0;
   border-radius: 0.9rem;
   background: var(--surface);
-  color: var(--ink);
+  color: var(--mid);
   font-size: 1rem;
-  padding: 0.6rem 1.1rem;
+  padding: 0.6rem;
 }
 
 #queue-find:active {
   background: var(--surface-active);
+  color: var(--ink);
 }
 
-/* Adding a book is the one thing on this panel that is meant to be easy to hit,
-   so it is the one thing here shaped like the rows on the candidate list. It is
-   still not --accent-surface: the warm one is reserved for the button pressed
-   without looking, and nobody adds a book without looking. */
-.found-add {
-  min-height: 4rem;
-  width: 100%;
-  text-align: left;
-  border: 1px solid var(--hairline);
-  border-radius: 1rem;
-  background: var(--surface);
+/* A result is a row and not a slab: the reading on the left, the one press on
+   the right, and a hairline between one book and the next. It is the shape the
+   list of places uses, for the same reason — the row is a readout with a
+   target beside it, and drawing the whole row as a button would offer a press
+   in the two states where there is no press to make.
+
+   No cover art, here or anywhere on this panel. A cover is a bright rectangle
+   in a dark room, and a title over an author is read faster half asleep. */
+.found {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.found-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.found-name {
+  margin: 0;
   color: var(--ink);
   font-size: 1.05rem;
-  padding: 0.7rem 1.1rem;
+  line-height: 1.25;
+}
+
+/* Who wrote it, and — when there is nothing to press — why there is not. The
+   two are one line with a middle dot between them, and the dot is drawn here
+   rather than built into the words so that a book with no author in the
+   catalog does not lead with one. */
+.found-meta {
+  margin: 0.15rem 0 0;
+  line-height: 1.25;
+}
+
+.found-by:empty {
+  display: none;
+}
+
+.found-by:not(:empty) + .found-have::before {
+  content: " · ";
+}
+
+/* Adding a book is the one thing on this panel that is meant to be easy to hit.
+   104 by 56 of pill: well over the 44dp floor, well under the slabs on the
+   transport, and aimed at rather than landed on — which is right for a press
+   that starts an hour of work on somebody else's box. It is not
+   --accent-surface: the warm fill is reserved for the button pressed without
+   looking, and nobody adds a book without looking. */
+.found-add {
+  flex: none;
+  min-width: 5.2rem;
+  min-height: 2.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  color: var(--mid);
+  font-size: 0.875rem;
+  padding: 0.5rem 0.8rem;
 }
 
 .found-add:active {
   background: var(--surface-active);
+  color: var(--ink);
 }
 
+/* Finishing a render that died, which is the one press here somebody arrived
+   having already decided to make: it is picking a half-read book back up, not
+   starting something new, and it was impossible from this page until the queue
+   existed. Warm for that reason and for no other — it is the only amber press
+   on the panel. */
+.found-add.again {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.found-add.again:active {
+  background: var(--accent-surface);
+  color: var(--accent);
+}
+
+/* Over the last of the reading rather than after it, exactly as on the list of
+   places: the negative margin pulls the foot up a thumb's width and the
+   gradient takes the rows into the room instead of ending them on a hard edge.
+   The overlap is also the dead band that keeps a high miss on `close` off the
+   last result's press. */
 #queue-foot {
   flex: none;
+  margin-top: -1.2rem;
+  padding-top: 1.2rem;
+  background: linear-gradient(to top, var(--bg) 65%, transparent);
 }
 
-/* The same word as #candidates-cancel, in the same place, and for now not at
-   the same size: this panel keeps the 5.5rem both of them started at until it
-   has had its own pass. Whichever overlay is up, the way out is the full width
-   of the bottom of the screen — that is the part that must not change, because
-   it is where a hand already holding the phone arrives without aiming. */
+/* The same word as #candidates-cancel, in the same place, and now at the same
+   size: 68dp, unoutlined, --surface and --mid. The height it gave up is two
+   more rows of books, and the sameness is the point — whichever overlay is up,
+   the way out is one slab across the bottom of the screen, which is where a
+   hand already holding the phone arrives without aiming. */
 #queue-close {
   width: 100%;
-  min-height: 5.5rem;
-  border: 1px solid var(--hairline);
+  min-height: 3.4rem;
+  border: 0;
   border-radius: 1rem;
   background: var(--surface);
-  color: var(--ink);
+  color: var(--mid);
   font-size: 1.05rem;
 }
 
@@ -1668,10 +1853,6 @@ button.candidate-show:active {
    searching for a book is what it is for. The rows shrink, the list scrolls,
    and close stays where a thumb left it. */
 @media (max-height: 34rem) {
-  #queue {
-    gap: 0.6rem;
-  }
-
   /* The same two steps down #candidates-title takes, and for the same reason:
      with a keyboard up this word is the only thing saying which overlay is
      open. */
@@ -1684,17 +1865,25 @@ button.candidate-show:active {
   }
 
   #queue-live,
-  #queue-gone,
-  #queue-results {
+  #queue-gone {
     gap: 0.7rem;
   }
 
-  .found-add {
-    min-height: 3.5rem;
+  .found {
+    padding: 0.6rem 0;
   }
 
+  /* Both still over the 44dp floor. Nothing tappable goes under it, keyboard or
+     no keyboard. */
+  .found-add,
+  .job-stop {
+    min-height: 2.6rem;
+  }
+
+  /* The same 2.8rem the way out of the list of places takes with a keyboard up,
+     so that the two panels still agree about where `close` is. */
   #queue-close {
-    min-height: 4rem;
+    min-height: 2.8rem;
   }
 }
 

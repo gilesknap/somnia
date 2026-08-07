@@ -46,7 +46,13 @@ const candidatesCancel = document.getElementById("candidates-cancel");
 // somebody is looking.
 const booksButton = document.getElementById("books");
 const queuePanel = document.getElementById("queue");
+// The card the live rows sit in, and the label over the rows that are over.
+// Both are drawn empty in the document and shown only when there is something
+// in them: a card with a heading and no rows under it says something should be
+// happening, which at 2am is a reason to get up.
+const queueWorking = document.getElementById("queue-working");
 const queueLive = document.getElementById("queue-live");
+const queueEnded = document.getElementById("queue-ended");
 const queueGone = document.getElementById("queue-gone");
 const queueNote = document.getElementById("queue-note");
 const queueSearch = document.getElementById("queue-search");
@@ -2179,9 +2185,36 @@ const HAVE_WORDS = {
 };
 const HAVE_ALREADY = ["done", "rendering", "queued"];
 
+// Which stage a row is at, in one word, in the corner of the row. It is the
+// design's status column, and there is one entry here for each state the queue
+// actually has and not one more. In particular there is no "fetching text":
+// the design drew a pipeline with a fetch step in it, and somnia's queue has no
+// such state to report. A book whose text has not been parsed is still
+// `rendering` to the server, and what it is doing is said in the line under the
+// name, where it can be honest about not knowing the count.
+//
+// The word and the line under it are two different things on purpose. This says
+// which stage the row is at and does not change while it is at that stage; the
+// line says what is actually happening inside it — which chapter, how much can
+// be listened to, whether anything has been heard from it in five minutes.
+const JOB_STAGE = {
+  queued: "queued",
+  rendering: "narrating",
+  done: "ready",
+  failed: "failed",
+  cancelled: "stopped",
+};
+
 let queuePoll = 0; // the wake this panel is waiting on, or 0 for none
 let queueRows = []; // the last list the server gave us, drawn as it stands
 let queueFound = []; // the last search, and what has since been done about it
+// The progress hairline of each row that has one, kept by job id across
+// redraws. The list is rebuilt from scratch every five seconds, and a bar
+// created a moment ago has no width to move from — so a fill that was made
+// fresh each time would jump, and the 500ms the design asks for would be a
+// transition that never once runs. Reusing the element is the whole of what
+// makes it slide.
+let jobFills = new Map();
 // Which stop control is asking for its second press, and the wake that will
 // make it forget. It lives here rather than on the button because the list is
 // redrawn under it every five seconds, and a confirmation that a poll can
@@ -2230,10 +2263,13 @@ function bookName(row) {
 // because it stays 'rendering' until the child reaches the end of its sentence
 // and saying "rendering" there looks like the press was ignored.
 //
-// No percentage and no time remaining, anywhere. Chapters differ in length by
-// an order of magnitude, so a bar drawn from 4 of 39 moves in lurches that read
-// as a stall, and the only honest denominator for a time estimate does not
-// exist until the last chapter has been encoded.
+// No percentage and no time remaining, in words. Chapters differ in length by
+// an order of magnitude, so a number drawn from 4 of 39 is not a fraction of
+// the work and reading it as one is how a render looks stalled, and the only
+// honest denominator for a time estimate does not exist until the last chapter
+// has been encoded. The hairline under this line is the same fraction drawn
+// rather than stated, which is as much as it can honestly claim: something is
+// moving, and this is roughly where it has got to.
 function jobWords(row) {
   if (row.state === "queued") {
     return row.place > 0 ? `${ordinal(row.place)} in line` : "waiting its turn";
@@ -2282,21 +2318,74 @@ function stopControl(row) {
   return button;
 }
 
+// How far through the chapters this row is, drawn as a hairline — and nothing
+// at all when nobody has written the total down.
+//
+// That guard is the whole reason this is a function. chapters_total is 0 until
+// the parse has run, and it is 0 for ever on every book rendered before the
+// column existed, so a bar drawn from it would sit at 0% on a render that is
+// working perfectly well. An empty track is a lie somebody acts on at 2am; no
+// track at all is the truth, and the line above says what is going on instead.
+//
+// It is a hairline and not a percentage for the reason `jobWords` gives no
+// percentage either: chapters differ in length by an order of magnitude, so
+// this creeps and lurches. As a 2dp rule that is a thing moving, which is all
+// it is claiming to be; as a number it would be a promise about time.
+function jobProgress(row) {
+  if (!row.chapters_total) return null;
+  const track = document.createElement("div");
+  track.className = "job-track";
+  // Kept from the last redraw where there was one, so the width animates
+  // instead of appearing. See jobFills.
+  let fill = jobFills.get(row.id);
+  if (!fill) {
+    fill = document.createElement("div");
+    fill.className = "job-fill";
+  }
+  jobFills.set(row.id, fill);
+  const done = Math.min(row.chapters_done, row.chapters_total);
+  // One decimal place, so that a chapter landing moves it by a number rather
+  // than by a rounding error, and so that two renders of the same row are the
+  // same string.
+  fill.style.width = `${Math.round((done / row.chapters_total) * 1000) / 10}%`;
+  track.append(fill);
+  return track;
+}
+
 function jobRow(row) {
   const live = QUEUE_LIVE.includes(row.state);
   const li = document.createElement("li");
   li.className = live ? "job" : "job gone";
   li.id = `job-${row.id}`;
+  // The name, and in the corner of the same line the stage it is at. One line
+  // and two ends of it, because the question this panel is opened with is "is
+  // anything happening", and the answer to that is a single word beside a
+  // title.
+  const line = document.createElement("p");
+  line.className = "job-line";
   const name = document.createElement("span");
   name.className = "job-name";
   name.textContent = bookName(row);
-  const state = document.createElement("span");
+  const stage = document.createElement("span");
+  // Amber only while it is really being read. A render whose heartbeat has
+  // gone quiet, or one that has been asked to stop, is still `rendering` to
+  // the server and still says `narrating` here — but it is no longer the warm
+  // thing on the panel, because the line under it is about to say something
+  // that is not good news.
+  const warm = row.state === "rendering" && row.responding && !row.stopping;
+  stage.className = warm ? "job-stage now" : "job-stage";
+  stage.textContent = JOB_STAGE[row.state] || row.state;
+  line.append(name);
+  line.append(stage);
+  const state = document.createElement("p");
   state.className = "job-state";
   state.textContent = jobWords(row);
   // No listener on the row itself. A row is a readout, so the only pressable
   // thing on it is its own action and there is nothing to mis-hit into.
-  li.append(name);
+  li.append(line);
   li.append(state);
+  const track = jobProgress(row);
+  if (track) li.append(track);
   if (live) li.append(stopControl(row));
   return li;
 }
@@ -2304,38 +2393,76 @@ function jobRow(row) {
 function drawQueue() {
   const live = queueRows.filter((row) => QUEUE_LIVE.includes(row.state));
   const over = queueRows.filter((row) => !QUEUE_LIVE.includes(row.state));
+  // Whatever is on the screen after this, and nothing else. A bar kept for a
+  // row that has left the list is a bar that would slide from somebody else's
+  // progress if that id ever came back.
+  const kept = new Map();
+  for (const row of queueRows) {
+    if (jobFills.has(row.id)) kept.set(row.id, jobFills.get(row.id));
+  }
+  jobFills = kept;
   queueLive.replaceChildren(...live.map(jobRow));
+  // The card holds the live rows and goes with them. A heading over nothing is
+  // a claim that something should be there.
+  queueWorking.hidden = !live.length;
   // What went wrong, under what is happening. There is no dismiss control for
   // these and no count of them: `view` drops a terminal row after a day, which
   // is when a failure stops being news and becomes something the journal has.
   queueGone.replaceChildren(...over.map(jobRow));
+  queueEnded.hidden = !over.length;
 }
 
+// A book the catalog found: what it is called, who wrote it, and the one press
+// that can be made about it.
+//
+// The title and the author are two lines rather than one string now. The design
+// asks for `Author · year · formats` under the title and somnia's catalog has
+// the first of those three and neither of the others, so what is under the
+// title is the author and whatever the panel already knows about the book —
+// and no cover art, here or anywhere: a cover is a bright rectangle in a dark
+// room, and four lines of text are read faster half asleep.
 function foundRow(entry) {
   const li = document.createElement("li");
   li.className = "found";
   li.id = `found-${entry.gid}`;
-  const name = document.createElement("span");
+  const text = document.createElement("div");
+  text.className = "found-text";
+  const name = document.createElement("p");
   name.className = "found-name";
-  name.textContent = bookName(entry);
-  li.append(name);
+  name.textContent = entry.title || `book ${entry.gid}`;
+  text.append(name);
+  const meta = document.createElement("p");
+  meta.className = "found-meta";
+  const by = document.createElement("span");
+  by.className = "found-by";
+  by.textContent = entry.authors || "";
+  meta.append(by);
   const already = HAVE_WORDS[entry.have];
   if (already) {
+    // Why there is no press to make, in the line that already exists rather
+    // than as a pill on the right: a pill that cannot be pressed is a button
+    // that does nothing, which is the one thing this row is arranged to avoid.
     const mark = document.createElement("span");
     mark.className = "found-have";
     mark.textContent = already;
-    li.append(mark);
+    meta.append(mark);
   }
+  text.append(meta);
+  li.append(text);
   // A book that is already here, or already coming, is marked rather than
   // offered and then refused: a press that was never available cannot be a
   // press that did nothing, and at 2am those two feel completely different.
   if (HAVE_ALREADY.includes(entry.have)) return li;
   const add = document.createElement("button");
   add.type = "button";
-  add.className = "found-add";
+  // The one warm press on the panel, and only for a render that died: picking
+  // a half-read book back up is the thing somebody came here having already
+  // decided to do, and it was impossible from this page until the queue
+  // existed. Adding something new is a plain pill.
+  const resume = entry.have === "pending";
+  add.className = resume ? "found-add again" : "found-add";
   add.id = `queue-add-${entry.gid}`;
-  add.textContent =
-    entry.have === "pending" ? "finish this one" : "add this book";
+  add.textContent = resume ? "finish this one" : "add this book";
   add.addEventListener("click", () => addBook(entry, add));
   li.append(add);
   return li;
@@ -2524,8 +2651,11 @@ function hideQueue() {
   forgetStop();
   queueRows = [];
   queueFound = [];
+  jobFills = new Map();
   queueLive.replaceChildren();
+  queueWorking.hidden = true;
   queueGone.replaceChildren();
+  queueEnded.hidden = true;
   queueResults.replaceChildren();
   queueNote.textContent = "";
   queueSaid.textContent = "";

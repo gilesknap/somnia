@@ -376,6 +376,13 @@ const BORN_HIDDEN = new Set([
   "candidates",
   "candidates-book",
   "queue",
+  // The card the live rows sit in and the label over the rows that are over.
+  // Both are in the document with nothing in them and both ship hidden, so a
+  // page whose script has not run yet does not show a heading over an empty
+  // box — and a test that saw them visible at boot would be testing a panel no
+  // browser draws.
+  "queue-working",
+  "queue-ended",
   "toast",
 ]);
 
