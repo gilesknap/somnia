@@ -138,12 +138,14 @@ them, so you recognise the moment rather than take somnia's word for it, and
 never the words of a place you have not reached yet, which is the paragraph
 after this one. There is a *you are here* marker sitting
 between them in book order so you can see which are behind you and which are
-ahead. Press *goto* on a row and the book goes there and plays. Press *close* at
-the bottom and nothing whatever happens: the book carries on exactly as it was, in
-the same place, with the same sleep timer running. Nothing has moved while the
-list is up, so there is nothing to undo. The book keeps playing underneath it
-the whole time, which also means a sleep timer left to run out under a list
-still ends the night — the list is not a reason to keep the book going.
+ahead. Press *goto* on a row and the book goes there and plays. Press
+*‹ controls* in the top left — the same corner and the same word as the way out
+of everything else — and nothing whatever happens: the book carries on exactly
+as it was, in the same place, with the same sleep timer running. Nothing has
+moved while the list is up, so there is nothing to undo. The book keeps playing
+underneath it the whole time, which also means a sleep timer left to run out
+under a list still ends the night — the list is not a reason to keep the book
+going.
 
 It will not answer about a part of the book you have not heard. The bound is
 the furthest point the page has actually *played through*, not where you are
