@@ -2469,7 +2469,11 @@ let jobFills = new Map();
 // cancel is a confirmation that expires at random.
 let stopArmed = null;
 let submitting = 0; // one submit in flight at a time, by gid
-let opening = 0; // one book being opened at a time, by gid
+// One shelf press in flight at a time, by gid. Not `opening`, which is what
+// openBook already calls the manifest it is deciding whether to adopt — a
+// module-level name shadowed inside the one function this guard wraps is a
+// trap for whoever fixes the next thing in here.
+let picking = 0;
 // Whether close owes the page a tap-to-resume listener, because opening the
 // panel took one away. Exactly the borrow cancelCandidates makes, for exactly
 // the same reason: with the listener still armed the first press anywhere on
@@ -2766,7 +2770,7 @@ async function openShelved(entry, button) {
   // One at a time, and the guard is set before the first await: two presses a
   // frame apart are the ordinary way a thumb double-taps something that has not
   // answered yet.
-  if (opening) return;
+  if (picking) return;
   // The book already open, which this list holds only for a moment — the agent
   // can move the night to another book while somebody is reading the panel, and
   // the row drawn a second ago is then the book that is playing. Opening it
@@ -2776,7 +2780,7 @@ async function openShelved(entry, button) {
     pickItUp();
     return;
   }
-  opening = entry.gid;
+  picking = entry.gid;
   button.disabled = true;
   try {
     // The server first, because this is the half that outlives the tab: it
@@ -2808,10 +2812,10 @@ async function openShelved(entry, button) {
     // reason: the switch did not happen, and the press is still there.
     toast("couldn't reach that book");
     button.disabled = false;
-    opening = 0;
+    picking = 0;
     return;
   }
-  opening = 0;
+  picking = 0;
   // openBook adopts nothing when there is no audio to play, and leaves the page
   // on the book it was on. The server refuses those before this gets that far,
   // so this is the belt to that braces — and it is here rather than nowhere
