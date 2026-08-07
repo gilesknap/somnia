@@ -154,9 +154,17 @@ without `--fail` prints an error page and exits 0, so a 502 counts as several
 hundred perfectly good bytes.
 
 ```bash
+sleep 4                                   # see below
 curl -fsk https://srv1701493.tail2221d6.ts.net:8443/style.css | sha256sum
 sha256sum src/somnia/web/style.css        # the two must match
 ```
+
+**Give the restart a few seconds before comparing.** `systemctl restart` returns
+as soon as it has asked, not when the new process is serving, and the old one
+answers during the handover — so a hash taken immediately reports MISMATCH on a
+deploy that was fine, which reads exactly like a deploy that failed. On
+2026-08-07 that cost a round. Re-check before believing it; if it still
+mismatches after a few seconds, then it is real.
 
 No reinstall is needed while dependencies are unchanged — web assets are served
 straight from the checkout. Check nothing is mid-render before restarting
