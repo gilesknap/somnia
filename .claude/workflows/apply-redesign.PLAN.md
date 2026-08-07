@@ -159,8 +159,10 @@ Both come back in the final report. Neither should be resolved by guessing.
   phone.
 - **Agents must Read the PNGs**, not reason from the CSS. Reporting on a layout
   nobody opened would make the whole exercise worthless.
-- **Checks per slice**: `node --test tests/web`, `pytest`, and both renders
-  (360x780 control, 360x470 chat with the keyboard up).
+- **Checks per slice**: `node --test tests/web/*.test.mjs`, `pytest`, and both
+  renders (360x780 control, 360x470 chat with the keyboard up). Note the glob:
+  `node --test tests/web` resolves the directory as a module on Node 22 and
+  fails with MODULE_NOT_FOUND, which reads exactly like a broken test suite.
 - **Comments must follow the layout.** `index.html`'s comments record *why*
   each control sits where it does — the dead band under the chapter strip, the
   sleep timer kept a thumb's width from the transport. If a slice moves one,
@@ -169,7 +171,16 @@ Both come back in the final report. Neither should be resolved by guessing.
 
 ## Delivery
 
-Slice per screen, a commit each, per the user's choice. Push and PR per the
-user's global rules: HTTPS + `gh` credential helper, never SSH; `gh pr create
---head <branch> --base main`; gate merges with
-`gh pr checks <n> --watch && gh pr merge <n> --merge --delete-branch`.
+See **Shipping** above — that section is authoritative. In short: slices are cut
+by the planner rather than one per screen, and they land as **one PR with a
+commit table per slice**, pushed over HTTPS with `gh`'s credential helper and
+`GIT_CONFIG_GLOBAL=/dev/null`, created with `gh pr create --head <branch> --base
+main`.
+
+**Do not merge it.** Review is the user's, and `gh pr merge --auto` does not gate
+on CI on his repos — it merges immediately, whatever the checks are doing.
+
+(An earlier draft of this section said "slice per screen, a commit each" and
+ended with a merge command. Both were wrong and are recorded here only so the
+contradiction is not rediscovered: following them would have merged an
+unreviewed PR.)
