@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # The only sentence that belongs beside a list of places. It names no place, no
 # chapter, no character and no time, because the screen holds all of that and
 # says it better — and because a sentence that summarised the list would leak
-# exactly what the "show me what's there" control exists to withhold. It is
+# exactly what the reveal on each row exists to withhold. It is
 # quoted in the prompt so the model says it, and used verbatim when the model
 # offers and then says nothing at all.
 OFFER_SENTENCE = "There are a few places that could be it."

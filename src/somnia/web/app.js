@@ -23,8 +23,17 @@ const restart = document.getElementById("restart");
 const statusLine = document.getElementById("status");
 const player = document.getElementById("player");
 const playerBar = document.getElementById("player-bar");
+const bookTitle = document.getElementById("book-title");
 const chapterTitle = document.getElementById("chapter-title");
+const chapterWord = document.getElementById("chapter-word");
+const chapterCount = document.getElementById("chapter-count");
 const clock = document.getElementById("clock");
+// The position line, which is also the way back to the places somnia last
+// found, and the count that says so. It is a control only on the nights there
+// is something behind it; see drawPlaces.
+const placesOpen = document.getElementById("places-open");
+const placesFound = document.getElementById("places-found");
+const wholePlayed = document.getElementById("whole-played");
 const sleepButton = document.getElementById("sleep");
 const playpause = document.getElementById("playpause");
 const back30 = document.getElementById("back30");
@@ -34,6 +43,7 @@ const prevChapter = document.getElementById("prevchapter");
 const nextChapter = document.getElementById("nextchapter");
 const candidates = document.getElementById("candidates");
 const candidatesBook = document.getElementById("candidates-book");
+const summaryLine = document.getElementById("candidates-summary");
 const candidateList = document.getElementById("candidate-list");
 const candidatesCancel = document.getElementById("candidates-cancel");
 // The books panel. `queuePanel` rather than `queue` because "the queue" in this
@@ -42,7 +52,13 @@ const candidatesCancel = document.getElementById("candidates-cancel");
 // somebody is looking.
 const booksButton = document.getElementById("books");
 const queuePanel = document.getElementById("queue");
+// The card the live rows sit in, and the label over the rows that are over.
+// Both are drawn empty in the document and shown only when there is something
+// in them: a card with a heading and no rows under it says something should be
+// happening, which at 2am is a reason to get up.
+const queueWorking = document.getElementById("queue-working");
 const queueLive = document.getElementById("queue-live");
+const queueEnded = document.getElementById("queue-ended");
 const queueGone = document.getElementById("queue-gone");
 const queueNote = document.getElementById("queue-note");
 const queueSearch = document.getElementById("queue-search");
@@ -50,6 +66,19 @@ const queueQuery = document.getElementById("queue-query");
 const queueResults = document.getElementById("queue-results");
 const queueSaid = document.getElementById("queue-said");
 const queueClose = document.getElementById("queue-close");
+// What is playing under the panel, at the top of it. `reading` and not `queue`
+// because this is the one part of that overlay that is about a book rather than
+// about the rows the server is holding, and the two must not be muddled here of
+// all places.
+const readingNow = document.getElementById("reading-now");
+const readingTitle = document.getElementById("reading-title");
+const readingMeta = document.getElementById("reading-meta");
+const readingTrack = document.getElementById("reading-track");
+const readingFill = document.getElementById("reading-fill");
+const readingResume = document.getElementById("reading-resume");
+// The page's second voice, and the sheet of black over the whole of it.
+const toastLine = document.getElementById("toast");
+const dimLayer = document.getElementById("dim");
 
 // One conversation per launch of the app. The server holds the history; this
 // is only the name it goes by.
@@ -76,6 +105,83 @@ function say(text, kind) {
 function setStatus(text) {
   statusLine.textContent = text;
 }
+
+// The other voice, and why there are two.
+//
+// #status above holds the sentences that have to stand: "listening…" for as
+// long as a button is held, "tap anywhere to carry on" until somebody does,
+// "the rest of this book hasn't been read yet" until they go somewhere it has.
+// A line that cleared itself after a few seconds could not hold any of those —
+// the instruction would be gone and the state it describes would not.
+//
+// This holds the other kind: what the press they just made did. It is true
+// when it is read and untrue a minute later, so it takes itself off, and it
+// happens at the bottom of the screen near the thumb that caused it rather
+// than at the top where the reading is.
+//
+// One box, one sentence. A second one replaces the first in place rather than
+// pushing it up a stack: the older sentence is never the one still true, and a
+// box that jumped every time a control was pressed would read as an alarm on a
+// page whose whole argument is that nothing moves unless it has to.
+const TOAST_MS = 2800;
+
+let toastTimer = 0;
+
+function toast(text) {
+  clearTimeout(toastTimer);
+  toastLine.textContent = text;
+  toastLine.hidden = false;
+  toastTimer = setTimeout(forgetToast, TOAST_MS);
+}
+
+// Emptied as well as hidden, so that "is anything being said?" has one answer
+// and not two that can disagree.
+function forgetToast() {
+  clearTimeout(toastTimer);
+  toastTimer = 0;
+  toastLine.hidden = true;
+  toastLine.textContent = "";
+}
+
+// How dark the page takes the room, over and above what the phone will do.
+// Android holds its own backlight above a floor and this room is below it, so
+// the last of the light comes off in a layer of black over everything.
+//
+// Beside the sleep timer in localStorage, and for the same reason: it is an
+// instruction about the dark that outlives a tab the phone discarded while it
+// was in a pocket. Unlike the timer it never goes stale — a room that was dark
+// last night is dark tonight.
+//
+// Nothing on the page writes it yet. The control that would belongs with the
+// jump size and the default sleep timer on a settings surface this page does
+// not have, and inventing one to carry a single slider is a screen somebody
+// has to find in the dark.
+const DIM_KEY = "somnia-dim";
+const DIM_DEFAULT = 0.12;
+// Past this the page stops being readable, and there is nothing on screen to
+// turn it back down with. A half-written record must not be able to black out
+// the only transport in the room.
+const DIM_MAX = 0.6;
+
+function restoreDim() {
+  let level = DIM_DEFAULT;
+  try {
+    const saved = localStorage.getItem(DIM_KEY);
+    // `Number(null)` and `Number("")` are both 0, and 0 is a level somebody
+    // can mean — so nothing written down has to be told apart from a level of
+    // nothing before the range is checked at all, or a page that has never
+    // been set opens with no dim on it. NaN fails both comparisons, which is
+    // how every other kind of rubbish falls through to the default.
+    const asked = saved?.trim() ? Number(saved) : NaN;
+    if (asked >= 0 && asked <= DIM_MAX) level = asked;
+  } catch (error) {
+    // Storage refused. The page ships at 0.12 and this changes nothing.
+    console.error(error);
+  }
+  dimLayer.style.opacity = String(level);
+}
+
+restoreDim();
 
 // A short buzz confirms the button caught the press, for a listener who can't
 // see much and shouldn't be listening for a beep. Android honours this; iOS
@@ -138,7 +244,47 @@ composer.addEventListener("submit", (event) => {
   ask(question.value.trim());
 });
 
-restart.addEventListener("click", async () => {
+// How long `start over` stands asked before the corner forgets it. Long enough
+// to read four words and decide, short enough that a phone put down face up
+// with the question still on it is not one press from an empty screen. The
+// queue's `stop reading this` is the same pattern with a longer fuse, because
+// that press ends hours of rendering and this one ends a conversation.
+const RESTART_CONFIRM_MS = 3200;
+
+// The wake that will put the label back, or 0 for a corner that is not asking.
+// One variable and not two: the label is drawn from it, so "is it armed?" and
+// "what does it say?" cannot come apart.
+let restartTimer = 0;
+
+function forgetRestart() {
+  clearTimeout(restartTimer);
+  restartTimer = 0;
+  restart.textContent = "start over";
+  restart.classList.remove("armed");
+}
+
+// Two presses, and the button itself is the question — the same answer the
+// queue panel gives, so that the page has one way of asking rather than two.
+// Not a confirm dialog: that would be the first thing on this page to take
+// focus from anybody, and an overlay over a conversation somebody is about to
+// throw away is one more thing to get out of.
+restart.addEventListener("click", () => {
+  if (!restartTimer) {
+    restart.textContent = "sure? tap again";
+    restart.classList.add("armed");
+    restartTimer = setTimeout(forgetRestart, RESTART_CONFIRM_MS);
+    return;
+  }
+  forgetRestart();
+  startOver();
+});
+
+// What is thrown away is the conversation, and only the conversation. The book
+// keeps playing, keeps its position and keeps its sleep timer: "start over"
+// means the questions, not the night. A press here that took somebody back to
+// the beginning of a nine-hour book would be the one mistake on this page
+// nothing could undo.
+function startOver() {
   const stale = token;
   token = crypto.randomUUID();
   sessionStorage.setItem("somnia-token", token);
@@ -149,13 +295,16 @@ restart.addEventListener("click", async () => {
   }).catch(() => {});
   // A list left up over a cleared transcript is exactly the stranding this page
   // promises cannot happen: an overlay offering places, with nothing behind it
-  // to say what was asked or why.
+  // to say what was asked or why. `closeCandidates` takes it off the screen and
+  // `forgetPlaces` takes it out of the key, so the position line stops offering
+  // a way back to it as well.
   closeCandidates();
+  forgetPlaces();
   transcript.replaceChildren();
   setStatus("");
   say("Where do you want to be?", "agent");
   question.focus();
-});
+}
 
 // ------------------------------------------------------------------- playing
 
@@ -365,15 +514,53 @@ function chapterTime(ms) {
 
 function drawPlayer() {
   if (!manifest || !current) return;
+  // Which book, above which chapter of it. Drawn every pass rather than once
+  // when the book opened, so there is no path — a swap, a refreshed manifest, a
+  // move to another book — by which the headline can be left naming the last
+  // one. The fallback is the queue panel's, from bookName: a book that has been
+  // through nothing but the local catalog may have no name at all, and "book
+  // 1342" is a good deal better than an empty line where the title goes.
+  bookTitle.textContent = manifest.title || `book ${gid}`;
   chapterTitle.textContent = current.chapter.title;
   const whole = timestamp(manifest.total_ms);
   clock.textContent = `${timestamp(positionMs)} of ${whole}`;
+  // And whether that line is a way in to anything, which is a question about
+  // the book it has just been drawn for: places belong to the book they were
+  // found in, so this is asked on the same pass rather than once when a list
+  // was last shown.
+  drawPlaces();
+  // The same pair as the line above it, drawn instead of written. Clamped both
+  // ends: a position past the last chapter — a book re-rendered shorter than
+  // the mark somebody left in it — would otherwise run the fill off the end of
+  // its track and take the knob with it. A book with no total is drawn empty
+  // rather than full, because nobody knowing how long it is does not mean it
+  // has been finished.
+  const through = manifest.total_ms
+    ? Math.min(100, Math.max(0, (positionMs / manifest.total_ms) * 100))
+    : 0;
+  wholePlayed.style.width = `${through}%`;
   // Off the chapter row and the book's own clock, never off the element's
   // currentTime: that number restarts at zero on every swap, and during one it
   // belongs to whichever of the two chapters the element happens to be holding.
   const into = positionMs - current.chapter.start_ms;
   const length = current.chapter.end_ms - current.chapter.start_ms;
   chapterClock.textContent = `${chapterTime(into)} of ${chapterTime(length)}`;
+  // Which chapter of how many, in the gap between the two buttons that change
+  // it. The denominator is chapters_total — how many chapters the book HAS, as
+  // against how many have been rendered — because a count taken from the
+  // chapters that happen to have landed would read "1 of 1" at eleven o'clock
+  // and "1 of 2" an hour later, on a book that has forty.
+  //
+  // 0 means nobody wrote the number down. That is every book rendered before
+  // the column existed, which is every book on the box this runs on, so it is
+  // not an edge case to be swept up: the count says which chapter they are in
+  // and stops, and the word above it goes rather than saying "chapter" twice.
+  const total = manifest.chapters_total || 0;
+  const number = current.idx + 1;
+  chapterWord.hidden = total === 0;
+  chapterCount.textContent = total
+    ? `${number} of ${total}`
+    : `chapter ${number}`;
   // A book still being read grows a chapter at a time, so this is asked every
   // draw rather than once when the manifest lands.
   nextChapter.disabled = !manifest.chapters[current.idx + 1];
@@ -383,6 +570,13 @@ function drawPlayer() {
   playpause.classList.toggle("playing", !player.paused);
   playpause.setAttribute("aria-label", player.paused ? "Play" : "Pause");
   drawSleep();
+  // The books panel says which book this is and offers it back, out of the same
+  // three things this function has just drawn from. Here rather than once when
+  // the panel goes up, because the agent can move the book — or the sound can
+  // cross into the next chapter — while somebody is reading the panel, and a
+  // block painted once would then be naming a place the book has left. It costs
+  // nothing while the panel is shut; see drawReadingNow.
+  drawReadingNow();
 }
 
 // What the notification says. The chapter is the title because it is the part
@@ -687,28 +881,55 @@ sleepButton.addEventListener("click", () => {
   if (fade?.thenSleep) startFade(1, FADE_IN_MS);
   drawSleep();
   saveSleep();
+  // Said in the words somebody would use, once, rather than left to be read
+  // off a pill that says "sleep 30m". The pill is the readout and this is the
+  // answer to the press — including on the sixth press, which takes the timer
+  // off again: a box still promising to fade out over a night with no end
+  // scheduled is the one lie this control can tell.
+  toast(sleepSentence());
   buzz(10);
 });
 
+function sleepSentence() {
+  const choice = SLEEP_CHOICES[sleepChoice];
+  if (choice === null) return "no sleep timer";
+  if (choice === "chapter") return "fading out at the end of the chapter";
+  return `fading out in ${choice} min`;
+}
+
+// What the pill says, and what it says out loud, decided in one place.
+//
+// The visible label is one pre-assembled string — `sleep timer · 30m` — and
+// not a word with a value appended to it. `sleep` on its own was the control's
+// name on the nights it was off and a state on the nights it was on, and the
+// only thing telling those two readings apart was whether anything followed
+// it. Half asleep that is not a distinction anybody makes. Now the pill always
+// says both what it is and what it is set to, which is also what makes it the
+// one control on the page that can be read without being understood first.
+//
+// The spoken form is built from the same branch rather than beside it, so a
+// state cannot be added to one and forgotten in the other — and it stays a
+// sentence rather than the pill's own string, because a screen reader saying
+// "sleep timer middle dot thirty m" is not what the pill means.
 function drawSleep() {
   const choice = SLEEP_CHOICES[sleepChoice];
-  let label = "sleep";
-  let spoken = "Sleep timer, off";
+  let says = "off";
+  let spoken = "off";
   if (fade?.thenSleep) {
-    label = "fading";
-    spoken = "Sleep timer, fading out";
+    says = "fading";
+    spoken = "fading out";
   } else if (choice === "chapter") {
-    label = "chapter end";
-    spoken = "Sleep timer, at the end of this chapter";
+    says = "chapter end";
+    spoken = "at the end of this chapter";
   } else if (sleepLeftMs !== null) {
     // Rounded up, and never zero: a countdown that says nothing is left has
     // nothing left to say, and by then the sound itself is the announcement.
     const minutes = Math.max(1, Math.ceil(sleepLeftMs / 60_000));
-    label = `sleep ${minutes}m`;
-    spoken = `Sleep timer, ${minutes} minutes left`;
+    says = `${minutes}m`;
+    spoken = `${minutes} minutes left`;
   }
-  sleepButton.textContent = label;
-  sleepButton.setAttribute("aria-label", spoken);
+  sleepButton.textContent = `sleep timer · ${says}`;
+  sleepButton.setAttribute("aria-label", `Sleep timer, ${spoken}`);
   sleepButton.classList.toggle("armed", choice !== null);
 }
 
@@ -1431,7 +1652,7 @@ function follow(move) {
   seekGlobal(move.position_ms, { play: true });
 }
 
-// ------------------------------------------------------- where do you mean?
+// ------------------------------------------------------ places you might be
 
 // Some questions have more than one answer, and the old way of saying so was a
 // conversation: "did you mean the one an hour in, or the one at four hours?"
@@ -1453,20 +1674,196 @@ function follow(move) {
 // a sentence is that they read the book's own sentence and recognise it — but a
 // place they have not reached yet cannot show its words, or its chapter title
 // ("How Ginger Died" is as much of a spoiler as the paragraph under it), so
-// those rows say only when they are and that they are ahead, and offer a second
-// press to find out more. Going somewhere and finding out what is there are
-// different decisions and they are different buttons.
+// those rows say only when they are and that they are ahead, and offer a press
+// to find out more.
+//
+// Going somewhere and finding out what is there are different decisions, and a
+// row is two targets rather than one: the reading, which is the whole left of
+// the row, and `goto`, which is a pill on the right. Which of the two is the
+// bigger one is the ruling this list turns on. It used to be the jump — the row
+// itself was the button and the reveal was a small dashed thing under it — and
+// that is the wrong way round for a screen read at 2am. The press wanted most
+// often is "what is there?", it is the one that can be taken back, and the one
+// that cannot be taken back is the one that should have to be aimed at. So the
+// reveal is the row and `goto` is the pill beside it. Nothing about that
+// changes what either press does: revealing still moves no playback and tells
+// nobody, and it is still not possible to arrive somewhere by asking what is
+// there.
+//
+// What the design asked for and this list does not have: a reason per row
+// ("most likely · fits what you said") and a source per row ("you paused here,
+// awake", "sleep timer faded out here"). The agent returns neither and there is
+// nowhere in somnia either could be read from, so neither is drawn. A list of
+// places is the one screen on this page where a plausible sentence nobody has
+// evidence for is a lie a thumb then acts on.
 
-// The offer currently on screen, or null. It holds the only copy of the words
-// of any place they have not heard yet, which is why it is a variable and not a
-// rendered thing: those words are never written into the DOM until the reveal
-// press, never put in storage, never logged, never passed to say(), and are
-// gone from the page entirely the moment the list closes. Not persisted for the
-// same reason — a page discarded with the list up comes back with no list,
-// which is correct, because the only thing worth saving is exactly the thing
-// the reveal control exists to withhold. The question and the answer are still
-// in the transcript, and asking again is one press.
+// The offer currently on screen, or null. It holds the only copy in the page of
+// the words of a place they have not heard yet, which is why it is a variable
+// and not a rendered thing: those words are never written into the DOM until
+// the reveal press, never logged, never passed to say(), and are gone from the
+// page entirely the moment the list closes.
+//
+// It used to be the only copy anywhere, and the comment here used to say so — a
+// page discarded with the list up came back with no list, and asking again was
+// one press. Asking again is a question put to a model over a tailnet at 2am,
+// which is the thing this page exists to spare somebody, so the list is written
+// down as well now: see PLACES_KEY below. What closes still forgets what was on
+// the screen; what a night keeps is the answer, not the overlay.
 let offered = null;
+
+// The last places somnia offered, kept where a discarded tab cannot take them.
+//
+// Places is the set of places from the last query and nothing else. It is not a
+// store of pause points or fade points: somnia already produces exactly this
+// list, once, in answer to a question asked in the dark — and until now it
+// lived as long as the overlay did, so getting back to the third of four places
+// meant asking the same question again.
+//
+// localStorage, beside the sleep timer and the dim level, and for the same
+// reason as the timer: the tab is the thing that does not survive the night. A
+// backgrounded page is discarded whenever the phone wants the memory back, and
+// the list went with it.
+//
+// One entry, carrying the gid of the book it is about. A list about a book that
+// is not the one open is no places at all — which is what keeps this from
+// growing without bound, and what keeps the screen scoped to the book somebody
+// is listening to.
+//
+// It holds the words of places they have not heard yet, and that is worth
+// saying out loud. Those words came down with the answer, to this phone, on
+// this night; what changes is that they now rest in a key between sessions
+// rather than dying with the tab. No new exposure — same device, same answer —
+// and whether they ever reach the screen is still the reveal press's decision
+// and nobody else's.
+const PLACES_KEY = "somnia-places";
+
+// What would be put back on the screen, or null. `offered` is what is on it
+// now: the two are the same list while Places is up, and different the moment
+// it closes, because closing forgets the screen and this outlives the night.
+let remembered = null;
+
+// `start over` throws away the conversation, and the places are an answer to a
+// question in it — so they go with it. The comment over startOver draws the line
+// this side of: the questions, not the night. The book keeps playing, keeps its
+// position and keeps its timer; what is forgotten is everything that was said.
+//
+// Without this the position line goes on saying `4 places found` after the
+// server has been told to forget the question that found them, and pressing it
+// opens a list somebody can no longer see the reason for. That is not the same
+// case as a confident move, which leaves the list standing on purpose: there the
+// conversation is still there to explain it.
+function forgetPlaces() {
+  remembered = null;
+  drawPlaces();
+  try {
+    localStorage.removeItem(PLACES_KEY);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function rememberPlaces(list) {
+  remembered = list;
+  // The position line says how many places there are, and this is the moment
+  // there is a different number of them. Waiting for the next pass of
+  // drawPlayer would be waiting for the book to play: a page that was only ever
+  // opened to ask a question is paused, so nothing else would come, and closing
+  // the screen would leave the line saying nothing about the list behind it.
+  drawPlaces();
+  try {
+    localStorage.setItem(PLACES_KEY, JSON.stringify(list));
+  } catch (error) {
+    // Storage refused, or is full. Places is a convenience over a question that
+    // can always be asked again, so nothing else here has to care.
+    console.error(error);
+  }
+}
+
+// What the last page to be alive put in front of somebody. Anything else in
+// that key reads as no places rather than as a reason to throw: this runs at
+// boot, before there is a screen to say anything on, and the one thing the page
+// opening at 2am has to do is open.
+function restorePlaces() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(PLACES_KEY) || "null");
+  } catch (error) {
+    console.error(error);
+  }
+  if (!saved || typeof saved.gid !== "number") return;
+  if (!Array.isArray(saved.places) || !saved.places.length) return;
+  // Every row is drawn out of these three and a press acts on the first of
+  // them, so a record missing any one is a screen of rows reading "Ch NaN" with
+  // a goto that seeks to nowhere.
+  const whole = saved.places.every(
+    (place) =>
+      place &&
+      typeof place.start_ms === "number" &&
+      typeof place.chunk_id === "number" &&
+      typeof place.chapter_idx === "number",
+  );
+  if (whole) remembered = saved;
+}
+
+// The remembered list, but only where it is about the book that is open. A list
+// about another book is not a wrong list to draw, it is the answer to a
+// question about somewhere else, and there is nothing on the position line that
+// could say so.
+function placesHere() {
+  return remembered && gid !== null && remembered.gid === gid
+    ? remembered
+    : null;
+}
+
+// The way back to the last query's places. It goes through showCandidates, the
+// same path the answer that first raised them took, because a list restored
+// straight into the DOM would be markup: the words of a place they have not
+// reached are held in a closure by candidateRow, and chooseCandidate acts on
+// `offered` rather than on rows — so a screen built any other way would look
+// right and do nothing when pressed.
+//
+// Nothing here refreshes anything, and a stale `ahead` flag is why that is
+// safe. The server decided it against its own mark when the offer was made, and
+// that mark only ever rises: a place stored as ahead may since have been
+// listened to, and one stored as heard can never have become unheard. So age
+// can only over-warn, which costs a press — and the other direction is the one
+// thing this page must never do.
+function showRemembered() {
+  const list = placesHere();
+  if (list) showCandidates(list);
+}
+
+// The position line, which is the way in when there is anywhere to go and a
+// plain readout when there is not.
+//
+// `disabled` on the nights there are no places, and that is the whole of the
+// argument for putting this on a line that already exists rather than giving
+// Places a control of its own: after a cold launch on a book nobody has asked
+// about there is nothing to open, and a line wearing a rule and a target that
+// answered a press by doing nothing is worse in the dark than no way in at all.
+// The rule and the count are drawn from the same number, so "does it look
+// pressable?" and "is there anything to press?" cannot come apart.
+//
+// The count is emptied as well as hidden, for the reason the toast is: "is
+// anything being offered?" gets one answer and not two that can disagree.
+function drawPlaces() {
+  const list = placesHere();
+  const found = list ? list.places.length : 0;
+  // One place is not counted as though there were more, which is the rule the
+  // screen this opens already follows: it is the same list said in fewer words.
+  placesFound.textContent = found
+    ? `${found} ${found === 1 ? "place" : "places"} found`
+    : "";
+  placesFound.hidden = found === 0;
+  placesOpen.disabled = found === 0;
+  placesOpen.classList.toggle("openable", found > 0);
+}
+
+// Pressed, it puts the last query's places back on the screen. It is the same
+// screen an answer raises and every way out of it is the one that was already
+// there — including close, which now leaves the count standing behind it,
+// because the places did not stop existing when the screen was put away.
+placesOpen.addEventListener("click", showRemembered);
 
 // Whether cancel owes the page a tap-to-resume listener, because showing the
 // list took one away. See cancelCandidates.
@@ -1499,14 +1896,38 @@ function chapterLabel(place, { title }) {
   return parts.join(" · ");
 }
 
+// What the list is, said in one line above it, and out of nothing but the
+// payload that drew the rows. It counts what is on the screen and names the
+// first and last time on it — no denominator, because somnia has no idea how
+// many places in this book would have fitted the question, and "4 of 7" with a
+// 7 nobody counted is a number that would be read and believed.
+function candidatesSummary(places) {
+  if (!places.length) return "";
+  const first = timestamp(places[0].start_ms);
+  if (places.length === 1) return `1 place, at ${first}`;
+  const last = timestamp(places[places.length - 1].start_ms);
+  return `${places.length} places between ${first} and ${last}`;
+}
+
 function candidateRow(place) {
   const li = document.createElement("li");
   li.className = place.ahead ? "candidate ahead" : "candidate";
 
-  const go = document.createElement("button");
-  go.type = "button";
-  go.className = "candidate-go";
-  go.id = `candidate-go-${place.chunk_id}`;
+  // Everything known about the place, and the whole left of the row. It is a
+  // button only where something is being withheld: on a place they have already
+  // heard there is nothing left to ask for, so the words are simply there and
+  // the reading is not a control at all. A target that answers a press by doing
+  // nothing is worse in the dark than no target — it reads as a page that has
+  // stopped responding.
+  const show = document.createElement(place.ahead ? "button" : "div");
+  show.className = "candidate-show";
+  if (place.ahead) {
+    show.type = "button";
+    show.id = `candidate-show-${place.chunk_id}`;
+  }
+
+  const line = document.createElement("p");
+  line.className = "candidate-line";
 
   const when = document.createElement("span");
   when.className = "candidate-when";
@@ -1516,7 +1937,10 @@ function candidateRow(place) {
   where.className = "candidate-where";
   where.textContent = chapterLabel(place, { title: !place.ahead });
 
-  const what = document.createElement("span");
+  line.append(when);
+  line.append(where);
+
+  const what = document.createElement("p");
   what.className = "candidate-what";
   // A place ahead of where they have listened starts with nothing in it at
   // all — not hidden text, no text. Held in the closure below instead, so that
@@ -1527,18 +1951,18 @@ function candidateRow(place) {
   if (place.ahead) what.hidden = true;
   else what.textContent = place.text;
 
-  go.append(when);
-  go.append(where);
-  go.append(what);
-  go.addEventListener("click", () => chooseCandidate(place));
-  li.append(go);
+  show.append(line);
+  show.append(what);
 
   if (place.ahead) {
-    const show = document.createElement("button");
-    show.type = "button";
-    show.className = "candidate-show";
-    show.id = `candidate-show-${place.chunk_id}`;
-    show.textContent = "show me what's there";
+    // The only line on the page that says what a press will cost. Amber,
+    // because amber on this page is the warm thing and a warning is one, and
+    // said in the row rather than under the list: whether the words are worth
+    // uncovering is a question about this place and not about the screen.
+    const hint = document.createElement("p");
+    hint.className = "candidate-hint";
+    hint.textContent = "tap to reveal · may spoil";
+    show.append(hint);
     // Five writes to this row's own DOM and nothing else in the whole page: no
     // request, no seek, no report, nothing touched that the spoiler guard
     // measures. The words came down with the answer and were already in hand,
@@ -1549,42 +1973,79 @@ function candidateRow(place) {
     // where a control that does nothing for three seconds reads as broken and
     // gets pressed again — with a list on screen, into a row.
     show.addEventListener("click", () => {
+      // Once. A second press on a revealed row is a thumb that has already got
+      // what it asked for, and the one thing it must never do is put the words
+      // back — a reveal that toggled would be a control whose meaning depends
+      // on how many times it has been pressed, read by somebody who is not
+      // counting.
+      if (li.classList.contains("revealed")) return;
       what.textContent = place.text;
       what.hidden = false;
       // The title arrives at the same press and never before it.
       where.textContent = chapterLabel(place, { title: true });
-      show.hidden = true;
-      // It is still ahead of them, and that is what they are deciding about.
+      // The warning has been heeded and is over. What is left saying the row is
+      // ahead of them is the word in the chapter line, which stays.
+      hint.hidden = true;
       li.classList.add("revealed");
     });
-    li.append(show);
   }
+  li.append(show);
+
+  // The other target, and the smaller one on purpose: it is the press that
+  // cannot be taken back. 60dp of pill, and the nearest other `goto` is 52px
+  // below it — the row's padding twice over and the hairline between, none of
+  // which listens for a press. The reveal sits beside the pill and never under
+  // it, so nothing catches a low miss except that distance; style.css keeps it,
+  // and `.candidate`'s padding is not a spacing choice to be tuned.
+  const go = document.createElement("button");
+  go.type = "button";
+  go.className = "candidate-go";
+  go.id = `candidate-go-${place.chunk_id}`;
+  // Not "jump": at this size and in this position "jump" reads like the ±30
+  // below, and this moves the whole book.
+  go.textContent = "goto";
+  go.addEventListener("click", () => chooseCandidate(place));
+  li.append(go);
   return li;
 }
 
-function hereRow(ms) {
+// Not a row and not somewhere to go: a rule drawn across the list at the point
+// they have got to. `more` is whether there is anything under it — the sentence
+// beneath the rule is about what follows it, and printed with nothing following
+// it, it would be a warning about an empty screen.
+function hereRow(ms, { more }) {
   const li = document.createElement("li");
   li.className = "candidate here";
   li.setAttribute("aria-current", "true");
-  const when = document.createElement("span");
-  when.className = "candidate-when";
-  when.textContent = timestamp(ms);
-  const where = document.createElement("span");
-  where.className = "candidate-where";
-  where.textContent = "you are here";
-  li.append(when);
-  li.append(where);
+  // One string, mono and small: it is a label on a rule rather than something
+  // to read, and it is the only place on this screen that is not a place.
+  const mark = document.createElement("p");
+  mark.className = "section-label here-mark";
+  mark.textContent = `you are here · ${timestamp(ms)}`;
+  li.append(mark);
+  if (more) {
+    const caveat = document.createElement("p");
+    caveat.className = "here-caveat";
+    caveat.textContent = "anything below this line you may not have heard";
+    li.append(caveat);
+  }
   return li;
 }
 
 function showCandidates(list) {
   offered = list;
+  // Written down here rather than where the answer arrives, so that what a
+  // night remembers is what was actually put in front of somebody: an answer
+  // that knew where they meant moved the book and offered nothing, and it
+  // leaves the last real list standing.
+  rememberPlaces(list);
   candidateList.replaceChildren();
 
   // Which book, but only when it is not the one playing.
   const elsewhere = list.gid !== gid;
   candidatesBook.textContent = elsewhere ? `in ${list.title}` : "";
   candidatesBook.hidden = !elsewhere;
+  summaryLine.textContent = candidatesSummary(list.places);
 
   const rows = list.places.map(candidateRow);
   const here = hereTime(list);
@@ -1596,7 +2057,8 @@ function showCandidates(list) {
     // never updated — a number moving under a finger is worse than a number
     // that is a moment old.
     const at = list.places.findIndex((place) => place.start_ms > here);
-    rows.splice(at < 0 ? rows.length : at, 0, hereRow(here));
+    const mark = at < 0 ? rows.length : at;
+    rows.splice(mark, 0, hereRow(here, { more: mark < rows.length }));
   }
   for (const row of rows) candidateList.append(row);
 
@@ -1623,6 +2085,10 @@ function closeCandidates() {
   candidates.hidden = true;
   // The rows, and with them any words a reveal press put on the screen.
   candidateList.replaceChildren();
+  // The line that counted them goes with them. It is only times and a number,
+  // but a subhead left standing over an empty list is the page describing
+  // something that is not there.
+  summaryLine.textContent = "";
   // And the words it did not: the only other copy in the page.
   offered = null;
 }
@@ -1630,6 +2096,12 @@ function closeCandidates() {
 // Cancel, and only cancel. It is three assignments and at most one listener put
 // back, and that is the whole of it: no move, no report, no seq bump, no write
 // to Audiobookshelf, and nothing said on the status line.
+//
+// The button says `close` now and this still is the cancel. `cancel` was the
+// word while the list read as a question with an answer owed; it is a screen of
+// places now, and a screen is left rather than called off. Nothing under the
+// word changed — it is still the one way out that gives back the tap the list
+// took, and still the only one that has to.
 //
 // What it deliberately does not undo, because none of it was the list's doing:
 // a sleep fade running underneath keeps running, and if it finishes the book
@@ -1670,6 +2142,14 @@ async function chooseCandidate(place) {
       await refreshManifest().catch(() => {});
     }
     seekGlobal(place.start_ms, { play: true });
+    // On the line after the seek, and never on a timer. The design's prototype
+    // waits ~900ms and then says this, which on a real page is a sentence that
+    // can outlive what it describes: the agent can move the book by the other
+    // route — the refusal of the next report — inside that window, and a toast
+    // fired afterwards would be telling them about a press whose effect has
+    // been overwritten. Said here it is true when it is written, or it is not
+    // written.
+    toast("moved · playing");
     return;
   }
   // Another book, which has had nothing written to it: `at` is what carries the
@@ -1678,10 +2158,19 @@ async function chooseCandidate(place) {
   // the status line rather than engineered around, because threading a position
   // through a wait that can last a quarter of an hour is a promise this page
   // cannot keep.
-  openBook(list.gid, { play: true, at: place.start_ms }).catch((error) => {
+  try {
+    await openBook(list.gid, { play: true, at: place.start_ms });
+  } catch (error) {
     setStatus("couldn't reach that book");
     console.error(error);
-  });
+    return;
+  }
+  // Hung off the swap having happened, for the same reason as above, and it
+  // really can not happen: a book whose first chapter has not been rendered yet
+  // comes back from openBook having changed nothing but the status line, and
+  // the page is still on the book it was on. "moved · playing" over a book that
+  // did not move is the one thing a toast must never say.
+  if (gid === list.gid) toast("moved · playing");
 }
 
 // Told once, as the page dies. fetch does not survive teardown — the document
@@ -1853,13 +2342,20 @@ async function openTheBook() {
 // one, and to stop one, and to start one when somebody would rather point than
 // speak.
 //
-// What it deliberately is not is a library browser. Nothing on it opens a book,
-// nothing on it switches what is playing, and there is no way to reach a book
-// from here at all — which is what keeps ADR 3's "the page opens the book they
-// were last listening to; changing books is done by asking" literally true. A
-// catalog search for something to *add* is a different act from choosing what
-// to listen to, and the difference is the whole reason this is allowed to be a
-// second overlay on a one-screen page.
+// What it deliberately is not is a library browser. Nothing on it opens a book
+// and nothing on it switches what is playing — which is what keeps ADR 3's "the
+// page opens the book they were last listening to; changing books is done by
+// asking" literally true. A catalog search for something to *add* is a
+// different act from choosing what to listen to, and the difference is the
+// whole reason this is allowed to be a second overlay on a one-screen page.
+//
+// It does now start the book that is already open. `reading now` at the top of
+// it names the book the panel is standing over and offers it back, and that
+// press is the play button pressed from up here rather than from behind: the
+// only book it can reach is the one already sounding, so nothing is opened and
+// nothing is switched. What it costs is that `close` is no longer the only way
+// out, and the listener at the foot of this section has to give the borrowed
+// tap-to-resume up rather than hand it back.
 //
 // It costs nothing when it is shut. No request is made before it is opened, its
 // poll stops the moment it is closed or the phone goes in a pocket, and it
@@ -1899,9 +2395,36 @@ const HAVE_WORDS = {
 };
 const HAVE_ALREADY = ["done", "rendering", "queued"];
 
+// Which stage a row is at, in one word, in the corner of the row. It is the
+// design's status column, and there is one entry here for each state the queue
+// actually has and not one more. In particular there is no "fetching text":
+// the design drew a pipeline with a fetch step in it, and somnia's queue has no
+// such state to report. A book whose text has not been parsed is still
+// `rendering` to the server, and what it is doing is said in the line under the
+// name, where it can be honest about not knowing the count.
+//
+// The word and the line under it are two different things on purpose. This says
+// which stage the row is at and does not change while it is at that stage; the
+// line says what is actually happening inside it — which chapter, how much can
+// be listened to, whether anything has been heard from it in five minutes.
+const JOB_STAGE = {
+  queued: "queued",
+  rendering: "narrating",
+  done: "ready",
+  failed: "failed",
+  cancelled: "stopped",
+};
+
 let queuePoll = 0; // the wake this panel is waiting on, or 0 for none
 let queueRows = []; // the last list the server gave us, drawn as it stands
 let queueFound = []; // the last search, and what has since been done about it
+// The progress hairline of each row that has one, kept by job id across
+// redraws. The list is rebuilt from scratch every five seconds, and a bar
+// created a moment ago has no width to move from — so a fill that was made
+// fresh each time would jump, and the 500ms the design asks for would be a
+// transition that never once runs. Reusing the element is the whole of what
+// makes it slide.
+let jobFills = new Map();
 // Which stop control is asking for its second press, and the wake that will
 // make it forget. It lives here rather than on the button because the list is
 // redrawn under it every five seconds, and a confirmation that a poll can
@@ -1913,6 +2436,10 @@ let submitting = 0; // one submit in flight at a time, by gid
 // the same reason: with the listener still armed the first press anywhere on
 // this overlay starts the book, and close — the one control that promises to
 // change nothing — is where a thumb goes first.
+//
+// `pick it up` is the one press that clears this instead of spending it: that
+// press is itself the touch the platform was waiting for, so what close would
+// hand back is a listener over a book that is already sounding.
 let rearmOnQueueClose = false;
 
 function ordinal(n) {
@@ -1942,6 +2469,100 @@ function bookName(row) {
   return row.authors ? `${name} — ${row.authors}` : name;
 }
 
+// -------------------------------------------------- what is playing under it
+
+// Who wrote it, out of the one field the catalog has.
+//
+// Gutenberg's `authors` is already `Surname, Forename, dates` — the form the
+// design asks for — so one name needs nothing done to it at all. Several arrive
+// as one string with semicolons in it, and printed as they come that is a run
+// of commas and semicolons with nothing in it to say where one person ends and
+// the next begins: `Collins, Wilkie, 1824-1889; Reade, Charles, 1814-1884` is
+// two people and reads as one long list of somethings. Split on the semicolon
+// and set between them the separator this page already uses to hold two unlike
+// things apart on one line, and the eye has somewhere to stop.
+//
+// Empties are dropped rather than trimmed away afterwards, because the field
+// comes with a trailing semicolon often enough to matter and a name followed by
+// a lone separator reads as a second author whose name is missing.
+function whoWrote(authors) {
+  return String(authors || "")
+    .split(";")
+    .map((one) => one.trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// The block at the top of the books panel: which book is playing under it, how
+// far in, and the one press that goes back to it.
+//
+// Everything here comes off the manifest and the position this page is already
+// holding. Nothing is fetched, nothing is stored, and nothing on the server
+// knows this block exists — which is what lets it be redrawn on every pass of
+// drawPlayer without costing anything, and what makes it impossible for it to
+// disagree with the player behind the panel.
+//
+// Nothing at all while the panel is shut. drawPlayer runs four times a second
+// with the sound on and most of that is spent with nobody looking at this.
+function drawReadingNow() {
+  if (queuePanel.hidden) return;
+  // No book open — a somnia that has never rendered anything, or a book still
+  // waiting on its first chapter. The whole block goes, label and all, which is
+  // the rule the card of live rows already follows: a heading over nothing is a
+  // claim that something should be there, and at 2am that is a reason to get up
+  // and look for it.
+  if (!manifest || !current) {
+    readingNow.hidden = true;
+    return;
+  }
+  readingNow.hidden = false;
+  // The same fallback drawPlayer uses for the headline, for the same reason: a
+  // book that has been through nothing but the local catalog may have no name,
+  // and "book 1342" beats an empty line where the title goes.
+  const name = manifest.title || `book ${gid}`;
+  const who = whoWrote(manifest.authors);
+  readingTitle.textContent = who ? `${name} — ${who}` : name;
+  // The player's own count, drawn again here rather than read off the screen:
+  // 0 means nobody wrote the total down — every book rendered before that
+  // column existed — so it says `chapter 4` and stops, and never `4 of 0`.
+  const total = manifest.chapters_total || 0;
+  const number = current.idx + 1;
+  const which = total ? `chapter ${number} of ${total}` : `chapter ${number}`;
+  // `in` and not the design's `listened`, and the difference is not a word.
+  // Nothing anywhere stores how long anybody has listened for: ADR 3 dropped
+  // Audiobookshelf's session history on purpose at the pivot, and what is left
+  // is a position and the reasons the page gives when it reports one. So this
+  // is how far into the book the mark is, said as such. Empty under a minute,
+  // from howMuch, because "0m in" reads as a book nobody has started.
+  const into = howMuch(positionMs);
+  readingMeta.textContent = into ? `${which} · ${into} in` : which;
+  // The same fraction drawn rather than stated — and nothing at all while the
+  // book is still arriving. total_ms is how much audio exists, which on a
+  // finished book is how long the book is and on one still being read is not:
+  // a bar drawn from it reaches the end at chapter five of thirty-seven and
+  // then walks backwards as the rest lands. Both halves of "still arriving"
+  // count, because a render that was stopped part way leaves exactly the same
+  // short timeline as one that is still going.
+  const arriving = manifest.status === "rendering" || moreToCome();
+  const whole = !arriving && manifest.total_ms > 0;
+  readingTrack.hidden = !whole;
+  if (whole) {
+    const through = Math.min(1, positionMs / manifest.total_ms);
+    // One decimal place, as the job rows use, so that a redraw of the same
+    // position is the same string and the bar does not shiver on a rounding
+    // error four times a second.
+    readingFill.style.width = `${Math.round(through * 1000) / 10}%`;
+  }
+  // Where the press will take them, in the book's own clock — the same string
+  // the player's position readout shows, so the panel and the screen behind it
+  // name one place. A book already sounding has nothing to start, and the label
+  // says so instead of offering a time that is a moment out of date by the time
+  // it is read.
+  readingResume.textContent = player.paused
+    ? `pick it up at ${timestamp(positionMs)}`
+    : "back to it · playing";
+}
+
 // One job, in one line, for somebody who wants to know whether to wait up.
 //
 // Two of these are not states at all. A render whose heartbeat has gone quiet
@@ -1950,10 +2571,13 @@ function bookName(row) {
 // because it stays 'rendering' until the child reaches the end of its sentence
 // and saying "rendering" there looks like the press was ignored.
 //
-// No percentage and no time remaining, anywhere. Chapters differ in length by
-// an order of magnitude, so a bar drawn from 4 of 39 moves in lurches that read
-// as a stall, and the only honest denominator for a time estimate does not
-// exist until the last chapter has been encoded.
+// No percentage and no time remaining, in words. Chapters differ in length by
+// an order of magnitude, so a number drawn from 4 of 39 is not a fraction of
+// the work and reading it as one is how a render looks stalled, and the only
+// honest denominator for a time estimate does not exist until the last chapter
+// has been encoded. The hairline under this line is the same fraction drawn
+// rather than stated, which is as much as it can honestly claim: something is
+// moving, and this is roughly where it has got to.
 function jobWords(row) {
   if (row.state === "queued") {
     return row.place > 0 ? `${ordinal(row.place)} in line` : "waiting its turn";
@@ -2002,21 +2626,74 @@ function stopControl(row) {
   return button;
 }
 
+// How far through the chapters this row is, drawn as a hairline — and nothing
+// at all when nobody has written the total down.
+//
+// That guard is the whole reason this is a function. chapters_total is 0 until
+// the parse has run, and it is 0 for ever on every book rendered before the
+// column existed, so a bar drawn from it would sit at 0% on a render that is
+// working perfectly well. An empty track is a lie somebody acts on at 2am; no
+// track at all is the truth, and the line above says what is going on instead.
+//
+// It is a hairline and not a percentage for the reason `jobWords` gives no
+// percentage either: chapters differ in length by an order of magnitude, so
+// this creeps and lurches. As a 2dp rule that is a thing moving, which is all
+// it is claiming to be; as a number it would be a promise about time.
+function jobProgress(row) {
+  if (!row.chapters_total) return null;
+  const track = document.createElement("div");
+  track.className = "job-track";
+  // Kept from the last redraw where there was one, so the width animates
+  // instead of appearing. See jobFills.
+  let fill = jobFills.get(row.id);
+  if (!fill) {
+    fill = document.createElement("div");
+    fill.className = "job-fill";
+  }
+  jobFills.set(row.id, fill);
+  const done = Math.min(row.chapters_done, row.chapters_total);
+  // One decimal place, so that a chapter landing moves it by a number rather
+  // than by a rounding error, and so that two renders of the same row are the
+  // same string.
+  fill.style.width = `${Math.round((done / row.chapters_total) * 1000) / 10}%`;
+  track.append(fill);
+  return track;
+}
+
 function jobRow(row) {
   const live = QUEUE_LIVE.includes(row.state);
   const li = document.createElement("li");
   li.className = live ? "job" : "job gone";
   li.id = `job-${row.id}`;
+  // The name, and in the corner of the same line the stage it is at. One line
+  // and two ends of it, because the question this panel is opened with is "is
+  // anything happening", and the answer to that is a single word beside a
+  // title.
+  const line = document.createElement("p");
+  line.className = "job-line";
   const name = document.createElement("span");
   name.className = "job-name";
   name.textContent = bookName(row);
-  const state = document.createElement("span");
+  const stage = document.createElement("span");
+  // Amber only while it is really being read. A render whose heartbeat has
+  // gone quiet, or one that has been asked to stop, is still `rendering` to
+  // the server and still says `narrating` here — but it is no longer the warm
+  // thing on the panel, because the line under it is about to say something
+  // that is not good news.
+  const warm = row.state === "rendering" && row.responding && !row.stopping;
+  stage.className = warm ? "job-stage now" : "job-stage";
+  stage.textContent = JOB_STAGE[row.state] || row.state;
+  line.append(name);
+  line.append(stage);
+  const state = document.createElement("p");
   state.className = "job-state";
   state.textContent = jobWords(row);
   // No listener on the row itself. A row is a readout, so the only pressable
   // thing on it is its own action and there is nothing to mis-hit into.
-  li.append(name);
+  li.append(line);
   li.append(state);
+  const track = jobProgress(row);
+  if (track) li.append(track);
   if (live) li.append(stopControl(row));
   return li;
 }
@@ -2024,38 +2701,76 @@ function jobRow(row) {
 function drawQueue() {
   const live = queueRows.filter((row) => QUEUE_LIVE.includes(row.state));
   const over = queueRows.filter((row) => !QUEUE_LIVE.includes(row.state));
+  // Whatever is on the screen after this, and nothing else. A bar kept for a
+  // row that has left the list is a bar that would slide from somebody else's
+  // progress if that id ever came back.
+  const kept = new Map();
+  for (const row of queueRows) {
+    if (jobFills.has(row.id)) kept.set(row.id, jobFills.get(row.id));
+  }
+  jobFills = kept;
   queueLive.replaceChildren(...live.map(jobRow));
+  // The card holds the live rows and goes with them. A heading over nothing is
+  // a claim that something should be there.
+  queueWorking.hidden = !live.length;
   // What went wrong, under what is happening. There is no dismiss control for
   // these and no count of them: `view` drops a terminal row after a day, which
   // is when a failure stops being news and becomes something the journal has.
   queueGone.replaceChildren(...over.map(jobRow));
+  queueEnded.hidden = !over.length;
 }
 
+// A book the catalog found: what it is called, who wrote it, and the one press
+// that can be made about it.
+//
+// The title and the author are two lines rather than one string now. The design
+// asks for `Author · year · formats` under the title and somnia's catalog has
+// the first of those three and neither of the others, so what is under the
+// title is the author and whatever the panel already knows about the book —
+// and no cover art, here or anywhere: a cover is a bright rectangle in a dark
+// room, and four lines of text are read faster half asleep.
 function foundRow(entry) {
   const li = document.createElement("li");
   li.className = "found";
   li.id = `found-${entry.gid}`;
-  const name = document.createElement("span");
+  const text = document.createElement("div");
+  text.className = "found-text";
+  const name = document.createElement("p");
   name.className = "found-name";
-  name.textContent = bookName(entry);
-  li.append(name);
+  name.textContent = entry.title || `book ${entry.gid}`;
+  text.append(name);
+  const meta = document.createElement("p");
+  meta.className = "found-meta";
+  const by = document.createElement("span");
+  by.className = "found-by";
+  by.textContent = entry.authors || "";
+  meta.append(by);
   const already = HAVE_WORDS[entry.have];
   if (already) {
+    // Why there is no press to make, in the line that already exists rather
+    // than as a pill on the right: a pill that cannot be pressed is a button
+    // that does nothing, which is the one thing this row is arranged to avoid.
     const mark = document.createElement("span");
     mark.className = "found-have";
     mark.textContent = already;
-    li.append(mark);
+    meta.append(mark);
   }
+  text.append(meta);
+  li.append(text);
   // A book that is already here, or already coming, is marked rather than
   // offered and then refused: a press that was never available cannot be a
   // press that did nothing, and at 2am those two feel completely different.
   if (HAVE_ALREADY.includes(entry.have)) return li;
   const add = document.createElement("button");
   add.type = "button";
-  add.className = "found-add";
+  // The one warm press on the panel, and only for a render that died: picking
+  // a half-read book back up is the thing somebody came here having already
+  // decided to do, and it was impossible from this page until the queue
+  // existed. Adding something new is a plain pill.
+  const resume = entry.have === "pending";
+  add.className = resume ? "found-add again" : "found-add";
   add.id = `queue-add-${entry.gid}`;
-  add.textContent =
-    entry.have === "pending" ? "finish this one" : "add this book";
+  add.textContent = resume ? "finish this one" : "add this book";
   add.addEventListener("click", () => addBook(entry, add));
   li.append(add);
   return li;
@@ -2227,6 +2942,11 @@ function showQueue() {
   queueQuery.blur?.();
   rearmOnQueueClose = tapToResume !== null;
   disarmTapToResume();
+  // Before the first request comes back, so the answer to "which book is this
+  // standing over?" is on the screen the moment the panel is, rather than five
+  // seconds later with the queue. It is drawn from what this page already
+  // holds, so there is nothing to wait for.
+  drawReadingNow();
   pollQueue();
 }
 
@@ -2244,8 +2964,11 @@ function hideQueue() {
   forgetStop();
   queueRows = [];
   queueFound = [];
+  jobFills = new Map();
   queueLive.replaceChildren();
+  queueWorking.hidden = true;
   queueGone.replaceChildren();
+  queueEnded.hidden = true;
   queueResults.replaceChildren();
   queueNote.textContent = "";
   queueSaid.textContent = "";
@@ -2260,6 +2983,34 @@ function hideQueue() {
 
 booksButton.addEventListener("click", showQueue);
 queueClose.addEventListener("click", hideQueue);
+
+// The one press on this panel that touches the book, and the only way out of it
+// other than `close`.
+//
+// The order of the three lines matters and the first of them is the whole of
+// why this is not just a call to hideQueue. showQueue borrows the tap-to-resume
+// listener a refused play left armed, and close hands it back, because after
+// close the book really is still paused and still waiting for a touch. This
+// press is not close: it *is* that touch. Handed back here, the listener would
+// be sitting over a book that is now sounding, and the next thing pressed
+// anywhere on the page — the question box, the transport, the microphone —
+// would start it a second time.
+//
+// Then the panel goes, because the question it was opened with has just been
+// answered and a panel left standing over a book that has started playing is
+// one more thing to get out of in the dark.
+//
+// Then the sound, by exactly the route the play button takes: the same rewind
+// for the same silence, the same fade up from nothing, the same landing on the
+// start of a sentence after an hour. A second kind of resume is a second thing
+// to reason about at 2am, and this one would be the one nobody tested. Only
+// when it is really stopped — the label already said `back to it · playing`
+// rather than offering a time, and there is nothing there to start.
+readingResume.addEventListener("click", () => {
+  rearmOnQueueClose = false;
+  hideQueue();
+  if (player.paused) ensurePlaying({ rewind: true });
+});
 queueSearch.addEventListener("submit", (event) => {
   event.preventDefault();
   findBooks();
@@ -2398,6 +3149,11 @@ async function askForMore() {
 }
 
 restoreSleep();
+// Before the book, because the book is what decides whether the places are
+// about it: openBook draws the player the moment a manifest lands, and a list
+// read out of storage a turn later would be a count that appeared on the
+// position line after somebody had already looked at it.
+restorePlaces();
 openTheBook();
 
 // ------------------------------------------------------------------ speaking

@@ -127,9 +127,11 @@ function armed(choice, leftMs, at = START_MS - 60_000) {
 
 test("one tap walks the choices and the last takes it all back", async (t) => {
   const page = await boot(t);
+  // One string, not a word that changes meaning depending on what is beside
+  // it: `sleep` alone said neither what the control was nor what it was doing.
   assert.deepEqual(
     [page.probe().sleep, page.probe().armed, page.probe().spokenSleep],
-    ["sleep", false, "Sleep timer, off"],
+    ["sleep timer · off", false, "Sleep timer, off"],
   );
   const walked = [];
   for (let tap = 0; tap < 6; tap++) {
@@ -139,12 +141,12 @@ test("one tap walks the choices and the last takes it all back", async (t) => {
   // Six taps wrap, so the worst a mis-tap can do is offer to end the night
   // early, and the next tap takes it back.
   assert.deepEqual(walked, [
-    "sleep 15m",
-    "sleep 30m",
-    "sleep 45m",
-    "sleep 60m",
-    "chapter end",
-    "sleep",
+    "sleep timer · 15m",
+    "sleep timer · 30m",
+    "sleep timer · 45m",
+    "sleep timer · 60m",
+    "sleep timer · chapter end",
+    "sleep timer · off",
   ]);
   assert.equal(page.probe().armed, false);
 });
@@ -152,10 +154,19 @@ test("one tap walks the choices and the last takes it all back", async (t) => {
 test("the timer says what it is doing to a screen reader as well", async (t) => {
   const page = await boot(t);
   page.click("sleep");
+  // The same state, said twice: the pill is short because it is glanced at and
+  // the spoken form is a sentence because it is heard. Both come off the same
+  // branch in drawSleep, so they cannot come to disagree about the setting —
+  // and both are checked here, because only one of them can be looked at.
+  assert.equal(page.probe().sleep, "sleep timer · 15m");
   assert.equal(page.probe().spokenSleep, "Sleep timer, 15 minutes left");
   assert.equal(page.probe().armed, true);
   for (let tap = 0; tap < 4; tap++) page.click("sleep");
-  assert.equal(page.probe().spokenSleep, "Sleep timer, at the end of this chapter");
+  assert.equal(page.probe().sleep, "sleep timer · chapter end");
+  assert.equal(
+    page.probe().spokenSleep,
+    "Sleep timer, at the end of this chapter",
+  );
 });
 
 test("the timer counts listening time, not clock time", async (t) => {
@@ -181,11 +192,11 @@ test("a timer that outlived the page is still counting down", async (t) => {
   const page = await boot(t, { stored: armed(1, 300_000) });
   // The minutes they had left are still the minutes they have left, whether
   // the reload took two seconds or the phone killed the tab an hour ago.
-  assert.equal(page.probe().sleep, "sleep 5m");
+  assert.equal(page.probe().sleep, "sleep timer · 5m");
   page.audio.ready();
   page.click("playpause");
   listen(page, 61_000);
-  assert.equal(page.probe().sleep, "sleep 4m");
+  assert.equal(page.probe().sleep, "sleep timer · 4m");
 });
 
 test("a timer from a night that is over is not applied to this one", async (t) => {
@@ -194,7 +205,7 @@ test("a timer from a night that is over is not applied to this one", async (t) =
   });
   // Someone opening the book the following evening is starting a night rather
   // than finishing one.
-  assert.equal(page.probe().sleep, "sleep");
+  assert.equal(page.probe().sleep, "sleep timer · off");
   assert.equal(page.probe().sleepLeftMs, null);
 });
 
@@ -218,7 +229,7 @@ test("the timer ends in a fade that reaches silence at the time it named", async
   listen(page, 6000);
   // Twenty seconds of getting quieter, so it begins before the moment the
   // timer named rather than at it.
-  assert.equal(page.probe().sleep, "fading");
+  assert.equal(page.probe().sleep, "sleep timer · fading");
   assert.equal(page.audio.paused, false);
   const half = page.probe().volume;
   assert.equal(half > 0 && half < 1, true);
@@ -227,7 +238,7 @@ test("the timer ends in a fade that reaches silence at the time it named", async
   assert.equal(page.probe().status, "goodnight");
   // The timer is spent, not still counting: coming back afterwards is a
   // decision to set another one, which is one tap.
-  assert.equal(page.probe().sleep, "sleep");
+  assert.equal(page.probe().sleep, "sleep timer · off");
   assert.equal(page.probe().volume, 1);
 });
 
@@ -241,7 +252,7 @@ test("a nudge during the fade brings the sound back", async (t) => {
   listen(page, 1000);
   assert.equal(page.probe().volume, 1);
   assert.equal(page.audio.paused, false);
-  assert.equal(page.probe().sleep, "sleep");
+  assert.equal(page.probe().sleep, "sleep timer · off");
 });
 
 test("reaching for the control during the fade brings the sound back too", async (t) => {
@@ -252,14 +263,14 @@ test("reaching for the control during the fade brings the sound back too", async
   assert.equal(page.probe().volume, 1);
   assert.equal(page.audio.paused, false);
   // And the tap they made is the new setting, not a cancellation of the old.
-  assert.equal(page.probe().sleep, "sleep 15m");
+  assert.equal(page.probe().sleep, "sleep timer · 15m");
 });
 
 test("the end of the chapter is not crossed when the night ends there", async (t) => {
   const page = await boot(t);
   page.audio.ready();
   for (let tap = 0; tap < 5; tap++) page.click("sleep");
-  assert.equal(page.probe().sleep, "chapter end");
+  assert.equal(page.probe().sleep, "sleep timer · chapter end");
   page.click("playpause");
   page.audio.currentTime = 7.7;
   page.audio.fire("timeupdate");
@@ -271,7 +282,7 @@ test("the end of the chapter is not crossed when the night ends there", async (t
   assert.equal(page.audio.srcWrites.length, 1);
   assert.equal(page.audio.paused, true);
   assert.equal(page.probe().status, "goodnight");
-  assert.equal(page.probe().sleep, "sleep");
+  assert.equal(page.probe().sleep, "sleep timer · off");
 });
 
 // --------------------------------------------------------------- the way back

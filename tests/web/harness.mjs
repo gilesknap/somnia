@@ -188,6 +188,141 @@ export const HALF_HEARD = {
   ],
 };
 
+// A book nobody counted. It has chapters and it plays perfectly well, and the
+// number of chapters it is *supposed* to have was never written down — which is
+// not an edge case but the ordinary state of every book on the box this runs
+// on, all of them rendered before the column existed. The page has to say which
+// chapter they are in without a denominator it does not have, rather than
+// inventing one or saying "of 0".
+export const UNCOUNTED_BOOK = {
+  gid: 900007,
+  title: "Nobody Counted",
+  authors: "Somnia Test",
+  status: "done",
+  total_ms: 16000,
+  position_ms: 0,
+  seq: 0,
+  heard_to_ms: 16000,
+  chapters_total: 0,
+  chapters: [
+    {
+      idx: 0,
+      title: "One Of However Many",
+      start_ms: 0,
+      end_ms: 8000,
+      url: "api/audio/900007/0",
+    },
+    {
+      idx: 1,
+      title: "Two Of However Many",
+      start_ms: 8000,
+      end_ms: 16000,
+      url: "api/audio/900007/1",
+    },
+  ],
+};
+
+// A book nobody measured. It plays — two chapters with audio behind them — and
+// its length was never written down, which is what every book rendered before
+// the total_ms column existed says, and that is every book on the live box.
+// UNCOUNTED_BOOK is missing its chapter *count*; this one is missing its
+// *duration*, and the two are drawn by different arithmetic: the fraction
+// through has 0 for a denominator here, and dividing by it gives a fill of
+// Infinity% — a book drawn as finished, which is the one reading worse than
+// drawing nothing, because it tells him he has heard all of something he has
+// not started.
+export const UNMEASURED_BOOK = {
+  gid: 900009,
+  title: "Nobody Measured",
+  authors: "Somnia Test",
+  status: "done",
+  total_ms: 0,
+  position_ms: 0,
+  seq: 0,
+  heard_to_ms: 0,
+  chapters_total: 2,
+  chapters: [
+    {
+      idx: 0,
+      title: "The First Of Two",
+      start_ms: 0,
+      end_ms: 8000,
+      url: "api/audio/900009/0",
+    },
+    {
+      idx: 1,
+      title: "The Second Of Two",
+      start_ms: 8000,
+      end_ms: 16000,
+      url: "api/audio/900009/1",
+    },
+  ],
+};
+
+// A book re-rendered shorter than the mark somebody left in it: the server's
+// own record puts them at forty seconds of a book now sixteen long. openBook
+// takes `position_ms` from the manifest without clamping it, so this is the one
+// way a position past the end gets into the page — `seekGlobal` clamps its
+// argument, which means no amount of seeking can produce it. The fill and the
+// clock have to hold the end of the line rather than run the knob off its
+// track.
+export const SHRUNK_BOOK = {
+  gid: 900010,
+  title: "Rendered Shorter",
+  authors: "Somnia Test",
+  status: "done",
+  total_ms: 16000,
+  position_ms: 40000,
+  seq: 0,
+  heard_to_ms: 16000,
+  chapters_total: 2,
+  chapters: [
+    {
+      idx: 0,
+      title: "What Is Left Of It",
+      start_ms: 0,
+      end_ms: 8000,
+      url: "api/audio/900010/0",
+    },
+    {
+      idx: 1,
+      title: "And The Rest Of That",
+      start_ms: 8000,
+      end_ms: 16000,
+      url: "api/audio/900010/1",
+    },
+  ],
+};
+
+// A book that can be listened to while it is still being written down, which is
+// the ordinary state of a book somnia was asked for this evening: five chapters
+// have audio, the parse says there are thirty-seven, and total_ms is how much
+// exists rather than how long the book is. Anything drawn as a fraction of
+// total_ms on this one over-reads, which is the whole reason it is here.
+//
+// Its `authors` is the catalog's own field, verbatim, for a book with two names
+// on it: `Surname, Forename, dates`, semicolons between people. Every other
+// fixture carries a single tidy name, so this is the only one that can catch a
+// page printing the raw string.
+export const GROWING_BOOK = {
+  gid: 900008,
+  title: "The Moonstone",
+  authors: "Collins, Wilkie, 1824-1889; Reade, Charles, 1814-1884",
+  status: "rendering",
+  total_ms: 3_000_000,
+  position_ms: 1_800_000,
+  seq: 0,
+  heard_to_ms: 1_800_000,
+  chapters_total: 37,
+  chapters: [0, 1, 2, 3, 4].map((idx) => ({
+    idx,
+    title: `Chapter ${idx + 1}`,
+    start_ms: idx * 600_000,
+    end_ms: (idx + 1) * 600_000,
+    url: `api/audio/900008/${idx}`,
+  })),
+};
+
 // A book somebody could actually fall asleep in. The tone book is twenty-four
 // seconds long — shorter than the shortest rewind and a four-hundredth of the
 // shortest sleep timer — so anything measured in minutes needs a book measured
@@ -228,6 +363,10 @@ const MANIFESTS = new Map(
     NIGHT_BOOK,
     HALF_HEARD,
     PART_READ,
+    UNCOUNTED_BOOK,
+    UNMEASURED_BOOK,
+    SHRUNK_BOOK,
+    GROWING_BOOK,
   ].map((m) => [`api/book/${m.gid}`, m]),
 );
 
@@ -341,7 +480,32 @@ const BORN_HIDDEN = new Set([
   "candidates",
   "candidates-book",
   "queue",
+  // The card the live rows sit in and the label over the rows that are over.
+  // Both are in the document with nothing in them and both ship hidden, so a
+  // page whose script has not run yet does not show a heading over an empty
+  // box — and a test that saw them visible at boot would be testing a panel no
+  // browser draws.
+  "queue-working",
+  "queue-ended",
+  // What is playing under the panel, and the hairline inside it. The block
+  // ships hidden because a page with no book open must not show a heading over
+  // an empty space, and the hairline ships hidden because a book still being
+  // rendered never gets one at all.
+  "reading-now",
+  "reading-track",
+  "toast",
+  // The count under the position line. The line is a plain readout until there
+  // are places to open from it, so the document ships the count with nothing in
+  // it and out of the way.
+  "places-found",
 ]);
+
+// And the one id it gives a `disabled` attribute to, for the same reason: the
+// position line is a way in to the places somnia last found, and on a page that
+// has never been asked anything there is nothing behind it. The document ships
+// it that way and the page only ever changes it, so a fake that handed it back
+// live would let a control pass a test it fails in a browser.
+const BORN_DISABLED = new Set(["places-open"]);
 
 // Enough of a DOM node to build a list of places out of, and no more.
 //
@@ -610,6 +774,12 @@ class FakeBlob {
 // — the browser wants one file it can load with one <script> — so this is how
 // a test reaches the state machine from inside its own scope, the same place
 // the page's own event handlers see it from.
+//
+// It is a template literal, so **never put a backtick in anything you add
+// below** — not in a comment, not around an identifier. A stray one ends the
+// string early and the failure is a SyntaxError pointing at whatever word came
+// next, in every one of these suites at once, which reads like the harness
+// having broken rather than like a punctuation mark in a comment.
 const EPILOGUE = `
 globalThis.__page = {
   probe: () => ({
@@ -620,8 +790,22 @@ globalThis.__page = {
     swapping,
     wantsSound,
     idx: current && current.idx,
+    // The book, over the chapter, over how many chapters there are. All three
+    // come off the manifest and are drawn in one pass, so a page that named the
+    // book once at boot and then let a chapter swap leave it behind is a
+    // failure here rather than a wrong headline at 2am.
+    book: bookTitle.textContent,
     chapter: chapterTitle.textContent,
+    chapterCount: chapterCount.textContent,
     clock: clock.textContent,
+    // The same pair as the clock above, drawn as a line. Reported as the raw
+    // width string so a test can tell "0%" — nobody wrote down how long the
+    // book is — apart from a fill that was never set at all.
+    through: wholePlayed.style.width,
+    // What the corner is offering. It is a label and not a state because that
+    // is the whole of the confirm: the first press changes this word and
+    // nothing else in this object.
+    restart: restart.textContent,
     // The chapter's own clock, and whether there is anywhere left to skip to.
     // Both are drawn from the chapter row rather than from the element, so a
     // test that watches them is watching the book's clock and not the
@@ -629,6 +813,16 @@ globalThis.__page = {
     chapterClock: chapterClock.textContent,
     canSkipOn: !nextChapter.disabled,
     status: statusLine.textContent,
+    // The page's two channels, side by side, because the only interesting
+    // thing about either is what the other one is doing at the same moment:
+    // the toast is what was said once and the status line is what still
+    // stands, and a change in one of them that moved the other is the bug.
+    // Empty when nothing is being said — the box is emptied as well as hidden
+    // so this cannot report a sentence nobody can see.
+    toast: toastLine.textContent,
+    // How much of the light the page is taking off the room, as a number. Set
+    // once at boot from storage and by nothing else yet.
+    dim: Number(dimLayer.style.opacity),
     sleep: sleepButton.textContent,
     spokenSleep: sleepButton.getAttribute("aria-label"),
     armed: sleepButton.classList.contains("armed"),
@@ -657,6 +851,11 @@ globalThis.__page = {
   openBook,
   follow,
   resumePoint,
+  // The last query's places, put back on the screen. It is the one entry point
+  // here that a thumb also has - the position line presses it - and it is
+  // exposed for what happens before that press: a list read out of storage at
+  // boot is only a real list if this can raise it and a row can then be gone to.
+  showRemembered,
   // The four pure functions the whole timeline rests on. They are worth
   // reaching for directly: every clamp in them is there because a decoder, a
   // render clock or a book shorter than a thirty-second step disagreed with
@@ -706,11 +905,13 @@ export async function boot(t, options = {}) {
       // shows them, so their starting state comes from the document or from
       // nowhere at all.
       node.hidden = BORN_HIDDEN.has(id);
+      node.disabled = BORN_DISABLED.has(id);
       elements.set(id, node);
     }
     return elements.get(id);
   };
 
+  let minted = 0;
   const fetches = [];
   const posts = [];
   const beacons = [];
@@ -776,7 +977,11 @@ export async function boot(t, options = {}) {
     window: fakeWindow,
     localStorage,
     sessionStorage,
-    crypto: { randomUUID: () => "test-token" },
+    // A fresh one every time it is asked for, which is the whole of what the
+    // page uses it for: starting over throws the conversation away by minting a
+    // new name for it, and a stub that answered the same string twice would let
+    // a page that never minted anything pass.
+    crypto: { randomUUID: () => `test-token-${++minted}` },
     Blob: FakeBlob,
     MediaMetadata: FakeMediaMetadata,
     Date: { now: () => clock.now() },
@@ -910,6 +1115,7 @@ export async function boot(t, options = {}) {
     // rather than from a thumb.
     seek: (...args) => context.__page.seekGlobal(...args),
     openBook: (...args) => context.__page.openBook(...args),
+    openPlaces: () => context.__page.showRemembered(),
     follow: (...args) => context.__page.follow(...args),
     resumePoint: () => context.__page.resumePoint(),
     math: Object.fromEntries(

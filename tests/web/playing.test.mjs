@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boot, TONE_BOOK } from "./harness.mjs";
+import { boot, SHRUNK_BOOK, TONE_BOOK, UNMEASURED_BOOK } from "./harness.mjs";
 
 // Get to sound coming out of chapter one, which is where most of these start.
 async function playing(t) {
@@ -36,6 +36,25 @@ test("the readout counts the whole book from the first frame", async (t) => {
   assert.equal(page.probe().chapter, "The First Tone");
   assert.equal(page.probe().clock, "0:00:00 of 0:00:24");
   assert.equal(page.probe().playing, false);
+});
+
+test("the book is named above the chapter, and stays named across a boundary", async (t) => {
+  const page = await playing(t);
+  // The manifest has carried the book's own title since the beginning and the
+  // page drew everything else about it — the chapter, both clocks, the lock
+  // screen's album — while the one thing somebody half awake needs to check
+  // they are in the right book was on no screen at all.
+  assert.equal(page.probe().book, "Three Tones");
+  assert.equal(page.probe().chapter, "The First Tone");
+
+  page.audio.currentTime = 7.7;
+  page.audio.fire("timeupdate");
+  page.audio.ready();
+  // The chapter under it changed and the headline did not. It is drawn every
+  // pass off the manifest rather than written once when the book opened, so
+  // there is no path by which a swap can leave it holding the last book.
+  assert.equal(page.probe().chapter, "The Second Tone");
+  assert.equal(page.probe().book, "Three Tones");
 });
 
 test("the lock screen is told the chapter, the book and the author", async (t) => {
@@ -356,6 +375,69 @@ test("the end of the last chapter is the end of the book", async (t) => {
   assert.equal(page.probe().wantsSound, false);
 });
 
+// ------------------------------------------------- the corner that throws away
+
+// How long `start over` stands asked before it forgets. The same shape as the
+// queue's `stop reading this`, because a page with two confirmations that work
+// differently is a page where neither of them can be pressed without reading.
+const RESTART_CONFIRM_MS = 3200;
+
+test("start over asks once before it throws the conversation away", async (t) => {
+  const page = await playing(t);
+  page.seek(12_000, { play: true });
+  page.audio.ready();
+  await page.ask("the bit where the horse dies");
+  assert.equal(page.el("transcript").children.length, 2);
+
+  page.click("restart");
+  await page.settle();
+  // One press changes the word and nothing else. The conversation is still
+  // there, the server has not been told to forget anything, and the book has
+  // not moved — which is the half of this control most easily got wrong, since
+  // "start over" is a sentence about a book as easily as about a chat.
+  assert.equal(page.probe().restart, "sure? tap again");
+  assert.equal(page.el("transcript").children.length, 2);
+  assert.equal(page.fetches.includes("api/forget"), false);
+  assert.equal(page.probe().positionMs, 12_000);
+  assert.deepEqual(page.waits(), [RESTART_CONFIRM_MS]);
+
+  const stale = page.storageSession.getItem("somnia-token");
+  page.click("restart");
+  await page.settle();
+  // And the second press does the whole of it: the transcript is the one line
+  // the page opens with, the conversation the server was holding is thrown
+  // away, and the name it went by is not the name the next question carries.
+  assert.deepEqual(
+    page.el("transcript").children.map((line) => line.textContent),
+    ["Where do you want to be?"],
+  );
+  assert.equal(page.fetches.includes("api/forget"), true);
+  assert.notEqual(page.storageSession.getItem("somnia-token"), stale);
+  // Still where the book was. Nothing in here is a seek.
+  assert.equal(page.probe().positionMs, 12_000);
+  assert.equal(page.probe().restart, "start over");
+  assert.deepEqual(page.waits(), []);
+});
+
+test("a start over left alone forgets it was asked", async (t) => {
+  const page = await boot(t);
+  page.click("restart");
+  assert.equal(page.probe().restart, "sure? tap again");
+  assert.deepEqual(page.waits(), [RESTART_CONFIRM_MS]);
+
+  assert.equal(page.wake(RESTART_CONFIRM_MS), true);
+  // A corner left asking over a phone face down on a table is one press away
+  // from throwing away the conversation somebody comes back to in the morning.
+  assert.equal(page.probe().restart, "start over");
+  assert.deepEqual(page.waits(), []);
+
+  page.click("restart");
+  await page.settle();
+  // So the next press is the first press again, not the second.
+  assert.equal(page.probe().restart, "sure? tap again");
+  assert.equal(page.fetches.includes("api/forget"), false);
+});
+
 test("no position is ever published that the platform would refuse", async (t) => {
   const page = await playing(t);
   // The fake throws on a duration or position the real API throws on, so
@@ -373,4 +455,69 @@ test("no position is ever published that the platform would refuse", async (t) =
     true,
   );
   assert.equal(page.session.positions.length > 10, true);
+});
+
+// The book as a line, which the design asked for twice: two clocks to subtract
+// is not a sense of how much book is left. What it must never become is a
+// control — 24 seconds of tone book hides it, but a nine-hour novel is about
+// ninety seconds to the pixel, and a thumb that lands on it in the dark would
+// be past the spoiler guard and into the ending. So these check what it draws,
+// and nothing here presses it, because there is nothing to press.
+test("the line under the clock fills with the book, not the chapter", async (t) => {
+  const page = await boot(t);
+  page.audio.ready();
+  // Six seconds into a 24-second book is a quarter of the way through it, and
+  // three quarters of the way through the eight-second chapter it is in. The
+  // line is the book's, so a quarter is the only right answer.
+  page.seek(6000);
+  assert.equal(page.probe().through, "25%");
+  assert.equal(page.probe().clock, "0:00:06 of 0:00:24");
+});
+
+test("a book nobody measured draws an empty line rather than a full one", async (t) => {
+  // total_ms of 0 is a book whose length was never written down. Dividing by it
+  // gives Infinity, and a fill of Infinity% is a book drawn as finished — the
+  // one reading that is worse than drawing nothing, because it says they have
+  // heard all of something they have not started.
+  //
+  // The book has to be reached the way the page reaches one — the last gid,
+  // answered by the manifest behind it. Handing boot an inline book does
+  // nothing: it takes no such option, so the assertion below passed against
+  // the tone book and its perfectly good twenty-four seconds.
+  const page = await boot(t, { lastGid: UNMEASURED_BOOK.gid });
+  page.audio.ready();
+  assert.equal(page.probe().through, "0%");
+  // And it stays empty once it is being listened to, which is the reading that
+  // matters: a fill computed at boot only is empty for every book alive.
+  page.seek(8000);
+  assert.equal(page.probe().through, "0%");
+});
+
+test("a seek past the end of the book stops at the end of the line", async (t) => {
+  const page = await boot(t);
+  page.audio.ready();
+  // The end of the line and nowhere else: "not past 100" is also true of an
+  // empty line, and an empty line here would be the opposite bug.
+  page.seek(999000);
+  assert.equal(page.probe().through, "100%");
+});
+
+test("a mark past the end of a re-rendered book lands at the end of it", async (t) => {
+  // The mark the server holds is forty seconds into a book now sixteen long,
+  // and openBook takes `position_ms` from the manifest without clamping it —
+  // which makes this the only way a position past the end reaches the page at
+  // all, since seekGlobal clamps everything handed to it.
+  const page = await boot(t, { lastGid: SHRUNK_BOOK.gid });
+  page.audio.ready();
+  // It lands in the last chapter of the book that exists, not past the end of
+  // one that does not. 15950 rather than 16000 because an offset is never set
+  // at the duration — see "an offset is never set at or past the duration"
+  // above, where sitting exactly on it fires `ended` and skips a chapter.
+  assert.equal(page.probe().positionMs, 15950);
+  assert.equal(page.probe().chapter, "And The Rest Of That");
+  assert.equal(page.probe().clock, "0:00:15 of 0:00:16");
+  // So the knob stays on its track by a hair, and the fill's own `Math.min`
+  // never has to fire. That clamp is the second line of defence, not the one
+  // holding here.
+  assert.equal(page.probe().through, "99.6875%");
 });

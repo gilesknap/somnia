@@ -17,8 +17,10 @@ redesign removed.
 """
 
 import argparse
+import base64
 import json
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -31,9 +33,19 @@ FIXTURE = {
     "text": {
         "book-title": "The Wind in the Willows",
         "chapter-title": "IV. Mr Toad",
-        "chapter-count": "chapter 4 of 37",
+        # The count alone. The word `chapter` above it is on the page as static
+        # markup, because it never changes — and a book nobody counted takes it
+        # away and says "chapter 4" here instead, which is a state worth
+        # photographing by hand and not the one moment this fixture holds.
+        "chapter-count": "4 of 37",
         "chapter-clock": "3:24 of 41:12",
         "clock": "1:12:08 of 9:41:33",
+        # The places from the last question, counted under the position line. It
+        # is the taller of that line's two states — a book nobody has asked
+        # about carries no count, no dotted rule and no target — so it is the
+        # one worth holding here: if this fits, both fit. It is also the state
+        # the transcript below is in, which has just asked two questions.
+        "places-found": "4 places found",
         "sleep": "sleep timer · off",
     },
     # The conversation, oldest first. The last line is the reader's, because
@@ -46,8 +58,30 @@ FIXTURE = {
     ],
     # Shown as if a book were playing: without this the page renders its
     # opening state, which is not the one anybody is designing.
-    "unhide": ["player-bar"],
-    "classes": {"playpause": ["playing"], "playpause-mini": ["playing"]},
+    "unhide": ["player-bar", "places-found"],
+    # `openable` is drawPlaces' class and it carries the dotted rule and the
+    # 44dp target, so without it the render would show the count under a line
+    # that does not look pressable — which is a different screen from the one
+    # the page draws when there are places.
+    "classes": {
+        "playpause": ["playing"],
+        "playpause-mini": ["playing"],
+        "places-open": ["openable"],
+    },
+    # Inline style, by id. The dim layer is the only thing that needs it, and it
+    # needs it for a reason worth writing down: app.js does not run in a
+    # snapshot, so the level the reader is actually looking through is set here
+    # instead. Without it a future render is a photograph of a page 12% brighter
+    # than the one on the phone — which is exactly the kind of plausible, wrong
+    # picture this whole file exists to prevent. The value is style.css's own
+    # default, restated; if the two ever drift the render is the one that lies.
+    # `whole-played` is here for the same reason as `dim`, and it matters more:
+    # drawPlayer sets the fill and drawPlayer does not run in a snapshot, so
+    # without this every render photographs a book nobody has started — an
+    # empty track with the knob parked at the gutter — whatever the clock above
+    # it says. 12.4% is 1:12:08 of 9:41:33, so the line and the numbers beside
+    # it are telling the same story.
+    "styles": {"dim": {"opacity": "0.12"}, "whole-played": {"width": "12.4%"}},
 }
 
 FILL = """
@@ -73,6 +107,11 @@ FILL = """
   for (const [id, classes] of Object.entries(FIXTURE.classes)) {
     const el = document.getElementById(id);
     if (el) el.classList.add(...classes);
+  }
+
+  for (const [id, style] of Object.entries(FIXTURE.styles)) {
+    const el = need(id);
+    if (el) Object.assign(el.style, style);
   }
 
   const transcript = need("transcript");
@@ -101,9 +140,31 @@ FILL = """
 """
 
 
+def inline_fonts(css):
+    """Fold the page's own woff2 files into the stylesheet as data URIs.
+
+    The snapshot is written to /tmp, so a relative `url("newsreader-latin.woff2")`
+    resolves next to the snapshot and finds nothing — and a render in the wrong
+    serif is a render of the wrong page, because every size in style.css was
+    measured against this one. This machine has neither Newsreader nor Georgia
+    installed, so the miss is silent and looks plausible.
+    """
+
+    def swap(match):
+        path = WEB / match.group(1)
+        if not path.exists():
+            sys.exit(
+                f"snapshot: style.css asks for {match.group(1)} and it is not in {WEB}"
+            )
+        data = base64.b64encode(path.read_bytes()).decode()
+        return f'url("data:font/woff2;base64,{data}")'
+
+    return re.sub(r'url\("([^"]+\.woff2)"\)', swap, css)
+
+
 def build(out):
     html = (WEB / "index.html").read_text()
-    css = (WEB / "style.css").read_text()
+    css = inline_fonts((WEB / "style.css").read_text())
 
     for old, new in [
         ('<link rel="stylesheet" href="style.css" />', f"<style>\n{css}\n</style>"),

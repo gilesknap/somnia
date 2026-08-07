@@ -8,7 +8,7 @@
 // it. This page is a few kilobytes on a tailnet: fetching it is not the slow
 // part of anything.
 
-const CACHE = "somnia-v3";
+const CACHE = "somnia-v4";
 const SHELL = [
   ".",
   "index.html",
@@ -17,6 +17,13 @@ const SHELL = [
   "manifest.webmanifest",
   "icon-192.png",
   "icon-512.png",
+  // The page's serif, and the reason it is served from here rather than from a
+  // font CDN. A cross-origin font comes back opaque, an opaque response cannot
+  // go in this cache, and a shell that caches the stylesheet but not the face
+  // it asks for opens the first offline night in whatever serif the phone has
+  // and then reflows the whole page when the network comes back.
+  "newsreader-latin.woff2",
+  "newsreader-latin-italic.woff2",
 ];
 
 self.addEventListener("install", (event) => {

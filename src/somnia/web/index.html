@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
     />
-    <meta name="theme-color" content="#07070b" />
+    <meta name="theme-color" content="#0b0a09" />
     <meta name="color-scheme" content="dark" />
     <title>somnia</title>
     <link rel="manifest" href="manifest.webmanifest" />
@@ -19,21 +19,21 @@
          no state a wrong press could leave them stranded in — at 2am the whole
          of the app has to be the thing already in front of them.
 
-         The order down the page is the order a hand reaches: the name and the
-         one button that throws anything away as far from the thumb as the
-         screen allows, the conversation in the middle where it is read rather
-         than touched, and the two things pressed without looking — the book and
-         the microphone — where a hand already holding the phone can find
-         them.
+         The order down the page is the order a hand reaches: the name, the way
+         to the books and the one button that throws anything away, all of them
+         as far from the thumb as the screen allows; the conversation in the
+         middle where it is read rather than touched; and the two things pressed
+         without looking — the book and the microphone — where a hand already
+         holding the phone can find them.
 
          The one screen now has one overlay over it — #candidates, at the foot
          of this file — and it is still the same screen underneath. It is raised
          only by an answer that is itself a choice ("which of these places did
          you mean?"), the book keeps playing beneath it, nothing has moved while
-         it is up, and its cancel button puts it away having changed nothing at
+         it is up, and its `close` button puts it away having changed nothing at
          all. It is not a route and there is nothing to come back from: the ways
-         out are a row, cancel, and the agent moving the book itself, and every
-         one of them leaves the page in a state it already knows how to be
+         out are a `goto`, `close`, and the agent moving the book itself, and
+         every one of them leaves the page in a state it already knows how to be
          in.
 
          And now a second one — #queue, after it — which is the harder of the
@@ -46,21 +46,60 @@
          that take the candidate list down have no twin here. And it adds books
          rather than switching between them: nothing on it opens a book, so
          "the page opens the book they were last listening to; changing books is
-         done by asking" is still true word for word. The way out is `close`,
-         and close changes nothing at all. -->
+         done by asking" is still true word for word.
+
+         It can now start the book that is already open — `pick it up at
+         1:12:08`, at the top of it, over a `reading now` that says which book
+         the panel is standing over. That is the play button pressed from up
+         here rather than from behind, and it is the only book the panel can
+         reach: it opens nothing, switches nothing, and the sentence above
+         survives word for word. So there are two ways out now — `close`, which
+         changes nothing at all, and that one press, which takes the panel away
+         with it because it has just answered the question the panel was opened
+         with. -->
+
+    <!-- One action, the name, and one quiet action — in that order across the
+         top, which is the order of how much anybody has to do with them.
+
+         Both buttons are still in a far corner, and that half of the old
+         argument stands: opening a picker over a playing book, or throwing a
+         conversation away, must be something somebody decided to do rather
+         than something a hand finds on the way to the microphone. What has
+         gone is the other half. `books` used to be as quiet as `start over`
+         and it was the only way to add a book at all, and a control nobody can
+         find is a control that is not there — so distance is still doing the
+         work of keeping it off a sleepy thumb, and the pill is doing the work
+         of being findable. It still carries no badge and no count: a book
+         finishing at 3am is not news to somebody asleep, and a dot that has to
+         be cleared is a second thing to press.
+
+         It says `books` and not `library` because that is the word on the
+         panel it opens, and a button and the screen it raises disagreeing
+         about their own name is a thing to work out in the dark.
+
+         `start over` keeps the right-hand corner to itself and nothing else is
+         ever allowed in it. It is the one control on the page that throws
+         something away, it takes two presses now, and the second press is
+         about the conversation — never the book's position. -->
     <header>
+      <button id="books" type="button">
+        <span class="pill">
+          <!-- Drawn, for the reason the transport's glyphs are: a caret typed
+               as a character is whatever size and weight the phone's symbol
+               font decided, sitting on a baseline rather than beside a word. -->
+          <svg
+            class="caret"
+            viewBox="0 0 6 10"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M0 0 6 5 0 10Z" fill="currentColor" />
+          </svg>
+          books
+        </span>
+      </button>
       <h1>somnia</h1>
-      <!-- Both of the page's quiet controls, in the corner a one-handed grip
-           has to stretch for. `books` is here rather than anywhere nearer the
-           thumb for the same reason `start over` is: opening a picker over a
-           playing book must be something somebody decided to do, not something
-           a hand finds on the way to the microphone. It carries no badge and no
-           count — a book finishing at 3am is not news to somebody asleep, and a
-           dot that has to be cleared is a second thing to press. -->
-      <div id="corner">
-        <button id="books" type="button" class="quiet">books</button>
-        <button id="restart" type="button" class="quiet">start over</button>
-      </div>
+      <button id="restart" type="button" class="quiet">start over</button>
     </header>
 
     <main id="transcript" aria-live="polite">
@@ -77,21 +116,149 @@
 
     <section id="player-bar" hidden>
       <div id="now-playing">
-        <!-- The title has the whole line to itself. It shared it with the
-             chapter clock for one afternoon, and the clock is the thing that
-             never varies in width while the title is the thing that does: a
-             book with long chapter names spent every night ellipsised to make
-             room for eleven characters that had somewhere better to be. -->
+        <!-- The book, and then the chapter of it. The manifest has carried the
+             book's own name since the beginning and the page drew everything
+             else out of it — the chapter, both clocks, the album on the lock
+             screen — while the one line that answers "am I in the right book?"
+             was on no screen at all. Somebody who queued three books before bed
+             had to press play and listen to find out which one they had come
+             back to.
+
+             It is the headline because it is the only thing here that is true
+             all night. Everything under it changes while they sleep. -->
+        <p id="book-title"></p>
+
+        <!-- Where they are in the whole book, and the timer that decides how
+             much more of it plays tonight — directly under the title, as the
+             design orders this screen. The book and everything true about the
+             book for the whole night is one block; the chapter and the two
+             circles that change it are another, below it.
+
+             It used to sit under the chapter strip, and the comment here used
+             to say that was deliberate: the strip directly above −30 meant a
+             thumb reaching low and landing high got a whole chapter instead of
+             thirty seconds. That reason has not gone away — but the dead band
+             was never really the ordering. It is `#now-playing`'s 1.7rem
+             bottom margin, and that margin now falls under the chapter strip
+             instead of under this, so the gap over the transport is the same
+             34px it always was. What changed is which readout is standing in
+             it, not how wide it is. -->
+        <p id="whereabouts">
+          <!-- Where they are in the book, and — on the nights there are any —
+               the way back to the places somnia last found.
+
+               It is a readout first and on most nights it is only that. A book
+               nobody has asked a question about has no places, and then this is
+               the same plain line it has always been: no rule under it, no
+               count, and nothing to press. The button is `disabled` there
+               because that is the truth of it, and because a control that looks
+               pressable and does nothing is the thing the comments on this page
+               argue against most often.
+
+               When there are places, the dotted rule under the time says the
+               line can be pressed and the count under that says what it would
+               open. Places is the set of places from the last query — the four
+               somnia offered when it could not tell which one was meant — and
+               without a way back to them, getting to the third of them meant
+               asking the same question again in the dark.
+
+               The two lines are one target, and stacking them is what makes it
+               44dp without asking for the height: a count beside the clock
+               would take 280 of the column's 320px on this book and wrap on a
+               longer one. It costs a line of height, which this screen has,
+               because the slack all sits in one gap above the title.
+
+               It is here rather than as a fourth thing in the header for the
+               reason the header comment gives: there is no room up there, and
+               this is the one line on the screen the places are about. -->
+          <button id="places-open" type="button" disabled>
+            <span id="clock"></span>
+            <span id="places-found" hidden></span>
+          </button>
+
+          <!-- How far through the book, as a line rather than as two numbers to
+               subtract. The design asked for it twice: without it there is no
+               visual sense of how much book is left, which is half of what the
+               position group is for.
+
+               It is a readout and not a control, and that is the one place this
+               departs from the brief, which wanted a 44dp tap area that seeks
+               proportionally. A whole-book scrubber 360px wide on a nine-hour
+               novel is about ninety seconds to the pixel — the same arithmetic
+               that keeps the lock screen's scrubber chapter-scale, and the same
+               conclusion: useless for the nudge anybody actually wants, and one
+               sleepy thumb from landing past the spoiler guard in the ending of
+               a book they have not read.
+
+               So it carries no tap target at all rather than a small one. A
+               hairline nobody can press is a fact about the book; a hairline
+               that moves the night by two hours when a thumb brushes it is not
+               a thing to meet at 2am. Everything that does move the position —
+               ±30, the chapter circles, the lock screen, the agent — is still
+               exactly where it was. -->
+          <span id="whole-progress" aria-hidden="true">
+            <span id="whole-played"></span>
+          </span>
+
+          <!-- The sleep timer is its own readout: it says how long the night
+               has left, and a tap is what sets it. Taps walk 15, 30, 45 and 60
+               minutes, then the end of the chapter, then off again — one
+               target that is always in the same place and always says what it
+               is doing, rather than a menu to be opened, read and dismissed
+               with the lights off. Six taps wrap, so the worst a mis-tap can
+               do is offer to end the night early, and the next tap takes it
+               back.
+
+               What it says is one string — `sleep timer · off` — and drawSleep
+               assembles the whole of it. The label used to be `sleep` when
+               there was no timer and `sleep 30m` when there was, which meant
+               the same word was the control's name on most nights and a state
+               on the rest, and the only thing telling them apart was whether
+               anything followed it. The text below is the off state written
+               out, so a page whose script has not run yet says what it will
+               say once it has.
+
+               It is up here and not in the transport below on purpose. A
+               control that can end the night early — or fail to — has no
+               business within a thumb's width of the one button that gets
+               pressed without looking. -->
+          <button id="sleep" type="button" aria-label="Sleep timer, off">
+            sleep timer · off
+          </button>
+        </p>
+
+        <!-- Both of these are one line and cut with an ellipsis rather than
+             allowed to wrap, and that is the whole discipline of this stack:
+             everything below — the chapter circles, the clocks, the transport —
+             would be pushed down the screen by the one book whose title ran to
+             two lines, and the bottom of that stack is the button a hand
+             arrives at without looking first. -->
         <p id="chapter-title"></p>
 
-        <!-- The chapter's clock, between the two buttons that change which
-             chapter it is counting. The number and the controls that alter it
-             are one thing, so they are drawn as one.
+        <!-- How far into this chapter, under the name of the chapter it is
+             counting. It sat between the two skip buttons until the count took
+             that place, which is the better use of the gap: the number between
+             two controls should be the number those controls change, and what
+             prev and next change is which chapter this is, not how many minutes
+             of it have gone.
 
-             It is bare rather than boxed. A border around it would make it the
-             third button in a row of three, and a control that looks pressable
-             and does nothing is a worse thing to meet in the dark than a plain
-             number is. -->
+             It is bare rather than boxed here for the same reason it was there.
+             A border around it would make it look pressable, and a control that
+             looks pressable and does nothing is a worse thing to meet in the
+             dark than a plain number is. -->
+        <p id="chapter-clock"></p>
+
+        <!-- Two circles and, between them, the number they change. `chapter`
+             over `4 of 37`: the word is a label small enough not to be read
+             twice, and the count is the one thing on this screen that says how
+             much book is left without anybody doing arithmetic on a clock.
+
+             When nobody wrote the total down it says `chapter 4` and stops
+             there. That is not a rare case — it is every book on the box this
+             runs on, all of them rendered before there was a column to write it
+             in — and `4 of 0` or a denominator guessed from the chapters that
+             happen to have landed would both be worse than a number with
+             nothing after it. -->
         <div class="chapter-strip">
           <button
             id="prevchapter"
@@ -111,7 +278,10 @@
               />
             </svg>
           </button>
-          <span id="chapter-clock"></span>
+          <p class="chapter-of">
+            <span id="chapter-word">chapter</span>
+            <span id="chapter-count"></span>
+          </p>
           <button
             id="nextchapter"
             type="button"
@@ -132,38 +302,22 @@
           </button>
         </div>
 
-        <!-- Deliberately below the chapter strip and not above it. It is the
-             dead band that keeps the chapter buttons off the transport: with
-             the strip directly above −30, a thumb reaching low and landing high
-             gets a whole chapter instead of thirty seconds, and has to work out
-             in the dark where it went and how to come back. The same trick, and
-             the same reason, as the wide margin already under the sleep
-             timer. -->
-        <p id="whereabouts">
-          <span id="clock"></span>
-          <!-- The sleep timer is its own readout: it says how long the night
-               has left, and a tap is what sets it. Taps walk 15, 30, 45 and 60
-               minutes, then the end of the chapter, then off again — one
-               target that is always in the same place and always says what it
-               is doing, rather than a menu to be opened, read and dismissed
-               with the lights off. Six taps wrap, so the worst a mis-tap can
-               do is offer to end the night early, and the next tap takes it
-               back.
-
-               It is here and not in the transport below on purpose. A control
-               that can end the night early — or fail to — has no business
-               within a thumb's width of the one button that gets pressed
-               without looking. -->
-          <button id="sleep" type="button" aria-label="Sleep timer, off">
-            sleep
-          </button>
-        </p>
       </div>
-      <!-- Untouched: three buttons, the same three, at the same size they were
-           measured against a thumb. Everything the chapter needs happens a row
-           and a dead band away from here, because this is the row that gets
-           pressed without looking and it only stays that way while what is in
-           it never moves. -->
+      <!-- Three buttons, the same three, at the same size they were measured
+           against a thumb. Everything the chapter needs happens a row and a
+           dead band away from here, because this is the row that gets pressed
+           without looking and it only stays that way while what is in it never
+           moves.
+
+           The design has been applied to how this row looks and to nothing
+           about how big it is. It gave the middle slab a warmer fill, an amber
+           edge and a bigger, plainer glyph — all of which can be taken without
+           anybody's thumb noticing. It also asked for 96dp cells in a
+           `1fr 1.05fr 1fr` grid, and that is the one part refused: 110px is the
+           number this row was measured at, the centre slab is half again as
+           wide as its neighbours so that play is found by reaching for the
+           middle rather than by reading anything, and the design's own rule
+           says to take space from spacing before tap targets. -->
       <div class="transport">
         <button id="back30" type="button" aria-label="Back thirty seconds">
           −30
@@ -172,20 +326,29 @@
              the phone's symbol font decided, sitting on a baseline rather than
              in the middle of the button; this is the same shape everywhere and
              it is the size it was meant to be. Which half shows is a class,
-             set in drawPlayer. -->
+             set in drawPlayer.
+
+             The sheet draws this box at 48px on the phone it is read on, and
+             the box is 48 units across, so one unit here is one of the design's
+             dp and its sizes are the numbers below rather than something
+             derived from them: two 10x38 bars 8 apart, and a 26x34 triangle. The triangle is 5 to the right
+             of centre and that is not a mistake to be tidied up — a triangle
+             centred on its bounding box reads as sitting left of centre,
+             because its weight is all down the flat edge. The half-stroke of
+             the round join is counted in those 26 and 34. -->
         <button id="playpause" type="button" aria-label="Play">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
             <path
               class="play"
-              d="M8.5 5.5 18 12 8.5 18.5Z"
+              d="M17.5 8.5 40.5 24 17.5 39.5Z"
               fill="currentColor"
               stroke="currentColor"
-              stroke-width="2.4"
+              stroke-width="3"
               stroke-linejoin="round"
             />
             <g class="pause" fill="currentColor">
-              <rect x="7.2" y="5" width="3.8" height="14" rx="1.4" />
-              <rect x="13" y="5" width="3.8" height="14" rx="1.4" />
+              <rect x="10" y="5" width="10" height="38" rx="2" />
+              <rect x="28" y="5" width="10" height="38" rx="2" />
             </g>
           </svg>
         </button>
@@ -205,7 +368,7 @@
         type="search"
         enterkeyhint="send"
         autocomplete="off"
-        placeholder="the bit where the horse dies"
+        placeholder="the bit where…"
         aria-label="What are you looking for?"
       />
       <button id="talk" type="button" aria-label="Hold to talk">
@@ -226,17 +389,25 @@
     </form>
 
     <!-- Still one screen. This is over the page, not away from it: the book
-         keeps playing underneath, nothing has moved yet, and cancel puts it
+         keeps playing underneath, nothing has moved yet, and `close` puts it
          back exactly as it was. It exists because the alternative was a
          conversation — "did you mean the one an hour in or the one at four
          hours?" — read in the dark by someone half asleep, and a list of times
          is something a thumb can answer without composing a sentence. The three
-         ways out are a row, cancel, and the agent moving the book itself, and
-         each leaves the page in a state it already knows how to be in.
+         ways out are a `goto`, `close`, and the agent moving the book itself,
+         and each leaves the page in a state it already knows how to be in.
+
+         Every row is two targets and only one of them moves anything. The
+         reading is the whole left of the row and it uncovers what is said at
+         that place; `goto` is a pill on the right and it is the only thing here
+         that touches the book. The bigger of the two is the one that can be
+         taken back — that way round because the press wanted most often is
+         "what is there?", and the press that cannot be undone is the one worth
+         having to aim at.
 
          Last in the document on purpose, for the same reason as everything
          above it: the DOM and tab order end with the thing a hand reaches for,
-         and while the overlay is up that is cancel.
+         and while the overlay is up that is `close`.
 
          Not a <dialog>, and showModal() is never called: a modal dialog moves
          focus, and this page never takes focus from anybody. role="dialog" and
@@ -244,17 +415,48 @@
          that everything behind it is inert, and everything behind it is a book
          still playing that the lock screen can still stop. -->
     <section id="candidates" hidden aria-labelledby="candidates-title">
-      <h2 id="candidates-title">Where do you mean?</h2>
-      <!-- Which book, and only when it is not the one already playing. For the
-           book they are listening to, naming it is a line of type spent saying
-           what they already know. -->
-      <p id="candidates-book" hidden></p>
-      <ol id="candidate-list"></ol>
-      <!-- Outside the scrolling list, so however many rows there are the way
+      <!-- Everything except the way out, as on the books panel and for the same
+           reason: the reading scrolls when there is more of it than screen, and
+           `close` does not move when it does. -->
+      <div id="candidates-scroll">
+        <!-- It said "Where do you mean?" — the conversation's own opening line
+             asked back — for as long as this was only ever raised by an answer.
+             It is a screen with a name now: the same list is what the position
+             readout will open, so a title that only makes sense as the reply to
+             something is a title that is wrong half the time. -->
+        <h2 id="candidates-title">Places you might be</h2>
+        <!-- Which book, and only when it is not the one already playing. For the
+             book they are listening to, naming it is a line of type spent saying
+             what they already know. -->
+        <p id="candidates-book" hidden></p>
+        <!-- How many places and the span they cover, written by showCandidates
+             out of the payload that drew the rows and nothing else. -->
+        <p id="candidates-summary"></p>
+        <ol id="candidate-list"></ol>
+        <!-- Which press does what, once, at the foot of the reading rather than
+             on every row. It is the smallest type on the screen because it is
+             read on the first night and never again.
+
+             The design's wording was "tap a time to reveal what is said there",
+             and on this page that would not be true: a place they have already
+             heard is showing its words already and has nothing to press. What
+             is said here is what a press actually does. -->
+        <p id="candidates-note">
+          tap to reveal what you have not heard · tap goto to move
+        </p>
+      </div>
+      <!-- Outside the scrolling part, so however many rows there are the way
            out is in the same place, at the bottom, where a hand already holding
-           the phone is. -->
+           the phone is. It overlaps the reading by a thumb's width and eats
+           whatever lands there, which is the dead band that keeps a high miss
+           on `close` off the last row's `goto`. -->
       <div id="candidates-foot">
-        <button id="candidates-cancel" type="button">cancel</button>
+        <!-- `close`, and it is still the cancel: it moves nothing, reports
+             nothing and hands back the tap-to-resume the list took. The word
+             changed because the screen did — a question is called off, a screen
+             is left — and because the way out of the books panel is in the same
+             place and has always said `close`. -->
+        <button id="candidates-cancel" type="button">close</button>
       </div>
     </section>
 
@@ -265,10 +467,12 @@
          that everything behind it is inert, and everything behind it is a book
          somebody is listening to.
 
-         The order down it is the order the questions are asked in. Is anything
-         happening — the live rows, at the top, where the eye lands. Did
-         anything go wrong — the rows that ended in the last day, under them,
-         because a failure is worth reading once and is not news twice. And then
+         The order down it is the order the questions are asked in. Which book
+         am I already in — `reading now`, at the top where the eye lands, and
+         the only part of this panel that is about a book rather than about the
+         queue. Is anything happening — the live rows under it. Did anything go
+         wrong — the rows that ended in the last day, under those, because a
+         failure is worth reading once and is not news twice. And then
          adding one, which is the reason somebody opened this at all but is also
          the only part of it that wants a keyboard, so it sits below the reading
          where the keyboard can cover it without covering anything else.
@@ -279,19 +483,145 @@
          open with a keyboard up, and a way out that has been pushed under the
          keyboard is a way out that does not exist. -->
     <section id="queue" hidden aria-labelledby="queue-title">
-      <h2 id="queue-title">Books</h2>
       <div id="queue-scroll">
-        <ul id="queue-live"></ul>
+        <!-- Inside the scroller now, with the list of places' title and for the
+             same reason: what is pinned to this panel is the way out and
+             nothing else. A title held above a scrolling list costs a line of
+             screen on every night, and it is the one line here nobody needs
+             after the first second. -->
+        <h2 id="queue-title">Books</h2>
+
+        <!-- Which book the panel is standing over, said before anything else on
+             it. Somebody who queued three books before bed and opened this at
+             2am was reading a list of renders with no way of telling which of
+             them was the one making the sound, and the answer was on the screen
+             underneath the panel the whole time.
+
+             Every word of it comes off the manifest and the position this page
+             is already holding, so it costs no request, cannot go stale while
+             the panel is up, and cannot disagree with the player behind it. It
+             is drawn again on every pass of drawPlayer for that last reason:
+             the agent can move the book while this is open, and a block that
+             was painted once at `books` would then be naming a place the book
+             has left.
+
+             The whole block goes when there is no book — label and all — which
+             is the rule the card below it already follows. A heading over
+             nothing is a claim that something should be there.
+
+             What is deliberately not here: `put it down`, and the shelf of
+             other books the design puts under this. Both were dropped in this
+             pass rather than faked. `put it down` is a shelving action somnia
+             has no notion of — pausing is not shelving, and there is nothing on
+             the server to write "finished with for now" to — and a shelf of
+             books to tap would be this panel opening books, which is the one
+             thing it must not do. -->
+        <section id="reading-now" hidden>
+          <p class="section-label">reading now</p>
+
+          <!-- `Title — Surname, Forename, dates`, at 25dp, which is the
+               catalog's own author field verbatim beside the book's own name.
+               Two names on one book arrive as one string with a semicolon in
+               it, and app.js sets the page's own separator between them: read
+               raw it is a run of commas and semicolons with nothing to say
+               where one person ends and the next begins.
+
+               Allowed to wrap, where the player's headline is cut to one line.
+               Nothing pressed without looking is underneath this one — the
+               transport is on the screen behind the panel — so a second line
+               here costs a line of a list somebody is reading, not the position
+               of a button a thumb arrives at in the dark. -->
+          <p id="reading-title"></p>
+
+          <!-- `chapter 4 of 37 · 1h12m in`, and both halves are as honest as
+               the page can make them.
+
+               The count carries the player's own guard: 0 means nobody wrote
+               the total down, which is every book rendered before the column
+               existed, and it says `chapter 4` and stops rather than `4 of 0`.
+
+               `in` and not the design's `listened`. Nothing anywhere stores how
+               long anybody has listened for — ADR 3 dropped the session history
+               on purpose when the pivot left Audiobookshelf behind — so the
+               only number this page can stand behind is how far into the book
+               the mark is. Saying `listened` over it would be a claim about a
+               night nobody recorded. -->
+          <p id="reading-meta"></p>
+
+          <!-- How far in, drawn rather than stated, and absent entirely while
+               the book is still arriving. total_ms is how much audio exists,
+               which on a finished book is how long the book is and on a book
+               still being read is not: a bar drawn from it would reach the end
+               at chapter five of thirty-seven and then walk backwards as the
+               rest landed. No bar is the truth; the line above already says
+               which chapter of how many. -->
+          <div id="reading-track" hidden><div id="reading-fill"></div></div>
+
+          <!-- The one press, and the first press on this panel that changes
+               anything about the book. It says where it will land — `pick it up
+               at 1:12:08` — and `back to it · playing` when the book is already
+               sounding, because then there is nothing to start and the press is
+               only the way back to the controls.
+
+               It is the play button, made from up here. The only book it can
+               reach is the one already open, so the panel still opens nothing
+               and switches nothing. It takes the panel down with it: the
+               question this was opened with has just been answered, and a panel
+               left standing over a book that has started playing is one more
+               thing to get out of. -->
+          <button id="reading-resume" type="button"></button>
+        </section>
+
+        <!-- What is happening, in a box that says so. It is the only card on
+             the page — a hairline, a radius and a sentence at the top of it —
+             and it earns the chrome by being the one part of this panel that is
+             somebody else's work in progress rather than something to read or
+             press. When nothing is rendering the whole box goes, rather than
+             standing empty with a heading over it: an empty card is a claim
+             that something should be there. -->
+        <div id="queue-working" class="card" hidden>
+          <p class="card-head">the server is working</p>
+          <ul id="queue-live"></ul>
+        </div>
+
+        <!-- What has stopped happening, under it, and named so that the two
+             lists cannot be read as one. The rows leave by themselves after a
+             day — `view` drops them — so the label is a span of time and not a
+             heading somebody has to clear. -->
+        <p id="queue-ended" class="section-label" hidden>ended in the last day</p>
         <ul id="queue-gone"></ul>
+
         <!-- Whether what is above is what somnia thinks, or the last thing it
              said before the tailnet went. An empty queue and an unreachable
              server look identical and mean opposite things. -->
         <p id="queue-note"></p>
-        <!-- A search box, and a button, and no round trip per keystroke: the
-             tailnet is a phone talking to a VPS, and a request per letter of
-             "treasure island" is fifteen requests for one answer. autocomplete
-             off on both, as on the composer, so Android does not offer to fill
-             in a password over the top of the results. -->
+        <!-- The one place on the panel where reading turns into doing. Above
+             the line, somnia reporting: what is being read, what stopped,
+             whether it can be reached at all. Below it, somebody adding a book.
+             Each stretch now carries its own label, so which half of the panel
+             the eye has landed in is a thing it is told rather than a thing it
+             works out from the contents of the rows.
+
+             Mono, uppercase and small enough that it cannot be mistaken for
+             something to press or something to read: it is a rule with a word
+             on it. It says gutenberg because that is where the books come from
+             and it is the only warning that a search here is not a search of
+             the shelf. -->
+        <p class="section-label">bring in something new · gutenberg</p>
+        <!-- A search box, and a button, and one request per press.
+
+             Not per keystroke, and not per typed word either, which is what the
+             design asked for. Two reasons, and either would be enough. The
+             tailnet is a phone talking to a VPS, so a request per letter of
+             "treasure island" is fifteen requests for one answer. And the
+             search on the far end is FTS5, which matches whole tokens: half a
+             word matches nothing, so a list that refreshed as the letters
+             arrived would empty itself between every pair of words and fill
+             again at the space bar. A list that blinks out while somebody is
+             still typing reads as "there is no such book".
+
+             autocomplete off on both, as on the composer, so Android does not
+             offer to fill in a password over the top of the results. -->
         <form id="queue-search" autocomplete="off">
           <input
             id="queue-query"
@@ -309,10 +639,53 @@
              so the panel and the voice cannot disagree about what happened. -->
         <p id="queue-said"></p>
       </div>
+      <!-- Outside the scroller, over a fade into the room, the same 68dp slab
+           in the same place as the way out of the list of places. Both panels
+           are read with a keyboard up — this one nearly always is — and a way
+           out that has been pushed under the letters is a way out that does not
+           exist. The two used to be different heights, which was a debt this
+           pass paid: whichever overlay is up, `close` is the same slab at the
+           same size at the bottom of the screen. -->
       <div id="queue-foot">
         <button id="queue-close" type="button">close</button>
       </div>
     </section>
+
+    <!-- Two layers over the whole page, and neither of them is a control.
+         They come after `cancel` and `close` in the document without breaking
+         the rule that puts those last: a paragraph and an empty div are not
+         tab stops and cannot be pressed, so the last thing a hand can reach is
+         still the way out of whichever overlay is up.
+
+         The toast is a second voice, not a replacement for #status. #status
+         holds two unlike things — "listening…", which is over in a moment, and
+         "tap anywhere to carry on", which is an instruction that stands until
+         it is obeyed — and a line that clears itself after a few seconds
+         cannot hold the second kind. So the standing sentences stay where they
+         are and this says the passing ones: what a press just did, once, at
+         the bottom of the screen near the thumb that did it. It is a live
+         region because that is the whole job — a thing said once has to be
+         heard once, including by somebody who is not looking at the screen.
+
+         The dim layer is how the page goes darker than the phone will. Android
+         has a floor on its own brightness and this room is darker than that
+         floor, so the last of the light is taken off in the page instead. It
+         is over everything, both overlays included, because a books panel that
+         came up at full brightness would be the brightest thing in the room at
+         3am.
+
+         Being over everything is exactly why it must never take a press. The
+         page arms a document-wide pointerdown when the platform refuses to
+         start the sound, and a layer that swallowed that press would leave a
+         paused book in the dark with the only way back to it underneath the
+         thing covering the screen. `pointer-events: none` in the sheet is what
+         keeps that true, and nothing in app.js listens here.
+
+         There is nothing on the page yet that changes the level: it ships at
+         0.12 and is read back from storage if something wrote one down. The
+         control belongs on a settings surface this page does not have. -->
+    <p id="toast" hidden aria-live="polite"></p>
+    <div id="dim" aria-hidden="true"></div>
 
     <script src="app.js"></script>
   </body>

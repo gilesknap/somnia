@@ -23,7 +23,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boot, HALF_HEARD, PART_READ, TONE_BOOK } from "./harness.mjs";
+import {
+  boot,
+  GROWING_BOOK,
+  HALF_HEARD,
+  PART_READ,
+  TONE_BOOK,
+  UNCOUNTED_BOOK,
+} from "./harness.mjs";
 
 // How often the panel asks, in the page's own units. Named here so that a test
 // which asserts the wake and a test which fires it cannot drift apart.
@@ -106,33 +113,52 @@ async function books(page) {
   return page;
 }
 
+// The one part of a row, wherever the drawing put it. A row is a small tree
+// now — a line with the name and the stage at either end of it, a line under
+// them, a hairline, an action — and a helper that indexed children by position
+// would break on the next wrapper and pass on the one after it.
+function part(node, name) {
+  if (node.classList.contains(name)) return node;
+  for (const child of node.children) {
+    const found = part(child, name);
+    if (found) return found;
+  }
+  return null;
+}
+
+function words(node, name) {
+  // Null rather than "" so a row that has no such part and a row whose part has
+  // lost its words cannot be mistaken for each other.
+  const found = part(node, name);
+  return found ? found.textContent : null;
+}
+
 // The rows, as somebody looking at them would read them out. Read out of the
 // DOM rather than out of the payload: what the server said is its own business,
 // and the only thing worth asserting is what ended up on the screen.
+//
+// `stage` is the word in the corner — which of somnia's four states this is —
+// and `state` is the line under the name, which is what is actually happening
+// inside that state. `bar` is the width of the progress hairline, or null where
+// there is no hairline at all, which is the whole of the guard against drawing
+// a lying 0%.
 function jobs(page, id = "queue-live") {
-  return page.el(id).children.map((li) => {
-    const [name, state, stop] = li.children;
-    return {
-      name: name.textContent,
-      state: state.textContent,
-      // Null rather than "" so a row with no stop control and a row whose stop
-      // control has lost its words cannot be mistaken for each other.
-      stop: stop ? stop.textContent : null,
-    };
-  });
+  return page.el(id).children.map((li) => ({
+    name: words(li, "job-name"),
+    stage: words(li, "job-stage"),
+    state: words(li, "job-state"),
+    bar: part(li, "job-fill")?.style.width ?? null,
+    stop: words(li, "job-stop"),
+  }));
 }
 
 function results(page) {
-  return page.el("queue-results").children.map((li) => {
-    const parts = li.children;
-    const mark = parts.find((node) => node.classList.contains("found-have"));
-    const add = parts.find((node) => node.classList.contains("found-add"));
-    return {
-      name: parts[0].textContent,
-      have: mark ? mark.textContent : null,
-      add: add ? add.textContent : null,
-    };
-  });
+  return page.el("queue-results").children.map((li) => ({
+    name: words(li, "found-name"),
+    by: words(li, "found-by"),
+    have: words(li, "found-have"),
+    add: words(li, "found-add"),
+  }));
 }
 
 // Everything a night is, plus everything a night leaves behind. Close promises
@@ -375,6 +401,160 @@ test("the panel survives an agent answer and a move without closing", async (t) 
   assert.equal(page.probe().queueUp, true);
 });
 
+// -------------------------------------------------------------- reading now
+
+// The block at the top of the panel, as somebody opening it in the dark would
+// read it: which book is playing under this, the line under that, whether there
+// is a hairline at all and how far it has got, and what the one press offers.
+//
+// `bar` is null where no hairline is drawn, which is the whole of the guard
+// against a bar that over-reads: while a book is still arriving, total_ms is
+// how much of it exists rather than how long it is.
+function reading(page) {
+  return {
+    up: !page.el("reading-now").hidden,
+    title: page.el("reading-title").textContent,
+    meta: page.el("reading-meta").textContent,
+    bar: page.el("reading-track").hidden
+      ? null
+      : page.el("reading-fill").style.width,
+    press: page.el("reading-resume").textContent,
+  };
+}
+
+test("the panel names the book playing under it, and who wrote it", async (t) => {
+  const page = await boot(t, { lastGid: GROWING_BOOK.gid });
+  page.audio.ready(600);
+  page.queueView([]);
+  await books(page);
+  assert.deepEqual(reading(page), {
+    up: true,
+    // Gutenberg's own field is already `Surname, Forename, dates`, which is the
+    // form the design asks for — so one author needs nothing done to it. Two
+    // arrive as one string with a semicolon in it, and printed as they come
+    // that is a run of commas and semicolons with nothing to say where one
+    // person ends and the next begins.
+    title:
+      "The Moonstone — Collins, Wilkie, 1824-1889 · Reade, Charles, 1814-1884",
+    // `in`, not `listened`: nothing anywhere stores how long anybody has
+    // listened for. ADR 3 dropped the session history on purpose, so the only
+    // honest reading of this number is how far into the book the mark is.
+    meta: "chapter 4 of 37 · 30m in",
+    // Five chapters of thirty-seven have audio, so total_ms is how much exists
+    // and not how long the book is.
+    bar: null,
+    press: "pick it up at 0:30:00",
+  });
+});
+
+test("a book nobody counted says which chapter it is in and stops there", async (t) => {
+  const page = await boot(t, { lastGid: UNCOUNTED_BOOK.gid });
+  page.audio.ready(8);
+  page.queueView([]);
+  await books(page);
+  // The same guard the player's own count carries, and for the same reason: 0
+  // means nobody wrote the number down, which is every book rendered before the
+  // column existed. `chapter 1 of 0` is the sentence this prevents.
+  assert.equal(reading(page).meta, "chapter 1");
+  // Nothing is in front of the mark that has not been rendered — the book is
+  // finished — so the hairline is honest here even without a denominator for
+  // the chapters.
+  assert.equal(reading(page).bar, "0%");
+});
+
+test("a book still arriving gets no hairline rather than one that over-reads", async (t) => {
+  const growing = await boot(t, { lastGid: GROWING_BOOK.gid });
+  growing.audio.ready(600);
+  await books(growing);
+  assert.equal(reading(growing).bar, null);
+
+  // The same lie from the other direction: this render stopped at one chapter
+  // of three and nothing is going to add the other two, so total_ms is a third
+  // of the book and a bar drawn from it would reach the end at a third of the
+  // way through.
+  const stopped = await boot(t, { lastGid: PART_READ.gid });
+  stopped.audio.ready(8);
+  await books(stopped);
+  assert.equal(reading(stopped).bar, null);
+
+  // And a book that is all here, where the fraction means what it looks like.
+  const whole = await opened(t);
+  await books(whole);
+  assert.equal(reading(whole).bar, "27.8%");
+});
+
+test("`pick it up` starts the book and takes the panel away with it", async (t) => {
+  const page = await opened(t);
+  page.queueView([job()]);
+  await books(page);
+  assert.equal(reading(page).press, "pick it up at 0:16:40");
+
+  page.click("reading-resume");
+  await page.settle();
+  assert.equal(page.audio.paused, false);
+  // The panel is the thing they were on their way through, not the thing they
+  // came for. It goes with the press rather than being left over a book that
+  // has just started sounding.
+  assert.equal(page.probe().queueUp, false);
+  assert.equal(page.probe().queuePolling, false);
+  // And nothing is left waiting: a poll still scheduled is a radio wake every
+  // five seconds all night beside somebody asleep.
+  assert.deepEqual(page.waits(), []);
+});
+
+test("a book already sounding is offered back rather than started again", async (t) => {
+  const page = await playing(t);
+  page.queueView([job()]);
+  await books(page);
+  assert.equal(reading(page).press, "back to it · playing");
+  const playCalls = page.audio.playCalls;
+
+  page.click("reading-resume");
+  await page.settle();
+  // Nothing to start. The press is the way back to the controls and that is
+  // all it is, which is what the label said it would be.
+  assert.equal(page.audio.playCalls, playCalls);
+  assert.equal(page.audio.paused, false);
+  assert.equal(page.probe().queueUp, false);
+});
+
+test("picking it up leaves no tap waiting over a book that is now playing", async (t) => {
+  const page = await opened(t);
+  // The real 2am sequence: the app was backgrounded, the platform refused the
+  // sound until the screen is touched, and the panel borrowed that listener
+  // when it went up.
+  page.audio.refuse = "NotAllowedError";
+  page.click("playpause");
+  await page.settle();
+  assert.equal(page.probe().status, "tap anywhere to carry on");
+
+  page.queueView([job()]);
+  await books(page);
+  page.audio.refuse = null;
+  page.click("reading-resume");
+  await page.settle();
+  assert.equal(page.audio.paused, false);
+
+  // `close` hands that listener back, because after close the book really is
+  // still paused and still waiting. This press is not close: it IS the touch
+  // the platform was waiting for, and re-arming here would leave a listener
+  // over a book that is already sounding — so the next thing touched anywhere
+  // on the page would start it a second time.
+  const playCalls = page.audio.playCalls;
+  page.document.fire("pointerdown");
+  await page.settle();
+  assert.equal(page.audio.playCalls, playCalls);
+});
+
+test("with no book open the block goes rather than standing empty", async (t) => {
+  const page = await boot(t, { lastGid: null, library: [] });
+  page.queueView([]);
+  await books(page);
+  // The same rule the card of live rows follows: a heading over nothing is a
+  // claim that something should be there, which at 2am is a reason to get up.
+  assert.equal(page.el("reading-now").hidden, true);
+});
+
 // ------------------------------------------------------------------- the words
 
 test("a render says which chapter it is on and how much is ready to play", async (t) => {
@@ -384,15 +564,88 @@ test("a render says which chapter it is on and how much is ready to play", async
   assert.deepEqual(jobs(page), [
     {
       name: "Black Beauty — Anna Sewell",
+      // Which stage, in the corner, in the panel's own word for it. The server
+      // calls this state 'rendering'; nobody at 2am wants to know what the
+      // server calls it.
+      stage: "narrating",
       // The chapter being worked on, which is the number the journal's
       // "rendering chapter 4/39" line uses, and how much of it can be listened
-      // to now. No percentage: chapters differ in length by an order of
-      // magnitude, so a bar drawn from 4/39 moves in lurches that read as a
-      // stall.
+      // to now. No percentage in words: chapters differ in length by an order
+      // of magnitude, so a number drawn from 4/39 is not a fraction of the
+      // work.
       state: "chapter 4 of 39 · 1h12m read so far",
+      // The same fraction drawn rather than stated. 3 of 39 done, which is the
+      // fourth being worked on.
+      bar: "7.7%",
       stop: "stop reading this",
     },
   ]);
+});
+
+test("the corner says the stage, in the panel's word for it", async (t) => {
+  const page = await opened(t);
+  page.queueView([
+    waiting(),
+    job(),
+    job({ id: 3, state: "done", chapters_done: 39 }),
+    job({ id: 4, state: "failed", error: "No HTML edition." }),
+    job({ id: 5, state: "cancelled", chapters_done: 4 }),
+  ]);
+  await books(page);
+  assert.deepEqual(
+    [...jobs(page), ...jobs(page, "queue-gone")].map((row) => row.stage),
+    ["queued", "narrating", "ready", "failed", "stopped"],
+  );
+});
+
+test("nothing on the panel ever says it is fetching the text as a stage", async (t) => {
+  const page = await opened(t);
+  // The design drew a pipeline with a fetch step in it — queued, fetching
+  // text, narrating, ready — and somnia's queue has no such state: a book whose
+  // text has not been parsed is 'rendering' like any other. So the corner says
+  // the stage the server really is at, and the honest line about not knowing
+  // the count goes under the name where it belongs.
+  page.queueView([job({ chapters_total: 0, chapters_done: 0, rendered_ms: 0 })]);
+  await books(page);
+  assert.equal(jobs(page)[0].stage, "narrating");
+  assert.equal(jobs(page)[0].state, "fetching the text");
+  assert.equal(
+    jobs(page).some((row) => row.stage === "fetching text"),
+    false,
+  );
+});
+
+test("a book nobody has counted gets no progress bar rather than an empty one", async (t) => {
+  const page = await opened(t);
+  page.queueView([
+    job({ chapters_total: 0, chapters_done: 0 }),
+    job({ id: 7, chapters_done: 13 }),
+  ]);
+  await books(page);
+  // 0 means nobody has written the total down — the parse is what produces it,
+  // and it is 0 for ever on every book rendered before the column existed. A
+  // bar drawn from that sits at nothing on a render that is working perfectly
+  // well, which is a lie somebody gets out of bed about.
+  assert.equal(jobs(page)[0].bar, null);
+  assert.equal(jobs(page)[1].bar, "33.3%");
+});
+
+test("the progress bar is the same element from one poll to the next", async (t) => {
+  const page = await opened(t);
+  page.queueView([job()]);
+  await books(page);
+  const first = page.el("queue-live").children[0];
+  const bar = part(first, "job-fill");
+  page.queueView([job({ chapters_done: 20 })]);
+  page.wake(POLL_MS);
+  await page.settle();
+  await page.settle();
+  // The list is rebuilt every five seconds. A fill made fresh each time has no
+  // width to move from, so the half-second slide the design asks for would be a
+  // transition that never once runs — and a bar that jumps reads as a page that
+  // reloaded.
+  assert.equal(part(page.el("queue-live").children[0], "job-fill"), bar);
+  assert.equal(bar.style.width, "51.3%");
 });
 
 test("a book that is only in the line says where in the line it is", async (t) => {
@@ -413,6 +666,13 @@ test("a render that has said nothing for five minutes says so", async (t) => {
   // with the box. The heartbeat is the only evidence either way and the server
   // has already read it.
   assert.equal(jobs(page)[0].state, "not responding");
+  // The stage is still the stage — the server has this job as 'rendering' and
+  // saying anything else in that corner would be inventing a state — but it has
+  // stopped being the warm word on the panel. Amber here means the box is
+  // working, and the line under it has just said that it may not be.
+  const stage = part(page.el("queue-live").children[0], "job-stage");
+  assert.equal(stage.textContent, "narrating");
+  assert.equal(stage.classList.contains("now"), false);
 });
 
 test("a render that has been asked to stop says it is stopping", async (t) => {
@@ -444,6 +704,10 @@ test("what went wrong is said in the server's own words, under the live rows", a
       title: "",
       authors: "",
       state: "failed",
+      // The parse is what failed, so nothing was ever counted and nothing of it
+      // was ever rendered.
+      chapters_total: 0,
+      chapters_done: 0,
       error: "Gutenberg has book 4321 but no HTML edition, so somnia cannot read it.",
     }),
   ]);
@@ -459,14 +723,45 @@ test("what went wrong is said in the server's own words, under the live rows", a
       // No name in the catalog and none from the parse, because the parse is
       // what failed.
       name: "book 4321",
+      stage: "failed",
       state:
         "Gutenberg has book 4321 but no HTML edition, so somnia cannot read it.",
+      // Nothing was ever counted, so there is no hairline to draw.
+      bar: null,
       // Nothing to stop, and nothing to dismiss either: the row leaves by
       // itself after a day, because after a day a failure is history and
       // history is in the journal.
       stop: null,
     },
   ]);
+  // And the two lists are told apart by more than a gap now: the live rows are
+  // in a card that says what it is, and the rows that are over are under a
+  // label of their own. Both go when there is nothing in them.
+  assert.equal(page.el("queue-working").hidden, false);
+  assert.equal(page.el("queue-ended").hidden, false);
+});
+
+test("an empty half of the panel takes its heading with it", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await books(page);
+  // A card headed "the server is working" with nothing in it is a claim that
+  // something should be happening, which at 2am is a reason to get up and look.
+  assert.equal(page.el("queue-working").hidden, true);
+  assert.equal(page.el("queue-ended").hidden, true);
+
+  page.queueView([job()]);
+  page.wake(POLL_MS);
+  await page.settle();
+  await page.settle();
+  assert.equal(page.el("queue-working").hidden, false);
+  assert.equal(page.el("queue-ended").hidden, true);
+
+  // And closing puts both away, so the next opening does not flash a card from
+  // a night that is over.
+  page.click("queue-close");
+  await page.settle();
+  assert.equal(page.el("queue-working").hidden, true);
 });
 
 test("a render somebody stopped says whether any of it is playable", async (t) => {
@@ -577,7 +872,11 @@ test("a search asks once per press, not once per keystroke", async (t) => {
   assert.deepEqual(page.searches, ["api/catalog?q=treasure%20island"]);
   assert.deepEqual(results(page), [
     {
-      name: "Treasure Island — Robert Louis Stevenson",
+      // The title over the author, rather than both in one string. The design
+      // wants `Author · year · formats` under the name; somnia's catalog has
+      // the author and not the other two, so the line says what it knows.
+      name: "Treasure Island",
+      by: "Robert Louis Stevenson",
       have: null,
       add: "add this book",
     },
@@ -614,7 +913,8 @@ test("a render that died is offered again, because that retry was impossible", a
   await search(page, "treasure");
   assert.deepEqual(results(page), [
     {
-      name: "Treasure Island — Robert Louis Stevenson",
+      name: "Treasure Island",
+      by: "Robert Louis Stevenson",
       have: "part rendered",
       add: "finish this one",
     },
