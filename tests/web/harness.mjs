@@ -700,6 +700,12 @@ class FakeBlob {
 // — the browser wants one file it can load with one <script> — so this is how
 // a test reaches the state machine from inside its own scope, the same place
 // the page's own event handlers see it from.
+//
+// It is a template literal, so **never put a backtick in anything you add
+// below** — not in a comment, not around an identifier. A stray one ends the
+// string early and the failure is a SyntaxError pointing at whatever word came
+// next, in every one of these suites at once, which reads like the harness
+// having broken rather than like a punctuation mark in a comment.
 const EPILOGUE = `
 globalThis.__page = {
   probe: () => ({
