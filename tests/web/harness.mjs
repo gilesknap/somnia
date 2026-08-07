@@ -731,9 +731,8 @@ export const START_MS = 1_700_000_000_000;
 
 // The page with nothing over it, on the phone it is drawn for: 360x780 with a
 // 20px root, which is a Pixel 6 Pro with Android's text scaling turned up. Every
-// height a test hands to `resize` is measured against this one, and it is a real
-// number rather than a round one so that a page which had quietly kept a
-// fraction of it is caught by the arithmetic.
+// height a test hands to `resize` is measured against this one, so it is the
+// phone's own height and not a number chosen to make the arithmetic tidy.
 export const VIEWPORT_HEIGHT = 780;
 
 class FakeClock {

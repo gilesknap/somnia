@@ -144,14 +144,22 @@ test("the address bar sliding in is not a keyboard", async (t) => {
 
 test("a keyboard is measured against the window it comes up in", async (t) => {
   const page = await boot(t);
-  // A phone in a browser tab with something else taking the top of the screen,
-  // or a desktop window that was never full height: 480px is all this page has
-  // ever had, and it is the number a keyboard has to be measured against. Read
-  // as a fraction of the phone it was drawn for, this same 300px would be no
-  // keyboard at all.
+  // A page in a browser tab with something else taking the top of the screen,
+  // or a desktop window that was never full height: 480px is all this one has
+  // ever had, and 480 is therefore what a keyboard has to be measured against.
   page.resize(480);
   page.focus("question");
-  page.resize(300);
+  // A sixth of the window, gone while somebody is typing in it. Against 480 that
+  // is nobody's keyboard. Against the 780 this page was drawn for it is half the
+  // screen, and a page still holding that number would have gone to the chat
+  // screen here and taken the player with it.
+  page.resize(400);
+  assert.equal(page.probe().screen, "player");
+  assert.equal(page.probe().keyboardUp, false);
+  // And the real thing, in the same window: half of 480 is a keyboard by any
+  // reading, so the two directions are both said here rather than in two tests
+  // that could drift apart.
+  page.resize(250);
   assert.equal(page.probe().screen, "chat");
   assert.equal(page.probe().keyboardUp, true);
 });
