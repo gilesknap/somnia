@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.6.dev44+g9dcaed6b8 documentation</title>
+    <title>HTTP surface &#8212; somnia 0.6.dev54+g67143aab9 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=8f633db1"></script>
+    <script src="../_static/documentation_options.js?v=d063564e"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -694,13 +694,24 @@ anything.</p>
 </section>
 <section id="post-api-ask">
 <h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code><a class="headerlink" href="#post-api-ask" title="Link to this heading">#</a></h2>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;question&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;where does the horse get hurt?&quot;</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;question&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;where does the horse get hurt?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">}</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">token</span></code> is minted by the page when it starts and keys a conversation held in
-memory; nothing is written to disk. Both fields are required — 400 otherwise —
-and a turn that fails is a 500 whose body says <em>Something went wrong down
-here.</em></p>
+memory; nothing is written to disk. <code class="docutils literal notranslate"><span class="pre">token</span></code> and <code class="docutils literal notranslate"><span class="pre">question</span></code> are required — 400
+otherwise — and a turn that fails is a 500 whose body says <em>Something went wrong
+down here.</em></p>
+<p><code class="docutils literal notranslate"><span class="pre">gid</span></code> is the book the page has open, and it is optional. It is named to the
+model on the end of the system prompt, once per turn, so that a question over a
+playing book is not answered with <em>which book do you mean?</em> — which is what
+happened while it was missing, on every turn, because the model could list the
+shelf and nothing told it which of them was making the sound. Anything that is
+not a positive integer — absent, <code class="docutils literal notranslate"><span class="pre">null</span></code>, a string, a bool — is taken as “no book
+open” rather than refused, so a page that has opened nothing can still ask, and
+a cached older <code class="docutils literal notranslate"><span class="pre">app.js</span></code> keeps working.</p>
+<p>It is sent per turn rather than fixed at the start of a conversation: the page
+can open another book between two questions, and a conversation that remembered
+the first one would answer the second about the wrong book.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;reply&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;move&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">}}</span>
 </pre></div>
 </div>

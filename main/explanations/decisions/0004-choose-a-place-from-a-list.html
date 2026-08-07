@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.6.dev44+g9dcaed6b8 documentation</title>
+    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.6.dev54+g67143aab9 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=8f633db1"></script>
+    <script src="../../_static/documentation_options.js?v=d063564e"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -502,12 +502,32 @@
 <p>Accepted. Amended by the redesign pass, which changed how the list is drawn and
 nothing about what it decides. The overlay is titled <strong>Places you might be</strong> and
 carries a line saying how many places there are and what they span; the reveal
-is the whole left of a row and <code class="docutils literal notranslate"><span class="pre">goto</span></code> is a pill on the right, which inverts the
-emphasis described below — the press that can be taken back is now the big one;
-the “you are here” marker is a rule across the list rather than a row in it; and
-the inert cancel says <code class="docutils literal notranslate"><span class="pre">close</span></code>. The list still replaces the conversation rather
-than the seek, the guard is still decided once on the server, and the way out
-still touches nothing.</p>
+is the whole row and <code class="docutils literal notranslate"><span class="pre">goto</span></code> is a pill on its last line, ranged right, which
+inverts the emphasis described below — the press that can be taken back is now
+the big one; the “you are here” marker is a rule across the list rather than a
+row in it; and the inert cancel is a <code class="docutils literal notranslate"><span class="pre">‹</span> <span class="pre">controls</span></code> pill in the top left — the
+same corner, the same word and the same gesture as the way out of the books
+panel and as the player’s own navigation pill, replacing a slab across the
+bottom that said <code class="docutils literal notranslate"><span class="pre">close</span></code>. The list still replaces the
+conversation rather than the seek, the guard is still decided once on the
+server, and the way out still touches nothing.</p>
+<p>Amended again by the handoff’s second revision. Nothing on a row sits beside
+anything else: the time, the chapter and the words are each a full-width line,
+and <code class="docutils literal notranslate"><span class="pre">goto</span></code> is under them rather than next to them. At 360dp the old row could
+not hold three things across — the chapter’s name was truncated on the row it
+names, and the passage was clipped mid-sentence in the narrow column beside the
+pill. A half-shown passage is worse than none on a screen whose promise is that
+the words are the book’s own, because it can be recognised wrongly. Two things
+were spent for it and are recorded here rather than discovered later: four rows
+and the mark no longer fit 360x780, so the list scrolls from the moment it
+opens; and a low reach for the words now lands on that row’s own <code class="docutils literal notranslate"><span class="pre">goto</span></code>, where
+before the reading was beside the pill and nothing was under it. The miss that
+matters — onto the <em>next</em> row’s <code class="docutils literal notranslate"><span class="pre">goto</span></code>, which moves the book somewhere nobody
+asked for — is still held off by the row’s padding.</p>
+<p>What was <strong>not</strong> taken from that revision is the per-row <code class="docutils literal notranslate"><span class="pre">strong</span> <span class="pre">match</span></code> /
+<code class="docutils literal notranslate"><span class="pre">possible</span> <span class="pre">match</span></code> / <code class="docutils literal notranslate"><span class="pre">faint</span> <span class="pre">match</span></code> line. It needs a distance threshold, which
+“A confidence threshold to decide when to offer” below rejects for reasons that
+have not changed, and <code class="docutils literal notranslate"><span class="pre">Candidate</span></code> carries no score. It is on issue #20.</p>
 </section>
 <section id="context">
 <h2>Context<a class="headerlink" href="#context" title="Link to this heading">#</a></h2>

@@ -5,12 +5,34 @@
 Accepted. Amended by the redesign pass, which changed how the list is drawn and
 nothing about what it decides. The overlay is titled **Places you might be** and
 carries a line saying how many places there are and what they span; the reveal
-is the whole left of a row and `goto` is a pill on the right, which inverts the
-emphasis described below — the press that can be taken back is now the big one;
-the "you are here" marker is a rule across the list rather than a row in it; and
-the inert cancel says `close`. The list still replaces the conversation rather
-than the seek, the guard is still decided once on the server, and the way out
-still touches nothing.
+is the whole row and `goto` is a pill on its last line, ranged right, which
+inverts the emphasis described below — the press that can be taken back is now
+the big one; the "you are here" marker is a rule across the list rather than a
+row in it; and the inert cancel is a `‹ controls` pill in the top left — the
+same corner, the same word and the same gesture as the way out of the books
+panel and as the player's own navigation pill, replacing a slab across the
+bottom that said `close`. The list still replaces the
+conversation rather than the seek, the guard is still decided once on the
+server, and the way out still touches nothing.
+
+Amended again by the handoff's second revision. Nothing on a row sits beside
+anything else: the time, the chapter and the words are each a full-width line,
+and `goto` is under them rather than next to them. At 360dp the old row could
+not hold three things across — the chapter's name was truncated on the row it
+names, and the passage was clipped mid-sentence in the narrow column beside the
+pill. A half-shown passage is worse than none on a screen whose promise is that
+the words are the book's own, because it can be recognised wrongly. Two things
+were spent for it and are recorded here rather than discovered later: four rows
+and the mark no longer fit 360x780, so the list scrolls from the moment it
+opens; and a low reach for the words now lands on that row's own `goto`, where
+before the reading was beside the pill and nothing was under it. The miss that
+matters — onto the *next* row's `goto`, which moves the book somewhere nobody
+asked for — is still held off by the row's padding.
+
+What was **not** taken from that revision is the per-row `strong match` /
+`possible match` / `faint match` line. It needs a distance threshold, which
+"A confidence threshold to decide when to offer" below rejects for reasons that
+have not changed, and `Candidate` carries no score. It is on issue #20.
 
 ## Context
 

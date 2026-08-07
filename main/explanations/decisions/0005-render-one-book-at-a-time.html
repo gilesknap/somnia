@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>5. Render one book at a time, in its own unit, and let the page watch &#8212; somnia 0.6.dev44+g9dcaed6b8 documentation</title>
+    <title>5. Render one book at a time, in its own unit, and let the page watch &#8212; somnia 0.6.dev54+g67143aab9 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=8f633db1"></script>
+    <script src="../../_static/documentation_options.js?v=d063564e"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -610,10 +610,12 @@ the page is visible. It searches the catalog, submits, shows what is rendering
 and what is waiting, and stops one. It never switches what is playing, so
 <a class="reference internal" href="0003-play-the-book-in-the-page.html"><span class="std std-doc">ADR 3</span></a>’s “the page opens the book they were
 last listening to; changing books is done by asking” stays literally true: a
-catalog search for <em>adding</em> is not a library browser. The way out is <code class="docutils literal notranslate"><span class="pre">close</span></code>
-and is inert in the full sense <a class="reference internal" href="0004-choose-a-place-from-a-list.html"><span class="std std-doc">ADR 4</span></a> gave
-that word; the destructive control is <code class="docutils literal notranslate"><span class="pre">stop</span> <span class="pre">reading</span> <span class="pre">this</span></code>, two presses, quiet
-and dashed and nowhere near the transport.</p>
+catalog search for <em>adding</em> is not a library browser. The way out is a
+<code class="docutils literal notranslate"><span class="pre">‹</span> <span class="pre">controls</span></code> pill in the top left — the same corner and word as the way out of
+<code class="docutils literal notranslate"><span class="pre">#candidates</span></code>, and the same shape as the <code class="docutils literal notranslate"><span class="pre">books</span></code> pill that opened this — and it
+is inert in the full sense <a class="reference internal" href="0004-choose-a-place-from-a-list.html"><span class="std std-doc">ADR 4</span></a> gave that
+word; the destructive control is <code class="docutils literal notranslate"><span class="pre">stop</span> <span class="pre">reading</span> <span class="pre">this</span></code>, two presses, quiet and
+dashed and nowhere near the transport.</p>
 <p><strong>A child that exits non-zero is a failure, not an interruption.</strong> It records
 its own ending for everything it survives, so a row still saying <code class="docutils literal notranslate"><span class="pre">rendering</span></code>
 after the process has gone means it was killed outright — and the supervisor,
