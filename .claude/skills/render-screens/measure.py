@@ -100,7 +100,10 @@ def gap(a, b):
 
 if __name__ == "__main__":
     src = sys.argv[1]
-    d = measure(src, int(sys.argv[2]) if len(sys.argv) > 2 else 780)
+    # 867, not 780 — the same number the docstring is emphatic about. A default
+    # of 780 hands the caller who omits the argument a viewport of about 693 and
+    # six gaps measured against a phone nobody has.
+    d = measure(src, int(sys.argv[2]) if len(sys.argv) > 2 else 867)
     print(f"root={d['root']}px  viewport={d['viewport']}  scrollH={d['scrollH']}")
     print(f"SCROLLS: {d['scrollH'] > d['viewport'] + 1}")
     rows = [
