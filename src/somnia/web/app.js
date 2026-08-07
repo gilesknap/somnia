@@ -2730,11 +2730,11 @@ function drawShelf() {
 // finishes, which is hours, so the two moments worth asking are opening the
 // panel and coming back to a phone that has been in a pocket.
 async function askForTheShelf() {
+  let listing = null;
   try {
     const response = await fetch("api/books");
     if (!response.ok) throw new Error("no book list");
-    const listing = await response.json();
-    shelved = listing.books || [];
+    listing = await response.json();
   } catch (error) {
     // Whatever was last drawn stays on the screen, exactly as the queue rows
     // do: emptying the list would be the panel's one available lie, because an
@@ -2750,6 +2750,14 @@ async function askForTheShelf() {
     // written to it, which is worse than not writing at all.
     console.error(error);
   }
+  // The panel may have gone while this was in flight — one press to open it and
+  // one to leave is an ordinary thing to do in the time a tailnet takes. Close
+  // forgets the shelf on purpose, so an answer that arrived afterwards and
+  // adopted itself anyway would put a shelf from a night that is over back in
+  // the DOM, to be found at the next opening. Nothing here is drawn while
+  // nobody is looking, which is the same rule drawReadingNow keeps.
+  if (queuePanel.hidden) return;
+  if (listing) shelved = listing.books || [];
   drawShelf();
 }
 
@@ -2802,8 +2810,13 @@ async function openShelved(entry, button) {
   // on the book it was on. The server refuses those before this gets that far,
   // so this is the belt to that braces — and it is here rather than nowhere
   // because "opened" over a book that did not open is the one thing a toast
-  // must never say.
-  if (gid !== entry.gid) return;
+  // must never say. The press comes back with the panel it is still standing
+  // on, exactly as it does when the request itself failed: a row that did
+  // nothing and cannot be pressed again is worse than either.
+  if (gid !== entry.gid) {
+    button.disabled = false;
+    return;
+  }
   // This press is itself the touch a refused play was waiting for, so the panel
   // gives the borrowed listener up rather than handing it back. Then the panel
   // goes, because the question it was opened with has just been answered.

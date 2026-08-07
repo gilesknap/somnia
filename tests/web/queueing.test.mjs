@@ -850,6 +850,23 @@ test("close forgets the shelf as well as the queue", async (t) => {
   assert.equal(page.el("shelf-label").hidden, true);
 });
 
+test("a shelf that lands after close does not draw itself over a shut panel", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  // Opened and left again inside the time a tailnet takes to answer, which is
+  // an ordinary thing to do and the one way a request outlives the panel that
+  // made it: nothing here is cancelled when the panel goes.
+  page.click("books");
+  page.click("queue-close");
+  await page.settle();
+  await page.settle();
+  // Close forgets the shelf on purpose. An answer that adopted itself anyway
+  // would leave a shelf from a night that is over in the DOM, to be found by
+  // whoever opens the panel next.
+  assert.deepEqual(shelf(page), []);
+  assert.equal(page.el("shelf-label").hidden, true);
+});
+
 test("a somnia with one book has no shelf and no label over it", async (t) => {
   const page = await opened(t, { library: [HALF_HEARD].map(listed) });
   page.queueView([]);
