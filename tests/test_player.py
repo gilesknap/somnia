@@ -101,14 +101,21 @@ def test_the_manifest_says_how_many_chapters_the_book_has(
 
     Running out of audio three chapters into thirty-nine is not the end of the
     book, it is the end of what has been read of it so far, and only a count of
-    what the book *has* can tell those apart. Zero is what every book rendered
-    before that column existed says, and zero means nobody wrote it down — so a
-    page that finds one has to say nothing rather than say "chapter 3 of 0".
+    what the book *has* can tell those apart.
+
+    Zero still means nobody wrote it down, and a page that finds one says
+    nothing rather than "chapter 3 of 0" — but a *finished* book no longer sits
+    at zero, because `connect` counts its chapters and writes the total the
+    first time it is opened. This book is exactly that case: built before the
+    column was filled in, done, three chapters on disk.
     """
     fresh = player.manifest(GID)
     assert fresh is not None
-    assert fresh.chapters_total == 0
+    assert fresh.chapters_total == 3
 
+    # And the total is what the book HAS, which the chapters on disk only happen
+    # to agree with here. A book whose rows are a fraction of it still says how
+    # many it will have.
     with tone_book.conn:
         tone_book.conn.execute(
             "UPDATE books SET chapters_total = 39 WHERE gid = ?", (GID,)

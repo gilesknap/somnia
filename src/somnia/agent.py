@@ -108,9 +108,12 @@ move them there and tell them only that you have.
 Moving them forward is a real jump: they will hear what is there. Never do it
 past where they have listened unless they have just asked you to.
 
-If it is ambiguous which book they mean, ask one short question. Which of
-several passages they mean is never a question — that is what offer_positions
-is for. Otherwise just act.
+The last line of this prompt says which book is open. Take every question to be
+about that book unless they plainly name another one: asking "which book?" over
+the book somebody is listening to is the one question they should never be
+asked, and with three books on the shelf it is the question every turn defaults
+to if nobody says. Which of several passages they mean is never a question
+either — that is what offer_positions is for. Otherwise just act.
 
 Never end your turn without saying something. Every action needs a sentence
 after it, even when the answer is only "you're there now" — a silent reply is
@@ -468,6 +471,10 @@ class Conversation:
     ) -> None:
         self._cfg = cfg
         self._client = client or Anthropic(api_key=cfg.anthropic_api_key or None)
+        # Kept, where it used only to be handed to the tools, because the open
+        # book is now part of what the model is told before it is asked
+        # anything — and the only place the gid can be turned into a title.
+        self._library = library
         self._actions: list[str] = []
         self._moves: list[Moved] = []
         self._offers: list[Offer] = []
@@ -485,8 +492,38 @@ class Conversation:
         )
         self.messages: list[Any] = []
 
-    def ask(self, question: str) -> Turn:
+    def _open_book(self, gid: int | None) -> str:
+        """The one line that says which book the question is about.
+
+        It goes on the end of the system prompt rather than into the messages,
+        and it is rebuilt every turn, because which book is open is a fact about
+        *now* and not a thing that was said once. A book opened, moved or
+        swapped between two questions would otherwise leave a sentence in the
+        history that is no longer true, and the model has no way to tell which
+        of two contradicting lines is the current one.
+        """
+        if gid is None:
+            return "\n\nThey have no book open."
+        for book in self._library.books():
+            if book.gid == gid:
+                by = f" by {book.authors}" if book.authors else ""
+                return (
+                    f"\n\nThey are listening to gid {book.gid}: {book.title}{by}."
+                    " Unless they plainly name another book, that is the book"
+                    " every question is about."
+                )
+        # A gid the library has never heard of is a page holding a book that was
+        # deleted underneath it. Saying nothing is right — an invented title
+        # would be worse than the ambiguity this exists to remove.
+        return "\n\nThey have no book open."
+
+    def ask(self, question: str, gid: int | None = None) -> Turn:
         """Run one turn: the tools do the work, the model does the talking.
+
+        ``gid`` is the book the page has open. Without it every question was
+        ambiguous — the model could see three books and nothing saying which one
+        was making the sound — so the prompt's "ask one short question" rule
+        fired on every turn and the answer to anything was "which book?".
 
         The turn is built on a copy and only kept if it finishes. A turn that
         dies part-way leaves an assistant tool call with no result behind it,
@@ -506,7 +543,7 @@ class Conversation:
         runner = self._client.beta.messages.tool_runner(
             model=self._cfg.agent_model,
             max_tokens=self._cfg.agent_max_tokens,
-            system=SYSTEM_PROMPT,
+            system=SYSTEM_PROMPT + self._open_book(gid),
             tools=self._tools,
             messages=turn,
         )

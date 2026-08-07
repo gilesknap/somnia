@@ -442,6 +442,71 @@ def test_the_sentence_beside_a_list_says_nothing_about_what_is_on_it(
     assert OFFER_SENTENCE in SYSTEM_PROMPT
 
 
+def client_recording_system(systems: list[str]) -> Anthropic:
+    """A client that keeps the system prompt it was handed, per turn."""
+
+    def tool_runner(**kwargs: Any) -> FakeRunner:
+        systems.append(kwargs["system"])
+        return FakeRunner([SimpleNamespace(content=[text("Right you are.")])])
+
+    fake = SimpleNamespace(
+        beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner))
+    )
+    return cast(Anthropic, fake)
+
+
+def test_the_open_book_is_named_to_the_model_on_every_turn(
+    library_with_book: Library,
+) -> None:
+    """The bug this exists for: three books on the shelf and nothing saying
+    which one is making the sound, so the prompt's "ask one short question"
+    rule fired every turn and the answer to anything was "which book?".
+
+    On the end of the system prompt and not in the messages, because it is a
+    fact about now. A page that opens another book between two questions must
+    not leave a sentence in the history that was true of the first one.
+    """
+    systems: list[str] = []
+    conversation = Conversation(
+        Config(), library_with_book, client_recording_system(systems)
+    )
+
+    conversation.ask("where was I?", 271)
+    assert systems[-1].startswith(SYSTEM_PROMPT)
+    assert "gid 271: Black Beauty" in systems[-1]
+
+    # Said again on the next turn rather than remembered from the last one.
+    conversation.ask("and now?", 271)
+    assert "gid 271: Black Beauty" in systems[-1]
+    # ...and nowhere in the conversation itself, which is what stops a stale
+    # copy of it outliving the book it was about.
+    assert all("gid 271" not in str(m.get("content")) for m in conversation.messages)
+
+
+def test_a_page_with_no_book_open_says_so_rather_than_leaving_it_out(
+    library_with_book: Library,
+) -> None:
+    """Two different silences. A page that has opened nothing has a question
+    worth answering — "what have I got?" — and the model has to be able to tell
+    that from a turn where nobody mentioned the book.
+
+    A gid the library has never heard of takes the same path: it is a page
+    holding a book that was deleted underneath it, and an invented title would
+    be worse than the ambiguity this whole line exists to remove.
+    """
+    systems: list[str] = []
+    conversation = Conversation(
+        Config(), library_with_book, client_recording_system(systems)
+    )
+
+    conversation.ask("what have I got?")
+    assert systems[-1] == SYSTEM_PROMPT + "\n\nThey have no book open."
+
+    conversation.ask("what about this one?", 999)
+    assert systems[-1] == SYSTEM_PROMPT + "\n\nThey have no book open."
+    assert "999" not in systems[-1]
+
+
 def test_what_the_model_is_told_after_a_list_holds_no_time_and_no_words(
     searchable: Searchable,
 ) -> None:

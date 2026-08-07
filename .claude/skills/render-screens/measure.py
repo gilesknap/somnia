@@ -3,8 +3,9 @@
 A render tells you a layout is wrong. It does not tell you by how much, and on
 2026-08-07 it did not tell you at all: the page looked right and four of its six
 gaps were out, with all the slack pooled above the conversation rather than
-below it. The design brief gives exact numbers — 18/18/14 between the groups,
-one flexible spacer taking the rest — so the honest check is arithmetic.
+below it. The design brief gives three weighted spacers with floors and ceilings —
+2:1:1, 12/14/14 floors, 180/70/70 ceilings — so the honest check is
+arithmetic.
 
 Run it against a snapshot, not the live page:
 
@@ -36,7 +37,13 @@ window.addEventListener('load', () => {
     const r = el.getBoundingClientRect();
     return {top: r.top, bottom: r.bottom, height: r.height};
   };
-  const said = [...document.querySelectorAll('#transcript .said')];
+  // Only the turns that are actually on the screen. On the player the sheet
+  // draws the newest turn and hides the rest, so querying them all put a
+  // display:none element — a rect of all zeroes — at the top of the
+  // conversation, and the first gap came out as -48 against a layout that was
+  // right. A hidden turn is not where the reading starts.
+  const said = [...document.querySelectorAll('#transcript .said')]
+    .filter((el) => el.getClientRects().length > 0);
   const last = said.length ? said[said.length - 1].getBoundingClientRect() : null;
   const out = {
     root: parseFloat(getComputedStyle(document.documentElement).fontSize),
@@ -106,16 +113,46 @@ if __name__ == "__main__":
     d = measure(src, int(sys.argv[2]) if len(sys.argv) > 2 else 867)
     print(f"root={d['root']}px  viewport={d['viewport']}  scrollH={d['scrollH']}")
     print(f"SCROLLS: {d['scrollH'] > d['viewport'] + 1}")
-    rows = [
-        ("header -> conversation (top of it)", gap(d["header"], d["firstSaid"]), 12),
+    # The player carries no conversation at all now — the whole thread is the
+    # keyboard-up screen — so on it there is one gap where there used to be two,
+    # and it runs from the header straight down to the book. Measured from
+    # whatever is actually on the screen rather than from a hidden element,
+    # because a `display: none` turn has a rect of all zeroes and reported -48
+    # against a layout that was right.
+    if d["firstSaid"] is None:
+        rows = [
+            (
+                "header -> title  (the flexible one: should be LARGEST)",
+                gap(d["header"], d["bookTitle"]),
+                "max",
+            ),
+        ]
+    else:
+        rows = [
+            (
+                "header -> conversation (top of it)",
+                gap(d["header"], d["firstSaid"]),
+                12,
+            ),
+            (
+                "conversation -> title  (the flexible one: should be LARGEST)",
+                gap(d["lastSaid"], d["bookTitle"]),
+                "max",
+            ),
+        ]
+    rows += [
+        # Spacers B and C are a range, not a number. The design gives them a
+        # floor of 14 and a ceiling of 70 and shares the slack 2:1:1 with the
+        # spacer above the title, so what they measure depends on how much room
+        # the zoom level left over. A fixed 14 here would report a correct
+        # screen as broken on every phone but the tightest.
+        ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), (14, 70)),
         (
-            "placement line -> title  (the flexible one: should be LARGEST)",
-            gap(d["lastSaid"], d["bookTitle"]),
-            "max",
+            "chapter group -> transport",
+            gap(d["chapterStrip"], d["transport"]),
+            (14, 70),
         ),
-        ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), 18),
-        ("chapter group -> transport", gap(d["chapterStrip"], d["transport"]), 18),
-        ("transport -> dock (the pill itself)", gap(d["transport"], d["pill"]), 14),
+        ("transport -> dock (the pill itself)", gap(d["transport"], d["pill"]), 12),
         (
             "dock -> bottom of screen",
             round(d["viewport"] - d["pill"]["bottom"], 1) if d.get("pill") else None,
@@ -124,7 +161,14 @@ if __name__ == "__main__":
     ]
     for name, got, want in rows:
         flag = ""
-        if isinstance(want, int) and got is not None:
+        if isinstance(want, tuple) and got is not None:
+            lo, hi = want
+            flag = (
+                f"  OK (floor {lo}, ceiling {hi})"
+                if lo - 1 <= got <= hi + 1
+                else f"  <-- want {lo}..{hi}"
+            )
+        elif isinstance(want, int) and got is not None:
             flag = (
                 "  OK"
                 if abs(got - want) <= 3

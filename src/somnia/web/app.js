@@ -206,7 +206,15 @@ async function ask(text) {
     const response = await fetch("api/ask", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token, question: text }),
+      // The open book travels with the question. Without it the agent could see
+      // the three books on the shelf and nothing saying which one was making
+      // the sound, so the only honest answer to "where was I" was "which book?"
+      // — asked over the book they were listening to, every single turn.
+      //
+      // Read here rather than captured with `asked`, because it is a fact about
+      // the moment the question is sent. `gid` is null until a book is open,
+      // and the server treats that as "no book" rather than refusing the turn.
+      body: JSON.stringify({ token, question: text, gid }),
     });
     const body = await response.json();
     // They started over while this was in flight: the answer belongs to a
@@ -1926,19 +1934,20 @@ function candidateRow(place) {
     show.id = `candidate-show-${place.chunk_id}`;
   }
 
-  const line = document.createElement("p");
-  line.className = "candidate-line";
-
-  const when = document.createElement("span");
+  // Nothing on this row sits beside anything else. A time, a chapter and a
+  // pill shared one line until this pass, and at 360dp that line could not hold
+  // them: the chapter was cut to "Ch 2 · 02 The Hu…" on the row whose name was
+  // the point, and the words underneath were squeezed into the column left over
+  // beside the pill and clipped mid-sentence. Each is its own full-width line
+  // now, so the only thing deciding where a chapter's name ends is the chapter's
+  // name.
+  const when = document.createElement("p");
   when.className = "candidate-when";
   when.textContent = timestamp(place.start_ms);
 
-  const where = document.createElement("span");
+  const where = document.createElement("p");
   where.className = "candidate-where";
   where.textContent = chapterLabel(place, { title: !place.ahead });
-
-  line.append(when);
-  line.append(where);
 
   const what = document.createElement("p");
   what.className = "candidate-what";
@@ -1951,7 +1960,8 @@ function candidateRow(place) {
   if (place.ahead) what.hidden = true;
   else what.textContent = place.text;
 
-  show.append(line);
+  show.append(when);
+  show.append(where);
   show.append(what);
 
   if (place.ahead) {
@@ -1991,12 +2001,22 @@ function candidateRow(place) {
   }
   li.append(show);
 
-  // The other target, and the smaller one on purpose: it is the press that
-  // cannot be taken back. 60dp of pill, and the nearest other `goto` is 52px
-  // below it — the row's padding twice over and the hairline between, none of
-  // which listens for a press. The reveal sits beside the pill and never under
-  // it, so nothing catches a low miss except that distance; style.css keeps it,
-  // and `.candidate`'s padding is not a spacing choice to be tuned.
+  // The other target, and the last line of the row: the press that cannot be
+  // taken back, on its own line, ranged right.
+  //
+  // It used to sit beside the reading rather than under it, and the argument
+  // for that was that nothing else was then in the column a low miss would fall
+  // into. That is no longer true and was not kept: the reading is the full
+  // width of the row now, so its bottom edge is this pill's top edge, and a
+  // reach for the words that lands low lands here. It is a deliberate trade for
+  // the row being legible at all — the alternative was the chapter's own name
+  // truncated and the book's own words clipped, on the screen whose whole
+  // promise is that the words are the book's.
+  //
+  // What is still true is the fall from one row's pill to the next: 42px of
+  // list that listens for nothing, which is `.candidate`'s padding either side
+  // of the hairline. That is the miss that moves the book to the wrong place;
+  // this one only moves it to the place they were already reading about.
   const go = document.createElement("button");
   go.type = "button";
   go.className = "candidate-go";

@@ -126,10 +126,12 @@ the page is visible. It searches the catalog, submits, shows what is rendering
 and what is waiting, and stops one. It never switches what is playing, so
 [ADR 3](0003-play-the-book-in-the-page.md)'s "the page opens the book they were
 last listening to; changing books is done by asking" stays literally true: a
-catalog search for *adding* is not a library browser. The way out is `close`
-and is inert in the full sense [ADR 4](0004-choose-a-place-from-a-list.md) gave
-that word; the destructive control is `stop reading this`, two presses, quiet
-and dashed and nowhere near the transport.
+catalog search for *adding* is not a library browser. The way out is a
+`‹ controls` pill in the top left — the same corner and word as the way out of
+`#candidates`, and the same shape as the `books` pill that opened this — and it
+is inert in the full sense [ADR 4](0004-choose-a-place-from-a-list.md) gave that
+word; the destructive control is `stop reading this`, two presses, quiet and
+dashed and nowhere near the transport.
 
 **A child that exits non-zero is a failure, not an interruption.** It records
 its own ending for everything it survives, so a row still saying `rendering`

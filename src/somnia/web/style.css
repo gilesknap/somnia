@@ -259,7 +259,11 @@ h1 {
   color: var(--mid);
 }
 
-#books .pill {
+/* Not scoped to #books any more. It is the shape of "this goes somewhere" on
+   this page, and there are three of them now: `books` on the player, and
+   `‹ controls` on each of the two overlays. Written once so the three cannot
+   drift apart, which is the only reason they read as one control. */
+.pill {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -274,7 +278,7 @@ h1 {
 /* Small, and pointing the way the panel arrives from. currentColor, so it warms
    with the word rather than being a second thing that has to be kept in step
    with it. */
-#books .caret {
+.caret {
   flex: none;
   width: 0.3rem;
   height: 0.5rem;
@@ -320,6 +324,12 @@ h1 {
 }
 
 #transcript {
+  /* Off the player entirely, and not merely empty. Its contents were already
+     hidden, but as a `flex: 1` child of the body it went on competing with
+     #player-bar for the leftover height — which is the pool the three spacers
+     divide, so a share taken here is a share the rhythm never sees. The
+     keyboard-up query below puts it back, where it is the whole screen. */
+  display: none;
   flex: 1;
   /* Without this a flex child refuses to shrink below its content, so the
      column grows past the screen: the composer slides off the bottom and the
@@ -328,7 +338,12 @@ h1 {
   overflow-y: auto;
   padding: 0.6rem 1rem 0;
   overscroll-behavior: contain;
-  display: flex;
+  /* No `display` here. It is set once at the top of this rule — `none`, because
+     the player has no conversation on it — and the keyboard-up query turns it
+     back into the flex column. A second `display` further down this block is
+     how the first one was silently undone once already: same rule, later
+     declaration, and the element went on taking a share of the height the three
+     spacers are supposed to divide. */
   flex-direction: column;
 }
 
@@ -352,11 +367,31 @@ h1 {
    which is the case flex-end quietly cuts the top off instead. */
 
 /* On the player this is the design's last-placement line, and nothing louder.
-   The brief gives the slot above the book's title one job — italic 19dp at .42,
+   The brief gives the slot above the book's title one job — italic 22dp at .42,
    "— and then where the horse bolts" — while 27dp at .88 is the *chat* screen's
    agent turn. This page has no routes, so both screens are this same element at
    two viewport heights, and drawing the chat's type on the player put the
    loudest text on the page above the book somebody is actually listening to.
+
+   None of it, in the end. The brief is explicit that the player shows no
+   replies, and it gives that slot a *placement line* — where somnia last put
+   you — rather than a turn of a conversation. somnia has no such readout, and
+   the nearest thing it has is the last turn, which is most often the question
+   that was typed. Drawing that is chat on the control screen by another name,
+   so the whole conversation is off this screen and the slot is empty. The
+   player is the book and the controls, and nothing that was said.
+
+   The gap that is left is the screen's one flexible spacer, which is why
+   #transcript keeps its box and only its contents go: `flex: 1` on an element
+   with nothing in it is still the thing all the slack pools in. Take the
+   element away instead and the slack has nowhere to be.
+
+   It is display and nothing else. The turns are all still in the document, in
+   order, and app.js neither knows nor cares — which is what makes the keyboard
+   coming up the whole of the way back to them, rather than a route with a
+   history to keep. What is not on this screen and never was is #status:
+   "listening…" and "tap anywhere to carry on" are somnia talking about itself,
+   not a conversation, and they stay. */
 
    Italic is not decoration here. It means what it means everywhere else in this
    sheet: words that are not somnia's own, and words from the book you may not
@@ -367,10 +402,28 @@ h1 {
 .said {
   margin: 0 0 0.75rem;
   max-width: 34rem;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-style: italic;
   line-height: 1.4;
   color: var(--placement);
+}
+
+#transcript .said {
+  display: none;
+}
+
+/* 22dp, the design's size for the placement line, and set through #transcript
+   so it outranks the chat size the keyboard-up query gives the same element.
+   Written here rather than on `.said` because the two rules have to be able to
+   beat each other in one direction only, and this is the one that must lose
+   when there is a keyboard up. */
+#transcript .said {
+  font-size: 1.1rem;
+  /* Explicit, because the turns above this one are `display: none` and the
+     browser's own `p { margin: 1em 0 }` was landing on whichever turn was left
+     — a gap that grew with the type and put the placement line 34px under the
+     header instead of the design's 12. */
+  margin-top: 0;
 }
 
 /* Their own words, kept a shade back from the answer without being dropped so
@@ -424,8 +477,80 @@ h1 {
   opacity: 0.75;
 }
 
+/* The one flex column the whole rhythm lives in. It takes every pixel the body
+   has left, and the three spacers inside it decide where that goes — which only
+   works because they are siblings here. Three spacers in three nested
+   containers each share out their own container's leftover, and nothing can
+   then hand a capped spacer's remainder on to the next one, which is the half
+   of the design's rule that is easy to miss.
+
+   No padding at the top: the gap above the book is Spacer A's job and nothing
+   else's, and a padding here would be slack that never reaches the pool. */
 #player-bar {
-  padding: 0.3rem 1rem 0;
+  /* Not a box either, for the same reason #now-playing is not: the three
+     spacers, the transport and the dock all have to be items of ONE flex
+     column so that the height they share is one pool. As a box this element
+     absorbed the body's whole surplus and then had nowhere to put what its
+     capped spacers could not use — which came out as 191px of nothing between
+     the transport and the dock on a roomy screen. Flattened, the column is the
+     body, and what the spacers cannot use ends up under the dock, which is
+     where the design says it goes.
+
+     The gutters move to the children, which is the pattern the page already
+     uses: the header, the status line and the composer each carry their own. */
+  display: contents;
+}
+
+/* And `hidden` has to be said again. `display: contents` beats the browser's
+   own `[hidden] { display: none }`, so without this the player would still be
+   laid out on a page that has no book open. */
+#player-bar[hidden] {
+  display: none;
+}
+
+/* The 20dp screen gutters, on the elements that used to inherit them from
+   #player-bar's padding. */
+#book-title,
+#whereabouts,
+#chapter-title,
+#chapter-clock,
+.chapter-strip,
+.transport {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Empty by definition — the design says nothing renders inside them — and the
+   floors are the tight rhythm the conformance table asks for. At the tightest
+   zoom every one of them sits on its floor and the screen is exactly 14/14/12;
+   past that they share what is spare, 2 : 1 : 1, most of it above the book.
+
+   The ceilings are the part that stops this being the old layout with extra
+   steps. Without them Spacer A simply grows until the player is welded to the
+   bottom of a roomy screen again, which is the failure the design named. When
+   A caps, flexbox hands what is left to B and C — that is what being siblings
+   buys — and when those cap too the remainder sits under the dock, which is the
+   design's own stated ending for it. */
+.rhythm {
+  flex: 1 1 0;
+}
+
+/* px and not rem, which is the one place on this page that is deliberate. Every
+   size here is dp, and dp is a CSS pixel — the rem elsewhere is so type rides
+   the OS font scale, which is what the design asks for and what a void does not
+   want. A ceiling in rem grows with the font setting, so the gap the ceiling
+   exists to bound gets bigger on exactly the screens that already had too much
+   of it. At the root this was drawn at the two are the same number anyway. */
+.rhythm-a {
+  flex-grow: 2;
+  min-height: 12px;
+  max-height: 180px;
+}
+
+.rhythm-b,
+.rhythm-c {
+  min-height: 14px;
+  max-height: 70px;
 }
 
 /* The band at the bottom is dead space between the chapter circles and the
@@ -433,48 +558,76 @@ h1 {
    press, and a miss that lands on +30 costs thirty seconds of a book somebody
    is falling asleep to.
 
-   It is 18dp now rather than 34. That is the design's number, asked for twice
-   and in a table, and it is the one change in this pass with an argument
-   against it — 34 was chosen by hand against a thumb, and half of it is still
-   half of it. Two things make it survivable: what sits directly above the
-   transport is a 64dp circle whose own generous target absorbs a low reach, and
-   the design frees enough height elsewhere that nothing had to come out of a
-   tap target to pay for this. Worth watching on a real night. */
+   14dp now, down from 34 by way of 18. That is the design's number, given
+   twice and in a table, and it is the change in this pass with the clearest
+   argument against it — 34 was chosen by hand against a thumb. What makes it
+   survivable is unchanged and is not the number: directly above the transport
+   is a 64dp circle whose own generous target absorbs a low reach, so a thumb
+   that comes in high off `+30` lands on a control that costs one chapter to
+   undo rather than on nothing. Worth watching on a real night. */
 #now-playing {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  /* Not a box. Its children are laid out by #player-bar, beside the spacers,
+     for the reason the markup gives. It still exists, and still hands its
+     centring down: `display: contents` takes the box away and leaves
+     inheritance alone. */
+  display: contents;
   /* Centred, as the design draws it. Both readout blocks — the book with its
      position and timer, and the chapter with its circles — sit on the middle of
-     the screen, and the only thing on the player deliberately left ranged left
-     is the placement line above them, which is prose and reads as prose. */
+     the screen. Inherited rather than applied to a box, which `display:
+     contents` still allows, and it reaches the spacers too, where it is
+     harmless because nothing renders in them. */
   text-align: center;
-  margin: 0 0 0.75rem;
 }
 
-/* The book's name, and the largest thing on the player. It is the top of a
-   stack of three one-line readouts — book, chapter, how far into the chapter —
-   and every one of them is cut with an ellipsis rather than allowed to wrap.
-   That is not tidiness: the stack has to be the same height with every book and
-   every chapter in it, because a title that ran to two lines would push the
-   chapter circles, the clock and the transport down the screen, and the bottom
-   of that stack is the button a hand arrives at without looking first.
+/* The book's name, and the largest thing on the player. This is the one line
+   `index.html` calls the only thing true all night — the line that answers "am
+   I in the right book?" — so at 34dp it wraps to a second line rather than
+   losing its tail to an ellipsis.
 
-   Each has the whole width to itself, which is what makes the ellipsis an edge
-   case rather than most nights. The chapter's name and its clock shared a line
-   for one afternoon: the clock never varies in width and the name always does,
-   so a book with long chapter names spent every night truncated to make room
-   for eleven characters that had somewhere better to be. */
+   It was cut to one line until this pass, and the argument for that was that a
+   second line would push the chapter circles, the clock and the transport down
+   the screen, and the bottom of that stack is the button a hand arrives at
+   without looking first. That argument does not survive the rhythm this screen
+   now has. The slack on the player is pooled in one gap — `#transcript` is
+   `flex: 1; min-height: 0` — so what a second line takes is a line of the
+   conversation, which scrolls, and not a pixel of anything below it. The
+   transport does not move. That is checked in a render at the longest title in
+   the library, not assumed, because it is the whole permission for the wrap.
+
+   The chapter's name below is still cut to one line. It is a different claim:
+   the book is worth two lines of this screen every night and a chapter is not,
+   and "The Further Adventures of the Water Rat" would spend a second line
+   saying what the circles either side of it already let somebody change. */
 #book-title {
   margin: 0;
-  font-size: 1.45rem;
+  /* 34dp, up from 29. The design revised the whole player scale up a size and
+     named this as the worst of the misses, and the reason it gives is the one
+     this sheet already opens with: it is read at arm's length without glasses.
+     What paid for it was the gap above — 36.6px of slack was pooling there,
+     which is the design's own instruction about where the spare room on this
+     screen goes ("spend it on type, not on gaps").
+
+     38 now, not 34: the conformance table calls 34 out by name as the port that
+     came in quietly under spec, and the brief says why the numbers can be this
+     large — the reader is 62, without glasses, in a dark room, and the numbers
+     are minimums. */
+  font-size: 1.9rem;
+  /* Tighter than the page's 1.45, which is leading for paragraphs. Two lines of
+     a title are one name and have to read as one: at 1.45 they come apart into
+     two things to read, which is the failure this whole stack is arranged
+     against. The same number `#candidates-title` uses, for the same reason. */
+  line-height: 1.15;
   /* Closed up by a hair, which at this size is the difference between a title
      and a title that has been set. Nothing else on the page is tracked in. */
   letter-spacing: -0.005em;
   color: var(--ink);
+  /* Two lines and then the ellipsis, so that the one book somebody has given a
+     paragraph for a title cannot take the screen. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* 18dp above, which is the design's gap between one group on this screen and
@@ -483,12 +636,27 @@ h1 {
    and the circles that change it. Everything inside each group is tight — 2 to
    4dp — so the only gaps the eye finds are the ones that mean something. */
 #chapter-title {
-  margin: 0.9rem 0 0;
-  font-size: 1.1rem;
+  /* No margin: Spacer B above it is this gap now, floor and all, and a margin
+     here would be 14dp that the pool never sees. */
+  margin: 0;
+  /* 29dp. It stays a step under the book's own name, which is the hierarchy
+     this stack is for: the book is true all night and the chapter is not. */
+  font-size: 1.45rem;
+  /* Two lines and then the ellipsis, exactly as the book's name above it, and
+     for the reason the design gives: never one truncated line, and never three,
+     which would push the transport off the screen. "The Further Adventures of
+     the Water Rat" was the argument for cutting it to one line — at 29dp it is
+     also the argument against, because one line of it is four words and a
+     stub. The height a second line takes comes out of the flexible gap, which
+     is where all the slack on this screen already lives. */
+  line-height: 1.25;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   color: var(--mid);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The chapter's own row: skip, count, skip. The buttons are laid out at a fixed
@@ -502,8 +670,9 @@ h1 {
   gap: 0.6rem;
   /* Its own space above and below. Under it sits the book's clock, and under
      that the transport: this row must not read as the top of the button
-     cluster, because it is not one. */
-  margin: 0.5rem 0 0.15rem;
+     cluster, because it is not one. The band below is Spacer C's and is not
+     written here any more. */
+  margin: 0.5rem 0 0;
 }
 
 /* Which chapter of how many, between the two buttons that change it. Two lines
@@ -524,12 +693,12 @@ h1 {
 }
 
 #chapter-word {
-  font-size: 0.825rem;
+  font-size: 0.95rem;
   color: var(--dim);
 }
 
 #chapter-count {
-  font-size: 0.95rem;
+  font-size: 1.2rem;
   color: var(--mid);
   font-variant-numeric: tabular-nums;
 }
@@ -589,12 +758,14 @@ h1 {
    chapter buttons — and at 1rem in Newsreader `3:24 of 41:12` did not fit that,
    wrapping onto a second line and pushing the transport down the screen on
    every chapter that ran past ten minutes. The width it was measured against is
-   gone, but the size stays: 0.825rem is what the design asks for, and it is the
-   size that keeps this a footnote to the chapter's name rather than a second
-   thing to read. */
+   gone, and the size went up with the rest of the player: 19dp is what the
+   design asks for now, and it is still a step under the chapter's own name, so
+   this stays a footnote to it rather than a second thing to read. */
 #chapter-clock {
-  margin: 0;
-  font-size: 0.825rem;
+  /* 3dp, the design's own figure for it. It used to fall out of
+     `#now-playing`'s row gap, which went with the box. */
+  margin: 0.15rem 0 0;
+  font-size: 1.05rem;
   color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
@@ -630,7 +801,9 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.9rem;
+  /* 23dp. The position is the one number on this screen somebody opens their
+     eyes to read, and it inherits down to the clock and the sleep timer. */
+  font-size: 1.15rem;
   color: var(--mid);
 }
 
@@ -685,7 +858,7 @@ h1 {
   text-underline-offset: 0.25em;
 }
 
-/* What pressing would open: `4 places found`, at 15dp, in the faintest ink the
+/* What pressing would open: `4 places found`, at 18dp, in the faintest ink the
    palette has — the design's .3, which is --faint's .32 and the same colour as
    everything else on the page that is there if it is wanted.
 
@@ -694,7 +867,7 @@ h1 {
    that is a readout on most nights, and it would have to disappear or start
    lying on the first night nobody asked anything. */
 #places-found {
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   line-height: 1.2;
   color: var(--faint);
 }
@@ -711,7 +884,15 @@ h1 {
   position: relative;
   width: 100%;
   height: 2px;
-  margin-top: 2px;
+  /* The 44dp box the design draws this inside, kept — the space, without the
+     target. The brief puts a 2dp line in a 44dp tap area, and it was the tap
+     area that was refused here, not the room: the line went in at 2dp with
+     2px over it and came out looking like a rule somebody had left in by
+     accident, hard against the clock above and the timer below.
+     0.65rem each side plus #whereabouts' own 0.4rem gap is the 21dp that a
+     44dp box would have put around a 2dp line. Nothing here listens for a
+     press, which is the whole of what was actually being refused. */
+  margin: 0.65rem 0;
   background: var(--hairline);
 }
 
@@ -772,7 +953,9 @@ h1 {
   border-radius: 999px;
   background: none;
   color: var(--mid);
-  font-size: 0.9rem;
+  /* 23dp, the same as the position above it: they are the two readouts in this
+     block and the design sets them together. */
+  font-size: 1.15rem;
   font-variant-numeric: tabular-nums;
   min-height: 2.4rem;
   padding: 0.5rem 1.2rem;
@@ -805,30 +988,44 @@ h1 {
    nothing and pressing again is far better than being thrown thirty seconds
    the wrong way by a near miss.
 
-   1.45fr in the middle and not the design's 1.05fr. The extra width is not
-   decoration and it is not a hierarchy either: it is how the middle of this row
-   is found in the dark by a thumb that has not read anything. Three cells of
-   nearly equal width are three cells that have to be counted. */
+   1.05fr in the middle, which is the design's number and not the 1.45 this row
+   carried. The wider middle was how the centre of the row was found in the dark
+   by a thumb that had not read anything — a real argument, and it loses to a
+   better one: the centre slab is the only warm thing in the row. It has an
+   amber fill and an amber edge where its neighbours are the page's plain
+   surface, so what a thumb is aiming at is a colour and not a width, and the
+   colour survives being glanced at by somebody who has stopped reading. Width
+   was doing the job before the transport was warmed. */
 .transport {
   display: grid;
-  grid-template-columns: 1fr 1.45fr 1fr;
+  grid-template-columns: 1fr 1.05fr 1fr;
   gap: 0.6rem;
 }
 
 .transport button {
-  /* 110px tall at the root this page is read at, and none of them narrower than
-     about the same. The one number on this page that was measured against a
-     thumb rather than chosen to look right — which is why the design's 96dp
-     cells were not taken: 96 would be a number chosen to make a column fit, and
-     the same design says to take space out of spacing before tap targets. */
-  min-height: 5.5rem;
+  /* 84dp, and this row used to be 110px. That number was measured against a
+     thumb and the refusal to take the design's 96 was written down here; the
+     conformance table now names 108 as a port that got it wrong, and it is
+     right that this had drifted. 84 is still nearly twice the 44dp floor the
+     same brief sets, and the height it gives back is what buys the type above
+     it — which is the trade the design keeps asking for and this row kept
+     refusing.
+
+     Set explicitly, and it is `height` rather than `min-height` for the reason
+     the brief gives: a slab left to size itself around its own glyph, or a grid
+     row that hands out leftover height, is exactly how 84 becomes 108. */
+  height: 4.2rem;
   display: grid;
   place-items: center;
   border: 1px solid var(--hairline);
   border-radius: 1rem;
   background: var(--surface);
   color: var(--ink);
-  font-size: 1.5rem;
+  /* 31dp. The brief still calls these and the book's name "the two things you
+     hit without your glasses on", and they are now a step under it rather than
+     equal to it — which is what lets the slab be 84 tall and still read as
+     large. */
+  font-size: 1.55rem;
   font-variant-numeric: tabular-nums;
   transition: background-color 90ms linear;
 }
@@ -894,16 +1091,16 @@ h1 {
      half of the same protection, is untouched, and both controls either side of
      that reach are still their full measured size. The height bought here is
      what pays for the rest of the column fitting. */
-  padding: 0.7rem 1rem 0.2rem;
+  padding: 0.6rem 1rem 0.2rem;
 }
 
-/* 76dp, and the microphone beside it is 76 square: the box and the button are
-   one dock and the design sizes them together, so a row that was 70 of box and
-   100 of circle is now one height across. The circle came down and the box went
-   up, which is the trade the design intends — the box is what a question is
-   typed into and it was the smaller of the two, and a 100dp circle beside a
-   70dp box read as the microphone being the way in and typing being the
-   fallback. It is the other way round on most nights. */
+/* 68dp, and the microphone beside it is 68 square: the box and the button are
+   one dock and the design sizes them together, so whatever else changes they
+   change as a pair. Both came down from 76 with the transport, which is where
+   the height for the type above them came from. The two being equal is the part
+   that matters and has not changed — a bigger circle beside a smaller box reads
+   as the microphone being the way in and typing being the fallback, and it is
+   the other way round on most nights. */
 #question {
   /* It is a search field for the keyboard's benefit, so the platform styling
      that comes with one has to be taken back off before the pill survives. */
@@ -911,7 +1108,7 @@ h1 {
   -webkit-appearance: none;
   flex: 1;
   min-width: 0;
-  min-height: 3.8rem;
+  min-height: 3.4rem;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 999px;
@@ -939,8 +1136,8 @@ h1 {
 
 #talk {
   flex: none;
-  width: 3.8rem;
-  height: 3.8rem;
+  width: 3.4rem;
+  height: 3.4rem;
   border-radius: 50%;
   border: 1px solid var(--hairline);
   background: var(--surface);
@@ -1080,14 +1277,28 @@ button:disabled {
     margin-top: auto;
   }
 
-  .said {
+  /* And here the whole thread comes back. The player has none of it; a keyboard
+     up is somebody asking something, and this is the screen they asked it on.
+     One rule in each direction is the entire route in and the entire route
+     out.
+
+     Through #transcript, to match the player rule above it. Both have to be
+     written at the same specificity or whichever comes last in the file wins at
+     every height rather than the one whose media query matched. */
+  /* The chat screen: the thread comes back, and the element with it. */
+  #transcript {
+    display: flex;
+  }
+
+  #transcript .said {
+    display: block;
     margin-bottom: 0.7rem;
     font-size: 1.35rem;
     font-style: normal;
     color: var(--ink);
   }
 
-  .said.you {
+  #transcript .said.you {
     font-size: 1.2rem;
     color: var(--mid);
   }
@@ -1255,22 +1466,23 @@ button:disabled {
    the time it belongs to, so that on a row whose words run to three lines it
    has not drifted halfway down somebody else's sentence.
 
-   1.25rem of padding and not the 0.6rem this started at, because on this list
-   the padding is the only thing standing between two `goto` pills. A row whose
-   words are still covered is 61px of reading beside a 60px pill, so the row is
-   barely taller than the pill is, and the whole fall from one pill's bottom
-   edge to the next pill's top edge is that one pixel plus this padding twice
-   over and the hairline: 52px, where 0.6rem gave 26px and a thumb aiming at one
-   `goto` and landing low hit the next one instead. The reading is beside the
-   pill and never under it, so there is nothing else in that column to catch a
-   miss — the height has to be bought here or it does not exist. It costs 26px a
-   row, and four places ahead of them and the mark still fit 360x780 without
-   scrolling, which is checked in a render. */
+   A column, and the design's 20dp over 22dp of padding. Nothing on the row sits
+   beside anything else: at 360dp a time, a chapter and a pill on one line cut
+   the chapter's own name short and squeezed the book's own words into what was
+   left, and both of those are the row.
+
+   The padding is still the only thing between one row's `goto` and the next
+   one's: 42px of list that listens for nothing, which is what a thumb aiming at
+   one `goto` and landing low falls into. That is the miss worth buying height
+   against, because it moves the book somewhere nobody asked for. The other miss
+   — a low reach for the words landing on this row's own pill — is no longer
+   defended by geometry, and is not meant to be: it moves the book to the place
+   they were reading about. */
 .candidate {
   display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
-  padding: 1.25rem 0;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 1rem 0 1.1rem;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -1283,7 +1495,9 @@ button:disabled {
    under a press has somewhere to be: the text stays lined up with the title
    above it, and what lights up is a band a little wider than the words. */
 .candidate-show {
-  flex: 1;
+  /* The whole width of the row, which is the point: the lines inside it decide
+     their own length against the screen and not against a pill. */
+  width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1302,38 +1516,29 @@ button.candidate-show:active {
   background: var(--surface);
 }
 
-.candidate-line {
-  margin: 0;
-  /* A time and a label, not a paragraph: 1.45 is leading for prose and this
-     line never has a second one. */
-  line-height: 1.25;
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  min-width: 0;
-}
-
+/* The time, on its own line and the largest thing on the row — 30dp, up from
+   24, which it can afford now that nothing shares the line with it. It is what
+   a place is picked out by when the words are still covered. */
 .candidate-when {
+  margin: 0;
+  line-height: 1.2;
   color: var(--ink);
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   white-space: nowrap;
   /* So a column of times can be compared down the page rather than read. */
   font-variant-numeric: tabular-nums;
 }
 
-/* One line, cut with an ellipsis, never wrapped — the same discipline the book
-   and chapter titles on the player are held to and for a harder version of the
-   same reason. A chapter called "The Further Adventures of the Water Rat"
-   wrapping here costs a whole line on that row alone, and four rows that each
-   decide their own height for themselves are four rows that do not fit the
-   screen they were counted for. */
+/* The chapter, under the time and across the whole row, so it never truncates.
+   It was cut to one line with an ellipsis while it shared a line with the time
+   and the pill, and "Ch 2 · 02 The Hu…" is the row's name being lost on the row
+   it names. Four rows no longer fit one screen because of this and the two
+   lines below it; the list scrolls instead, which is what it is for. */
 .candidate-where {
+  margin: 0.2rem 0 0;
   color: var(--dim);
-  font-size: 0.825rem;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
 /* The book's own words, which are what a place is actually recognised by — and
@@ -1343,58 +1548,39 @@ button.candidate-show:active {
    gave its italic up in this pass so that this one would still mean
    something. */
 .candidate-what {
-  margin: 0.3rem 0 0;
+  margin: 0.45rem 0 0;
   color: var(--mid);
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-style: italic;
-  /* Clamped here as well as truncated on the server, so that what was sent and
-     what is shown roughly agree and four rows plus the mark among them still
-     fit on one screen. Both the -webkit-box display and the overflow are
-     load-bearing: without either of them the clamp silently does nothing and
-     four full passages stack up. */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
+  /* Whole, or not at all — the design's rule, and the right one for this
+     screen. It was clamped to three lines, which on a long passage cut the
+     sentence somebody was reading to recognise the place, and half a sentence
+     is worse than no sentence: it can be recognised wrongly. What was bought
+     with the clamp was four rows on one screen, and that is now spent anyway.
+     The passage is still truncated on the server, which is where a bound on
+     this belongs. */
+  line-height: 1.5;
 }
 
 .candidate-what[hidden] {
   display: none;
 }
 
-/* The one row allowed to run long. A reveal hands over two things — the words
-   and the chapter's name — and the name is the half that would be lost to the
-   ellipsis above, on the one press whose whole purpose was to hand it over. So
-   a revealed row lets it wrap and takes the height. That the list may then have
-   to be scrolled is the right way round: it started fitting, and it stopped
-   because somebody asked it for more.
-
-   The line stops being a flex row to do it. Wrapped as a flex item the name
-   comes out as a narrow column beside the time with a hand's depth of nothing
-   to the left of it; set running, it is a time and then a name, which is what
-   it reads as when it fits on one line. */
-.candidate.revealed .candidate-line {
-  display: block;
-}
-
-.candidate.revealed .candidate-when {
-  margin-right: 0.6rem;
-}
-
-.candidate.revealed .candidate-where {
-  white-space: normal;
-  overflow: visible;
-}
+/* Nothing here any more. Three rules used to undo the truncation on a revealed
+   row — the chapter's name is half of what a reveal hands over, and it was the
+   half the ellipsis ate — and they are gone because nothing on the row is
+   truncated in the first place now. Kept as a note rather than deleted
+   silently: a revealed row is still the tallest thing on this screen, and that
+   is still the right way round. */
 
 /* What the press will cost, in the only place on the page that says so. Amber
    and italic: amber because on this page amber is the warm thing and a warning
    is one, italic because the line is standing in for words that are not there
    yet — the same italic those words will arrive in. */
 .candidate-hint {
-  margin: 0.35rem 0 0;
+  margin: 0.45rem 0 0;
   color: var(--accent);
-  font-size: 0.825rem;
+  font-size: 0.95rem;
   font-style: italic;
 }
 
@@ -1402,24 +1588,29 @@ button.candidate-show:active {
   display: none;
 }
 
-/* The press that moves the book, and the small one on purpose. 60dp of pill,
-   which is well over the 44dp floor and well under the 110px slabs on the
-   transport: this is aimed at, not landed on.
+/* The press that moves the book: its own line at the foot of the row, ranged
+   right, 132dp across and 64dp tall — the design's size, and up from 92x60.
 
-   Down is the expensive direction and the only one. Left of the pill at every
-   height is the reveal, which changes nothing but what is on the screen; right
-   and above it is the edge of the screen or the row before. Below it is the
-   next place's `goto`, and pressing that moves the book somewhere nobody asked
-   for. So the whole defence is distance, and it is bought in `.candidate`:
-   1.25rem of padding each side of the hairline puts 52px of dead list between
-   one pill and the next. Nothing in that band listens for a press — the reveal
-   is beside the pill, not under it — so a low miss costs one more press and
-   never a seek. For scale, `#now-playing` holds 34px of dead band over the ±30
-   buttons, and this is the more expensive miss of the two. */
+   Ranged right and not full width, because a full-width slab at the bottom of
+   every row would read as the row itself being the button, which is the one
+   thing this screen must not say: the big target reveals and the small one
+   moves. It is bigger than it was and still much smaller than the reading above
+   it, which is the proportion that carries the meaning.
+
+   Down is still the expensive direction: below it is the next place's `goto`,
+   and pressing that moves the book somewhere nobody asked for. `.candidate`'s
+   padding either side of the hairline keeps 42px of list between the two, and
+   nothing in that band listens for a press.
+
+   Up is no longer defended. The reading is the full width of the row now, so
+   its bottom edge is this pill's top edge and a low reach for the words lands
+   here — taken deliberately, because that miss moves the book to the place they
+   were reading about rather than to somebody else's. */
 .candidate-go {
-  flex: none;
-  min-width: 4.6rem;
-  min-height: 3rem;
+  align-self: flex-end;
+  margin-top: 0.7rem;
+  min-width: 6.6rem;
+  min-height: 3.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1427,7 +1618,7 @@ button.candidate-show:active {
   border-radius: 999px;
   background: none;
   color: var(--mid);
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   padding: 0 0.9rem;
 }
 
@@ -1468,7 +1659,7 @@ button.candidate-show:active {
    of. */
 .here-caveat {
   margin: 0.4rem 0 0;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-style: italic;
   color: var(--faint);
 }
@@ -1478,51 +1669,53 @@ button.candidate-show:active {
    read on the first night and skipped over on every night after it. */
 #candidates-note {
   margin: 0.6rem 0 0;
-  font-size: 0.775rem;
+  font-size: 0.85rem;
   font-style: italic;
   color: var(--faint);
 }
 
 /* Over the last of the reading rather than after it, which is what the fade is
-   for: the negative margin pulls the foot up a thumb's width and the gradient
-   takes the rows into the room instead of ending them on a hard edge.
+   for. The gradient and the pull-up are gone with it: there is nothing at the
+   bottom of this overlay now to fade the last row into, and a fade over
+   nothing is a gradient nobody can see.
 
-   That overlap is also a dead band. A press in it lands on this div, which
-   listens for nothing, so a high miss on `close` costs one more press instead
-   of landing on the last row's `goto` — the same trade the whole page is built
-   on, made in the one place where a miss would move the book. */
-#candidates-foot {
+   What went with them is a dead band the row no longer needs. It stopped a
+   high miss on `close` landing on the last row's `goto`; there is no control
+   down there to miss onto any more. */
+#candidates-head,
+#queue-head {
   flex: none;
-  margin-top: -1.2rem;
-  padding-top: 1.2rem;
-  background: linear-gradient(to top, var(--bg) 65%, transparent);
+  /* The header's own 48dp target on the player, so the pill sits at the same
+     height off the top of the screen whichever of the three screens is up —
+     which is the entire argument for moving it here. */
+  display: flex;
+  align-items: center;
+  min-height: 2.4rem;
+  margin-bottom: 0.6rem;
 }
 
-/* --surface and --ink, never --accent-surface: the warm one is reserved for the
-   control pressed without looking, and this one is pressed on purpose. Now that
-   the page has one amber and uses it for everything warm, that rule is the only
-   thing left keeping the amber worth noticing. It is the full width of the
-   screen at the bottom of it, which is the one place a hand already holding the
-   phone arrives at without aiming.
-
-   68dp and unoutlined, where it used to be 110px with a hairline round it. It
-   is a way out of a screen somebody has finished reading, not a transport
-   button, and the height it gave up is four more lines of places. It is the
-   only slab on this overlay, which is enough to find it by. */
-#candidates-cancel {
-  width: 100%;
-  min-height: 3.4rem;
+/* The same pill as `books` in the header, because it is the same kind of thing
+   — the one control on the screen that goes somewhere — and a listener should
+   not have to learn it twice. Everything that shapes it is inherited from
+   `#books .pill` below; what is set here is only the target around it. */
+#candidates-cancel,
+#queue-close {
+  display: flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0;
   border: 0;
-  border-radius: 1rem;
-  background: var(--surface);
+  background: none;
   color: var(--mid);
-  font-size: 1.05rem;
 }
 
-#candidates-cancel:active {
-  background: var(--surface-active);
-  color: var(--ink);
+#candidates-cancel:active .pill,
+#queue-close:active .pill {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
 }
+
 
 /* A keyboard over half the screen, or a phone on its side — and a keyboard is
    the state this page is in at the moment a question has just been asked, which
@@ -1569,9 +1762,11 @@ button.candidate-show:active {
     display: none;
   }
 
-  #candidates-cancel {
-    min-height: 2.8rem;
-  }
+  /* The way out keeps its full 48dp target with a keyboard up. It shrank when
+     it was a slab across the bottom competing for the same pixels as the list;
+     a pill in the corner is not in the list's way, and the one control that
+     leaves the screen is the last one that should get smaller on the screen
+     that is hardest to read. */
 }
 
 /* Shorter than this and there is nothing left to arrange: it is a keyboard on
@@ -2094,36 +2289,9 @@ button.candidate-show:active {
   color: var(--accent);
 }
 
-/* Over the last of the reading rather than after it, exactly as on the list of
-   places: the negative margin pulls the foot up a thumb's width and the
-   gradient takes the rows into the room instead of ending them on a hard edge.
-   The overlap is also the dead band that keeps a high miss on `close` off the
-   last result's press. */
-#queue-foot {
-  flex: none;
-  margin-top: -1.2rem;
-  padding-top: 1.2rem;
-  background: linear-gradient(to top, var(--bg) 65%, transparent);
-}
-
-/* The same word as #candidates-cancel, in the same place, and now at the same
-   size: 68dp, unoutlined, --surface and --mid. The height it gave up is two
-   more rows of books, and the sameness is the point — whichever overlay is up,
-   the way out is one slab across the bottom of the screen, which is where a
-   hand already holding the phone arrives without aiming. */
-#queue-close {
-  width: 100%;
-  min-height: 3.4rem;
-  border: 0;
-  border-radius: 1rem;
-  background: var(--surface);
-  color: var(--mid);
-  font-size: 1.05rem;
-}
-
-#queue-close:active {
-  background: var(--surface-active);
-}
+/* #queue-foot and #queue-close's own rules are gone: the way out of this panel
+   is the pill at the top of it, styled with the list of places' one above, and
+   the two are written together there because being identical is the point. */
 
 /* A keyboard over half the screen, which on this panel is not the exception —
    searching for a book is what it is for. The rows shrink, the list scrolls,
@@ -2156,11 +2324,10 @@ button.candidate-show:active {
     min-height: 2.6rem;
   }
 
-  /* The same 2.8rem the way out of the list of places takes with a keyboard up,
-     so that the two panels still agree about where `close` is — and the same
-     for the one press at the top of the panel, which is the other slab a thumb
-     goes to without reading the screen twice. */
-  #queue-close,
+  /* The one press at the top of the panel, which is the slab a thumb goes to
+     without reading the screen twice. The way out is not in here with it any
+     more: it is a pill in the corner rather than a slab in the list's way, and
+     it keeps its full target at every height. */
   #reading-resume {
     min-height: 2.8rem;
   }

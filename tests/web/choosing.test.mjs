@@ -252,6 +252,12 @@ test("an answer with places in it puts them over the page", async (t) => {
   page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
   await page.ask("the bit where the horse goes down");
   assert.equal(page.asks.at(-1).question, "the bit where the horse goes down");
+  // And which book it was asked about. Without this the agent sees the whole
+  // shelf and nothing saying which book is making the sound, so "where was I"
+  // comes back as "which book?" — asked over the book being listened to, every
+  // turn. It travels with the question rather than being set up once, because
+  // the page can open another book between two of them.
+  assert.equal(page.asks.at(-1).gid, HALF_HEARD.gid);
   assert.equal(page.probe().candidatesUp, true);
   assert.equal(page.el("candidate-list").children.length, 5);
   // And the sentence is still an answer in the conversation underneath, which
