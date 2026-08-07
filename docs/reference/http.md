@@ -5,8 +5,9 @@ but nothing about it is private to the page.
 
 **There is no authentication on any of it.** Anything that can reach the port
 can list your books, read the agent, spend your API credit, move your position,
-change which book you are on, and start or stop hours of rendering. Reachability is the authentication, which
-is why the server binds to localhost and the only path in is `tailscale serve`.
+change which book you are on, and start or stop hours of rendering.
+Reachability is the authentication, which is why the server binds to localhost
+and the only path in is `tailscale serve`.
 
 Everything the page fetches lives under `/api/`, and that prefix does work: the
 service worker knows never to cache it — the Cache API throws when asked to

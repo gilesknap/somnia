@@ -965,7 +965,7 @@ export async function boot(t, options = {}) {
   let catalogFound = [];
   let submitAnswer = { ok: true, id: 1, said: "It is next to be rendered." };
   let stopAnswer = { ok: true, state: "cancelled", said: "Taken out." };
-  // Which of the four the tailnet is eating at the moment. Held apart rather
+  // Which of the six the tailnet is eating at the moment. Held apart rather
   // than as one switch because the interesting failures are one-sided: a submit
   // that never landed while the list is still arriving is the press that must
   // leave no row behind, and it cannot be staged with a server that is simply
