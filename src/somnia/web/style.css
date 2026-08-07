@@ -884,7 +884,15 @@ h1 {
   position: relative;
   width: 100%;
   height: 2px;
-  margin-top: 2px;
+  /* The 44dp box the design draws this inside, kept — the space, without the
+     target. The brief puts a 2dp line in a 44dp tap area, and it was the tap
+     area that was refused here, not the room: the line went in at 2dp with
+     2px over it and came out looking like a rule somebody had left in by
+     accident, hard against the clock above and the timer below.
+     0.65rem each side plus #whereabouts' own 0.4rem gap is the 21dp that a
+     44dp box would have put around a 2dp line. Nothing here listens for a
+     press, which is the whole of what was actually being refused. */
+  margin: 0.65rem 0;
   background: var(--hairline);
 }
 
