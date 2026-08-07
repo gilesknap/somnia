@@ -138,6 +138,14 @@ function armed(choice, leftMs, at = START_MS - 60_000) {
   return { "somnia-sleep": JSON.stringify({ choice, leftMs, at }) };
 }
 
+// And what it wrote down about the last question it was asked: the places
+// somnia offered, exactly as they were put on the screen. `record` rather than
+// `offer()` in the two tests that give it rubbish, because half of what this
+// key has to survive is not being a list at all.
+function kept(record) {
+  return { "somnia-places": JSON.stringify(record) };
+}
+
 // The list as somebody looking at it would read it out, top to bottom. Rows are
 // read out of the DOM rather than out of the payload on purpose: what the
 // payload said is the server's business, and the only thing worth asserting
@@ -618,22 +626,34 @@ test("finding out what is there does not move the book or tell anybody", async (
   assert.deepEqual(after.probe, { ...before.probe, revealed: 1 });
 });
 
-test("the withheld words are never written down anywhere", async (t) => {
+test("the withheld words rest in one key and are said in none", async (t) => {
   const page = await playing(t);
   page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
   await page.ask("the bit where the horse goes down");
   page.click("candidate-show-13");
-  const written = [
-    ...page.storage.items.values(),
-    ...page.storageSession.items.values(),
-  ];
+  // They are written down now, and in exactly one place: the key Places keeps
+  // the last query's list in, so that getting back to these four is a press
+  // rather than the same question asked again over a tailnet at 2am. The words
+  // came down with the answer, to this device, and what changed is that they
+  // rest there between sessions instead of dying with the tab.
+  //
+  // Nowhere else, and that is what this asserts. Not a second copy somebody has
+  // to remember to clear, and not the session storage, which holds the name of
+  // the conversation and nothing about a book at all.
+  const written = [...page.storage.items]
+    .filter(([, value]) => value.includes(HIDDEN_TEXT))
+    .map(([key]) => key);
+  assert.deepEqual(written, ["somnia-places"]);
   assert.equal(
-    written.some((value) => value.includes(HIDDEN_TEXT)),
+    [...page.storageSession.items.values()].some((value) =>
+      value.includes(HIDDEN_TEXT),
+    ),
     false,
   );
   // Nor into the conversation, which is the other thing on this page that
-  // outlives the list: a page discarded with a list up comes back with no list,
-  // and the only thing worth persisting is exactly what the reveal withholds.
+  // outlives the list. What is remembered is the answer, not the reading of it:
+  // a page that comes back offers the same rows with the same words withheld,
+  // and the reveal press is still the only thing that puts them on a screen.
   const said = page.el("transcript").children.map((line) => line.textContent);
   assert.equal(said.some((line) => line.includes(HIDDEN_TEXT)), false);
 });
@@ -1050,4 +1070,152 @@ test("the poll for a book still being read leaves a list alone", async (t) => {
   // would have lost them.
   page.click("candidate-show-13");
   assert.equal(rows(page)[2].what, HIDDEN_TEXT);
+});
+
+// ------------------------------------------------- the places from last time
+//
+// Places is the last query's results and nothing else. Somnia produces that
+// list once, in answer to a question asked in the dark, and until now it lived
+// as long as the overlay did: a page discarded in a pocket came back with
+// nothing, and getting to the third of four places meant asking the same
+// question again, of a model, over a tailnet, at 2am.
+//
+// So the list is written down. Everything below is about the three ways that
+// can be got wrong: a list restored as markup that does nothing when pressed, a
+// list about a book nobody is listening to, and anything at all in that key
+// stopping the page from opening.
+
+test("the places a question put up are written down", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  const saved = JSON.parse(page.storage.items.get("somnia-places"));
+  // Which book, and which places, in the order they were drawn in. The gid is
+  // what makes this one entry rather than a growing pile: places about a book
+  // that is not open are no places at all.
+  assert.equal(saved.gid, HALF_HEARD.gid);
+  assert.deepEqual(
+    saved.places.map((place) => place.chunk_id),
+    [11, 12, 13, 14],
+  );
+});
+
+test("closing the screen leaves the places to come back to", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidates-cancel");
+  assert.equal(page.probe().candidatesUp, false);
+  // Close puts the screen away and forgets what was on it. What it must not do
+  // is throw away the answer behind it: the list is the thing that cost a
+  // question, and the screen is only a way of reading it.
+  page.openPlaces();
+  assert.equal(page.probe().candidatesUp, true);
+  assert.equal(page.el("candidate-list").children.length, 5);
+});
+
+test("a page discarded overnight offers the last query's places again", async (t) => {
+  const page = await opened(t, { stored: kept(offer()) });
+  // Nothing is on the screen at boot: the page opens on the book, as it always
+  // has, and the places are something to be asked for.
+  assert.equal(page.probe().candidatesUp, false);
+  page.openPlaces();
+  assert.deepEqual(
+    rows(page).map((row) => [row.when, row.kind]),
+    [
+      ["0:05:00", "heard"],
+      ["0:16:40", "here"],
+      ["0:20:34", "heard"],
+      ["0:30:00", "ahead"],
+      ["0:40:00", "ahead"],
+    ],
+  );
+  // Drawn against where this page is now, not against the position the answer
+  // was composed at: the rule goes where the book has got to tonight.
+  assert.equal(rows(page)[1].label, "you are here · 0:16:40");
+});
+
+test("a place restored from storage is one a thumb can act on", async (t) => {
+  const page = await opened(t, { stored: kept(offer()) });
+  page.openPlaces();
+  page.click("candidate-go-12");
+  await page.settle();
+  // The whole of why the list is restored into the variable the page chooses
+  // from and not into the markup. chooseCandidate opens with `const list =
+  // offered; if (!list) return;`, so a screen of rows rebuilt as markup would
+  // look exactly like this one and do nothing at all when pressed - at 2am,
+  // with no way to tell why.
+  assert.equal(page.probe().candidatesUp, false);
+  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.audio.paused, false);
+  assert.equal(page.probe().toast, "moved · playing");
+});
+
+test("places kept overnight still keep their words back until the press", async (t) => {
+  const page = await opened(t, { stored: kept(offer()) });
+  page.openPlaces();
+  // The guard does not weaken by being slept on. Restoring goes through the
+  // same path the answer took, so the words of a place they have not reached
+  // are held beside the row rather than written into it.
+  const text = overlayText(page);
+  assert.equal(text.includes(HEARD_TEXT), true);
+  assert.equal(text.includes(HIDDEN_TEXT), false);
+  assert.equal(text.includes("What They Have Not"), false);
+  page.click("candidate-show-13");
+  assert.equal(rows(page)[3].what, HIDDEN_TEXT);
+});
+
+test("places about another book are no places for this one", async (t) => {
+  const page = await opened(t, {
+    stored: kept({
+      gid: OTHER_BOOK.gid,
+      title: OTHER_BOOK.title,
+      position_ms: OTHER_BOOK.position_ms,
+      places: [elsewhere()],
+    }),
+  });
+  page.openPlaces();
+  // The screen is scoped to the book being listened to. A list about somewhere
+  // else is not a wrong list, it is the answer to a question about another
+  // book - and there is nothing on the player to say so.
+  assert.equal(page.probe().candidatesUp, false);
+  assert.equal(page.el("candidate-list").children.length, 0);
+});
+
+test("anything else in that key is no places, and the page still opens", async (t) => {
+  // A write cut off by the tab being killed, a record from a shape this page
+  // has never had, and a list with a row missing the number a press acts on.
+  // The page opening is the one thing that must survive all of them: it is the
+  // only transport in the room, and there is no screen yet to say anything on.
+  for (const rubbish of [
+    "{",
+    "null",
+    '{"gid":900005}',
+    '{"gid":900005,"places":[]}',
+    '{"gid":900005,"places":[{"start_ms":300000,"chapter_idx":0}]}',
+    '{"gid":"900005","places":[{"start_ms":1,"chunk_id":1,"chapter_idx":0}]}',
+  ]) {
+    const page = await opened(t, { stored: { "somnia-places": rubbish } });
+    assert.equal(page.probe().gid, HALF_HEARD.gid);
+    assert.equal(page.probe().clock, "0:16:40 of 1:00:00");
+    page.openPlaces();
+    assert.equal(page.probe().candidatesUp, false);
+  }
+});
+
+test("an answer that knew where they meant leaves the last places standing", async (t) => {
+  const page = await opened(t, { stored: kept(offer()) });
+  page.answers({
+    reply: "Taking you there.",
+    move: { gid: HALF_HEARD.gid, position_ms: 600_000, seq: 3 },
+  });
+  await page.ask("take me to the storm");
+  assert.equal(page.probe().positionMs, 600_000);
+  // A confident move offered nothing, so there is nothing new to remember and
+  // the last real list is still the last real list. Clearing it here would mean
+  // one question somnia happened to be sure about threw away the answer to the
+  // one before it.
+  page.openPlaces();
+  assert.equal(page.probe().candidatesUp, true);
+  assert.equal(page.el("candidate-list").children.length, 5);
 });

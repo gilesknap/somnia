@@ -760,6 +760,11 @@ globalThis.__page = {
   openBook,
   follow,
   resumePoint,
+  // The last query's places, put back on the screen. It is the one entry point
+  // here that a thumb also has - the position line presses it - and it is
+  // exposed for what happens before that press: a list read out of storage at
+  // boot is only a real list if this can raise it and a row can then be gone to.
+  showRemembered,
   // The four pure functions the whole timeline rests on. They are worth
   // reaching for directly: every clamp in them is there because a decoder, a
   // render clock or a book shorter than a thirty-second step disagreed with
@@ -1018,6 +1023,7 @@ export async function boot(t, options = {}) {
     // rather than from a thumb.
     seek: (...args) => context.__page.seekGlobal(...args),
     openBook: (...args) => context.__page.openBook(...args),
+    openPlaces: () => context.__page.showRemembered(),
     follow: (...args) => context.__page.follow(...args),
     resumePoint: () => context.__page.resumePoint(),
     math: Object.fromEntries(

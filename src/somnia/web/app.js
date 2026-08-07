@@ -1684,16 +1684,115 @@ function follow(move) {
 // places is the one screen on this page where a plausible sentence nobody has
 // evidence for is a lie a thumb then acts on.
 
-// The offer currently on screen, or null. It holds the only copy of the words
-// of any place they have not heard yet, which is why it is a variable and not a
-// rendered thing: those words are never written into the DOM until the reveal
-// press, never put in storage, never logged, never passed to say(), and are
-// gone from the page entirely the moment the list closes. Not persisted for the
-// same reason — a page discarded with the list up comes back with no list,
-// which is correct, because the only thing worth saving is exactly the thing
-// the reveal control exists to withhold. The question and the answer are still
-// in the transcript, and asking again is one press.
+// The offer currently on screen, or null. It holds the only copy in the page of
+// the words of a place they have not heard yet, which is why it is a variable
+// and not a rendered thing: those words are never written into the DOM until
+// the reveal press, never logged, never passed to say(), and are gone from the
+// page entirely the moment the list closes.
+//
+// It used to be the only copy anywhere, and the comment here used to say so — a
+// page discarded with the list up came back with no list, and asking again was
+// one press. Asking again is a question put to a model over a tailnet at 2am,
+// which is the thing this page exists to spare somebody, so the list is written
+// down as well now: see PLACES_KEY below. What closes still forgets what was on
+// the screen; what a night keeps is the answer, not the overlay.
 let offered = null;
+
+// The last places somnia offered, kept where a discarded tab cannot take them.
+//
+// Places is the set of places from the last query and nothing else. It is not a
+// store of pause points or fade points: somnia already produces exactly this
+// list, once, in answer to a question asked in the dark — and until now it
+// lived as long as the overlay did, so getting back to the third of four places
+// meant asking the same question again.
+//
+// localStorage, beside the sleep timer and the dim level, and for the same
+// reason as the timer: the tab is the thing that does not survive the night. A
+// backgrounded page is discarded whenever the phone wants the memory back, and
+// the list went with it.
+//
+// One entry, carrying the gid of the book it is about. A list about a book that
+// is not the one open is no places at all — which is what keeps this from
+// growing without bound, and what keeps the screen scoped to the book somebody
+// is listening to.
+//
+// It holds the words of places they have not heard yet, and that is worth
+// saying out loud. Those words came down with the answer, to this phone, on
+// this night; what changes is that they now rest in a key between sessions
+// rather than dying with the tab. No new exposure — same device, same answer —
+// and whether they ever reach the screen is still the reveal press's decision
+// and nobody else's.
+const PLACES_KEY = "somnia-places";
+
+// What would be put back on the screen, or null. `offered` is what is on it
+// now: the two are the same list while Places is up, and different the moment
+// it closes, because closing forgets the screen and this outlives the night.
+let remembered = null;
+
+function rememberPlaces(list) {
+  remembered = list;
+  try {
+    localStorage.setItem(PLACES_KEY, JSON.stringify(list));
+  } catch (error) {
+    // Storage refused, or is full. Places is a convenience over a question that
+    // can always be asked again, so nothing else here has to care.
+    console.error(error);
+  }
+}
+
+// What the last page to be alive put in front of somebody. Anything else in
+// that key reads as no places rather than as a reason to throw: this runs at
+// boot, before there is a screen to say anything on, and the one thing the page
+// opening at 2am has to do is open.
+function restorePlaces() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(PLACES_KEY) || "null");
+  } catch (error) {
+    console.error(error);
+  }
+  if (!saved || typeof saved.gid !== "number") return;
+  if (!Array.isArray(saved.places) || !saved.places.length) return;
+  // Every row is drawn out of these three and a press acts on the first of
+  // them, so a record missing any one is a screen of rows reading "Ch NaN" with
+  // a goto that seeks to nowhere.
+  const whole = saved.places.every(
+    (place) =>
+      place &&
+      typeof place.start_ms === "number" &&
+      typeof place.chunk_id === "number" &&
+      typeof place.chapter_idx === "number",
+  );
+  if (whole) remembered = saved;
+}
+
+// The remembered list, but only where it is about the book that is open. A list
+// about another book is not a wrong list to draw, it is the answer to a
+// question about somewhere else, and there is nothing on the position line that
+// could say so.
+function placesHere() {
+  return remembered && gid !== null && remembered.gid === gid
+    ? remembered
+    : null;
+}
+
+// The way back to the last query's places. It goes through showCandidates, the
+// same path the answer that first raised them took, because a list restored
+// straight into the DOM would be markup: the words of a place they have not
+// reached are held in a closure by candidateRow, and chooseCandidate acts on
+// `offered` rather than on rows — so a screen built any other way would look
+// right and do nothing when pressed.
+//
+// Nothing here refreshes anything, and a stale `ahead` flag is why that is
+// safe. The server decided it against its own mark when the offer was made, and
+// that mark only ever rises: a place stored as ahead may since have been
+// listened to, and one stored as heard can never have become unheard. So age
+// can only over-warn, which costs a press — and the other direction is the one
+// thing this page must never do.
+function showRemembered() {
+  const list = placesHere();
+  if (list) showCandidates(list);
+}
 
 // Whether cancel owes the page a tap-to-resume listener, because showing the
 // list took one away. See cancelCandidates.
@@ -1864,6 +1963,11 @@ function hereRow(ms, { more }) {
 
 function showCandidates(list) {
   offered = list;
+  // Written down here rather than where the answer arrives, so that what a
+  // night remembers is what was actually put in front of somebody: an answer
+  // that knew where they meant moved the book and offered nothing, and it
+  // leaves the last real list standing.
+  rememberPlaces(list);
   candidateList.replaceChildren();
 
   // Which book, but only when it is not the one playing.
@@ -2974,6 +3078,11 @@ async function askForMore() {
 }
 
 restoreSleep();
+// Before the book, because the book is what decides whether the places are
+// about it: openBook draws the player the moment a manifest lands, and a list
+// read out of storage a turn later would be a count that appeared on the
+// position line after somebody had already looked at it.
+restorePlaces();
 openTheBook();
 
 // ------------------------------------------------------------------ speaking
