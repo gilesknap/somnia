@@ -33,6 +33,13 @@ python3 -m pip install "somnia-reader[ml] @ git+https://github.com/gilesknap/som
 Uninstall by the *distribution* name, `somnia-reader` — `pip uninstall somnia`
 finds nothing to remove and exits happily, which looks exactly like success.
 
+The first upgrade across the rename is the exception: an environment built
+before it still has `somnia` in it, owning the very files the new one is about
+to write, so take both out — `pip uninstall -y somnia somnia-reader`. Leave the
+old name there and the day anyone finally uninstalls it, it takes the working
+install's files with it while pip carries on reporting somnia-reader as
+present. The installer does this for you.
+
 **`--ref` only reaches back as far as the rename.** 0.5 and everything older
 calls itself `somnia` in its own metadata, and pip will not take a direct URL
 whose name disagrees with what it builds: *has inconsistent name: expected

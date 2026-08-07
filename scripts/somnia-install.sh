@@ -217,6 +217,16 @@ else
     spec="$DIST_NAME$extras @ git+$REPO_URL@$ref"
 fi
 
+# An environment built before the rename has the old distribution `somnia` in
+# it, and it owns every file somnia-reader is about to write. Installing over
+# the top leaves both listed, sharing one set of files, and then the first
+# `pip uninstall somnia` — which is what the docs used to tell you to type —
+# deletes those files while pip goes on reporting somnia-reader as installed.
+# What is left imports as an empty namespace package, so it looks fine until
+# something asks it for a book. Take the old name out first, while it is still
+# the only thing that owns them. Nothing to remove is the normal case.
+"$vpy" -m pip uninstall --quiet --yes somnia >/dev/null 2>&1 || true
+
 # Two passes, because pip will not reinstall a package whose name and version
 # it already has: a plain install of a new --ref into an existing environment
 # clones the repo, decides it is satisfied and changes nothing, which would
