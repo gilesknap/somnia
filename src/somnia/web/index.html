@@ -128,6 +128,51 @@
              all night. Everything under it changes while they sleep. -->
         <p id="book-title"></p>
 
+        <!-- Where they are in the whole book, and the timer that decides how
+             much more of it plays tonight — directly under the title, as the
+             design orders this screen. The book and everything true about the
+             book for the whole night is one block; the chapter and the two
+             circles that change it are another, below it.
+
+             It used to sit under the chapter strip, and the comment here used
+             to say that was deliberate: the strip directly above −30 meant a
+             thumb reaching low and landing high got a whole chapter instead of
+             thirty seconds. That reason has not gone away — but the dead band
+             was never really the ordering. It is `#now-playing`'s 1.7rem
+             bottom margin, and that margin now falls under the chapter strip
+             instead of under this, so the gap over the transport is the same
+             34px it always was. What changed is which readout is standing in
+             it, not how wide it is. -->
+        <p id="whereabouts">
+          <span id="clock"></span>
+
+          <!-- The sleep timer is its own readout: it says how long the night
+               has left, and a tap is what sets it. Taps walk 15, 30, 45 and 60
+               minutes, then the end of the chapter, then off again — one
+               target that is always in the same place and always says what it
+               is doing, rather than a menu to be opened, read and dismissed
+               with the lights off. Six taps wrap, so the worst a mis-tap can
+               do is offer to end the night early, and the next tap takes it
+               back.
+
+               What it says is one string — `sleep timer · off` — and drawSleep
+               assembles the whole of it. The label used to be `sleep` when
+               there was no timer and `sleep 30m` when there was, which meant
+               the same word was the control's name on most nights and a state
+               on the rest, and the only thing telling them apart was whether
+               anything followed it. The text below is the off state written
+               out, so a page whose script has not run yet says what it will
+               say once it has.
+
+               It is up here and not in the transport below on purpose. A
+               control that can end the night early — or fail to — has no
+               business within a thumb's width of the one button that gets
+               pressed without looking. -->
+          <button id="sleep" type="button" aria-label="Sleep timer, off">
+            sleep timer · off
+          </button>
+        </p>
+
         <!-- Both of these are one line and cut with an ellipsis rather than
              allowed to wrap, and that is the whole discipline of this stack:
              everything below — the chapter circles, the clocks, the transport —
@@ -203,41 +248,6 @@
           </button>
         </div>
 
-        <!-- Deliberately below the chapter strip and not above it. It is the
-             dead band that keeps the chapter buttons off the transport: with
-             the strip directly above −30, a thumb reaching low and landing high
-             gets a whole chapter instead of thirty seconds, and has to work out
-             in the dark where it went and how to come back. The same trick, and
-             the same reason, as the wide margin already under the sleep
-             timer. -->
-        <p id="whereabouts">
-          <span id="clock"></span>
-          <!-- The sleep timer is its own readout: it says how long the night
-               has left, and a tap is what sets it. Taps walk 15, 30, 45 and 60
-               minutes, then the end of the chapter, then off again — one
-               target that is always in the same place and always says what it
-               is doing, rather than a menu to be opened, read and dismissed
-               with the lights off. Six taps wrap, so the worst a mis-tap can
-               do is offer to end the night early, and the next tap takes it
-               back.
-
-               What it says is one string — `sleep timer · off` — and drawSleep
-               assembles the whole of it. The label used to be `sleep` when
-               there was no timer and `sleep 30m` when there was, which meant
-               the same word was the control's name on most nights and a state
-               on the rest, and the only thing telling them apart was whether
-               anything followed it. The text below is the off state written
-               out, so a page whose script has not run yet says what it will
-               say once it has.
-
-               It is here and not in the transport below on purpose. A control
-               that can end the night early — or fail to — has no business
-               within a thumb's width of the one button that gets pressed
-               without looking. -->
-          <button id="sleep" type="button" aria-label="Sleep timer, off">
-            sleep timer · off
-          </button>
-        </p>
       </div>
       <!-- Three buttons, the same three, at the same size they were measured
            against a thumb. Everything the chapter needs happens a row and a

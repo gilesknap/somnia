@@ -80,6 +80,10 @@
   --mid: rgba(230, 220, 200, 0.6);
   --dim: rgba(230, 220, 200, 0.4);
   --faint: rgba(230, 220, 200, 0.32);
+  /* The design's .42 — between --dim and --faint, and it exists rather than
+     rounding to one of them because the placement line is the one run of prose
+     the player screen shows and the brief names the value. */
+  --placement: rgba(230, 220, 200, 0.42);
   --hairline: rgba(230, 220, 200, 0.13);
 
   --toast-bg: #150f06; /* the one sentence said out loud, and then not */
@@ -338,21 +342,35 @@ h1 {
   margin-top: auto;
 }
 
-/* What somnia says is the largest run of text on the page and the base size the
-   rest is measured from. A turn is one paragraph with one turn's worth of air
-   under it — 1rem, the same as the gutters, so the column reads as a column. */
+/* On the player this is the design's last-placement line, and nothing louder.
+   The brief gives the slot above the book's title one job — italic 19dp at .42,
+   "— and then where the horse bolts" — while 27dp at .88 is the *chat* screen's
+   agent turn. This page has no routes, so both screens are this same element at
+   two viewport heights, and drawing the chat's type on the player put the
+   loudest text on the page above the book somebody is actually listening to.
+
+   Italic is not decoration here. It means what it means everywhere else in this
+   sheet: words that are not somnia's own, and words from the book you may not
+   have heard yet. A placement line is the first of those.
+
+   The chat sizes come back in the keyboard-up query below, where the
+   conversation is the screen rather than a line above the transport. */
 .said {
-  margin: 0 0 1rem;
+  margin: 0 0 0.75rem;
   max-width: 34rem;
+  font-size: 0.95rem;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--placement);
 }
 
 /* Their own words, kept a shade back from the answer without being dropped so
-   far into the dark that they cannot be read again, and a step smaller as well
-   as dimmer. The dash is what tells the two apart; the size and the colour only
-   lean. */
+   far into the dark that they cannot be read again. The dash is what tells the
+   two apart; the colour only leans. The size is set per screen below — on the
+   player both halves of the conversation are the quiet placement line, and a
+   question left larger than the answer to it would be the wrong way round. */
 .said.you {
   color: var(--mid);
-  font-size: 1.2rem;
 }
 
 .said.you::before {
@@ -410,6 +428,11 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+  /* Centred, as the design draws it. Both readout blocks — the book with its
+     position and timer, and the chapter with its circles — sit on the middle of
+     the screen, and the only thing on the player deliberately left ranged left
+     is the placement line above them, which is prose and reads as prose. */
+  text-align: center;
   /* 1.7rem is the design's gap between one section of a screen and the next,
      and this is the most literal section boundary on the page: above it is
      everything that is read, below it is everything that is pressed. It was
@@ -575,17 +598,21 @@ h1 {
    size for a position readout, and it is a step under the chapter's name
    above, which is what keeps the clock a footnote rather than a second title.
 
-   The pill starts the line rather than ending it, which is the only alignment
-   left once it has a line to itself: everything else in this stack begins at
-   the gutter, and a control pushed out to the right edge on its own row reads
-   as belonging to something off the screen. What keeps it off the transport is
-   what always kept it off — the 1.7rem of dead band under this whole block,
-   now with the clock's line above it as well. */
+   The clock and the pill are centred under the title, with the rest of this
+   stack. They used to begin at the gutter, and the argument for it was that
+   everything else in the stack did too and a control alone on the right read as
+   belonging to something off the screen — true then, and not true now that the
+   design centres both readout blocks. A pill ranged left under a centred title
+   is the odd one out on the screen, which is the thing that argument was
+   guarding against in the first place.
+
+   What keeps it off the transport is what always kept it off — the 1.7rem of
+   dead band under this whole block. */
 #whereabouts {
   margin: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.4rem;
   font-size: 0.9rem;
   color: var(--mid);
@@ -907,13 +934,27 @@ button:disabled {
     padding-bottom: 0.55rem;
   }
 
-  /* Tighter than the 1rem a turn gets with the whole screen, because with a
-     keyboard up there are 470px to hold the question, the answer and the box
-     being typed into. It is the air between turns that gives, not their
-     size: shrinking the type is how a page becomes unreadable at the exact
-     moment somebody is composing a sentence into it. */
+  /* With the keyboard up this is the design's Chat screen, so the conversation
+     takes the type the brief gives it there: 27dp for what somnia says, 24dp
+     for what was asked, upright rather than italic. On the player the same
+     element is the quiet placement line above the title; here it is the whole
+     reason the screen is open, and it is the largest run of text on it.
+
+     Tighter between turns than on the player, because with a keyboard up there
+     are 470px to hold the question, the answer and the box being typed into. It
+     is the air between turns that gives, not their size: shrinking the type is
+     how a page becomes unreadable at the exact moment somebody is composing a
+     sentence into it. */
   .said {
     margin-bottom: 0.7rem;
+    font-size: 1.35rem;
+    font-style: normal;
+    color: var(--ink);
+  }
+
+  .said.you {
+    font-size: 1.2rem;
+    color: var(--mid);
   }
 }
 
