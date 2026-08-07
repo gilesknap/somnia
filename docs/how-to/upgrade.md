@@ -33,25 +33,6 @@ python3 -m pip install "somnia-reader[ml] @ git+https://github.com/gilesknap/som
 Uninstall by the *distribution* name, `somnia-reader` — `pip uninstall somnia`
 finds nothing to remove and exits happily, which looks exactly like success.
 
-The first upgrade across the rename is the exception: an environment built
-before it still has `somnia` in it, owning the very files the new one is about
-to write, so take both out — `pip uninstall -y somnia somnia-reader`. Leave the
-old name there and the day anyone finally uninstalls it, it takes the working
-install's files with it while pip carries on reporting somnia-reader as
-present. The installer does this for you.
-
-**`--ref` only reaches back as far as the rename.** 0.5 and everything older
-calls itself `somnia` in its own metadata, and pip will not take a direct URL
-whose name disagrees with what it builds: *has inconsistent name: expected
-'somnia-reader', but metadata has 'somnia'*. It does not stop there either — it
-discards the ref you asked for and looks the name up on PyPI instead, so once
-there is a release it will quietly hand you the newest one and call that
-success. Install an old version under the name it was published with:
-
-```bash
-python3 -m pip install "somnia[ml] @ git+https://github.com/gilesknap/somnia.git@0.5"
-```
-
 The uninstall itself is not superstition either. pip treats a direct URL
 requirement as satisfied when the name and version already match, so re-running
 the install command with a new `--ref` clones the repository, decides there is
@@ -62,6 +43,25 @@ is why it does not disturb your two gigabytes of torch.)
 Upgrading to a *release* needs no uninstall, because a plain
 `pip install --upgrade "somnia-reader[ml]"` compares versions rather than
 shrugging at a URL.
+
+**The first upgrade across the rename wants both names off first**: an
+environment built before it still has `somnia` in it, owning the very files the
+new one is about to write, so say `pip uninstall -y somnia somnia-reader`.
+Leave the old name there and the day anyone finally uninstalls it, it takes the
+working install's files with it while pip carries on reporting somnia-reader as
+present. The installer does this for you.
+
+**`--ref` only reaches back as far as the rename.** 0.5 and everything older
+calls itself `somnia` in its own metadata, and pip will not take a direct URL
+whose name disagrees with what it builds: *has inconsistent name: expected
+'somnia-reader', but metadata has 'somnia'*. It does not stop there either — it
+discards the ref you asked for and looks the name up on PyPI instead, so once
+there is a release it will hand you the newest one and call that success.
+Install an old version under the name it was published with:
+
+```bash
+python3 -m pip install "somnia[ml] @ git+https://github.com/gilesknap/somnia.git@0.5"
+```
 
 ## What survives it
 
