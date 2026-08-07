@@ -3271,9 +3271,17 @@ if (!Recognition) {
 //
 // It is a named screen rather than a `keyboard-up` boolean because the keyboard
 // is a route in and not the thing itself: the design's dock pill is a portal to
-// this same screen, and the header is drawn differently on each of the two. Any
-// press that should take somebody to the conversation calls showScreen("chat"),
-// and everything the screen implies follows from that one word.
+// this same screen, and the header is drawn differently on each of the two.
+//
+// Today the keyboard is the only route, and readKeyboard is the only caller of
+// showScreen — it recomputes the name from scratch on every resize, focus and
+// blur. So a press that wants the conversation cannot simply call
+// showScreen("chat") and stop there: the next resize, and Android sends them
+// whenever its address bar moves, would put the page back on the player with
+// nothing said. Whoever adds that press has to give readKeyboard something to
+// respect — a remembered "they asked for chat" that the measurement adds to
+// rather than overrules — and this comment is the warning that the one-line
+// version of it looks like it works.
 const SCREENS = ["player", "chat"];
 
 // The book and its controls, until something takes them off it.

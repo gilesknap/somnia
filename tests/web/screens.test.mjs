@@ -323,8 +323,8 @@ function where(at) {
 // not. Comments come out first, because this sheet's prose quotes selectors and
 // whole rules at itself and every one of them would read as another rule here.
 function rules(sheet) {
-  return [...sheet.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-    .map((m) => [m[1], m[2]]);
+  const bare = sheet.replace(/\/\*[\s\S]*?\*\//g, "");
+  return [...bare.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1], m[2]]);
 }
 
 // Every `@media` block in the sheet, as its own text. Braces are counted rather
