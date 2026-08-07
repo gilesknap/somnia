@@ -767,6 +767,35 @@ test("a switch the server will not make leaves the night where it was", async (t
   assert.equal(page.probe().toast, "couldn't reach that book");
 });
 
+test("a row the agent has moved them onto presses through to pick it up", async (t) => {
+  const page = await playing(t);
+  page.queueView([]);
+  await books(page);
+  // The one thing on this panel that can go stale under somebody: the shelf is
+  // drawn when they arrive, and the agent can move the night to one of its
+  // books while they are still reading it. The row is not redrawn — nothing on
+  // this panel redraws under a thumb — so the press is what has to be right.
+  page.answers({
+    reply: "Taking you there.",
+    move: { gid: OTHER_BOOK.gid, position_ms: 4_000, seq: 9 },
+  });
+  await page.ask("take me to the other book");
+  await page.settle();
+  assert.equal(page.probe().gid, OTHER_BOOK.gid);
+  assert.equal(page.probe().queueUp, true);
+
+  const before = page.opens.length;
+  await pick(page, OTHER_BOOK.gid);
+  // Nothing is asked and nothing is opened. Re-opening would adopt the
+  // server's copy of the position, which is up to fifteen seconds behind the
+  // sound — so a press on the book already playing is the press above it,
+  // which starts it where it is and takes the panel away.
+  assert.equal(page.opens.length, before);
+  assert.equal(page.probe().positionMs, 4_000);
+  assert.equal(page.probe().queueUp, false);
+  assert.equal(page.audio.paused, false);
+});
+
 test("a book cannot be opened twice by pressing twice", async (t) => {
   const page = await opened(t);
   page.queueView([]);
