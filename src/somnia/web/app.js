@@ -3248,21 +3248,156 @@ if (!Recognition) {
   talk.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 
+// ------------------------------------------------------------------- screens
+
+// Which of the two screens the page is on, said out loud on <body> so the sheet
+// can ask.
+//
+// There is one document and there always was. The player and the chat are the
+// same elements shown and hidden — no route, no history, nothing to come back
+// from — and what is new here is only that the page *knows* which of the two it
+// is showing instead of the sheet working it out from the height of the window.
+//
+// The sheet used to ask `@media (max-height: 34rem)` and mean two things at
+// once: "is there room to draw the reading?", which is a fair question to ask a
+// height, and "is the keyboard up?", which is not. The second guess was wrong
+// twice over. A window dragged short has no keyboard in it, and 34rem is 34
+// times a root that is the OS text scale on purpose — so turning the text up,
+// which is the one setting this whole page is sized around, eventually put the
+// threshold above the height of the phone and left the player unreachable for
+// the rest of the night. The larger the reader's type, the sooner they lost the
+// book. The first question is still a height query in the sheet; this is the
+// second one, and it is a measurement.
+//
+// It is a named screen rather than a `keyboard-up` boolean because the keyboard
+// is a route in and not the thing itself: the design's dock pill is a portal to
+// this same screen, and the header is drawn differently on each of the two. Any
+// press that should take somebody to the conversation calls showScreen("chat"),
+// and everything the screen implies follows from that one word.
+const SCREENS = ["player", "chat"];
+
+// The book and its controls, until something takes them off it.
+//
+// This is the page's own answer to "which screen?"; the class below is only how
+// the sheet gets told. Nothing in here reads it back yet — the first press that
+// will is the header, which the design draws differently on each of the two —
+// and it is a name rather than a boolean so that the third screen the design
+// already describes has somewhere to be.
+//
+// `whichScreen` and not `screen`: `screen` is a browser global, and a top-level
+// `let screen` would quietly shadow it for the whole file.
+let whichScreen = "player";
+
+// Written every time rather than only on a change: this is also what puts the
+// first class on <body>, and a page that only wrote when the screen changed
+// would spend the whole of its first night carrying neither of them.
+function showScreen(name) {
+  whichScreen = name;
+  for (const each of SCREENS) {
+    document.body.classList.toggle(`${each}-screen`, each === name);
+  }
+}
+
+// Said before anything can ask, and before a keyboard can have an opinion.
+showScreen(whichScreen);
+
 // ------------------------------------------------------------------ keyboard
 
 // Not every browser shrinks the page for the on-screen keyboard, and the ones
 // that do disagree about when. Following the visual viewport keeps the
 // composer above the keyboard and the transcript scrollable to both ends.
+//
+// It is also where the keyboard is *measured*, which is the whole of how the
+// screen above is decided. `visualViewport.height` is what is left of the page
+// after whatever the platform has put over it; the same page's height with
+// nothing over it is the other half of the sum, and the difference between them
+// is the keyboard. Nothing there has to be inferred from anything.
+
+// How much of the page something has to take before it counts as a keyboard
+// rather than the address bar sliding in. A keyboard is between a third and a
+// half of a phone; the chrome that comes and goes is a tenth of it at most. A
+// fraction and not a number of pixels, because what it has to clear scales with
+// the screen — a tablet's keyboard is a smaller share of a taller page.
+const KEYBOARD_TAKES = 0.25;
+
+// The two boxes on this page anybody types into. A keyboard cannot be up over a
+// page with focus in neither of them, and that is what tells a window dragged
+// short from a keyboard arriving: nothing about a desktop resize implies
+// somebody is typing. A third field added to this page has to be added here as
+// well, or its keyboard is the one the page cannot see.
+const typingFields = [question, queueQuery];
+
+// Which of them is being typed into, or null. The element rather than a
+// boolean, because the composer's keyboard is the chat screen while the books
+// panel's keyboard is a keyboard over an overlay with the player still behind
+// it.
+let typing = null;
+
 const viewport = window.visualViewport;
-if (viewport) {
-  const fit = () => {
-    document.body.style.height = `${viewport.height}px`;
-    transcript.scrollTop = transcript.scrollHeight;
-  };
-  viewport.addEventListener("resize", fit);
-  // The keyboard animates in, so measure after it has settled.
-  question.addEventListener("focus", () => setTimeout(fit, 250));
-  question.addEventListener("blur", () => setTimeout(fit, 250));
+
+// What the page is when nothing is over it, and the only number here that is
+// remembered rather than read. It can only be taken while nothing has focus:
+// measured with a keyboard up it would teach the page that the short screen is
+// the whole screen, and the keyboard would never be seen again.
+let unobscured = viewport ? viewport.height : 0;
+
+const fit = () => {
+  if (!viewport) return;
+  document.body.style.height = `${viewport.height}px`;
+  transcript.scrollTop = transcript.scrollHeight;
+};
+
+// The two facts the sheet reads, from the two above.
+function readKeyboard() {
+  // Without a visual viewport there is nothing to measure, so focus has to be
+  // taken at its word. Every engine that can run this page has one; the arm is
+  // here so that an engine that does not can still reach the conversation,
+  // which is what the height query used to give it.
+  const shrunk =
+    !viewport || viewport.height < unobscured * (1 - KEYBOARD_TAKES);
+  const up = Boolean(typing) && shrunk;
+  // A keyboard over an overlay is still a keyboard: the list of places and the
+  // books panel both shrink their rows for one, and either can be up with the
+  // player rather than the chat behind it. So this is a separate fact from the
+  // screen and not a second name for it.
+  document.body.classList.toggle("keyboard-up", up);
+  showScreen(up && typing === question ? "chat" : "player");
+}
+
+viewport?.addEventListener("resize", () => {
+  // With nothing focused, nothing is over the page: whatever it is now is what
+  // "not obscured" means from here on. A window dragged shorter, a phone turned
+  // on its side, a text scale changed under a page left open all night — all of
+  // them arrive here, and none of them is a keyboard.
+  if (!typing) unobscured = viewport.height;
+  fit();
+  readKeyboard();
+});
+
+for (const field of typingFields) {
+  field.addEventListener("focus", () => {
+    typing = field;
+    readKeyboard();
+    // The keyboard animates in, so measure again after it has settled.
+    setTimeout(() => {
+      fit();
+      readKeyboard();
+    }, 250);
+  });
+  field.addEventListener("blur", () => {
+    // Decided at once rather than waited on. The keyboard animates out over the
+    // next fifth of a second and the viewport does not come back until it has,
+    // so the player is drawn for that long in a window still short of the room
+    // it wants — which is worth it, because a page that waited for a resize
+    // that never came on an engine that does not send them would leave somebody
+    // stranded on the chat screen, which is the whole of this issue.
+    typing = null;
+    readKeyboard();
+    setTimeout(() => {
+      fit();
+      readKeyboard();
+    }, 250);
+  });
 }
 
 if ("serviceWorker" in navigator) {
