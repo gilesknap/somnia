@@ -26,7 +26,15 @@ from .abs import AbsClient, tell_abs
 from .config import Config
 from .db import connect
 
-__all__ = ["BookEntry", "BookList", "Chapter", "Manifest", "Player", "Report"]
+__all__ = [
+    "BookEntry",
+    "BookList",
+    "Chapter",
+    "Manifest",
+    "Opened",
+    "Player",
+    "Report",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +48,29 @@ logger = logging.getLogger(__name__)
 # frame past the container's. What it must stay well below is thirty seconds,
 # which is the smallest forward jump the page has a button for.
 HEARD_SLACK_MS = 5_000
+
+# How far ahead of everything else the book somebody just chose is stamped, in
+# whole seconds. It is not a fudge factor, it is the resolution of the column:
+# ``position_at`` is written by ``datetime('now')``, which counts whole seconds,
+# and a tie between two books is broken by ``created_at`` — so a stamp that only
+# equalled the newest would hand a reload back to the book they just left,
+# depending on which of them happened to be added first.
+#
+# One second is not enough either, because the write it has to beat is the
+# parting report of the book being left behind: the page sends that within
+# milliseconds of asking for this one, and the two can land either side of a
+# second boundary. Two whole seconds is the first value that is strictly greater
+# than anything already in flight, whichever side of that boundary it lands. A
+# parting report held up longer than that by the tailnet would still land last
+# and still win, and that is left alone: the cost is a launch that opens the
+# book they came from, which one more press puts right.
+#
+# It costs a stamp up to two seconds in the future, which is read in exactly one
+# place — the ceiling on how much playback the *next* report may claim, in
+# :meth:`Player.report`. There it makes the first report after an open measure
+# against a slightly shorter interval, which can only stop the mark rising, and
+# the report after that one has already put the clock back where it belongs.
+OPENED_AHEAD_S = 2
 
 
 @dataclass
@@ -67,6 +98,21 @@ class BookList:
 
     last_gid: int | None
     books: list[BookEntry]
+
+
+@dataclass
+class Opened:
+    """A book made the one a cold launch opens, and where it resumes.
+
+    The position and the count are the book's own, untouched — they are here
+    because the caller has just made this the current book and this is what
+    that book was left at. Nothing here is new state: a page that took the
+    manifest instead would read exactly the same two numbers.
+    """
+
+    gid: int
+    position_ms: int | None
+    seq: int
 
 
 @dataclass
@@ -193,6 +239,56 @@ class Player:
         # touched in the same second would otherwise be free to differ.
         last_gid = books[0].gid if rows and rows[0]["position_at"] else None
         return BookList(last_gid=last_gid, books=books)
+
+    def open_book(self, gid: int) -> Opened | None:
+        """Make this the book a cold launch opens, and say where it resumes.
+
+        The whole of switching books, and it writes one column. ``last_gid`` is
+        simply the book with the newest ``position_at``, and positions have
+        always been kept per book, so there is no new state here and no second
+        place a position is remembered: the book they chose is resumed by being
+        made the most recent one, at whatever it was left at.
+
+        What it must not touch is everything else in that row. ``position_ms``
+        stays where the last report put it, because opening a book is not
+        listening to it and a book they change their mind about must be exactly
+        as they left it. ``heard_to_ms`` stays because nothing has been heard.
+        And ``position_seq`` stays because that number counts agent moves and
+        nothing else — bumping it here would refuse the page's next report and
+        drag the listener back to wherever the server thought they were, which
+        is the failure ADR 4 already refused for a chosen row.
+
+        Refused for a book with no audio at all, which is a book still waiting
+        on its first chapter or a render that died before one. That is the whole
+        reason the check is here rather than only on the page: making a book
+        nobody can play the one a cold launch opens would leave the next reload
+        waiting on a render instead of on the book that was playing, and a
+        listener who pressed something in the dark cannot see that happen.
+
+        The timestamp is two seconds ahead of everything else; see
+        :data:`OPENED_AHEAD_S` for why it is ahead at all.
+        """
+        with self._lock, self._conn:
+            row = self._conn.execute(
+                "UPDATE books SET position_at = datetime(MAX(datetime('now'),"
+                # COALESCE inside MAX and not around it: sqlite's scalar MAX is
+                # NULL if any argument is, so a database whose other books have
+                # never been played would otherwise clear the column it is
+                # setting. '' loses to any real timestamp, which is what makes
+                # it the right stand-in for "nothing to beat".
+                " COALESCE((SELECT MAX(position_at) FROM books WHERE gid <> ?),"
+                " '')), ?)"
+                # A book with no chapters row has nothing to play, and the page
+                # would sit on "the first chapter is still being read" for as
+                # long as it took somebody to notice.
+                " WHERE gid = ? AND EXISTS"
+                " (SELECT 1 FROM chapters c WHERE c.book_gid = books.gid)"
+                " RETURNING position_ms, position_seq",
+                (gid, f"+{OPENED_AHEAD_S} seconds", gid),
+            ).fetchone()
+        if row is None:
+            return None
+        return Opened(gid=gid, position_ms=row["position_ms"], seq=row["position_seq"])
 
     def manifest(self, gid: int) -> Manifest | None:
         """The whole timeline of one book, or None if there is no such book."""

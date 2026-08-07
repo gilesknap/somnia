@@ -163,7 +163,7 @@ erDiagram
     int heard_to_ms "high-water mark"
     int position_ms "nullable: never started"
     int position_seq "agent moves only"
-    text position_at "last report taken"
+    text position_at "last report taken, or opened; newest is last_gid"
     text abs_item_id
   }
   queue {
@@ -373,6 +373,7 @@ ahead of the static mount that would otherwise swallow them.
 | `GET /api/health` | — | `{"ok": true}` |
 | `GET /api/books` | player | Every book, most recently listened to first, plus `last_gid` |
 | `GET /api/book/{gid}` | player | The manifest: timeline, position, `heard_to_ms`, in one round trip |
+| `POST /api/book/{gid}/open` | player | Make this the book a cold launch opens — one column, nothing else |
 | `GET /api/audio/{gid}/{idx}` | player | One chapter's m4a. Range, `If-Range` and 416 are Starlette's own |
 | `GET /api/sentence/{gid}/{ms}` | player | Where the sentence at a point began, for the long rewind |
 | `POST /api/position` | player | The page's report; always 200, accepted or refused |

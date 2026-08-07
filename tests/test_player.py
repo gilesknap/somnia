@@ -146,6 +146,139 @@ def test_the_book_list_says_which_one_was_playing_last(
     assert (listing.books[0].position_ms, listing.books[0].seq) == (12_500, 7)
 
 
+# ------------------------------------------------ choosing which book to open
+
+
+def another_book(tone_book: ToneBook, gid: int, *, rendered: bool = True) -> None:
+    """A second book on the shelf, with or without a chapter of audio behind it.
+
+    A row in ``books`` and a row in ``chapters`` are two different facts, and
+    the gap between them is a book still waiting on its first chapter — which
+    is the one shape opening has to refuse.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO books (gid, title, voice, status, total_ms)"
+            " VALUES (?, 'The Other Book', 'af_heart', 'done', 8000)",
+            (gid,),
+        )
+        if rendered:
+            tone_book.conn.execute(
+                "INSERT INTO chapters (book_gid, idx, title, start_ms, end_ms,"
+                " audio_file) VALUES (?, 0, 'Its Only Chapter', 0, 8000, '')",
+                (gid,),
+            )
+
+
+def listening_to(tone_book: ToneBook, gid: int, position_ms: int = 5_000) -> None:
+    """What an accepted report leaves behind: a position and a moment."""
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET position_ms = ?, position_at = datetime('now')"
+            " WHERE gid = ?",
+            (position_ms, gid),
+        )
+
+
+def test_opening_a_book_is_what_makes_it_the_one_a_cold_launch_opens(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """The entire mechanism of switching books, and it writes one column.
+
+    Positions were always per book and ``last_gid`` was always the newest
+    ``position_at``, so choosing a book needs no new state at all — only a way
+    to say that this is the one they are on now.
+    """
+    another_book(tone_book, GID + 1)
+    listening_to(tone_book, GID)
+    assert player.books().last_gid == GID
+
+    opened = player.open_book(GID + 1)
+    assert opened is not None
+    assert (opened.gid, opened.position_ms, opened.seq) == (GID + 1, None, 0)
+    assert player.books().last_gid == GID + 1
+
+    # And back again, because the whole point of per-book positions is that
+    # changing your mind costs nothing.
+    assert player.open_book(GID) is not None
+    assert player.books().last_gid == GID
+
+
+def test_opening_a_book_leaves_everything_else_about_it_alone(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """Where it is, how much has been heard, and how often it has been moved.
+
+    All three are the reasons this is safe to press in the dark. The position
+    is what makes it resume where it was left; the mark is the spoiler guard,
+    which nobody has heard any more of by pressing a button; and the count is
+    agent moves and nothing else, so a page holding the old one is still in
+    step and its next report is still accepted.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET position_ms = 11000, position_seq = 3,"
+            " heard_to_ms = 9000 WHERE gid = ?",
+            (GID,),
+        )
+    opened = player.open_book(GID)
+    assert opened is not None
+    assert (opened.position_ms, opened.seq) == (11_000, 3)
+
+    manifest = player.manifest(GID)
+    assert manifest is not None
+    assert (manifest.position_ms, manifest.seq, manifest.heard_to_ms) == (
+        11_000,
+        3,
+        9_000,
+    )
+    # The page opened this book holding seq 3 and has heard nothing since, so
+    # the first thing it says has to be taken rather than refused. An open that
+    # bumped the count would answer it with a jump to where the book already is.
+    assert player.report(GID, 11_500, seq=3, played_ms=500).accepted is True
+
+
+def test_the_book_left_behind_cannot_take_the_switch_back(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """The parting report is the write this has to beat, and it lands after it.
+
+    Opening another book is the page leaving this one, and the last thing it
+    says about the book it is leaving is where it got to — which stamps that
+    book's ``position_at`` a millisecond or two after the open. Both are
+    written by ``datetime('now')``, which counts whole seconds, so without a
+    lead the two are the same second and the tie is broken by which book was
+    added first: a reload would open the book they had just left.
+    """
+    another_book(tone_book, GID + 1)
+    listening_to(tone_book, GID)
+
+    assert player.open_book(GID + 1) is not None
+    parting = player.report(GID, 6_000, seq=0, played_ms=1_000)
+    assert parting.accepted is True
+    assert player.books().last_gid == GID + 1
+
+
+def test_a_book_with_nothing_to_play_cannot_be_opened(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """A book waiting on its first chapter is not somewhere to be sent.
+
+    It would be the book a cold launch opened, and the next launch would sit
+    waiting on a render instead of on the book that was playing — with nothing
+    on the screen to say which of the two had happened.
+    """
+    another_book(tone_book, GID + 1, rendered=False)
+    listening_to(tone_book, GID)
+    assert player.open_book(GID + 1) is None
+    assert player.books().last_gid == GID
+
+
+def test_opening_a_book_that_is_not_there_is_not_an_error(player: Player) -> None:
+    """A page holding a gid from a database that has moved on."""
+    assert player.open_book(404_404) is None
+
+
 def test_a_chapter_is_found_by_its_index_not_by_a_path(
     player: Player, tone_book: ToneBook
 ) -> None:

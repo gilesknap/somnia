@@ -10,12 +10,22 @@
 // and `close` puts it away having changed nothing at all — including the tap
 // that a refused play was waiting for, which the panel borrows and gives back.
 //
-// The two: it adds books and never opens one, so ADR 3's "changing books is
-// done by asking" survives literally; and it costs nothing when nobody is
-// looking at it, which means no request before it is opened, no wake after it
-// is closed, and no wake at all while the page is in somebody's pocket.
+// The two: it costs nothing when nobody is looking at it, which means no
+// request before it is opened, no wake after it is closed, and no wake at all
+// while the page is in somebody's pocket; and the presses that do change the
+// night are exactly the ones on a book, so everything else on it can be
+// pressed in the dark and cost nothing.
 //
-// Everything below is about those five. The words on the rows get one test each
+// It used to be that nothing on this panel opened a book, and that was held to
+// be what kept ADR 3's "changing books is done by asking" literally true. The
+// ADR's amendment is what changed: what it objected to was browsing a library
+// to find something new, which is the search at the foot of this panel and is
+// still a separate act. Tapping one of the books you already have is not that,
+// and the shelf's own section below is about the promises that press keeps —
+// the book left behind keeps its position, the switch reaches the server before
+// anything else can fail, and nothing about it looks like an agent move.
+//
+// Everything below is about those. The words on the rows get one test each
 // because they are the whole of what the panel is for — at 2am the difference
 // between "not responding" and "chapter 4 of 39" is the difference between
 // getting up and going back to sleep.
@@ -27,7 +37,10 @@ import {
   boot,
   GROWING_BOOK,
   HALF_HEARD,
+  listed,
+  OTHER_BOOK,
   PART_READ,
+  RENDERING_BOOK,
   TONE_BOOK,
   UNCOUNTED_BOOK,
 } from "./harness.mjs";
@@ -39,6 +52,11 @@ const POLL_MS = 5000;
 // How long the first press of `stop reading this` stands, before the button
 // forgets it was ever asked.
 const CONFIRM_MS = 5000;
+
+// How long the page's second voice says a thing for. Named here because a press
+// that opens a book leaves exactly this one wake behind it, and "nothing is
+// scheduled" has to be able to tell that from a poll still running.
+const TOAST_MS = 2800;
 
 // A rendering job, as queue.view hands one over: chapters counted from the
 // chapters table, a total that is 0 until the parse wrote it down, and a
@@ -299,7 +317,7 @@ test("close leaves a night that never started exactly as it found it", async (t)
   assert.deepEqual(page.beacons, []);
 });
 
-test("the panel never asks about a book, only about the queue", async (t) => {
+test("the panel asks about the queue and the shelf, and about no book", async (t) => {
   const page = await playing(t);
   const before = page.fetches.length;
   page.queueView([job(), waiting()]);
@@ -308,14 +326,16 @@ test("the panel never asks about a book, only about the queue", async (t) => {
   await page.settle();
   page.click("queue-close");
   await page.settle();
-  // Every request the panel made, and there is nothing else in the list: no
-  // api/book, so two in-flight GETs can never leave `current` holding a row
-  // from a manifest that is no longer the manifest, and no api/position, which
-  // is the one thing on this page that can move somebody backwards.
+  // Every request the panel made, and there is nothing else in the list. The
+  // two it does make are lists — the queue, and which books there are — and
+  // neither of them is `api/book/{gid}`: two in-flight manifests can leave
+  // `current` holding a row from a manifest that is no longer the manifest.
+  // Nor is either of them api/position, which is the one thing on this page
+  // that can move somebody backwards.
   assert.deepEqual(
     page.fetches.slice(before),
-    ["api/queue", "api/queue"],
-    "the panel talks to the queue and to nothing else",
+    ["api/queue", "api/books", "api/queue"],
+    "the panel reads two lists and asks about no book at all",
   );
 });
 
@@ -553,6 +573,291 @@ test("with no book open the block goes rather than standing empty", async (t) =>
   // The same rule the card of live rows follows: a heading over nothing is a
   // claim that something should be there, which at 2am is a reason to get up.
   assert.equal(page.el("reading-now").hidden, true);
+});
+
+// ------------------------------------------------------------ on the shelf
+
+// The books somnia already has, under the one it is playing, each a press that
+// resumes it where it was left.
+//
+// The rows are read out of the DOM, as the queue's are: what /api/books said is
+// its own business and the only thing worth asserting is what somebody would
+// read in the dark. `open` is null where the row offers no press at all, which
+// is the whole of the guard against a book nobody can play yet being offered
+// and then refused.
+function shelf(page) {
+  return page.el("shelf").children.map((li) => ({
+    name: words(li, "shelved-name"),
+    meta: words(li, "shelved-meta"),
+    bar: part(li, "shelved-fill")?.style.width ?? null,
+    open: words(li, "shelved-open"),
+  }));
+}
+
+// A press on a shelf row, and everything it sets off: the server being told,
+// the manifest, the parting position of the book being left, and the first
+// chapter of the new one.
+async function pick(page, gid) {
+  page.click(`shelf-open-${gid}`);
+  for (let turn = 0; turn < 4; turn++) await page.settle();
+}
+
+test("the shelf says where each book was left and what is happening to it", async (t) => {
+  const page = await opened(t, {
+    library: [OTHER_BOOK, GROWING_BOOK, PART_READ, RENDERING_BOOK].map(listed),
+  });
+  page.queueView([]);
+  await books(page);
+  assert.deepEqual(shelf(page), [
+    {
+      name: "Another Book — Somnia Test",
+      // Where that book was left, on its own clock, which is the whole
+      // question a shelf answers that a list of titles does not.
+      meta: "0:00:04 in",
+      bar: "25%",
+      open: "pick it up",
+    },
+    {
+      // Two authors, held apart by the page's own separator — the same
+      // treatment `reading now` gives the book above, out of one function.
+      name: "The Moonstone — Collins, Wilkie, 1824-1889 · Reade, Charles, 1814-1884",
+      // Still arriving, so no hairline: total_ms is how much of it exists
+      // rather than how long it is, and a bar drawn from that reaches the end
+      // at chapter five of thirty-seven.
+      meta: "0:30:00 in · being read now",
+      bar: null,
+      open: "pick it up",
+    },
+    {
+      // A render that stopped part way. It plays, so it is offered — and it
+      // says what it is in the same words the search results below use for it.
+      name: "Stopped Part Way — Somnia Test",
+      meta: "0:00:00 in · part rendered",
+      bar: null,
+      open: "pick it up",
+    },
+    {
+      // Nothing to play at all. Marked rather than offered and then refused: a
+      // press that was never available cannot be a press that did nothing.
+      name: "Still Being Read — Somnia Test",
+      meta: "the first chapter is still being read",
+      bar: null,
+      open: null,
+    },
+  ]);
+});
+
+test("a book nobody has started says so rather than saying 0:00:00", async (t) => {
+  const page = await opened(t, { library: [TONE_BOOK].map(listed) });
+  page.queueView([]);
+  await books(page);
+  // "never started" and "at the very beginning" are different answers to
+  // "where am I?", and the manifest keeps them apart with a null. So does this.
+  assert.equal(shelf(page)[0].meta, "not started");
+  // And there is nothing to draw a hairline from either, where every other row
+  // has one: an empty track reads as a book at zero rather than at nothing.
+  assert.equal(shelf(page)[0].bar, null);
+});
+
+test("the book playing underneath is not on the shelf as well", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await books(page);
+  // It is the block above, with a press of its own that says where it lands.
+  // A second row for it would be two controls doing one thing — and the row
+  // would be the worse of them, because it would adopt the server's copy of
+  // the position, which is up to fifteen seconds behind the sound.
+  assert.equal(reading(page).title, "Half Heard — Somnia Test");
+  assert.equal(
+    shelf(page).some((row) => row.name.startsWith("Half Heard")),
+    false,
+  );
+  // Every other book somnia has is there, though.
+  assert.equal(shelf(page).length, 9);
+});
+
+test("a shelf row is opened where it was left, and takes the panel with it", async (t) => {
+  const page = await playing(t);
+  page.queueView([]);
+  await books(page);
+  await pick(page, OTHER_BOOK.gid);
+
+  // The server is told before anything else is asked, which is the half of
+  // this that outlives the tab: a page discarded a second later comes back on
+  // the book they chose rather than the one they left.
+  assert.deepEqual(
+    page.fetches.filter((url) => url.includes(String(OTHER_BOOK.gid))),
+    [`api/book/${OTHER_BOOK.gid}/open`, `api/book/${OTHER_BOOK.gid}`],
+  );
+  assert.equal(page.probe().gid, OTHER_BOOK.gid);
+  assert.equal(page.probe().positionMs, OTHER_BOOK.position_ms);
+  // The count comes from that book's own manifest. Nothing about this press is
+  // an agent move, so the page is in step with the server and its next report
+  // is taken rather than refused.
+  assert.equal(page.probe().seq, OTHER_BOOK.seq);
+  assert.equal(page.audio.paused, false);
+  // The last word about the book being left, sent while it was still this
+  // page's book — otherwise it would keep whatever its last heartbeat caught.
+  assert.deepEqual(
+    page.reports().filter((report) => report[1] === "switch"),
+    [[HALF_HEARD.gid, "switch", HALF_HEARD.position_ms]],
+  );
+  // The panel goes with the press, the same as `pick it up` — the question it
+  // was opened with has just been answered.
+  assert.equal(page.probe().queueUp, false);
+  assert.equal(page.probe().toast, "opened · Another Book");
+  // And the panel's poll went with it. The one wake left is that sentence
+  // taking itself off again, which is the only thing on the page still owed
+  // anything — a poll left running is a radio wake every five seconds all
+  // night beside somebody asleep.
+  assert.deepEqual(page.waits(), [TOAST_MS]);
+});
+
+test("each book keeps its own place, so changing your mind costs one press", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await books(page);
+  await pick(page, OTHER_BOOK.gid);
+  assert.equal(page.probe().positionMs, OTHER_BOOK.position_ms);
+
+  // And back, which is the whole argument for letting a thumb do this at all:
+  // nothing was written to the book they left, so it is exactly where it was.
+  await books(page);
+  assert.equal(
+    shelf(page).some((row) => row.name.startsWith("Half Heard")),
+    true,
+  );
+  await pick(page, HALF_HEARD.gid);
+  assert.equal(page.probe().gid, HALF_HEARD.gid);
+  assert.equal(page.probe().positionMs, HALF_HEARD.position_ms);
+});
+
+test("a switch the server will not make leaves the night where it was", async (t) => {
+  const page = await playing(t);
+  page.queueView([]);
+  await books(page);
+  // What the server answers for a book there is nothing to play of, and for a
+  // book that is not there at all — a page holding a list from a database that
+  // has moved on.
+  page.refuseToOpen(true);
+  await pick(page, OTHER_BOOK.gid);
+  assert.deepEqual(page.opens, [`api/book/${OTHER_BOOK.gid}/open`]);
+  // Nothing was asked about that book and nobody was moved to it. The order is
+  // what buys this: the page does not leave the book it is on until the switch
+  // it depends on has really been made.
+  assert.equal(page.fetches.includes(`api/book/${OTHER_BOOK.gid}`), false);
+  assert.equal(page.probe().gid, HALF_HEARD.gid);
+  assert.equal(page.audio.paused, false);
+  // Said on the panel's own line, in the page's own words for a book it could
+  // not get to, with the panel still up and the press still there to try again.
+  assert.equal(page.el("queue-said").textContent, "couldn't reach that book");
+  assert.equal(page.probe().queueUp, true);
+  assert.equal(page.el(`shelf-open-${OTHER_BOOK.gid}`).disabled, false);
+
+  // The tailnet eating the request outright is the same answer, because from
+  // here the two are the same thing: the switch did not happen.
+  page.refuseToOpen(false);
+  page.unreachable({ open: true });
+  await pick(page, OTHER_BOOK.gid);
+  assert.equal(page.probe().gid, HALF_HEARD.gid);
+  assert.equal(page.el("queue-said").textContent, "couldn't reach that book");
+});
+
+test("a book cannot be opened twice by pressing twice", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await books(page);
+  page.click(`shelf-open-${OTHER_BOOK.gid}`);
+  page.click(`shelf-open-${OTHER_BOOK.gid}`);
+  for (let turn = 0; turn < 4; turn++) await page.settle();
+  // Two presses a frame apart are the ordinary way a thumb double-taps
+  // something that has not answered yet, and the second of them would be a
+  // second switch: another parting report, and the book opened underneath
+  // itself at the position the first press had already left.
+  assert.deepEqual(page.opens, [`api/book/${OTHER_BOOK.gid}/open`]);
+});
+
+test("the shelf is asked for when somebody arrives, not every five seconds", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  const asked = () => page.fetches.filter((url) => url === "api/books").length;
+  const atBoot = asked();
+  await books(page);
+  assert.equal(asked(), atBoot + 1);
+
+  // A shelf changes when a render finishes, which is hours; the queue changes
+  // while somebody watches it, which is why only one of the two is worth a
+  // request every five seconds.
+  page.wake(POLL_MS);
+  await page.settle();
+  await page.settle();
+  assert.equal(asked(), atBoot + 1);
+
+  // Coming back to a phone that has been in a pocket is the other moment
+  // somebody is looking, and by then a render may have finished.
+  page.document.visibilityState = "hidden";
+  page.document.fire("visibilitychange");
+  page.document.visibilityState = "visible";
+  page.document.fire("visibilitychange");
+  await page.settle();
+  await page.settle();
+  assert.equal(asked(), atBoot + 2);
+});
+
+test("a shelf that could not be asked for again is left exactly as it was", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await books(page);
+  const drawn = shelf(page);
+  assert.equal(drawn.length > 0, true);
+
+  // The phone went in a pocket and came back, and by then the tailnet has gone
+  // — which takes both of the panel's lists with it, because they are asked for
+  // on the same wake and of the same box.
+  page.unreachable({ queue: true, books: true });
+  page.document.visibilityState = "hidden";
+  page.document.fire("visibilitychange");
+  page.document.visibilityState = "visible";
+  page.document.fire("visibilitychange");
+  await page.settle();
+  await page.settle();
+  // An empty shelf and an unreachable server look identical and mean opposite
+  // things, so the rows are left exactly as they were — and the panel's one
+  // line of doubt, which the poll owns, is what says which of the two this is.
+  assert.deepEqual(shelf(page), drawn);
+  assert.equal(page.el("queue-note").textContent, "couldn't reach somnia");
+
+  // A panel opened for the first time on a server that cannot be reached has
+  // nothing to leave up, because close forgets the shelf on purpose. What keeps
+  // the empty list from reading as "one book" is the same line.
+  page.click("queue-close");
+  await page.settle();
+  await books(page);
+  assert.deepEqual(shelf(page), []);
+  assert.equal(page.el("queue-note").textContent, "couldn't reach somnia");
+});
+
+test("close forgets the shelf as well as the queue", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await books(page);
+  assert.equal(shelf(page).length > 0, true);
+  page.click("queue-close");
+  await page.settle();
+  // Nothing left drawn and nothing left labelled, so the next opening cannot
+  // flash a shelf from a night that is over.
+  assert.deepEqual(shelf(page), []);
+  assert.equal(page.el("shelf-label").hidden, true);
+});
+
+test("a somnia with one book has no shelf and no label over it", async (t) => {
+  const page = await opened(t, { library: [HALF_HEARD].map(listed) });
+  page.queueView([]);
+  await books(page);
+  // The only book there is is the one playing, and it is named above. A label
+  // over nothing is a claim that something should be there.
+  assert.deepEqual(shelf(page), []);
+  assert.equal(page.el("shelf-label").hidden, true);
 });
 
 // ------------------------------------------------------------------- the words

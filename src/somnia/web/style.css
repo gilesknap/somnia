@@ -1845,7 +1845,8 @@ button.candidate-show:active {
 
 #queue-live,
 #queue-gone,
-#queue-results {
+#queue-results,
+#shelf {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1854,10 +1855,11 @@ button.candidate-show:active {
   gap: 1rem;
 }
 
-/* The results are hairline rows and carry their own padding, so a gap on top of
-   that would be a second, wider gap doing the same job — and it is the one list
-   here that can run to a screenful. */
-#queue-results {
+/* Both of these are hairline rows and carry their own padding, so a gap on top
+   of that would be a second, wider gap doing the same job — and they are the
+   two lists here that can run to a screenful. */
+#queue-results,
+#shelf {
   gap: 0;
 }
 
@@ -1865,7 +1867,8 @@ button.candidate-show:active {
    gaps above the search box on a night when nothing is rendering. */
 #queue-live:empty,
 #queue-gone:empty,
-#queue-results:empty {
+#queue-results:empty,
+#shelf:empty {
   display: none;
 }
 
@@ -1976,6 +1979,95 @@ button.candidate-show:active {
 
 #reading-resume:active {
   background: var(--accent-surface);
+}
+
+/* The books somnia already has, under the one it is playing. The shape is the
+   search results' — a reading on the left, one press on the right, a hairline
+   between one book and the next — because it is the same kind of list read in
+   the same place, and a second row shape would be a second thing to learn in
+   the dark.
+
+   The press is a plain pill and not the amber one, which is the only thing here
+   that departs from `finish this one` further down. Amber on this panel is the
+   press somebody arrived having already decided to make, and there is exactly
+   one of those on screen: `pick it up at 1:12:08`, full width, for the book
+   already sounding. Four warm pills down a list would be four books all
+   claiming to be that one.
+
+   No cover art, here either. A cover is a bright rectangle in a dark room. */
+.shelved {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* The reading and the press, across one line. The hairline under this rather
+   than inside it is why the line is its own box: a rule that stopped where the
+   text stops would be a fraction of a row read against the full-width one under
+   `reading now`, which is a fraction of a book. */
+.shelved-line {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.shelved-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.shelved-name {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+/* Where that book was left, and what is happening to it. Tabular figures for
+   the same reason every clock on this page has them: the time is the part being
+   read, and it must not move the words after it. */
+.shelved-meta {
+  margin: 0.15rem 0 0;
+  color: var(--dim);
+  font-size: 0.825rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* How far through that book, drawn rather than stated, and only where the whole
+   of it is here — see drawShelf. No transition, because this list is drawn when
+   the panel opens rather than under somebody's eyes. */
+.shelved-track {
+  height: 2px;
+  background: var(--hairline);
+}
+
+.shelved-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+/* The same 104 by 56 as `add this book`, and for the same reason: well over the
+   44dp floor, well under the slabs on the transport, aimed at rather than
+   landed on. This press moves the night to another book, and while that costs
+   nothing that cannot be undone — the book left behind keeps its own position —
+   it is still not a thing to do by brushing the screen. */
+.shelved-open {
+  flex: none;
+  min-width: 5.2rem;
+  min-height: 2.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  color: var(--mid);
+  font-size: 0.875rem;
+  padding: 0.5rem 0.8rem;
+}
+
+.shelved-open:active {
+  background: var(--surface-active);
+  color: var(--ink);
 }
 
 /* The one card on the page. Everything else here is type on the background, so
@@ -2313,13 +2405,15 @@ button.candidate-show:active {
     gap: 0.7rem;
   }
 
-  .found {
+  .found,
+  .shelved {
     padding: 0.6rem 0;
   }
 
-  /* Both still over the 44dp floor. Nothing tappable goes under it, keyboard or
-     no keyboard. */
+  /* All three still over the 44dp floor. Nothing tappable goes under it,
+     keyboard or no keyboard. */
   .found-add,
+  .shelved-open,
   .job-stop {
     min-height: 2.6rem;
   }

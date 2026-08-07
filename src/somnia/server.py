@@ -309,6 +309,29 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             return JSONResponse({"error": "no such book"}, 404)
         return JSONResponse(asdict(manifest))
 
+    async def open_book(request: Request) -> Response:
+        """Make this the book the page opens, which is the whole of switching.
+
+        One column, on one row: the book with the newest ``position_at`` is what
+        a cold launch opens, so making a book the most recent one *is* choosing
+        it. Nothing about where it is, how far it has been heard, or how many
+        times the agent has moved it is touched — see
+        :meth:`somnia.player.Player.open_book`.
+
+        Keyed on the book in the path rather than on a number in a body, the
+        same shape as ``/api/queue/{id}/stop``: a request that names no book at
+        all is a 404 from the router, so there is no 400 to write here.
+
+        404 for a book that is not there and for one with no audio yet, which
+        are the same answer to a press — there is nothing to open — and neither
+        is a state the panel ever offers a press in.
+        """
+        gid = int(request.path_params["gid"])
+        opened = await run_in_threadpool(player.open_book, gid)
+        if opened is None:
+            return JSONResponse({"error": "no book to open"}, 404)
+        return JSONResponse(asdict(opened))
+
     async def sentence(request: Request) -> Response:
         """Where the sentence being spoken at a point began.
 
@@ -478,6 +501,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/health", health),
             Route("/api/books", books),
             Route("/api/book/{gid:int}", book),
+            Route("/api/book/{gid:int}/open", open_book, methods=["POST"]),
             Route("/api/audio/{gid:int}/{idx:int}", audio),
             Route("/api/sentence/{gid:int}/{ms:int}", sentence),
             Route("/api/position", position, methods=["POST"]),

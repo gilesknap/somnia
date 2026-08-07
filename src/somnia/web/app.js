@@ -76,6 +76,11 @@ const readingMeta = document.getElementById("reading-meta");
 const readingTrack = document.getElementById("reading-track");
 const readingFill = document.getElementById("reading-fill");
 const readingResume = document.getElementById("reading-resume");
+// The books somnia already has, under the one it is playing, and the label over
+// them. The label goes with the rows — the rule every other list on this panel
+// follows, because a heading over nothing is a claim that something is there.
+const shelfLabel = document.getElementById("shelf-label");
+const shelf = document.getElementById("shelf");
 // The page's second voice, and the sheet of black over the whole of it.
 const toastLine = document.getElementById("toast");
 const dimLayer = document.getElementById("dim");
@@ -2234,9 +2239,13 @@ document.addEventListener("visibilitychange", () => {
     refreshManifest().catch((error) => console.error(error));
   }
   // And if they left the panel up, whatever it is showing is as old as the
-  // sleep was. Asked now rather than in five seconds, for the same reason as
-  // the two above: coming back to the app is the moment somebody is looking.
-  if (!queuePanel.hidden) pollQueue();
+  // sleep was — both lists of it. Asked now rather than in five seconds, for
+  // the same reason as the two above: coming back to the app is the moment
+  // somebody is looking, and for the shelf it is one of only two such moments.
+  if (!queuePanel.hidden) {
+    pollQueue();
+    askForTheShelf();
+  }
 });
 
 // `play` is false at boot and true only when the agent has just moved this
@@ -2362,25 +2371,29 @@ async function openTheBook() {
 // one, and to stop one, and to start one when somebody would rather point than
 // speak.
 //
-// What it deliberately is not is a library browser. Nothing on it opens a book
-// and nothing on it switches what is playing — which is what keeps ADR 3's "the
-// page opens the book they were last listening to; changing books is done by
-// asking" literally true. A catalog search for something to *add* is a
-// different act from choosing what to listen to, and the difference is the
-// whole reason this is allowed to be a second overlay on a one-screen page.
+// It also opens books now, which it did not, and that is a decision rather than
+// a drift: ADR 3 said "the page opens the book they were last listening to;
+// changing books is done by asking", and its amendment says what that sentence
+// was really protecting against — browsing a library to find something new. The
+// search at the foot of this panel is that, and it is still a separate act from
+// tapping one of the three books you already have, which is what `on the shelf`
+// is. A shelf row is a book whose position somnia has kept all along; the press
+// makes it the most recent one and opens it where it was left.
 //
-// It does now start the book that is already open. `reading now` at the top of
-// it names the book the panel is standing over and offers it back, and that
-// press is the play button pressed from up here rather than from behind: the
-// only book it can reach is the one already sounding, so nothing is opened and
-// nothing is switched. What it costs is that `close` is no longer the only way
-// out, and the listener at the foot of this section has to give the borrowed
+// `reading now` at the top of it names the book the panel is standing over and
+// offers it back, and that press is the play button pressed from up here rather
+// than from behind. What both presses cost is that `close` is no longer the only
+// way out, and the listener at the foot of this section has to give the borrowed
 // tap-to-resume up rather than hand it back.
 //
 // It costs nothing when it is shut. No request is made before it is opened, its
-// poll stops the moment it is closed or the phone goes in a pocket, and it
-// holds no payload — so none of the six places that take the candidate list
-// down has a twin here, and nothing else on the page has to know it exists.
+// poll stops the moment it is closed or the phone goes in a pocket, and what it
+// holds — the queue's rows, the last search, and the shelf — is forgotten by
+// close rather than kept. So none of the six places that take the candidate
+// list down has a twin here, and nothing else on the page has to know it
+// exists. The one thing on it that can go stale under somebody is a shelf row
+// for the book the agent has just moved them to, and that is dealt with by the
+// press rather than by a redraw; see openShelved.
 //
 // And it is separate from the ladder that watches THIS book grow, on purpose.
 // `awaiting`/`askForMore` conflate "has this book got longer" with "is the
@@ -2438,6 +2451,11 @@ const JOB_STAGE = {
 let queuePoll = 0; // the wake this panel is waiting on, or 0 for none
 let queueRows = []; // the last list the server gave us, drawn as it stands
 let queueFound = []; // the last search, and what has since been done about it
+// Every book somnia has, as of the last time somebody arrived at this panel.
+// Not polled with the queue: a shelf changes when a render finishes, which is
+// hours, and the queue changes while you watch it, which is why only one of the
+// two is worth a request every five seconds.
+let shelved = [];
 // The progress hairline of each row that has one, kept by job id across
 // redraws. The list is rebuilt from scratch every five seconds, and a bar
 // created a moment ago has no width to move from — so a fill that was made
@@ -2451,6 +2469,7 @@ let jobFills = new Map();
 // cancel is a confirmation that expires at random.
 let stopArmed = null;
 let submitting = 0; // one submit in flight at a time, by gid
+let opening = 0; // one book being opened at a time, by gid
 // Whether close owes the page a tap-to-resume listener, because opening the
 // panel took one away. Exactly the borrow cancelCandidates makes, for exactly
 // the same reason: with the listener still armed the first press anywhere on
@@ -2513,6 +2532,19 @@ function whoWrote(authors) {
     .join(" · ");
 }
 
+// `Title — Surname, Forename, dates`, which is how this panel names a book of
+// somnia's own — the block at the top of it and every row of the shelf under
+// that, out of one function so the two cannot drift.
+//
+// The fallback is the one drawPlayer uses for its headline: a book that has
+// been through nothing but the local catalog may have no title at all, and
+// "book 1342" is a good deal better than an empty line where the name goes.
+function bookAndWho(title, id, authors) {
+  const name = title || `book ${id}`;
+  const who = whoWrote(authors);
+  return who ? `${name} — ${who}` : name;
+}
+
 // The block at the top of the books panel: which book is playing under it, how
 // far in, and the one press that goes back to it.
 //
@@ -2536,12 +2568,7 @@ function drawReadingNow() {
     return;
   }
   readingNow.hidden = false;
-  // The same fallback drawPlayer uses for the headline, for the same reason: a
-  // book that has been through nothing but the local catalog may have no name,
-  // and "book 1342" beats an empty line where the title goes.
-  const name = manifest.title || `book ${gid}`;
-  const who = whoWrote(manifest.authors);
-  readingTitle.textContent = who ? `${name} — ${who}` : name;
+  readingTitle.textContent = bookAndWho(manifest.title, gid, manifest.authors);
   // The player's own count, drawn again here rather than read off the screen:
   // 0 means nobody wrote the total down — every book rendered before that
   // column existed — so it says `chapter 4` and stops, and never `4 of 0`.
@@ -2581,6 +2608,210 @@ function drawReadingNow() {
   readingResume.textContent = player.paused
     ? `pick it up at ${timestamp(positionMs)}`
     : "back to it · playing";
+}
+
+// ------------------------------------------------------------ on the shelf
+
+// The books somnia already has, each one a press that resumes it where it was
+// left. Everything a row says is already in /api/books — positions have always
+// been per book — so this is a readout of state that existed before the panel
+// did, and the press writes one column on the server.
+//
+// What that press cannot do is the reason it is allowed to exist at all.
+// Opening a book moves nothing, plays nothing of it that has not been played,
+// and leaves the book being left behind at its own position to the millisecond.
+// A wrong press costs one press back, which is what makes a list of books
+// something a thumb may land on in the dark.
+
+// Where a book was left, and what is happening to it, in the line under its
+// name. A book with nothing to play at all says only that, in the page's own
+// two sentences for it, because there is no press on that row and the line has
+// to say why.
+function shelfWords(entry) {
+  if (!entry.chapters) {
+    return entry.status === "rendering"
+      ? "the first chapter is still being read"
+      : "nothing to play yet";
+  }
+  // "never started" and "at 0:00:00" are different answers and only one of them
+  // is true of a book nobody has opened — the same distinction the manifest's
+  // null position carries, said in words here.
+  const where =
+    entry.position_ms === null
+      ? "not started"
+      : `${timestamp(entry.position_ms)} in`;
+  // And whether the whole of it is there to be listened to, in the words the
+  // search results below use for the same two states: a book somnia is still
+  // reading, and one whose render stopped part way and left what it had. A
+  // finished book says nothing, because "already here" is what every other row
+  // on this list is as well.
+  const state = entry.status === "done" ? "" : HAVE_WORDS[entry.status];
+  return state ? `${where} · ${state}` : where;
+}
+
+function shelfRow(entry) {
+  const li = document.createElement("li");
+  li.className = "shelved";
+  li.id = `shelf-${entry.gid}`;
+  // The reading and the press across one line, with the hairline under both
+  // rather than under the reading alone: a rule that stopped where the text
+  // stops is a fraction of a row, and it would be read against the full-width
+  // one above it, which is a fraction of a book.
+  const line = document.createElement("div");
+  line.className = "shelved-line";
+  const text = document.createElement("div");
+  text.className = "shelved-text";
+  const name = document.createElement("p");
+  name.className = "shelved-name";
+  name.textContent = bookAndWho(entry.title, entry.gid, entry.authors);
+  text.append(name);
+  const meta = document.createElement("p");
+  meta.className = "shelved-meta";
+  meta.textContent = shelfWords(entry);
+  text.append(meta);
+  line.append(text);
+  // A book with no audio behind it is marked rather than offered and then
+  // refused — the rule the search results already follow, and the same rule the
+  // server keeps: it answers 404 for a book there is nothing to play of, so a
+  // press that got this far cannot leave somebody on a book that will not
+  // sound.
+  if (entry.chapters) {
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "shelved-open";
+    // Set at creation, as candidateRow does, or nothing in a test can reach it.
+    open.id = `shelf-open-${entry.gid}`;
+    // The panel's own words for this press, borrowed from the block above
+    // rather than invented: it is the same act, made about a book that is not
+    // open yet. Without the time, which belongs to `reading now` — a shelf of
+    // four books each offering a different h:mm:ss is four numbers to read
+    // where the question is only which book.
+    open.textContent = "pick it up";
+    open.addEventListener("click", () => openShelved(entry, open));
+    line.append(open);
+  }
+  li.append(line);
+  // How far through, drawn rather than stated, and only where the whole book is
+  // here: the same guard drawReadingNow carries, for the same reason. While a
+  // render is going total_ms is how much audio exists rather than how long the
+  // book is, so a bar drawn from it reaches the end at chapter five of
+  // thirty-seven and then walks backwards as the rest lands. A book nobody has
+  // started gets none either — there is nothing to draw, and an empty track
+  // where every other row has a fill reads as a book at zero rather than as a
+  // book at nothing.
+  if (entry.status === "done" && entry.total_ms > 0 && entry.position_ms) {
+    const track = document.createElement("div");
+    track.className = "shelved-track";
+    const fill = document.createElement("div");
+    fill.className = "shelved-fill";
+    const through = Math.min(1, entry.position_ms / entry.total_ms);
+    fill.style.width = `${Math.round(through * 1000) / 10}%`;
+    track.append(fill);
+    li.append(track);
+  }
+  return li;
+}
+
+function drawShelf() {
+  // Never the book playing underneath. That one is the block above with a press
+  // of its own that says where it will land, and a second row for it here would
+  // be two controls doing one thing — with the row being the worse of the two,
+  // because it would adopt the server's copy of the position, which is up to
+  // fifteen seconds behind the sound.
+  const others = shelved.filter((entry) => entry.gid !== gid);
+  shelf.replaceChildren(...others.map(shelfRow));
+  // A label over nothing is a claim that something should be there, which is
+  // the rule the card of live rows and the ended list both follow.
+  shelfLabel.hidden = !others.length;
+}
+
+// Asked when somebody arrives at the panel, and not on the poll with the queue.
+// The queue moves while it is being watched; the shelf changes when a render
+// finishes, which is hours, so the two moments worth asking are opening the
+// panel and coming back to a phone that has been in a pocket.
+async function askForTheShelf() {
+  try {
+    const response = await fetch("api/books");
+    if (!response.ok) throw new Error("no book list");
+    const listing = await response.json();
+    shelved = listing.books || [];
+  } catch (error) {
+    // Whatever was last drawn stays on the screen, exactly as the queue rows
+    // do: emptying the list would be the panel's one available lie, because an
+    // empty shelf and an unreachable server look identical and mean opposite
+    // things.
+    //
+    // Nothing is said here, though, and that is deliberate. The panel has one
+    // line for "couldn't reach somnia" and the poll owns it — this request goes
+    // out on the same press, to the same box, so a shelf that could not be
+    // reached is a queue that could not be reached, and it is that line that
+    // says so. Two writers would race, and the one that lost would be this: the
+    // poll's success clears the line a moment after a failure here would have
+    // written to it, which is worse than not writing at all.
+    console.error(error);
+  }
+  drawShelf();
+}
+
+// The press that changes which book the night is about, in a fixed order.
+async function openShelved(entry, button) {
+  // One at a time, and the guard is set before the first await: two presses a
+  // frame apart are the ordinary way a thumb double-taps something that has not
+  // answered yet.
+  if (opening) return;
+  // The book already open, which this list holds only for a moment — the agent
+  // can move the night to another book while somebody is reading the panel, and
+  // the row drawn a second ago is then the book that is playing. Opening it
+  // again would adopt the server's position, which is up to fifteen seconds
+  // behind the sound, so this press is the one above it instead.
+  if (entry.gid === gid) {
+    pickItUp();
+    return;
+  }
+  opening = entry.gid;
+  button.disabled = true;
+  try {
+    // The server first, because this is the half that outlives the tab: it
+    // makes this book the most recent one, which is the whole of what a cold
+    // launch reads, so a page discarded a second later comes back on the book
+    // they chose rather than on the one they left. It writes nothing else — no
+    // position, no count, no mark — so the page is not being moved, it is being
+    // pointed somewhere.
+    const response = await fetch(`api/book/${entry.gid}/open`, {
+      method: "POST",
+    });
+    if (!response.ok) throw new Error(`no book ${entry.gid} to open`);
+    // And then the same call the agent's move takes when it lands in another
+    // book, which is what makes this one line rather than a second way of
+    // switching: the parting position of the book being left, the played clock
+    // that belongs to it, the seq, the manifest and the first chapter are all
+    // handled where they already are.
+    await openBook(entry.gid, { play: true });
+  } catch (error) {
+    console.error(error);
+    // The page's own sentence for this, said on the panel's line rather than
+    // over the book: the panel is still up, and the press is still there to try
+    // again with.
+    queueSaid.textContent = "couldn't reach that book";
+    button.disabled = false;
+    opening = 0;
+    return;
+  }
+  opening = 0;
+  // openBook adopts nothing when there is no audio to play, and leaves the page
+  // on the book it was on. The server refuses those before this gets that far,
+  // so this is the belt to that braces — and it is here rather than nowhere
+  // because "opened" over a book that did not open is the one thing a toast
+  // must never say.
+  if (gid !== entry.gid) return;
+  // This press is itself the touch a refused play was waiting for, so the panel
+  // gives the borrowed listener up rather than handing it back. Then the panel
+  // goes, because the question it was opened with has just been answered.
+  rearmOnQueueClose = false;
+  hideQueue();
+  // On the line after the switch and never on a timer, for the reason
+  // chooseCandidate gives: what a toast says has to be true when it is written.
+  toast(`opened · ${entry.title || `book ${entry.gid}`}`);
 }
 
 // One job, in one line, for somebody who wants to know whether to wait up.
@@ -2968,6 +3199,10 @@ function showQueue() {
   // holds, so there is nothing to wait for.
   drawReadingNow();
   pollQueue();
+  // The shelf is asked for once, here. Nothing about it is worth a wake every
+  // five seconds — a book appears on it when a render finishes — and this is
+  // the moment somebody is looking at it.
+  askForTheShelf();
 }
 
 // The inert close. It forgets everything the panel was holding and gives back
@@ -2984,7 +3219,10 @@ function hideQueue() {
   forgetStop();
   queueRows = [];
   queueFound = [];
+  shelved = [];
   jobFills = new Map();
+  shelf.replaceChildren();
+  shelfLabel.hidden = true;
   queueLive.replaceChildren();
   queueWorking.hidden = true;
   queueGone.replaceChildren();
@@ -3004,8 +3242,8 @@ function hideQueue() {
 booksButton.addEventListener("click", showQueue);
 queueClose.addEventListener("click", hideQueue);
 
-// The one press on this panel that touches the book, and the only way out of it
-// other than `close`.
+// The press that starts the book already open, and one of the two ways out of
+// this panel that are not `close`.
 //
 // The order of the three lines matters and the first of them is the whole of
 // why this is not just a call to hideQueue. showQueue borrows the tap-to-resume
@@ -3026,11 +3264,16 @@ queueClose.addEventListener("click", hideQueue);
 // to reason about at 2am, and this one would be the one nobody tested. Only
 // when it is really stopped — the label already said `back to it · playing`
 // rather than offering a time, and there is nothing there to start.
-readingResume.addEventListener("click", () => {
+//
+// A shelf row for the book that is already open lands here too, rather than
+// opening it again; see openShelved.
+function pickItUp() {
   rearmOnQueueClose = false;
   hideQueue();
   if (player.paused) ensurePlaying({ rewind: true });
-});
+}
+
+readingResume.addEventListener("click", pickItUp);
 queueSearch.addEventListener("submit", (event) => {
   event.preventDefault();
   findBooks();

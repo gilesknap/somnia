@@ -46,24 +46,27 @@
 
          And now a second one — #queue, after it — which is the harder of the
          two to justify, because the first answers a question the listener has
-         just asked and this one is a thing somebody goes looking for. Three
+         just asked and this one is a thing somebody goes looking for. Two
          things make it the same screen rather than a route. It is opened only
          on purpose, from the far corner, by the smallest control on the page.
-         It holds no payload, so nothing else on the page ever has to close it
-         and there is nothing in it to go stale — which is why the six places
-         that take the candidate list down have no twin here. And it adds books
-         rather than switching between them: nothing on it opens a book, so
-         "the page opens the book they were last listening to; changing books is
-         done by asking" is still true word for word.
+         And what it holds it forgets on the way out, so nothing else on the
+         page ever has to close it — which is why the six places that take the
+         candidate list down have no twin here.
 
-         It can now start the book that is already open — `pick it up at
-         1:12:08`, at the top of it, over a `reading now` that says which book
-         the panel is standing over. That is the play button pressed from up
-         here rather than from behind, and it is the only book the panel can
-         reach: it opens nothing, switches nothing, and the sentence above
-         survives word for word. So there are two ways out now — `‹ controls`, which
-         changes nothing at all, and that one press, which takes the panel away
-         with it because it has just answered the question the panel was opened
+         It also used to be true that nothing on it opened a book. That is no
+         longer the shape of it: `reading now` at the top starts the book
+         already open — `pick it up at 1:12:08`, which is the play button
+         pressed from up here rather than from behind — and `on the shelf`
+         under it opens any book somnia has, at the place that book was left.
+         ADR 3 said changing books was done by asking; its amendment says what
+         that was really protecting against, which was browsing a library to
+         find something new. Tapping one of the three books you already have is
+         not that, and the search at the foot of this panel, which is that, is
+         still a separate act.
+
+         So there are three ways out now — `‹ controls`, which changes nothing at
+         all, and the two presses that open a book, which take the panel away
+         with them because they have just answered the question it was opened
          with. -->
 
     <!-- One action, the name, and one quiet action — in that order across the
@@ -545,14 +548,15 @@
          somebody is listening to.
 
          The order down it is the order the questions are asked in. Which book
-         am I already in — `reading now`, at the top where the eye lands, and
-         the only part of this panel that is about a book rather than about the
-         queue. Is anything happening — the live rows under it. Did anything go
-         wrong — the rows that ended in the last day, under those, because a
-         failure is worth reading once and is not news twice. And then
-         adding one, which is the reason somebody opened this at all but is also
-         the only part of it that wants a keyboard, so it sits below the reading
-         where the keyboard can cover it without covering anything else.
+         am I already in — `reading now`, at the top where the eye lands. What
+         else have I got — `on the shelf` under it, which is the same question
+         asked about the other books and is answered by pressing one. Is
+         anything happening — the live rows below those. Did anything go wrong —
+         the rows that ended in the last day, under them, because a failure is
+         worth reading once and is not news twice. And then adding one, which is
+         the reason somebody opened this at all but is also the only part of it
+         that wants a keyboard, so it sits below the reading where the keyboard
+         can cover it without covering anything else.
 
          #queue-head is outside the scrolling part, so the way out is in the
          same place however many rows there are and whatever the keyboard is
@@ -605,13 +609,13 @@
              is the rule the card below it already follows. A heading over
              nothing is a claim that something should be there.
 
-             What is deliberately not here: `put it down`, and the shelf of
-             other books the design puts under this. Both were dropped in this
-             pass rather than faked. `put it down` is a shelving action somnia
-             has no notion of — pausing is not shelving, and there is nothing on
-             the server to write "finished with for now" to — and a shelf of
-             books to tap would be this panel opening books, which is the one
-             thing it must not do. -->
+             What is deliberately not here is `put it down`, which was dropped
+             rather than faked: it is a shelving action somnia has no notion of
+             — pausing is not shelving, and there is nothing on the server to
+             write "finished with for now" to. The design's other half of this
+             block, the shelf of books under it, was dropped for a reason that
+             no longer stands — that this panel must not open a book — and it
+             is the section below. -->
         <section id="reading-now" hidden>
           <p class="section-label">reading now</p>
 
@@ -667,6 +671,32 @@
                thing to get out of. -->
           <button id="reading-resume" type="button"></button>
         </section>
+
+        <!-- The books somnia already has, each one a press that resumes it
+             where it was left. The panel opens a book now, and that is a
+             change of mind written down rather than smuggled in: ADR 3 used to
+             say changing books was done by asking, and its amendment says what
+             it really objected to, which was browsing to find something new.
+             That is what the search below this is, and it is still a different
+             act from tapping a book you already have.
+
+             Everything a row needs is already in `/api/books`: positions have
+             always been kept per book, so a row is that book's own place said
+             out loud, and pressing one makes it the most recent — which is the
+             whole of what a cold launch reads. Nothing is moved, nothing is
+             heard, and the book left behind keeps its own position to the
+             millisecond, so a wrong press costs one press back.
+
+             The book playing underneath is not in this list. It is the block
+             above, with a press of its own that says where it will land, and a
+             second row for it here would be two controls doing one thing.
+
+             A book with no audio yet — still being read, or a render that died
+             before its first chapter — is a row with no press, marked the way
+             the search results below mark a book that is already here. A press
+             that was never available cannot be a press that did nothing. -->
+        <p id="shelf-label" class="section-label" hidden>on the shelf</p>
+        <ul id="shelf"></ul>
 
         <!-- What is happening, in a box that says so. It is the only card on
              the page — a hairline, a radius and a sentence at the top of it —

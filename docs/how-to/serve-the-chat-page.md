@@ -172,11 +172,12 @@ all of them.
 
 The page opens the book you were last listening to, at the place you left it,
 and does not start it — opening the app at 2am to ask a question is not the
-same as asking for the book. Press play when you want it. There is still no
-library to browse: *another book* is something you ask for, the same way you
-ask for a passage. The *books* control in the corner adds books and watches
-them being rendered; it never opens one, and nothing on it changes what is
-playing.
+same as asking for the book. Press play when you want it.
+
+To read something else, open *books* and press it on the shelf — or ask, which
+still works and is still the shortest way to say it. There is no library of
+things you do not have to browse: the search at the foot of that panel is for
+*adding* a book, and it goes to Gutenberg's catalog rather than to your shelf.
 
 On the page there are three buttons: back thirty seconds, play/pause, forward
 thirty seconds. Most nights you will use none of them, because the screen is
@@ -238,12 +239,13 @@ It stops the moment you pause — nothing reloads chapters under a book somebody
 has put down — and waking the phone, or the wifi coming back, makes it try
 again at once, so there is nothing to press.
 
-## Adding a book from the page
+## Choosing and adding books from the page
 
 *books*, in the corner beside *start over*, opens a panel over the page. The
-book keeps playing underneath it, nothing on it opens a book or switches which
-one you are listening to, and *close* puts it away having changed nothing at
-all.
+book keeps playing underneath it, nothing on it moves the book you are in, and
+*‹ controls* puts it away having changed nothing at all. Two presses on it do
+change something, and both are presses on a book: *pick it up*, which starts the
+book already open, and a book on the shelf, which opens that one.
 
 At the top, under *reading now*, is the book that is playing underneath the
 panel — *The Moonstone — Collins, Wilkie, 1824-1889*, and under it *chapter 4
@@ -253,9 +255,17 @@ number is how far into the book the mark is. The hairline is not drawn at all
 while the book is still being rendered, because until the render is over the
 book's length is only how much of it exists so far. *pick it up at 1:12:08*
 starts it and puts the panel away — the same press as the play button, made
-from up here, and the only book it can reach is the one already playing. When
-it is already playing that button reads *back to it · playing* and does nothing
-but take you back to the controls.
+from up here. When it is already playing that button reads *back to it ·
+playing* and does nothing but take you back to the controls.
+
+Under it, *on the shelf* is every other book somnia has, each with where you
+left it — *0:27:42 in*, or *not started* — and *pick it up*, which opens that
+book at that place and takes the panel away with it. Changing your mind costs
+one press back: nothing is written to the book you left, so it is still exactly
+where it was, and so is the one you looked at. A book still being rendered says
+so and offers no press until its first chapter exists, because until then there
+is nothing to play. A book whose render stopped part way says *part rendered*
+and can still be opened — what was read plays.
 
 Under that is what is happening, in a box headed *the server is working*: the book being rendered, with *narrating* in the corner of its line
 and, under the name, which chapter it is on and how much of it can be played
