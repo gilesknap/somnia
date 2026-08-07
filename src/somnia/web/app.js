@@ -275,6 +275,10 @@ composer.addEventListener("submit", (event) => {
 // two presses for the cheapest thing on it. The queue's `stop reading this`
 // keeps its two presses and its longer fuse, because that one ends hours of
 // rendering and lives on a panel anybody can wander into.
+//
+// It is a press at all only because of the guard at the foot of this file: a
+// pill the sheet draws only while the composer has focus must not be allowed
+// to take that focus away from it.
 restart.addEventListener("click", startOver);
 
 // What is thrown away is the conversation, and only the conversation. The book
@@ -3412,6 +3416,31 @@ toControls.addEventListener("click", () => {
   question.blur?.();
   stoppedTyping();
 });
+
+// And neither corner of that screen may take the composer's focus, which is the
+// one thing standing between both of them and being pressable at all.
+//
+// The chain is short and it runs entirely downhill. Focus leaving the box is a
+// blur; a blur is stoppedTyping(); stoppedTyping() is the player screen; and the
+// player screen is the one the sheet draws neither of these pills on. So a press
+// that let the focus move would take the button out of the page between the
+// finger going down and the click coming out, and a browser with nothing left
+// under the finger hands that click to whatever is behind it. Chrome does
+// exactly this, by mouse and by finger alike, and what it looked like was `start
+// over` putting the keyboard away and throwing no conversation away at all —
+// while every test of it passed, because a test fires the click at the element
+// itself and cannot lose it on the way.
+//
+// Cancelling the mousedown is the whole of the cure: moving the focus is that
+// event's default action, on the touch path as well, since the tap's focus
+// arrives with the mouse events the phone synthesises after the finger lifts.
+// `‹ controls` then blurs the box itself, above, in the order it chooses.
+// `start over` leaves the keyboard up and the screen where it was, which is what
+// it should do anyway — a thread cleared is a thread about to be asked something
+// else.
+for (const corner of [toControls, restart]) {
+  corner.addEventListener("mousedown", (event) => event.preventDefault());
+}
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});

@@ -279,6 +279,25 @@ test("with nothing to measure, the press off chat still lands", async (t) => {
   assert.equal(page.probe().keyboardUp, false);
 });
 
+// Both corners of the chat screen are drawn only while the composer has focus,
+// because that focus is what the screen *is*. So a press on either of them that
+// let the focus go would put the button out of the page between the finger going
+// down and the click coming out, and a real browser then delivers that click to
+// whatever is left in the corner — which is nothing. Chrome does it by mouse and
+// by finger alike, and what it looked like on the phone was `start over` putting
+// the keyboard away and clearing no conversation at all. Nothing above can see
+// it: a test fires the click straight at the element and cannot lose it on the
+// way. What is testable from here is the refusal itself.
+test("neither corner of the chat screen takes the composer's focus", async (t) => {
+  const page = await boot(t);
+  keyboardOver(page);
+  for (const id of ["to-controls", "restart"]) {
+    let kept = false;
+    page.el(id).fire("mousedown", { preventDefault: () => (kept = true) });
+    assert.equal(kept, true, `${id} let the press move the focus`);
+  }
+});
+
 // ------------------------------------------------------------------- the sheet
 
 // The tests that read the stylesheet, because two of the things this issue is
