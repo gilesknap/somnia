@@ -386,11 +386,15 @@ at 3am takes the book with it.
 ## Deployment shape
 
 - One installable package, subcommands per role (`somnia serve`, `somnia
-  worker`, `somnia add`, etc.). Heavy ML dependencies (torch, kokoro,
-  sentence-transformers) live in the `[ml]` extra — install `somnia[ml]` on the
-  rendering machine; CI and light installs skip them. On CPU-only machines
-  install the CPU torch wheel
-  (`--extra-index-url https://download.pytorch.org/whl/cpu`).
+  worker`, `somnia add`, etc.). It is `somnia-reader` on PyPI — the name
+  `somnia` there is an unrelated project — while the import package and the
+  command stay `somnia`. Heavy ML dependencies (torch, kokoro,
+  sentence-transformers) live in the `[ml]` extra — install
+  `somnia-reader[ml]` on the rendering machine; CI and light installs skip
+  them. On CPU-only machines install the CPU torch wheel *first*, from
+  `--index-url https://download.pytorch.org/whl/cpu` and nothing else:
+  `--extra-index-url` lets the resolver see both indexes and take the higher
+  version, which is how a CPU box ends up with the CUDA build.
 - **Two systemd user units**, `somnia-serve` and `somnia-worker`, and deploying
   is pull main and restart both. They are separate so that restarting the one
   that serves the page cannot kill a render — which, before the worker existed,

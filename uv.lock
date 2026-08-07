@@ -2311,7 +2311,7 @@ wheels = [
 ]
 
 [[package]]
-name = "somnia"
+name = "somnia-reader"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

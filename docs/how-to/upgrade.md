@@ -5,15 +5,17 @@ somnia --version
 ```
 
 Released versions are on the [releases
-page](https://github.com/gilesknap/somnia/releases). There is no PyPI package —
-that name belongs to another project
-([#9](https://github.com/gilesknap/somnia/issues/9)) — so upgrading means
-pointing pip at a different git ref.
+page](https://github.com/gilesknap/somnia/releases) and on PyPI as
+[somnia-reader](https://pypi.org/project/somnia-reader/) — `somnia` there is an
+unrelated project and always was. Upgrading means either taking the newer
+release or pointing pip at a different git ref; the second is how you get a fix
+that has landed on `main` but has not been tagged yet.
 
 ## With the installer
 
 ```bash
-bash somnia-install.sh --ref 0.6
+bash somnia-install.sh --ref 0.6     # a git tag, branch or commit
+bash somnia-install.sh --pypi        # the last release from PyPI
 ```
 
 It reuses the environment it finds, replaces somnia inside it, and leaves your
@@ -24,16 +26,23 @@ settings file alone. Add `--serve-only` if that is what the box is, and the same
 
 ```bash
 source ~/somnia-venv/bin/activate
-python3 -m pip uninstall -y somnia
-python3 -m pip install "somnia[ml] @ git+https://github.com/gilesknap/somnia.git@0.6"
+python3 -m pip uninstall -y somnia-reader
+python3 -m pip install "somnia-reader[ml] @ git+https://github.com/gilesknap/somnia.git@0.6"
 ```
 
-The uninstall is not superstition. pip treats a direct URL requirement as
-satisfied when the name and version already match, so re-running the install
-command with a new `--ref` clones the repository, decides there is nothing to
-do, and leaves you on the old version — with no error to notice. (The installer
-gets around this by force-reinstalling somnia and nothing else, which is why it
-does not disturb your two gigabytes of torch.)
+Uninstall by the *distribution* name, `somnia-reader` — `pip uninstall somnia`
+finds nothing to remove and exits happily, which looks exactly like success.
+
+The uninstall itself is not superstition either. pip treats a direct URL
+requirement as satisfied when the name and version already match, so re-running
+the install command with a new `--ref` clones the repository, decides there is
+nothing to do, and leaves you on the old version — with no error to notice. (The
+installer gets around this by force-reinstalling somnia and nothing else, which
+is why it does not disturb your two gigabytes of torch.)
+
+Upgrading to a *release* needs no uninstall, because a plain
+`pip install --upgrade "somnia-reader[ml]"` compares versions rather than
+shrugging at a URL.
 
 ## What survives it
 

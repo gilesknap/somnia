@@ -169,7 +169,10 @@ html_theme_options = {
     "icon_links": [
         {
             "name": "PyPI",
-            "url": f"https://pypi.org/project/{project}",
+            # Spelled out rather than built from `project`, which is the import
+            # package: pypi.org/project/somnia is a different project's page,
+            # and the theme would have linked our own sidebar straight at it.
+            "url": "https://pypi.org/project/somnia-reader",
             "icon": "fas fa-cube",
         }
     ],

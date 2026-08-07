@@ -31,6 +31,7 @@ off. There is no login — reachability is the authentication.
 What            | Where
 :---:           | :---:
 Source          | <https://github.com/gilesknap/somnia>
+PyPI            | `pip install somnia-reader` — not `somnia`, which is somebody else's
 Docker          | `docker run ghcr.io/gilesknap/somnia:latest`
 Documentation   | <https://gilesknap.github.io/somnia>
 Releases        | <https://github.com/gilesknap/somnia/releases>
