@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boot, TONE_BOOK } from "./harness.mjs";
+import { boot, SHRUNK_BOOK, TONE_BOOK, UNMEASURED_BOOK } from "./harness.mjs";
 
 // Get to sound coming out of chapter one, which is where most of these start.
 async function playing(t) {
@@ -479,17 +479,45 @@ test("a book nobody measured draws an empty line rather than a full one", async 
   // gives Infinity, and a fill of Infinity% is a book drawn as finished — the
   // one reading that is worse than drawing nothing, because it says they have
   // heard all of something they have not started.
-  const page = await boot(t, { book: { ...TONE_BOOK, total_ms: 0 } });
+  //
+  // The book has to be reached the way the page reaches one — the last gid,
+  // answered by the manifest behind it. Handing boot an inline book does
+  // nothing: it takes no such option, so the assertion below passed against
+  // the tone book and its perfectly good twenty-four seconds.
+  const page = await boot(t, { lastGid: UNMEASURED_BOOK.gid });
   page.audio.ready();
+  assert.equal(page.probe().through, "0%");
+  // And it stays empty once it is being listened to, which is the reading that
+  // matters: a fill computed at boot only is empty for every book alive.
+  page.seek(8000);
   assert.equal(page.probe().through, "0%");
 });
 
-test("a position past the end of a re-rendered book stops at the end of the line", async (t) => {
+test("a seek past the end of the book stops at the end of the line", async (t) => {
   const page = await boot(t);
   page.audio.ready();
-  // A mark left in a book that was later rendered shorter. The fill is clamped
-  // rather than allowed past 100%, which would run the knob off its track.
+  // The end of the line and nowhere else: "not past 100" is also true of an
+  // empty line, and an empty line here would be the opposite bug.
   page.seek(999000);
-  const through = page.probe().through;
-  assert.equal(Number.parseFloat(through) <= 100, true, `${through} is past the end`);
+  assert.equal(page.probe().through, "100%");
+});
+
+test("a mark past the end of a re-rendered book lands at the end of it", async (t) => {
+  // The mark the server holds is forty seconds into a book now sixteen long,
+  // and openBook takes `position_ms` from the manifest without clamping it —
+  // which makes this the only way a position past the end reaches the page at
+  // all, since seekGlobal clamps everything handed to it.
+  const page = await boot(t, { lastGid: SHRUNK_BOOK.gid });
+  page.audio.ready();
+  // It lands in the last chapter of the book that exists, not past the end of
+  // one that does not. 15950 rather than 16000 because an offset is never set
+  // at the duration — see "an offset is never set at or past the duration"
+  // above, where sitting exactly on it fires `ended` and skips a chapter.
+  assert.equal(page.probe().positionMs, 15950);
+  assert.equal(page.probe().chapter, "And The Rest Of That");
+  assert.equal(page.probe().clock, "0:00:15 of 0:00:16");
+  // So the knob stays on its track by a hair, and the fill's own `Math.min`
+  // never has to fire. That clamp is the second line of defence, not the one
+  // holding here.
+  assert.equal(page.probe().through, "99.6875%");
 });

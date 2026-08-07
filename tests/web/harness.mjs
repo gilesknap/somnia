@@ -222,6 +222,78 @@ export const UNCOUNTED_BOOK = {
   ],
 };
 
+// A book nobody measured. It plays — two chapters with audio behind them — and
+// its length was never written down, which is what every book rendered before
+// the total_ms column existed says, and that is every book on the live box.
+// UNCOUNTED_BOOK is missing its chapter *count*; this one is missing its
+// *duration*, and the two are drawn by different arithmetic: the fraction
+// through has 0 for a denominator here, and dividing by it gives a fill of
+// Infinity% — a book drawn as finished, which is the one reading worse than
+// drawing nothing, because it tells him he has heard all of something he has
+// not started.
+export const UNMEASURED_BOOK = {
+  gid: 900009,
+  title: "Nobody Measured",
+  authors: "Somnia Test",
+  status: "done",
+  total_ms: 0,
+  position_ms: 0,
+  seq: 0,
+  heard_to_ms: 0,
+  chapters_total: 2,
+  chapters: [
+    {
+      idx: 0,
+      title: "The First Of Two",
+      start_ms: 0,
+      end_ms: 8000,
+      url: "api/audio/900009/0",
+    },
+    {
+      idx: 1,
+      title: "The Second Of Two",
+      start_ms: 8000,
+      end_ms: 16000,
+      url: "api/audio/900009/1",
+    },
+  ],
+};
+
+// A book re-rendered shorter than the mark somebody left in it: the server's
+// own record puts them at forty seconds of a book now sixteen long. openBook
+// takes `position_ms` from the manifest without clamping it, so this is the one
+// way a position past the end gets into the page — `seekGlobal` clamps its
+// argument, which means no amount of seeking can produce it. The fill and the
+// clock have to hold the end of the line rather than run the knob off its
+// track.
+export const SHRUNK_BOOK = {
+  gid: 900010,
+  title: "Rendered Shorter",
+  authors: "Somnia Test",
+  status: "done",
+  total_ms: 16000,
+  position_ms: 40000,
+  seq: 0,
+  heard_to_ms: 16000,
+  chapters_total: 2,
+  chapters: [
+    {
+      idx: 0,
+      title: "What Is Left Of It",
+      start_ms: 0,
+      end_ms: 8000,
+      url: "api/audio/900010/0",
+    },
+    {
+      idx: 1,
+      title: "And The Rest Of That",
+      start_ms: 8000,
+      end_ms: 16000,
+      url: "api/audio/900010/1",
+    },
+  ],
+};
+
 // A book that can be listened to while it is still being written down, which is
 // the ordinary state of a book somnia was asked for this evening: five chapters
 // have audio, the parse says there are thirty-seven, and total_ms is how much
@@ -292,6 +364,8 @@ const MANIFESTS = new Map(
     HALF_HEARD,
     PART_READ,
     UNCOUNTED_BOOK,
+    UNMEASURED_BOOK,
+    SHRUNK_BOOK,
     GROWING_BOOK,
   ].map((m) => [`api/book/${m.gid}`, m]),
 );
