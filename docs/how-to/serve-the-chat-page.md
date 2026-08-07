@@ -241,11 +241,23 @@ again at once, so there is nothing to press.
 ## Adding a book from the page
 
 *books*, in the corner beside *start over*, opens a panel over the page. The
-book keeps playing underneath it, nothing on it opens a book or moves the one
-you are listening to, and *close* puts it away having changed nothing at all.
+book keeps playing underneath it, nothing on it opens a book or switches which
+one you are listening to, and *close* puts it away having changed nothing at
+all.
 
-What is at the top is what is happening, in a box headed *the server is
-working*: the book being rendered, with *narrating* in the corner of its line
+At the top, under *reading now*, is the book that is playing underneath the
+panel — *The Moonstone — Collins, Wilkie, 1824-1889*, and under it *chapter 4
+of 37 · 1h12m in* over a hairline showing how far through it you are. *in*, and
+not *listened*: nothing anywhere records how long you have listened for, so the
+number is how far into the book the mark is. The hairline is not drawn at all
+while the book is still being rendered, because until the render is over the
+book's length is only how much of it exists so far. *pick it up at 1:12:08*
+starts it and puts the panel away — the same press as the play button, made
+from up here, and the only book it can reach is the one already playing. When
+it is already playing that button reads *back to it · playing* and does nothing
+but take you back to the controls.
+
+Under that is what is happening, in a box headed *the server is working*: the book being rendered, with *narrating* in the corner of its line
 and, under the name, which chapter it is on and how much of it can be played
 now — *chapter 4 of 39 · 1h12m read so far* — over a hairline that fills as the
 chapters land. Under it is whatever is waiting, marked *queued*, saying how far

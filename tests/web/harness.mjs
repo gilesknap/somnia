@@ -222,6 +222,35 @@ export const UNCOUNTED_BOOK = {
   ],
 };
 
+// A book that can be listened to while it is still being written down, which is
+// the ordinary state of a book somnia was asked for this evening: five chapters
+// have audio, the parse says there are thirty-seven, and total_ms is how much
+// exists rather than how long the book is. Anything drawn as a fraction of
+// total_ms on this one over-reads, which is the whole reason it is here.
+//
+// Its `authors` is the catalog's own field, verbatim, for a book with two names
+// on it: `Surname, Forename, dates`, semicolons between people. Every other
+// fixture carries a single tidy name, so this is the only one that can catch a
+// page printing the raw string.
+export const GROWING_BOOK = {
+  gid: 900008,
+  title: "The Moonstone",
+  authors: "Collins, Wilkie, 1824-1889; Reade, Charles, 1814-1884",
+  status: "rendering",
+  total_ms: 3_000_000,
+  position_ms: 1_800_000,
+  seq: 0,
+  heard_to_ms: 1_800_000,
+  chapters_total: 37,
+  chapters: [0, 1, 2, 3, 4].map((idx) => ({
+    idx,
+    title: `Chapter ${idx + 1}`,
+    start_ms: idx * 600_000,
+    end_ms: (idx + 1) * 600_000,
+    url: `api/audio/900008/${idx}`,
+  })),
+};
+
 // A book somebody could actually fall asleep in. The tone book is twenty-four
 // seconds long — shorter than the shortest rewind and a four-hundredth of the
 // shortest sleep timer — so anything measured in minutes needs a book measured
@@ -263,6 +292,7 @@ const MANIFESTS = new Map(
     HALF_HEARD,
     PART_READ,
     UNCOUNTED_BOOK,
+    GROWING_BOOK,
   ].map((m) => [`api/book/${m.gid}`, m]),
 );
 
@@ -383,6 +413,12 @@ const BORN_HIDDEN = new Set([
   // browser draws.
   "queue-working",
   "queue-ended",
+  // What is playing under the panel, and the hairline inside it. The block
+  // ships hidden because a page with no book open must not show a heading over
+  // an empty space, and the hairline ships hidden because a book still being
+  // rendered never gets one at all.
+  "reading-now",
+  "reading-track",
   "toast",
 ]);
 

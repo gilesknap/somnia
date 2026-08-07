@@ -60,6 +60,16 @@ const queueQuery = document.getElementById("queue-query");
 const queueResults = document.getElementById("queue-results");
 const queueSaid = document.getElementById("queue-said");
 const queueClose = document.getElementById("queue-close");
+// What is playing under the panel, at the top of it. `reading` and not `queue`
+// because this is the one part of that overlay that is about a book rather than
+// about the rows the server is holding, and the two must not be muddled here of
+// all places.
+const readingNow = document.getElementById("reading-now");
+const readingTitle = document.getElementById("reading-title");
+const readingMeta = document.getElementById("reading-meta");
+const readingTrack = document.getElementById("reading-track");
+const readingFill = document.getElementById("reading-fill");
+const readingResume = document.getElementById("reading-resume");
 // The page's second voice, and the sheet of black over the whole of it.
 const toastLine = document.getElementById("toast");
 const dimLayer = document.getElementById("dim");
@@ -536,6 +546,13 @@ function drawPlayer() {
   playpause.classList.toggle("playing", !player.paused);
   playpause.setAttribute("aria-label", player.paused ? "Play" : "Pause");
   drawSleep();
+  // The books panel says which book this is and offers it back, out of the same
+  // three things this function has just drawn from. Here rather than once when
+  // the panel goes up, because the agent can move the book — or the sound can
+  // cross into the next chapter — while somebody is reading the panel, and a
+  // block painted once would then be naming a place the book has left. It costs
+  // nothing while the panel is shut; see drawReadingNow.
+  drawReadingNow();
 }
 
 // What the notification says. The chapter is the title because it is the part
@@ -2139,13 +2156,20 @@ async function openTheBook() {
 // one, and to stop one, and to start one when somebody would rather point than
 // speak.
 //
-// What it deliberately is not is a library browser. Nothing on it opens a book,
-// nothing on it switches what is playing, and there is no way to reach a book
-// from here at all — which is what keeps ADR 3's "the page opens the book they
-// were last listening to; changing books is done by asking" literally true. A
-// catalog search for something to *add* is a different act from choosing what
-// to listen to, and the difference is the whole reason this is allowed to be a
-// second overlay on a one-screen page.
+// What it deliberately is not is a library browser. Nothing on it opens a book
+// and nothing on it switches what is playing — which is what keeps ADR 3's "the
+// page opens the book they were last listening to; changing books is done by
+// asking" literally true. A catalog search for something to *add* is a
+// different act from choosing what to listen to, and the difference is the
+// whole reason this is allowed to be a second overlay on a one-screen page.
+//
+// It does now start the book that is already open. `reading now` at the top of
+// it names the book the panel is standing over and offers it back, and that
+// press is the play button pressed from up here rather than from behind: the
+// only book it can reach is the one already sounding, so nothing is opened and
+// nothing is switched. What it costs is that `close` is no longer the only way
+// out, and the listener at the foot of this section has to give the borrowed
+// tap-to-resume up rather than hand it back.
 //
 // It costs nothing when it is shut. No request is made before it is opened, its
 // poll stops the moment it is closed or the phone goes in a pocket, and it
@@ -2226,6 +2250,10 @@ let submitting = 0; // one submit in flight at a time, by gid
 // the same reason: with the listener still armed the first press anywhere on
 // this overlay starts the book, and close — the one control that promises to
 // change nothing — is where a thumb goes first.
+//
+// `pick it up` is the one press that clears this instead of spending it: that
+// press is itself the touch the platform was waiting for, so what close would
+// hand back is a listener over a book that is already sounding.
 let rearmOnQueueClose = false;
 
 function ordinal(n) {
@@ -2253,6 +2281,100 @@ function bookName(row) {
   // readout, from queue._name.
   const name = row.title || `book ${row.gid}`;
   return row.authors ? `${name} — ${row.authors}` : name;
+}
+
+// -------------------------------------------------- what is playing under it
+
+// Who wrote it, out of the one field the catalog has.
+//
+// Gutenberg's `authors` is already `Surname, Forename, dates` — the form the
+// design asks for — so one name needs nothing done to it at all. Several arrive
+// as one string with semicolons in it, and printed as they come that is a run
+// of commas and semicolons with nothing in it to say where one person ends and
+// the next begins: `Collins, Wilkie, 1824-1889; Reade, Charles, 1814-1884` is
+// two people and reads as one long list of somethings. Split on the semicolon
+// and set between them the separator this page already uses to hold two unlike
+// things apart on one line, and the eye has somewhere to stop.
+//
+// Empties are dropped rather than trimmed away afterwards, because the field
+// comes with a trailing semicolon often enough to matter and a name followed by
+// a lone separator reads as a second author whose name is missing.
+function whoWrote(authors) {
+  return String(authors || "")
+    .split(";")
+    .map((one) => one.trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// The block at the top of the books panel: which book is playing under it, how
+// far in, and the one press that goes back to it.
+//
+// Everything here comes off the manifest and the position this page is already
+// holding. Nothing is fetched, nothing is stored, and nothing on the server
+// knows this block exists — which is what lets it be redrawn on every pass of
+// drawPlayer without costing anything, and what makes it impossible for it to
+// disagree with the player behind the panel.
+//
+// Nothing at all while the panel is shut. drawPlayer runs four times a second
+// with the sound on and most of that is spent with nobody looking at this.
+function drawReadingNow() {
+  if (queuePanel.hidden) return;
+  // No book open — a somnia that has never rendered anything, or a book still
+  // waiting on its first chapter. The whole block goes, label and all, which is
+  // the rule the card of live rows already follows: a heading over nothing is a
+  // claim that something should be there, and at 2am that is a reason to get up
+  // and look for it.
+  if (!manifest || !current) {
+    readingNow.hidden = true;
+    return;
+  }
+  readingNow.hidden = false;
+  // The same fallback drawPlayer uses for the headline, for the same reason: a
+  // book that has been through nothing but the local catalog may have no name,
+  // and "book 1342" beats an empty line where the title goes.
+  const name = manifest.title || `book ${gid}`;
+  const who = whoWrote(manifest.authors);
+  readingTitle.textContent = who ? `${name} — ${who}` : name;
+  // The player's own count, drawn again here rather than read off the screen:
+  // 0 means nobody wrote the total down — every book rendered before that
+  // column existed — so it says `chapter 4` and stops, and never `4 of 0`.
+  const total = manifest.chapters_total || 0;
+  const number = current.idx + 1;
+  const which = total ? `chapter ${number} of ${total}` : `chapter ${number}`;
+  // `in` and not the design's `listened`, and the difference is not a word.
+  // Nothing anywhere stores how long anybody has listened for: ADR 3 dropped
+  // Audiobookshelf's session history on purpose at the pivot, and what is left
+  // is a position and the reasons the page gives when it reports one. So this
+  // is how far into the book the mark is, said as such. Empty under a minute,
+  // from howMuch, because "0m in" reads as a book nobody has started.
+  const into = howMuch(positionMs);
+  readingMeta.textContent = into ? `${which} · ${into} in` : which;
+  // The same fraction drawn rather than stated — and nothing at all while the
+  // book is still arriving. total_ms is how much audio exists, which on a
+  // finished book is how long the book is and on one still being read is not:
+  // a bar drawn from it reaches the end at chapter five of thirty-seven and
+  // then walks backwards as the rest lands. Both halves of "still arriving"
+  // count, because a render that was stopped part way leaves exactly the same
+  // short timeline as one that is still going.
+  const arriving = manifest.status === "rendering" || moreToCome();
+  const whole = !arriving && manifest.total_ms > 0;
+  readingTrack.hidden = !whole;
+  if (whole) {
+    const through = Math.min(1, positionMs / manifest.total_ms);
+    // One decimal place, as the job rows use, so that a redraw of the same
+    // position is the same string and the bar does not shiver on a rounding
+    // error four times a second.
+    readingFill.style.width = `${Math.round(through * 1000) / 10}%`;
+  }
+  // Where the press will take them, in the book's own clock — the same string
+  // the player's position readout shows, so the panel and the screen behind it
+  // name one place. A book already sounding has nothing to start, and the label
+  // says so instead of offering a time that is a moment out of date by the time
+  // it is read.
+  readingResume.textContent = player.paused
+    ? `pick it up at ${timestamp(positionMs)}`
+    : "back to it · playing";
 }
 
 // One job, in one line, for somebody who wants to know whether to wait up.
@@ -2634,6 +2756,11 @@ function showQueue() {
   queueQuery.blur?.();
   rearmOnQueueClose = tapToResume !== null;
   disarmTapToResume();
+  // Before the first request comes back, so the answer to "which book is this
+  // standing over?" is on the screen the moment the panel is, rather than five
+  // seconds later with the queue. It is drawn from what this page already
+  // holds, so there is nothing to wait for.
+  drawReadingNow();
   pollQueue();
 }
 
@@ -2670,6 +2797,34 @@ function hideQueue() {
 
 booksButton.addEventListener("click", showQueue);
 queueClose.addEventListener("click", hideQueue);
+
+// The one press on this panel that touches the book, and the only way out of it
+// other than `close`.
+//
+// The order of the three lines matters and the first of them is the whole of
+// why this is not just a call to hideQueue. showQueue borrows the tap-to-resume
+// listener a refused play left armed, and close hands it back, because after
+// close the book really is still paused and still waiting for a touch. This
+// press is not close: it *is* that touch. Handed back here, the listener would
+// be sitting over a book that is now sounding, and the next thing pressed
+// anywhere on the page — the question box, the transport, the microphone —
+// would start it a second time.
+//
+// Then the panel goes, because the question it was opened with has just been
+// answered and a panel left standing over a book that has started playing is
+// one more thing to get out of in the dark.
+//
+// Then the sound, by exactly the route the play button takes: the same rewind
+// for the same silence, the same fade up from nothing, the same landing on the
+// start of a sentence after an hour. A second kind of resume is a second thing
+// to reason about at 2am, and this one would be the one nobody tested. Only
+// when it is really stopped — the label already said `back to it · playing`
+// rather than offering a time, and there is nothing there to start.
+readingResume.addEventListener("click", () => {
+  rearmOnQueueClose = false;
+  hideQueue();
+  if (player.paused) ensurePlaying({ rewind: true });
+});
 queueSearch.addEventListener("submit", (event) => {
   event.preventDefault();
   findBooks();

@@ -23,7 +23,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boot, HALF_HEARD, PART_READ, TONE_BOOK } from "./harness.mjs";
+import {
+  boot,
+  GROWING_BOOK,
+  HALF_HEARD,
+  PART_READ,
+  TONE_BOOK,
+  UNCOUNTED_BOOK,
+} from "./harness.mjs";
 
 // How often the panel asks, in the page's own units. Named here so that a test
 // which asserts the wake and a test which fires it cannot drift apart.
@@ -392,6 +399,160 @@ test("the panel survives an agent answer and a move without closing", async (t) 
   await page.settle();
   assert.equal(page.probe().positionMs, 2_000_000);
   assert.equal(page.probe().queueUp, true);
+});
+
+// -------------------------------------------------------------- reading now
+
+// The block at the top of the panel, as somebody opening it in the dark would
+// read it: which book is playing under this, the line under that, whether there
+// is a hairline at all and how far it has got, and what the one press offers.
+//
+// `bar` is null where no hairline is drawn, which is the whole of the guard
+// against a bar that over-reads: while a book is still arriving, total_ms is
+// how much of it exists rather than how long it is.
+function reading(page) {
+  return {
+    up: !page.el("reading-now").hidden,
+    title: page.el("reading-title").textContent,
+    meta: page.el("reading-meta").textContent,
+    bar: page.el("reading-track").hidden
+      ? null
+      : page.el("reading-fill").style.width,
+    press: page.el("reading-resume").textContent,
+  };
+}
+
+test("the panel names the book playing under it, and who wrote it", async (t) => {
+  const page = await boot(t, { lastGid: GROWING_BOOK.gid });
+  page.audio.ready(600);
+  page.queueView([]);
+  await books(page);
+  assert.deepEqual(reading(page), {
+    up: true,
+    // Gutenberg's own field is already `Surname, Forename, dates`, which is the
+    // form the design asks for — so one author needs nothing done to it. Two
+    // arrive as one string with a semicolon in it, and printed as they come
+    // that is a run of commas and semicolons with nothing to say where one
+    // person ends and the next begins.
+    title:
+      "The Moonstone — Collins, Wilkie, 1824-1889 · Reade, Charles, 1814-1884",
+    // `in`, not `listened`: nothing anywhere stores how long anybody has
+    // listened for. ADR 3 dropped the session history on purpose, so the only
+    // honest reading of this number is how far into the book the mark is.
+    meta: "chapter 4 of 37 · 30m in",
+    // Five chapters of thirty-seven have audio, so total_ms is how much exists
+    // and not how long the book is.
+    bar: null,
+    press: "pick it up at 0:30:00",
+  });
+});
+
+test("a book nobody counted says which chapter it is in and stops there", async (t) => {
+  const page = await boot(t, { lastGid: UNCOUNTED_BOOK.gid });
+  page.audio.ready(8);
+  page.queueView([]);
+  await books(page);
+  // The same guard the player's own count carries, and for the same reason: 0
+  // means nobody wrote the number down, which is every book rendered before the
+  // column existed. `chapter 1 of 0` is the sentence this prevents.
+  assert.equal(reading(page).meta, "chapter 1");
+  // Nothing is in front of the mark that has not been rendered — the book is
+  // finished — so the hairline is honest here even without a denominator for
+  // the chapters.
+  assert.equal(reading(page).bar, "0%");
+});
+
+test("a book still arriving gets no hairline rather than one that over-reads", async (t) => {
+  const growing = await boot(t, { lastGid: GROWING_BOOK.gid });
+  growing.audio.ready(600);
+  await books(growing);
+  assert.equal(reading(growing).bar, null);
+
+  // The same lie from the other direction: this render stopped at one chapter
+  // of three and nothing is going to add the other two, so total_ms is a third
+  // of the book and a bar drawn from it would reach the end at a third of the
+  // way through.
+  const stopped = await boot(t, { lastGid: PART_READ.gid });
+  stopped.audio.ready(8);
+  await books(stopped);
+  assert.equal(reading(stopped).bar, null);
+
+  // And a book that is all here, where the fraction means what it looks like.
+  const whole = await opened(t);
+  await books(whole);
+  assert.equal(reading(whole).bar, "27.8%");
+});
+
+test("`pick it up` starts the book and takes the panel away with it", async (t) => {
+  const page = await opened(t);
+  page.queueView([job()]);
+  await books(page);
+  assert.equal(reading(page).press, "pick it up at 0:16:40");
+
+  page.click("reading-resume");
+  await page.settle();
+  assert.equal(page.audio.paused, false);
+  // The panel is the thing they were on their way through, not the thing they
+  // came for. It goes with the press rather than being left over a book that
+  // has just started sounding.
+  assert.equal(page.probe().queueUp, false);
+  assert.equal(page.probe().queuePolling, false);
+  // And nothing is left waiting: a poll still scheduled is a radio wake every
+  // five seconds all night beside somebody asleep.
+  assert.deepEqual(page.waits(), []);
+});
+
+test("a book already sounding is offered back rather than started again", async (t) => {
+  const page = await playing(t);
+  page.queueView([job()]);
+  await books(page);
+  assert.equal(reading(page).press, "back to it · playing");
+  const playCalls = page.audio.playCalls;
+
+  page.click("reading-resume");
+  await page.settle();
+  // Nothing to start. The press is the way back to the controls and that is
+  // all it is, which is what the label said it would be.
+  assert.equal(page.audio.playCalls, playCalls);
+  assert.equal(page.audio.paused, false);
+  assert.equal(page.probe().queueUp, false);
+});
+
+test("picking it up leaves no tap waiting over a book that is now playing", async (t) => {
+  const page = await opened(t);
+  // The real 2am sequence: the app was backgrounded, the platform refused the
+  // sound until the screen is touched, and the panel borrowed that listener
+  // when it went up.
+  page.audio.refuse = "NotAllowedError";
+  page.click("playpause");
+  await page.settle();
+  assert.equal(page.probe().status, "tap anywhere to carry on");
+
+  page.queueView([job()]);
+  await books(page);
+  page.audio.refuse = null;
+  page.click("reading-resume");
+  await page.settle();
+  assert.equal(page.audio.paused, false);
+
+  // `close` hands that listener back, because after close the book really is
+  // still paused and still waiting. This press is not close: it IS the touch
+  // the platform was waiting for, and re-arming here would leave a listener
+  // over a book that is already sounding — so the next thing touched anywhere
+  // on the page would start it a second time.
+  const playCalls = page.audio.playCalls;
+  page.document.fire("pointerdown");
+  await page.settle();
+  assert.equal(page.audio.playCalls, playCalls);
+});
+
+test("with no book open the block goes rather than standing empty", async (t) => {
+  const page = await boot(t, { lastGid: null, library: [] });
+  page.queueView([]);
+  await books(page);
+  // The same rule the card of live rows follows: a heading over nothing is a
+  // claim that something should be there, which at 2am is a reason to get up.
+  assert.equal(page.el("reading-now").hidden, true);
 });
 
 // ------------------------------------------------------------------- the words

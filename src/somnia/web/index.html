@@ -46,8 +46,17 @@
          that take the candidate list down have no twin here. And it adds books
          rather than switching between them: nothing on it opens a book, so
          "the page opens the book they were last listening to; changing books is
-         done by asking" is still true word for word. The way out is `close`,
-         and close changes nothing at all. -->
+         done by asking" is still true word for word.
+
+         It can now start the book that is already open — `pick it up at
+         1:12:08`, at the top of it, over a `reading now` that says which book
+         the panel is standing over. That is the play button pressed from up
+         here rather than from behind, and it is the only book the panel can
+         reach: it opens nothing, switches nothing, and the sentence above
+         survives word for word. So there are two ways out now — `close`, which
+         changes nothing at all, and that one press, which takes the panel away
+         with it because it has just answered the question the panel was opened
+         with. -->
 
     <!-- One action, the name, and one quiet action — in that order across the
          top, which is the order of how much anybody has to do with them.
@@ -394,10 +403,12 @@
          that everything behind it is inert, and everything behind it is a book
          somebody is listening to.
 
-         The order down it is the order the questions are asked in. Is anything
-         happening — the live rows, at the top, where the eye lands. Did
-         anything go wrong — the rows that ended in the last day, under them,
-         because a failure is worth reading once and is not news twice. And then
+         The order down it is the order the questions are asked in. Which book
+         am I already in — `reading now`, at the top where the eye lands, and
+         the only part of this panel that is about a book rather than about the
+         queue. Is anything happening — the live rows under it. Did anything go
+         wrong — the rows that ended in the last day, under those, because a
+         failure is worth reading once and is not news twice. And then
          adding one, which is the reason somebody opened this at all but is also
          the only part of it that wants a keyboard, so it sits below the reading
          where the keyboard can cover it without covering anything else.
@@ -415,6 +426,87 @@
              screen on every night, and it is the one line here nobody needs
              after the first second. -->
         <h2 id="queue-title">Books</h2>
+
+        <!-- Which book the panel is standing over, said before anything else on
+             it. Somebody who queued three books before bed and opened this at
+             2am was reading a list of renders with no way of telling which of
+             them was the one making the sound, and the answer was on the screen
+             underneath the panel the whole time.
+
+             Every word of it comes off the manifest and the position this page
+             is already holding, so it costs no request, cannot go stale while
+             the panel is up, and cannot disagree with the player behind it. It
+             is drawn again on every pass of drawPlayer for that last reason:
+             the agent can move the book while this is open, and a block that
+             was painted once at `books` would then be naming a place the book
+             has left.
+
+             The whole block goes when there is no book — label and all — which
+             is the rule the card below it already follows. A heading over
+             nothing is a claim that something should be there.
+
+             What is deliberately not here: `put it down`, and the shelf of
+             other books the design puts under this. Both were dropped in this
+             pass rather than faked. `put it down` is a shelving action somnia
+             has no notion of — pausing is not shelving, and there is nothing on
+             the server to write "finished with for now" to — and a shelf of
+             books to tap would be this panel opening books, which is the one
+             thing it must not do. -->
+        <section id="reading-now" hidden>
+          <p class="section-label">reading now</p>
+
+          <!-- `Title — Surname, Forename, dates`, at 25dp, which is the
+               catalog's own author field verbatim beside the book's own name.
+               Two names on one book arrive as one string with a semicolon in
+               it, and app.js sets the page's own separator between them: read
+               raw it is a run of commas and semicolons with nothing to say
+               where one person ends and the next begins.
+
+               Allowed to wrap, where the player's headline is cut to one line.
+               Nothing pressed without looking is underneath this one — the
+               transport is on the screen behind the panel — so a second line
+               here costs a line of a list somebody is reading, not the position
+               of a button a thumb arrives at in the dark. -->
+          <p id="reading-title"></p>
+
+          <!-- `chapter 4 of 37 · 1h12m in`, and both halves are as honest as
+               the page can make them.
+
+               The count carries the player's own guard: 0 means nobody wrote
+               the total down, which is every book rendered before the column
+               existed, and it says `chapter 4` and stops rather than `4 of 0`.
+
+               `in` and not the design's `listened`. Nothing anywhere stores how
+               long anybody has listened for — ADR 3 dropped the session history
+               on purpose when the pivot left Audiobookshelf behind — so the
+               only number this page can stand behind is how far into the book
+               the mark is. Saying `listened` over it would be a claim about a
+               night nobody recorded. -->
+          <p id="reading-meta"></p>
+
+          <!-- How far in, drawn rather than stated, and absent entirely while
+               the book is still arriving. total_ms is how much audio exists,
+               which on a finished book is how long the book is and on a book
+               still being read is not: a bar drawn from it would reach the end
+               at chapter five of thirty-seven and then walk backwards as the
+               rest landed. No bar is the truth; the line above already says
+               which chapter of how many. -->
+          <div id="reading-track" hidden><div id="reading-fill"></div></div>
+
+          <!-- The one press, and the first press on this panel that changes
+               anything about the book. It says where it will land — `pick it up
+               at 1:12:08` — and `back to it · playing` when the book is already
+               sounding, because then there is nothing to start and the press is
+               only the way back to the controls.
+
+               It is the play button, made from up here. The only book it can
+               reach is the one already open, so the panel still opens nothing
+               and switches nothing. It takes the panel down with it: the
+               question this was opened with has just been answered, and a panel
+               left standing over a book that has started playing is one more
+               thing to get out of. -->
+          <button id="reading-resume" type="button"></button>
+        </section>
 
         <!-- What is happening, in a box that says so. It is the only card on
              the page — a hairline, a radius and a sentence at the top of it —

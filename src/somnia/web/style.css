@@ -1507,6 +1507,106 @@ button.candidate-show:active {
   margin-bottom: -0.4rem;
 }
 
+/* What is playing under the panel, at the top of it. The only part of this
+   overlay that is about a book rather than about the queue, and the only part
+   of it drawn from what the page already holds rather than from the server.
+
+   No card and no edge round it. The card below says "this part is not yours —
+   it is the box getting on with something", and this is the opposite of that:
+   it is the book they are in, on the background, the same way the player
+   behind the panel is. What separates it from the rows under it is the section
+   gap and the label over it, which is all this page has ever used.
+
+   First, as everywhere else on this page: an author id rule beats the browser's
+   own [hidden] { display: none }, and forgetting it here is a heading over
+   nothing on a page with no book open. */
+#reading-now[hidden] {
+  display: none;
+}
+
+/* Its own label spacing. #queue-scroll .section-label pulls the next thing up
+   by 0.4rem, which is right when the label and its list are siblings in a flex
+   column with a 1rem gap between them and wrong inside a block where the title
+   follows immediately. Same specificity, later in the file, so this wins. */
+#reading-now .section-label {
+  margin: 0 0 0.5rem;
+}
+
+/* 25dp, the largest type on this panel after its title, because it is the
+   answer to the question the panel was opened with. Allowed to wrap: nothing
+   pressed without looking is under it — the transport is on the screen behind
+   this one — so the second line of a long title costs a line of list rather
+   than moving a button in the dark, which is the trade the player's own
+   headline could not make. */
+#reading-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+/* Which chapter, and how far in. Second-rank type at the size the rows below
+   use for the same job, so the block and the list read as one panel. Tabular
+   figures, as everywhere a clock appears on this page: a number that changes
+   under a redraw must not move the words after it. */
+#reading-meta {
+  margin: 0.25rem 0 0;
+  color: var(--dim);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The same 2dp rule the queue rows carry, and for the same reason: a status
+   readout with nothing to press and nothing to drag, claiming only that this
+   is roughly where the book has got to. app.js draws it only when the whole
+   book is here — see drawReadingNow.
+
+   No transition on the fill, where the job rows have half a second of one. That
+   one is there because the list is rebuilt every five seconds and a fresh bar
+   has no width to move from; this one is redrawn off the media clock four times
+   a second while the book plays, so it is already continuous, and easing it
+   would leave it half a second behind the sound all night. */
+#reading-track {
+  height: 2px;
+  margin-top: 0.7rem;
+  background: var(--hairline);
+}
+
+#reading-track[hidden] {
+  display: none;
+}
+
+#reading-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+/* The one press on this panel that touches the book, and the full width of the
+   panel because it has no partner: the design pairs it with `put it down` and
+   that half is not built, so there is nothing to share the row with.
+
+   64dp of amber-edged pill, which is the shape `finish this one` already uses
+   further down for the other press somebody arrives here having decided to
+   make. Not --accent-surface: that fill is reserved for the button pressed
+   without looking, and nobody presses this one without reading it — the whole
+   value of the label is the time in it. */
+#reading-resume {
+  display: block;
+  width: 100%;
+  min-height: 3.2rem;
+  margin-top: 0.8rem;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-size: 1rem;
+  padding: 0.6rem 1rem;
+}
+
+#reading-resume:active {
+  background: var(--accent-surface);
+}
+
 /* The one card on the page. Everything else here is type on the background, so
    a hairline and a radius are the whole of what says "this part is not yours —
    it is the box getting on with something". It is drawn only while there is
@@ -1881,8 +1981,11 @@ button.candidate-show:active {
   }
 
   /* The same 2.8rem the way out of the list of places takes with a keyboard up,
-     so that the two panels still agree about where `close` is. */
-  #queue-close {
+     so that the two panels still agree about where `close` is — and the same
+     for the one press at the top of the panel, which is the other slab a thumb
+     goes to without reading the screen twice. */
+  #queue-close,
+  #reading-resume {
     min-height: 2.8rem;
   }
 }
