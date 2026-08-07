@@ -129,7 +129,11 @@ if __name__ == "__main__":
         ]
     else:
         rows = [
-            ("header -> conversation (top of it)", gap(d["header"], d["firstSaid"]), 12),
+            (
+                "header -> conversation (top of it)",
+                gap(d["header"], d["firstSaid"]),
+                12,
+            ),
             (
                 "conversation -> title  (the flexible one: should be LARGEST)",
                 gap(d["lastSaid"], d["bookTitle"]),
@@ -143,7 +147,11 @@ if __name__ == "__main__":
         # the zoom level left over. A fixed 14 here would report a correct
         # screen as broken on every phone but the tightest.
         ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), (14, 70)),
-        ("chapter group -> transport", gap(d["chapterStrip"], d["transport"]), (14, 70)),
+        (
+            "chapter group -> transport",
+            gap(d["chapterStrip"], d["transport"]),
+            (14, 70),
+        ),
         ("transport -> dock (the pill itself)", gap(d["transport"], d["pill"]), 12),
         (
             "dock -> bottom of screen",

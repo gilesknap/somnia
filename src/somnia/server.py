@@ -241,7 +241,10 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         # arrived as a string or a null is a page saying it does not know, and
         # guessing one would answer about a book nobody is listening to.
         raw = payload.get("gid")
-        gid = raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else None
+        # `not isinstance(raw, bool)` is not paranoia: in Python `True` is an
+        # int, so a page that sent `"gid": true` would otherwise open book 1.
+        a_book = isinstance(raw, int) and not isinstance(raw, bool) and raw > 0
+        gid = raw if a_book else None
         try:
             # A turn blocks for seconds on the model and on sqlite, so it runs
             # off the event loop.
