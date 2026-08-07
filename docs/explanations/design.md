@@ -247,7 +247,12 @@ answers, `recall`, is bounded exactly as a search is, hands back no `id=` and no
 `position_ms`, drops `better_ahead` rather than reporting it, and marks the turn
 so that `move_to` and `offer_positions` both refuse: asking who somebody is used
 to drag the audio to a passage about them, and it is the tools that stop it
-rather than a paragraph asking them not to.
+rather than a paragraph asking them not to. What the tools cannot hold is the
+turn where nothing was called at all — the mark is a number the model only
+learns by asking for it, so an answer given without looking is bounded by
+nothing, where under the old rule it was impossible. That one the prompt has to
+carry, and it does: look before you speak, and hardest on the question you are
+sure you already know the answer to.
 
 **What it offers is a list of places, not a question.** That passage becomes a
 row on screen with its time and its chapter number, and its words and its

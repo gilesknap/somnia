@@ -179,6 +179,25 @@ answering the question at all, or answering it by moving the book. The guard's
 own failure mode is untouched: everything past the mark is still unsayable, and
 that is the failure that cannot be undone.
 
+**The guard is now only reached if the model looks first.** This is the sharper
+edge of the same trade and it is worth stating on its own. The old rule enforced
+itself: with nothing sayable that a tool had not returned, an answer nobody had
+searched for was structurally impossible, so a spoiler needed a tool call to
+carry it. The new bound is a number — the mark — and the model does not know
+that number until a tool tells it, which means an answer given straight out of
+the model's own knowledge, with no `recall` in the turn at all, is bounded by
+nothing whatever. "How does it end" is the shape of question most likely to
+arrive that way, and it is the worst one to get wrong. Nothing in the tool layer
+can stop it, because the failure is a turn in which no tool was called, so the
+prompt carries it: it says that the line is somewhere different every night,
+that only `recall` or `find_passage` can say where it is, and that nothing about
+what happens in a book may be said until one of them has — least of all on the
+question the model is certain it already knows the answer to. That is prompt
+work holding a guard, which this record otherwise argues against, and it is
+here because there is nowhere else to put it. It belongs on the list of things
+to try on a real book: ask a question about a book with nothing open, and one
+whose answer is the ending.
+
 **The routing itself cannot be tested from a desk.** `FakeRunner` scripts the
 model's turns, so the suite can prove that the tools refuse a move after a
 recall, that a recall hands out no place to send anybody to, and that the flag
