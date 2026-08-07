@@ -144,7 +144,37 @@
              34px it always was. What changed is which readout is standing in
              it, not how wide it is. -->
         <p id="whereabouts">
-          <span id="clock"></span>
+          <!-- Where they are in the book, and — on the nights there are any —
+               the way back to the places somnia last found.
+
+               It is a readout first and on most nights it is only that. A book
+               nobody has asked a question about has no places, and then this is
+               the same plain line it has always been: no rule under it, no
+               count, and nothing to press. The button is `disabled` there
+               because that is the truth of it, and because a control that looks
+               pressable and does nothing is the thing the comments on this page
+               argue against most often.
+
+               When there are places, the dotted rule under the time says the
+               line can be pressed and the count under that says what it would
+               open. Places is the set of places from the last query — the four
+               somnia offered when it could not tell which one was meant — and
+               without a way back to them, getting to the third of them meant
+               asking the same question again in the dark.
+
+               The two lines are one target, and stacking them is what makes it
+               44dp without asking for the height: a count beside the clock
+               would take 280 of the column's 320px on this book and wrap on a
+               longer one. It costs a line of height, which this screen has,
+               because the slack all sits in one gap above the title.
+
+               It is here rather than as a fourth thing in the header for the
+               reason the header comment gives: there is no room up there, and
+               this is the one line on the screen the places are about. -->
+          <button id="places-open" type="button" disabled>
+            <span id="clock"></span>
+            <span id="places-found" hidden></span>
+          </button>
 
           <!-- How far through the book, as a line rather than as two numbers to
                subtract. The design asked for it twice: without it there is no

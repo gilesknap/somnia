@@ -28,6 +28,11 @@ const chapterTitle = document.getElementById("chapter-title");
 const chapterWord = document.getElementById("chapter-word");
 const chapterCount = document.getElementById("chapter-count");
 const clock = document.getElementById("clock");
+// The position line, which is also the way back to the places somnia last
+// found, and the count that says so. It is a control only on the nights there
+// is something behind it; see drawPlaces.
+const placesOpen = document.getElementById("places-open");
+const placesFound = document.getElementById("places-found");
 const wholePlayed = document.getElementById("whole-played");
 const sleepButton = document.getElementById("sleep");
 const playpause = document.getElementById("playpause");
@@ -516,6 +521,11 @@ function drawPlayer() {
   chapterTitle.textContent = current.chapter.title;
   const whole = timestamp(manifest.total_ms);
   clock.textContent = `${timestamp(positionMs)} of ${whole}`;
+  // And whether that line is a way in to anything, which is a question about
+  // the book it has just been drawn for: places belong to the book they were
+  // found in, so this is asked on the same pass rather than once when a list
+  // was last shown.
+  drawPlaces();
   // The same pair as the line above it, drawn instead of written. Clamped both
   // ends: a position past the last chapter — a book re-rendered shorter than
   // the mark somebody left in it — would otherwise run the fill off the end of
@@ -1731,6 +1741,12 @@ let remembered = null;
 
 function rememberPlaces(list) {
   remembered = list;
+  // The position line says how many places there are, and this is the moment
+  // there is a different number of them. Waiting for the next pass of
+  // drawPlayer would be waiting for the book to play: a page that was only ever
+  // opened to ask a question is paused, so nothing else would come, and closing
+  // the screen would leave the line saying nothing about the list behind it.
+  drawPlaces();
   try {
     localStorage.setItem(PLACES_KEY, JSON.stringify(list));
   } catch (error) {
@@ -1793,6 +1809,38 @@ function showRemembered() {
   const list = placesHere();
   if (list) showCandidates(list);
 }
+
+// The position line, which is the way in when there is anywhere to go and a
+// plain readout when there is not.
+//
+// `disabled` on the nights there are no places, and that is the whole of the
+// argument for putting this on a line that already exists rather than giving
+// Places a control of its own: after a cold launch on a book nobody has asked
+// about there is nothing to open, and a line wearing a rule and a target that
+// answered a press by doing nothing is worse in the dark than no way in at all.
+// The rule and the count are drawn from the same number, so "does it look
+// pressable?" and "is there anything to press?" cannot come apart.
+//
+// The count is emptied as well as hidden, for the reason the toast is: "is
+// anything being offered?" gets one answer and not two that can disagree.
+function drawPlaces() {
+  const list = placesHere();
+  const found = list ? list.places.length : 0;
+  // One place is not counted as though there were more, which is the rule the
+  // screen this opens already follows: it is the same list said in fewer words.
+  placesFound.textContent = found
+    ? `${found} ${found === 1 ? "place" : "places"} found`
+    : "";
+  placesFound.hidden = found === 0;
+  placesOpen.disabled = found === 0;
+  placesOpen.classList.toggle("openable", found > 0);
+}
+
+// Pressed, it puts the last query's places back on the screen. It is the same
+// screen an answer raises and every way out of it is the one that was already
+// there — including close, which now leaves the count standing behind it,
+// because the places did not stop existing when the screen was put away.
+placesOpen.addEventListener("click", showRemembered);
 
 // Whether cancel owes the page a tap-to-resume listener, because showing the
 // list took one away. See cancelCandidates.

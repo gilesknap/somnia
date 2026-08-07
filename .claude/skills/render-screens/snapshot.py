@@ -40,6 +40,12 @@ FIXTURE = {
         "chapter-count": "4 of 37",
         "chapter-clock": "3:24 of 41:12",
         "clock": "1:12:08 of 9:41:33",
+        # The places from the last question, counted under the position line. It
+        # is the taller of that line's two states — a book nobody has asked
+        # about carries no count, no dotted rule and no target — so it is the
+        # one worth holding here: if this fits, both fit. It is also the state
+        # the transcript below is in, which has just asked two questions.
+        "places-found": "4 places found",
         "sleep": "sleep timer · off",
     },
     # The conversation, oldest first. The last line is the reader's, because
@@ -52,8 +58,16 @@ FIXTURE = {
     ],
     # Shown as if a book were playing: without this the page renders its
     # opening state, which is not the one anybody is designing.
-    "unhide": ["player-bar"],
-    "classes": {"playpause": ["playing"], "playpause-mini": ["playing"]},
+    "unhide": ["player-bar", "places-found"],
+    # `openable` is drawPlaces' class and it carries the dotted rule and the
+    # 44dp target, so without it the render would show the count under a line
+    # that does not look pressable — which is a different screen from the one
+    # the page draws when there are places.
+    "classes": {
+        "playpause": ["playing"],
+        "playpause-mini": ["playing"],
+        "places-open": ["openable"],
+    },
     # Inline style, by id. The dim layer is the only thing that needs it, and it
     # needs it for a reason worth writing down: app.js does not run in a
     # snapshot, so the level the reader is actually looking through is set here

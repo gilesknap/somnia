@@ -1203,6 +1203,129 @@ test("anything else in that key is no places, and the page still opens", async (
   }
 });
 
+// ------------------------------------------------- the position line as a way in
+//
+// The line under the book's title reads `1:12:08 of 9:41:33` on every night,
+// and on the nights there are places it is also the way back to them. What is
+// asserted here is mostly the other half of that: with nothing to open it is
+// the plain readout it always was, because a line wearing a rule and a target
+// that answers a press by doing nothing is the thing this page's comments argue
+// against most often — and after a cold launch on a book nobody has asked about
+// it is the ordinary case, not an edge one.
+
+// What the line is offering, read the way somebody looking at it would: the
+// count if there is one, and whether the whole thing is a control at all.
+function line(page) {
+  const found = page.el("places-found");
+  return {
+    // The position itself, which is what this line is for and what must not
+    // change whatever else does.
+    clock: page.el("clock").textContent,
+    // Null rather than "" so that a count nobody can see and a count that
+    // happens to be empty cannot be mistaken for each other.
+    found: found.hidden ? null : found.textContent,
+    // Emptied as well as hidden: two ways of asking "is anything offered?" that
+    // could disagree is one too many.
+    written: found.textContent,
+    opens: !page.el("places-open").disabled,
+    // The dotted rule, which is the only thing on the line that says it can be
+    // pressed. It is a class because the sheet draws it, and because "does it
+    // look pressable?" and "is there anything to press?" have to be the same
+    // question.
+    ruled: page.el("places-open").classList.contains("openable"),
+  };
+}
+
+test("a book nobody has asked about leaves the position line alone", async (t) => {
+  const page = await opened(t);
+  assert.deepEqual(line(page), {
+    clock: "0:16:40 of 1:00:00",
+    found: null,
+    written: "",
+    opens: false,
+    ruled: false,
+  });
+});
+
+test("a list found puts a count under the position and opens from it", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidates-cancel");
+  // Said as a fact about the last question rather than as an instruction, and
+  // the position it is under is untouched.
+  assert.deepEqual(line(page), {
+    clock: "0:16:40 of 1:00:00",
+    found: "4 places found",
+    written: "4 places found",
+    opens: true,
+    ruled: true,
+  });
+  page.click("places-open");
+  assert.equal(page.probe().candidatesUp, true);
+  assert.equal(page.el("candidate-list").children.length, 5);
+  // And it is the same screen, not a picture of one: the rows can be gone to.
+  page.click("candidate-go-12");
+  await page.settle();
+  assert.equal(page.probe().positionMs, 1_234_567);
+});
+
+test("one place found is said in the singular, as the screen says it", async (t) => {
+  const page = await opened(t, {
+    stored: kept(offer({ places: [places()[0]] })),
+  });
+  assert.equal(line(page).found, "1 place found");
+});
+
+test("a night that comes back offers the places without a question", async (t) => {
+  const page = await opened(t, { stored: kept(offer()) });
+  // The count is on the line before anything is asked, which is the whole of
+  // what the last night left behind.
+  assert.equal(line(page).found, "4 places found");
+  page.click("places-open");
+  assert.equal(page.probe().candidatesUp, true);
+});
+
+test("places found in another book leave this book's line plain", async (t) => {
+  const page = await opened(t);
+  page.answers({
+    reply: OFFER_SENTENCE,
+    candidates: {
+      gid: OTHER_BOOK.gid,
+      title: OTHER_BOOK.title,
+      position_ms: null,
+      places: [elsewhere()],
+    },
+  });
+  await page.ask("the bit in the other book");
+  page.click("candidates-cancel");
+  // The line is under the title of the book that is playing, and the places are
+  // in one that is not. A count there would be a promise about this book.
+  assert.equal(line(page).found, null);
+  assert.equal(line(page).opens, false);
+  page.click("places-open");
+  assert.equal(page.probe().candidatesUp, false);
+});
+
+test("the count goes with the book it was about", async (t) => {
+  const page = await playing(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidates-cancel");
+  assert.equal(line(page).found, "4 places found");
+  await page.openBook(OTHER_BOOK.gid);
+  page.audio.ready(8);
+  // Another book, and the places were about the last one. Left standing, the
+  // count would be four places in a book that is no longer on the screen.
+  assert.deepEqual(line(page), {
+    clock: "0:00:04 of 0:00:16",
+    found: null,
+    written: "",
+    opens: false,
+    ruled: false,
+  });
+});
+
 test("an answer that knew where they meant leaves the last places standing", async (t) => {
   const page = await opened(t, { stored: kept(offer()) });
   page.answers({

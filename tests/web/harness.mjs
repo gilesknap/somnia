@@ -420,7 +420,18 @@ const BORN_HIDDEN = new Set([
   "reading-now",
   "reading-track",
   "toast",
+  // The count under the position line. The line is a plain readout until there
+  // are places to open from it, so the document ships the count with nothing in
+  // it and out of the way.
+  "places-found",
 ]);
+
+// And the one id it gives a `disabled` attribute to, for the same reason: the
+// position line is a way in to the places somnia last found, and on a page that
+// has never been asked anything there is nothing behind it. The document ships
+// it that way and the page only ever changes it, so a fake that handed it back
+// live would let a control pass a test it fails in a browser.
+const BORN_DISABLED = new Set(["places-open"]);
 
 // Enough of a DOM node to build a list of places out of, and no more.
 //
@@ -814,6 +825,7 @@ export async function boot(t, options = {}) {
       // shows them, so their starting state comes from the document or from
       // nowhere at all.
       node.hidden = BORN_HIDDEN.has(id);
+      node.disabled = BORN_DISABLED.has(id);
       elements.set(id, node);
     }
     return elements.get(id);

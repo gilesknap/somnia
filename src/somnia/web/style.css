@@ -634,9 +634,69 @@ h1 {
   color: var(--mid);
 }
 
+/* The position, and on the nights there are places, the way back to them.
+
+   Bare on purpose: no border, no background, no padding, and the type of the
+   line it replaced. On most nights this is a readout and nothing else — a book
+   nobody has asked a question about has no places — and it has to be the same
+   plain line it was before there was anything behind it.
+
+   What marks it as pressable when it is pressable is the dotted rule under the
+   time and the count under that, which between them are 44dp of target. Nothing
+   else changes: same size, same colour, same place on the screen — the type and
+   the ink are the ones every button on this page inherits already. */
+#places-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
+/* The design's 44dp, asked for rather than left to fall out of two line
+   heights, because it is the claim the whole control rests on. */
+#places-open.openable {
+  min-height: 2.2rem;
+}
+
+/* Every other disabled control on the page is one somebody could have pressed a
+   moment ago and cannot now, and the 0.4 above says exactly that. This one is a
+   position readout on the nights it is disabled, and dimming it would take a
+   third of the light off the one number on this screen that stays true all
+   night. */
+#places-open:disabled {
+  opacity: 1;
+}
+
 #clock {
   /* So the line does not twitch as the digits change. */
   font-variant-numeric: tabular-nums;
+}
+
+/* The 1px dotted rule the design puts under the position when it is a way in.
+   Held off the digits by a quarter of an em so that it reads as a rule under
+   the line rather than as an underscore between the numbers — and dotted rather
+   than solid because a solid rule under a row of digits is a fraction. */
+#places-open.openable #clock {
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+}
+
+/* What pressing would open: `4 places found`, at 15dp, in the faintest ink the
+   palette has — the design's .3, which is --faint's .32 and the same colour as
+   everything else on the page that is there if it is wanted.
+
+   A count and not an instruction. "4 places found" is a fact about the last
+   question that was asked; "see places" would be a verb standing over a line
+   that is a readout on most nights, and it would have to disappear or start
+   lying on the first night nobody asked anything. */
+#places-found {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  color: var(--faint);
 }
 
 /* The book as a line: a 2dp track the width of the column, an amber fill, and a
