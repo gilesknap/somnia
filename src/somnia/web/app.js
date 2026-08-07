@@ -2797,10 +2797,16 @@ async function openShelved(entry, button) {
     await openBook(entry.gid, { play: true });
   } catch (error) {
     console.error(error);
-    // The page's own sentence for this, said on the panel's line rather than
-    // over the book: the panel is still up, and the press is still there to try
-    // again with.
-    queueSaid.textContent = "couldn't reach that book";
+    // Said in the page's second voice, and it has to be that one. #status is
+    // under the panel; #queue-said is the foot of a scroller that runs past the
+    // card, the ended rows, the label and the search box — at 360x780 a shelf
+    // press is at the top of the panel and that line is three screens down, so
+    // a failure written there is a press that did nothing and said nothing.
+    // The toast is over both overlays, at the bottom by the thumb that caused
+    // it, and it is already where the same press says `opened` when it works.
+    // The same sentence follow() uses for the same failure, for the same
+    // reason: the switch did not happen, and the press is still there.
+    toast("couldn't reach that book");
     button.disabled = false;
     opening = 0;
     return;

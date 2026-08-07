@@ -748,9 +748,13 @@ test("a switch the server will not make leaves the night where it was", async (t
   assert.equal(page.fetches.includes(`api/book/${OTHER_BOOK.gid}`), false);
   assert.equal(page.probe().gid, HALF_HEARD.gid);
   assert.equal(page.audio.paused, false);
-  // Said on the panel's own line, in the page's own words for a book it could
-  // not get to, with the panel still up and the press still there to try again.
-  assert.equal(page.el("queue-said").textContent, "couldn't reach that book");
+  // Said where somebody standing on the shelf can read it. The panel's own
+  // line is the foot of a scroller three screens below this press, and #status
+  // is under the panel — so the sentence goes in the voice that lies over both
+  // overlays, at the bottom by the thumb, which is where the same press says
+  // `opened` when it works.
+  assert.equal(page.probe().toast, "couldn't reach that book");
+  assert.equal(page.el("queue-said").textContent, "");
   assert.equal(page.probe().queueUp, true);
   assert.equal(page.el(`shelf-open-${OTHER_BOOK.gid}`).disabled, false);
 
@@ -760,7 +764,7 @@ test("a switch the server will not make leaves the night where it was", async (t
   page.unreachable({ open: true });
   await pick(page, OTHER_BOOK.gid);
   assert.equal(page.probe().gid, HALF_HEARD.gid);
-  assert.equal(page.el("queue-said").textContent, "couldn't reach that book");
+  assert.equal(page.probe().toast, "couldn't reach that book");
 });
 
 test("a book cannot be opened twice by pressing twice", async (t) => {
