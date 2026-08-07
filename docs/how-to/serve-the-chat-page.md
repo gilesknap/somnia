@@ -130,6 +130,14 @@ Ask to be taken somewhere and the book goes there and plays from there. If the
 passage is in a book that was not even open, that book opens. Nothing has to be
 pressed afterwards.
 
+Ask it a *question* instead — who Rob Roy is, what became of Ginger, why they
+went to London — and it answers in a sentence and leaves the book exactly where
+it is. Nothing moves, no list goes up, and the book carries on playing
+underneath. It is worth saying because it did not use to be true: every question
+was read as *take me somewhere*, so asking who somebody was either put a list of
+places on the screen or moved the book to one of them, and cost you the hour you
+were in.
+
 When more than one place could be what you meant, it does not ask — it puts
 them on the screen. The screen is headed *Places you might be*, with a line
 under it saying how many there are and what they span, and each row is a
@@ -145,7 +153,11 @@ list is up, so there is nothing to undo. The book keeps playing underneath it
 the whole time, which also means a sleep timer left to run out under a list
 still ends the night — the list is not a reason to keep the book going.
 
-It will not answer about a part of the book you have not heard. The bound is
+It will not answer about a part of the book you have not heard. An answer can
+come out of somnia's own reading of the book rather than only out of the passage
+it just looked up, and that line is the whole of what bounds it: somebody who
+has not turned up yet gets *he hasn't come up yet in what you've heard*, and
+nothing after that — not who he is, and not that he arrives later. The bound is
 the furthest point the page has actually *played through*, not where you are
 now — so being taken back to chapter two does not un-hear chapter twenty, and
 being taken forward does not unlock what you were carried over. What you get

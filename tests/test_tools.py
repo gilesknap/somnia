@@ -335,6 +335,79 @@ def test_find_passage_says_when_the_answer_lies_ahead(fixture: Fixture) -> None:
     assert 700_000 not in [p.start_ms for p in search.hits]
 
 
+# --------------------------------------------- answering rather than moving
+
+
+def test_a_question_is_answered_from_what_they_have_already_heard(
+    fixture: Fixture,
+) -> None:
+    """The same index and the same bound as a search, framed to be spoken.
+
+    A question and a request to be taken somewhere really do look for the same
+    passages — there is only one index — so what makes the two different is
+    what comes back and what may follow it, not where it was looked up.
+    """
+    recalled = fixture.library.recall(271, "Rob Roy was shot after the hunt")
+
+    assert [p.start_ms for p in recalled.passages][0] == 300_000
+    assert recalled.searched_to_ms == 360_000
+
+
+def test_a_question_is_never_told_that_a_closer_answer_lies_further_on(
+    fixture: Fixture,
+) -> None:
+    """The nudge that is right for "take me there" and wrong for "who is he".
+
+    A search reports the better match past the mark so it can be offered. There
+    is nothing to offer here — they asked to be told something, not moved — and
+    saying it lies further on would be a spoiler in its own right: "he hasn't
+    come up yet in what you've heard" and "he comes up an hour and a half from
+    here" are different sentences, and the second one gives away that he
+    arrives at all. So the field is not ignored downstream, it is not there.
+    """
+    query = "a later scene the listener has not reached"
+    assert fixture.library.find_passage(271, query).better_ahead is not None
+
+    recalled = fixture.library.recall(271, query)
+
+    assert 700_000 not in [p.start_ms for p in recalled.passages]
+    assert not hasattr(recalled, "better_ahead")
+
+
+def test_a_question_about_a_book_they_have_finished_may_be_answered_whole(
+    fixture: Fixture,
+) -> None:
+    """There is nothing left to spoil, exactly as there is nothing left to hide.
+
+    The one bound recall has is the search's own, so a book they have heard the
+    end of unbounds this the same way it unbounds a search, and the None is how
+    the agent is told there is nothing to keep back.
+    """
+    with fixture.conn:
+        fixture.conn.execute(
+            "UPDATE books SET heard_to_ms = 0, position_ms = 900000 WHERE gid = 271"
+        )
+    recalled = fixture.library.recall(271, "a later scene the listener has not reached")
+
+    assert recalled.searched_to_ms is None
+    assert recalled.passages[0].start_ms == 700_000
+
+
+def test_answering_a_question_changes_nothing_about_the_night(
+    fixture: Fixture,
+) -> None:
+    """A question must cost them nothing at all, and that includes the mark.
+
+    Reading the book back to answer is not listening to it, so heard_to_ms must
+    not move — and neither must the position, which is the whole complaint this
+    tool exists to answer: asking who somebody was used to end with the book
+    somewhere else.
+    """
+    before = night(fixture)
+    fixture.library.recall(271, "Rob Roy was shot after the hunt")
+    assert night(fixture) == before
+
+
 # ------------------------------------------- the places they might have meant
 
 

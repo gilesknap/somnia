@@ -230,6 +230,25 @@ says whether a closer match lies past the mark — never what it is — which is
 what lets the agent offer rather than shrug, and `find_passage(allow_spoilers)`
 is the way through, asked for by them and by nobody else.
 
+**The mark is also how far the agent may speak**, which used to be a different
+rule entirely. The prompt's strongest line was that everything said about a book
+had to come from a tool result in this conversation, and it was doing two jobs
+at once — the guard, and a fence against the model's own knowledge — by drawing
+one fence around the retrieval. [ADR
+6](decisions/0006-answer-a-question-about-the-book.md) takes them apart. The
+agent may now answer a question about a book out of what it already knows, and
+the line it may not cross is the mark: everything behind it may be talked about
+freely, nothing in front of it may be said at all, and a character who has not
+appeared yet gets "he hasn't come up yet in what you've heard" and nothing after
+that sentence. What may be *read* and what may be *said* are two different
+distances — `allow_spoilers` moves the first and never the second, which was
+always true and is now the sentence the paragraph turns on. The tool that
+answers, `recall`, is bounded exactly as a search is, hands back no `id=` and no
+`position_ms`, drops `better_ahead` rather than reporting it, and marks the turn
+so that `move_to` and `offer_positions` both refuse: asking who somebody is used
+to drag the audio to a passage about them, and it is the tools that stop it
+rather than a paragraph asking them not to.
+
 **What it offers is a list of places, not a question.** That passage becomes a
 row on screen with its time and its chapter number, and its words and its
 chapter title covered up until the row is pressed — *tap to reveal · may spoil*;
@@ -321,13 +340,17 @@ process to deploy must not kill a render that is four hours in.
   waiting to be rendered as well as what exists, since a book asked for
   tonight has no `books` row for hours), `search_catalog`, `add_book` (which
   writes a queue row and starts nothing, so what it can honestly say is where
-  in the line the book landed), `find_passage` (bounded by the guard unless
-  they say otherwise), `get_position` (reads somnia's own record of where they
-  are), `move_to` (writes it, and counts the move so the page follows), and
-  `offer_positions` (writes nothing, and puts several places on the screen for
-  them to choose between). The model is never told to tell them to press play,
-  because there is nothing to press. Which *book* they meant is still one short
-  spoken question; which *passage* they meant never is.
+  in the line the book landed), `find_passage` (places to be taken to, bounded
+  by the guard unless they say otherwise), `recall` (the same search framed to
+  be answered from, with no place in it and no way past the guard),
+  `get_position` (reads somnia's own record of where they are), `move_to`
+  (writes it, and counts the move so the page follows), and `offer_positions`
+  (writes nothing, and puts several places on the screen for them to choose
+  between). The model is never told to tell them to press play, because there is
+  nothing to press. Which *book* they meant is still one short spoken question;
+  which *passage* they meant never is; and whether they wanted moving or telling
+  is the model's to judge, which it declares by which of the two searches it
+  calls.
 - 2am surface: a small **PWA chat page** served from the VPS. The server runs
   the agent loop (Anthropic Python SDK tool runner) with an API key held
   server-side — no OAuth. Voice input via the browser's Web Speech API

@@ -935,6 +935,257 @@ def test_a_move_on_the_last_question_does_not_stop_a_list_on_this_one(
     assert second.move is None
 
 
+# ----------------------------------------- questions that are not about a place
+
+
+def test_what_a_recall_hands_back_holds_no_place_to_send_them_to(
+    searchable: Searchable,
+) -> None:
+    """The book's words and the chapter they are in, and no handle at all.
+
+    A chapter is something an answer can say out loud — "that was back in the
+    hunt" — where an id and a position_ms are the two things offer_positions and
+    move_to consume, and handing them over on a question's tool result is how
+    "who is Rob Roy" turned into a jump. The one timestamp in it is the line the
+    answer may not cross, not a place: it is there so the model knows how far it
+    may speak.
+    """
+    result = wired(searchable).call(
+        "recall", gid=271, question="Rob Roy was shot after the hunt"
+    )
+
+    assert "Rob Roy was shot after the hunt" in result
+    assert "02 The Hunt" in result
+    assert "id=" not in result
+    assert "position_ms" not in result
+    assert re.findall(r"\d+:\d\d:\d\d", result) == ["0:06:00"]
+    assert "as far as they have listened" in result
+    assert "300000" not in result
+
+
+def test_a_recall_says_what_the_answer_is_when_nothing_it_found_is_about_it(
+    searchable: Searchable,
+) -> None:
+    """Nearest-neighbour search has no relevance floor, so it always answers.
+
+    The passages that come back are the closest ones in that stretch, which is
+    not the same as passages about what was asked, and the difference is the
+    whole of the spoiler case: a character who has not appeared yet has no
+    passages, only near misses. So the sentence to say is handed over with them,
+    the way the sentence beside a list is — and it stops at "not yet", because
+    "he turns up in an hour" is the thing they have not heard.
+    """
+    result = wired(searchable).call(
+        "recall", gid=271, question="somebody who has not appeared yet"
+    )
+
+    assert "has not come up yet in what they have heard" in result
+    assert "not that it comes up later" in result
+
+
+def test_a_turn_that_answered_a_question_will_not_also_move_the_book(
+    searchable: Searchable,
+) -> None:
+    """The refusal the whole split exists for, and the bug it closes.
+
+    Every question used to arrive as a search, every search hands back
+    positions, and a position is a thing to move to — so asking who a character
+    was ended with the audio dragged to a passage about him and playing, which
+    costs the listener the hour they were in. Held here rather than in the
+    prompt because the pull is in the shape of the tools, and refused before
+    library.move_to writes anything, because a written move reaches the page
+    fifteen seconds later whatever the reply said.
+    """
+    ready = wired(searchable)
+    ready.call("recall", gid=271, question="Rob Roy was shot after the hunt")
+
+    said = ready.call("move_to", gid=271, position_ms=10_000)
+
+    assert "not to be moved" in said
+    assert ready.moves == []
+    assert ready.notes == []
+    assert seq(searchable) == 0
+
+
+def test_a_turn_that_answered_a_question_puts_no_list_of_places_up_either(
+    searchable: Searchable,
+) -> None:
+    """The other half of leaving the book alone, and the more insidious one.
+
+    A character's name matches every passage he appears in, which is exactly
+    the condition that used to make a question ambiguous enough to offer — and
+    offering gags the reply, so the answer to "who is Rob Roy" became a sentence
+    that is not about Rob Roy. A list is an answer to "where do you mean", and
+    that is not what was asked.
+    """
+    ready = wired(searchable)
+    ready.call("find_passage", gid=271, description="the meadow with the pond")
+    ready.call("recall", gid=271, question="Rob Roy was shot after the hunt")
+
+    said = ready.call(
+        "offer_positions",
+        gid=271,
+        chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
+    )
+
+    assert "not an answer" in said
+    assert ready.offers == []
+
+
+def test_a_question_about_a_book_that_is_not_here_is_still_a_question(
+    searchable: Searchable,
+) -> None:
+    """The flag is set by the calling, not by what came back.
+
+    A recall that found nothing is the case the refusal matters most in: "it
+    hasn't come up yet in what you've heard" is precisely the answer that must
+    not be followed by the book moving somewhere instead.
+    """
+    ready = wired(searchable)
+    assert "Nothing in that stretch." in ready.call(
+        "recall", gid=999, question="anybody at all"
+    )
+
+    assert "not to be moved" in ready.call("move_to", gid=271, position_ms=10_000)
+    assert seq(searchable) == 0
+
+
+def test_a_question_that_tugged_at_the_book_still_leaves_it_where_it_was(
+    searchable: Searchable,
+) -> None:
+    """What the listener gets out of all this: a sentence, and their place.
+
+    The reply survives the refusal — it is the answer, and refusing the move
+    must not cost them that too — and the page is handed neither a move nor a
+    list, so it draws a bare sentence, which is what it has always done with a
+    turn that did neither.
+    """
+    conversation = Conversation(
+        Config(),
+        searchable.library,
+        client_that_acts(
+            [SimpleNamespace(content=[text("The horse shot after the hunt.")])],
+            calls=[
+                ("recall", {"gid": 271, "question": "Rob Roy was shot after the hunt"}),
+                ("move_to", {"gid": 271, "position_ms": 300_000}),
+            ],
+        ),
+    )
+    turn = conversation.ask("remind me who Rob Roy is")
+
+    assert turn.reply == "The horse shot after the hunt."
+    assert turn.move is None
+    assert turn.candidates is None
+    assert seq(searchable) == 0
+
+
+def test_a_recall_is_never_used_as_the_answer(searchable: Searchable) -> None:
+    """The raw book is not an answer, however far inside the bound it is.
+
+    A recall changes nothing, so it has nothing to report to the fallback, and
+    a turn that only read the book and then said nothing says nothing — the
+    same rule as a search, for the same reason.
+    """
+    conversation = Conversation(
+        Config(),
+        searchable.library,
+        client_that_acts(
+            [SimpleNamespace(content=[])],
+            calls=[
+                ("recall", {"gid": 271, "question": "Rob Roy was shot after the hunt"})
+            ],
+        ),
+    )
+    assert conversation.ask("who is Rob Roy?").reply == ""
+
+
+def test_a_question_answered_now_does_not_stop_them_being_moved_next(
+    searchable: Searchable,
+) -> None:
+    """Who is Rob Roy, and then: right, take me to where he's shot.
+
+    The flag belongs to the question that set it, like the other two. A turn
+    that answered has to leave the next one free to do the ordinary thing, or
+    every question would cost the rest of the conversation its ability to move
+    the book.
+    """
+    conversation = Conversation(
+        Config(),
+        searchable.library,
+        client_that_acts_each(
+            (
+                [SimpleNamespace(content=[text("The horse shot after the hunt.")])],
+                [
+                    (
+                        "recall",
+                        {"gid": 271, "question": "Rob Roy was shot after the hunt"},
+                    )
+                ],
+            ),
+            (
+                [SimpleNamespace(content=[text("You're back at the hunt.")])],
+                [
+                    (
+                        "find_passage",
+                        {"gid": 271, "description": "Rob Roy was shot after the hunt"},
+                    ),
+                    ("move_to", {"gid": 271, "position_ms": 300_000}),
+                ],
+            ),
+        ),
+    )
+    assert conversation.ask("who is Rob Roy?").move is None
+
+    second = conversation.ask("take me to where he's shot")
+    assert second.move is not None
+    assert second.move.position_ms == 300_000
+
+
+def test_a_passage_only_a_recall_found_is_not_a_place_it_can_offer(
+    searchable: Searchable,
+) -> None:
+    """Reading the book back hands out no offerable places, in this turn or any.
+
+    A search remembers every passage it returned, so that a list can be proved
+    to name real ones. A recall deliberately adds nothing to that record: it
+    gave the model no ids, and an id it produced anyway did not come from a
+    search. Asked afterwards where somebody turns up, it has to go and look.
+    """
+    conversation = Conversation(
+        Config(),
+        searchable.library,
+        client_that_acts_each(
+            (
+                [SimpleNamespace(content=[text("The horse shot after the hunt.")])],
+                [
+                    (
+                        "recall",
+                        {"gid": 271, "question": "Rob Roy was shot after the hunt"},
+                    )
+                ],
+            ),
+            (
+                [SimpleNamespace(content=[text("I couldn't find it.")])],
+                [
+                    (
+                        "offer_positions",
+                        {
+                            "gid": 271,
+                            "chunk_ids": [
+                                place(searchable, 10_000),
+                                place(searchable, 300_000),
+                            ],
+                        },
+                    )
+                ],
+            ),
+        ),
+    )
+    conversation.ask("who is Rob Roy?")
+
+    assert conversation.ask("show me where he turns up").candidates is None
+
+
 # ------------------------------------------------------------ asking for a book
 
 
