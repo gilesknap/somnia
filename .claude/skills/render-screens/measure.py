@@ -72,12 +72,17 @@ def measure(src, height, root=20):
     try:
         dom = subprocess.run(
             [
-                "google-chrome", "--headless", "--disable-gpu", "--dump-dom",
+                "google-chrome",
+                "--headless",
+                "--disable-gpu",
+                "--dump-dom",
                 f"--window-size=360,{height}",
                 "--virtual-time-budget=2000",
                 str(scaled),
             ],
-            check=True, capture_output=True, text=True,
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout
     finally:
         scaled.unlink(missing_ok=True)
@@ -100,16 +105,26 @@ if __name__ == "__main__":
     print(f"SCROLLS: {d['scrollH'] > d['viewport'] + 1}")
     rows = [
         ("header -> conversation (top of it)", gap(d["header"], d["firstSaid"]), 12),
-        ("placement line -> title  (the flexible one: should be LARGEST)",
-         gap(d["lastSaid"], d["bookTitle"]), "max"),
+        (
+            "placement line -> title  (the flexible one: should be LARGEST)",
+            gap(d["lastSaid"], d["bookTitle"]),
+            "max",
+        ),
         ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), 18),
         ("chapter group -> transport", gap(d["chapterStrip"], d["transport"]), 18),
         ("transport -> dock (the pill itself)", gap(d["transport"], d["pill"]), 14),
-        ("dock -> bottom of screen",
-         round(d["viewport"] - d["pill"]["bottom"], 1) if d.get("pill") else None, 4),
+        (
+            "dock -> bottom of screen",
+            round(d["viewport"] - d["pill"]["bottom"], 1) if d.get("pill") else None,
+            4,
+        ),
     ]
     for name, got, want in rows:
         flag = ""
         if isinstance(want, int) and got is not None:
-            flag = "  OK" if abs(got - want) <= 3 else f"  <-- want {want}, off by {round(got - want, 1)}"
+            flag = (
+                "  OK"
+                if abs(got - want) <= 3
+                else f"  <-- want {want}, off by {round(got - want, 1)}"
+            )
         print(f"{name:<62} {got}{flag}")
