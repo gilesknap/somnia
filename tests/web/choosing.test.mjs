@@ -1342,3 +1342,32 @@ test("an answer that knew where they meant leaves the last places standing", asy
   assert.equal(page.probe().candidatesUp, true);
   assert.equal(page.el("candidate-list").children.length, 5);
 });
+
+// `start over` is the one press that throws something away, and what it throws
+// away is everything that was said. The places were an answer to something
+// said, so they go too — otherwise the position line keeps offering a way back
+// to a list whose question has been forgotten at both ends of the tailnet.
+//
+// Not the same case as a confident move, which leaves the list standing on
+// purpose: there the conversation is still on the screen to explain it.
+test("start over takes the remembered places with the conversation", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidates-cancel");
+  assert.equal(line(page).found, "4 places found");
+
+  // Two presses, because the first only arms it.
+  page.click("restart");
+  page.click("restart");
+
+  // The line is plain again: no count, no rule, and nothing to press.
+  assert.deepEqual(line(page), {
+    clock: "0:16:40 of 1:00:00",
+    found: null,
+    written: "",
+    opens: false,
+    ruled: false,
+  });
+  assert.equal(page.storage.items.get("somnia-places"), undefined);
+});

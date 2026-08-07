@@ -295,8 +295,11 @@ function startOver() {
   }).catch(() => {});
   // A list left up over a cleared transcript is exactly the stranding this page
   // promises cannot happen: an overlay offering places, with nothing behind it
-  // to say what was asked or why.
+  // to say what was asked or why. `closeCandidates` takes it off the screen and
+  // `forgetPlaces` takes it out of the key, so the position line stops offering
+  // a way back to it as well.
   closeCandidates();
+  forgetPlaces();
   transcript.replaceChildren();
   setStatus("");
   say("Where do you want to be?", "agent");
@@ -1738,6 +1741,26 @@ const PLACES_KEY = "somnia-places";
 // now: the two are the same list while Places is up, and different the moment
 // it closes, because closing forgets the screen and this outlives the night.
 let remembered = null;
+
+// `start over` throws away the conversation, and the places are an answer to a
+// question in it — so they go with it. The comment over startOver draws the line
+// this side of: the questions, not the night. The book keeps playing, keeps its
+// position and keeps its timer; what is forgotten is everything that was said.
+//
+// Without this the position line goes on saying `4 places found` after the
+// server has been told to forget the question that found them, and pressing it
+// opens a list somebody can no longer see the reason for. That is not the same
+// case as a confident move, which leaves the list standing on purpose: there the
+// conversation is still there to explain it.
+function forgetPlaces() {
+  remembered = null;
+  drawPlaces();
+  try {
+    localStorage.removeItem(PLACES_KEY);
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 function rememberPlaces(list) {
   remembered = list;

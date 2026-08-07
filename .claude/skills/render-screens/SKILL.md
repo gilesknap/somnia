@@ -46,7 +46,24 @@ S=.claude/skills/render-screens
 python3 $S/snapshot.py --out /tmp/somnia/page.html
 python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/control.png
 python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/chat.png --height 470
+python3 $S/measure.py /tmp/somnia/page.html 867
 ```
+
+## Looking is not measuring
+
+`measure.py` prints each vertical gap on the player against the design brief's
+rhythm table, and whether the page scrolls. Run it as well as looking, because
+the two catch different things: in August 2026 a render was read as fine by eye
+and the script found four of six gaps out, with every pixel of slack pooled
+above the conversation instead of below it.
+
+**Pass `867`, not `780`.** `--dump-dom` opens a real window with real chrome,
+unlike `--screenshot`, so the viewport comes up ~87px short; 867 lands
+`innerHeight` on 780. The script prints the viewport it got — if that is not
+780, everything under it is about a different phone.
+
+`SCROLLS: False` is a hard rule, not a preference, and it is the first thing a
+newly added row breaks.
 
 Then **Read the PNGs.** Do not report on a layout you have not opened — the
 whole value here is that the picture disagrees with you sometimes.
