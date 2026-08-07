@@ -1372,6 +1372,14 @@ body.chat-screen #transcript .said.you {
    reading gone is one empty column and a transport squeezed into the other, and
    that is what a phone on its side with a keyboard up used to get.
 
+   `:not([hidden])` is the price of that class. `#player-bar` is `display:
+   contents`, so `#player-bar[hidden]` has to say `display: none` again by hand
+   — and a class on <body> outranks an attribute, which a bare `#player-bar` did
+   not. Without the exclusion, a short wide window with no book open lays the
+   whole player out for a book that is not there: a blank title, a scrub line
+   under it, a sleep timer, and a transport whose play button has nothing to
+   start.
+
    Asked as a width rather than as `orientation: landscape` because width is
    what actually decides it. A phone held upright with a keyboard up is under
    34rem across and a phone on its side is over it, and something wide, short
@@ -1380,7 +1388,7 @@ body.chat-screen #transcript .said.you {
    app also asks for portrait in the webmanifest, but that binds nothing in a
    browser tab, which is where the page is read before it is ever installed. */
 @media (max-height: 34rem) and (min-width: 34rem) {
-  body.player-screen #player-bar {
+  body.player-screen #player-bar:not([hidden]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
     align-items: center;
