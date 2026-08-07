@@ -3,7 +3,7 @@
 A render tells you a layout is wrong. It does not tell you by how much, and on
 2026-08-07 it did not tell you at all: the page looked right and four of its six
 gaps were out, with all the slack pooled above the conversation rather than
-below it. The design brief gives exact numbers — 18/18/14 between the groups,
+below it. The design brief gives exact numbers — 14/14/12 between the groups,
 one flexible spacer taking the rest — so the honest check is arithmetic.
 
 Run it against a snapshot, not the live page:
@@ -136,9 +136,9 @@ if __name__ == "__main__":
             ),
         ]
     rows += [
-        ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), 18),
-        ("chapter group -> transport", gap(d["chapterStrip"], d["transport"]), 18),
-        ("transport -> dock (the pill itself)", gap(d["transport"], d["pill"]), 14),
+        ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), 14),
+        ("chapter group -> transport", gap(d["chapterStrip"], d["transport"]), 14),
+        ("transport -> dock (the pill itself)", gap(d["transport"], d["pill"]), 12),
         (
             "dock -> bottom of screen",
             round(d["viewport"] - d["pill"]["bottom"], 1) if d.get("pill") else None,

@@ -338,25 +338,27 @@
 
              The sheet draws this box at 48px on the phone it is read on, and
              the box is 48 units across, so one unit here is one of the design's
-             dp and its sizes are the numbers below rather than something
-             derived from them: two 10x38 bars 8 apart, and a 26x34 triangle. The triangle is 5 to the right
-             of centre and that is not a mistake to be tidied up — a triangle
-             centred on its bounding box reads as sitting left of centre,
-             because its weight is all down the flat edge. The half-stroke of
-             the round join is counted in those 26 and 34. -->
+             dp and its sizes are the numbers in the conformance table rather
+             than something derived from them: two 9x32 bars 7 apart, and a
+             triangle 22 wide. The triangle is 4 to the right of centre and that
+             is not a mistake to be tidied up — a triangle centred on its
+             bounding box reads as sitting left of centre, because its weight is
+             all down the flat edge. The half-stroke of the round join is
+             counted in that 22, which is why the path runs 18.5 to 37.5 and the
+             shape it draws runs 17 to 39. -->
         <button id="playpause" type="button" aria-label="Play">
           <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
             <path
               class="play"
-              d="M17.5 8.5 40.5 24 17.5 39.5Z"
+              d="M18.5 11 37.5 24 18.5 37Z"
               fill="currentColor"
               stroke="currentColor"
               stroke-width="3"
               stroke-linejoin="round"
             />
             <g class="pause" fill="currentColor">
-              <rect x="10" y="5" width="10" height="38" rx="2" />
-              <rect x="28" y="5" width="10" height="38" rx="2" />
+              <rect x="11.5" y="8" width="9" height="32" rx="2" />
+              <rect x="27.5" y="8" width="9" height="32" rx="2" />
             </g>
           </svg>
         </button>

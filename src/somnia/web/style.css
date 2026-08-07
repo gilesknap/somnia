@@ -475,13 +475,13 @@ h1 {
    press, and a miss that lands on +30 costs thirty seconds of a book somebody
    is falling asleep to.
 
-   It is 18dp now rather than 34. That is the design's number, asked for twice
-   and in a table, and it is the one change in this pass with an argument
-   against it — 34 was chosen by hand against a thumb, and half of it is still
-   half of it. Two things make it survivable: what sits directly above the
-   transport is a 64dp circle whose own generous target absorbs a low reach, and
-   the design frees enough height elsewhere that nothing had to come out of a
-   tap target to pay for this. Worth watching on a real night. */
+   14dp now, down from 34 by way of 18. That is the design's number, given
+   twice and in a table, and it is the change in this pass with the clearest
+   argument against it — 34 was chosen by hand against a thumb. What makes it
+   survivable is unchanged and is not the number: directly above the transport
+   is a 64dp circle whose own generous target absorbs a low reach, so a thumb
+   that comes in high off `+30` lands on a control that costs one chapter to
+   undo rather than on nothing. Worth watching on a real night. */
 #now-playing {
   display: flex;
   flex-direction: column;
@@ -491,7 +491,7 @@ h1 {
      the screen, and the only thing on the player deliberately left ranged left
      is the placement line above them, which is prose and reads as prose. */
   text-align: center;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.6rem;
 }
 
 /* The book's name, and the largest thing on the player. This is the one line
@@ -520,8 +520,13 @@ h1 {
      this sheet already opens with: it is read at arm's length without glasses.
      What paid for it was the gap above — 36.6px of slack was pooling there,
      which is the design's own instruction about where the spare room on this
-     screen goes ("spend it on type, not on gaps"). */
-  font-size: 1.7rem;
+     screen goes ("spend it on type, not on gaps").
+
+     38 now, not 34: the conformance table calls 34 out by name as the port that
+     came in quietly under spec, and the brief says why the numbers can be this
+     large — the reader is 62, without glasses, in a dark room, and the numbers
+     are minimums. */
+  font-size: 1.9rem;
   /* Tighter than the page's 1.45, which is leading for paragraphs. Two lines of
      a title are one name and have to read as one: at 1.45 they come apart into
      two things to read, which is the failure this whole stack is arranged
@@ -546,19 +551,30 @@ h1 {
    and the circles that change it. Everything inside each group is tight — 2 to
    4dp — so the only gaps the eye finds are the ones that mean something. */
 #chapter-title {
-  /* 0.8rem and not 0.9, because `#now-playing`'s own 0.1rem row gap is added to
-     it: 18dp is the design's gap between one group and the next, and it was
-     measuring 20. The 2dp goes where the design says spare height goes — into
-     the one flexible gap above the title, which has to be the largest on the
-     screen and was two pixels short of it. */
-  margin: 0.8rem 0 0;
-  /* 26dp. It stays a step under the book's own name, which is the hierarchy
+  /* 0.6rem and not 0.7, because `#now-playing`'s own 0.1rem row gap is added to
+     it: 14dp is the design's gap between one group and the next, and it is the
+     same 14 that falls under the chapter group. Everything spare goes where the
+     design says spare height goes — into the one flexible gap above the title,
+     which has to be the largest on the screen. */
+  margin: 0.6rem 0 0;
+  /* 29dp. It stays a step under the book's own name, which is the hierarchy
      this stack is for: the book is true all night and the chapter is not. */
-  font-size: 1.3rem;
+  font-size: 1.45rem;
+  /* Two lines and then the ellipsis, exactly as the book's name above it, and
+     for the reason the design gives: never one truncated line, and never three,
+     which would push the transport off the screen. "The Further Adventures of
+     the Water Rat" was the argument for cutting it to one line — at 29dp it is
+     also the argument against, because one line of it is four words and a
+     stub. The height a second line takes comes out of the flexible gap, which
+     is where all the slack on this screen already lives. */
+  line-height: 1.25;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   color: var(--mid);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The chapter's own row: skip, count, skip. The buttons are laid out at a fixed
@@ -573,7 +589,7 @@ h1 {
   /* Its own space above and below. Under it sits the book's clock, and under
      that the transport: this row must not read as the top of the button
      cluster, because it is not one. */
-  margin: 0.5rem 0 0.15rem;
+  margin: 0.5rem 0 0.1rem;
 }
 
 /* Which chapter of how many, between the two buttons that change it. Two lines
@@ -594,12 +610,12 @@ h1 {
 }
 
 #chapter-word {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--dim);
 }
 
 #chapter-count {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   color: var(--mid);
   font-variant-numeric: tabular-nums;
 }
@@ -664,7 +680,7 @@ h1 {
    this stays a footnote to it rather than a second thing to read. */
 #chapter-clock {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
@@ -700,9 +716,9 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: 0.4rem;
-  /* 21dp. The position is the one number on this screen somebody opens their
+  /* 23dp. The position is the one number on this screen somebody opens their
      eyes to read, and it inherits down to the clock and the sleep timer. */
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   color: var(--mid);
 }
 
@@ -757,7 +773,7 @@ h1 {
   text-underline-offset: 0.25em;
 }
 
-/* What pressing would open: `4 places found`, at 17dp, in the faintest ink the
+/* What pressing would open: `4 places found`, at 18dp, in the faintest ink the
    palette has — the design's .3, which is --faint's .32 and the same colour as
    everything else on the page that is there if it is wanted.
 
@@ -766,7 +782,7 @@ h1 {
    that is a readout on most nights, and it would have to disappear or start
    lying on the first night nobody asked anything. */
 #places-found {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.2;
   color: var(--faint);
 }
@@ -844,9 +860,9 @@ h1 {
   border-radius: 999px;
   background: none;
   color: var(--mid);
-  /* 21dp, the same as the position above it: they are the two readouts in this
+  /* 23dp, the same as the position above it: they are the two readouts in this
      block and the design sets them together. */
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-variant-numeric: tabular-nums;
   min-height: 2.4rem;
   padding: 0.5rem 1.2rem;
@@ -879,34 +895,44 @@ h1 {
    nothing and pressing again is far better than being thrown thirty seconds
    the wrong way by a near miss.
 
-   1.45fr in the middle and not the design's 1.05fr. The extra width is not
-   decoration and it is not a hierarchy either: it is how the middle of this row
-   is found in the dark by a thumb that has not read anything. Three cells of
-   nearly equal width are three cells that have to be counted. */
+   1.05fr in the middle, which is the design's number and not the 1.45 this row
+   carried. The wider middle was how the centre of the row was found in the dark
+   by a thumb that had not read anything — a real argument, and it loses to a
+   better one: the centre slab is the only warm thing in the row. It has an
+   amber fill and an amber edge where its neighbours are the page's plain
+   surface, so what a thumb is aiming at is a colour and not a width, and the
+   colour survives being glanced at by somebody who has stopped reading. Width
+   was doing the job before the transport was warmed. */
 .transport {
   display: grid;
-  grid-template-columns: 1fr 1.45fr 1fr;
+  grid-template-columns: 1fr 1.05fr 1fr;
   gap: 0.6rem;
 }
 
 .transport button {
-  /* 110px tall at the root this page is read at, and none of them narrower than
-     about the same. The one number on this page that was measured against a
-     thumb rather than chosen to look right — which is why the design's 96dp
-     cells were not taken: 96 would be a number chosen to make a column fit, and
-     the same design says to take space out of spacing before tap targets. */
-  min-height: 5.5rem;
+  /* 84dp, and this row used to be 110px. That number was measured against a
+     thumb and the refusal to take the design's 96 was written down here; the
+     conformance table now names 108 as a port that got it wrong, and it is
+     right that this had drifted. 84 is still nearly twice the 44dp floor the
+     same brief sets, and the height it gives back is what buys the type above
+     it — which is the trade the design keeps asking for and this row kept
+     refusing.
+
+     Set explicitly, and it is `height` rather than `min-height` for the reason
+     the brief gives: a slab left to size itself around its own glyph, or a grid
+     row that hands out leftover height, is exactly how 84 becomes 108. */
+  height: 4.2rem;
   display: grid;
   place-items: center;
   border: 1px solid var(--hairline);
   border-radius: 1rem;
   background: var(--surface);
   color: var(--ink);
-  /* 34dp, and the same size as the book's own name on purpose — the design
-     calls them "the two things you hit without your glasses on". The cells did
-     not grow with the numerals: 110px was measured against a thumb and there is
-     nothing about larger type that changes what a thumb is. */
-  font-size: 1.7rem;
+  /* 31dp. The brief still calls these and the book's name "the two things you
+     hit without your glasses on", and they are now a step under it rather than
+     equal to it — which is what lets the slab be 84 tall and still read as
+     large. */
+  font-size: 1.55rem;
   font-variant-numeric: tabular-nums;
   transition: background-color 90ms linear;
 }
@@ -972,16 +998,16 @@ h1 {
      half of the same protection, is untouched, and both controls either side of
      that reach are still their full measured size. The height bought here is
      what pays for the rest of the column fitting. */
-  padding: 0.7rem 1rem 0.2rem;
+  padding: 0.6rem 1rem 0.2rem;
 }
 
-/* 76dp, and the microphone beside it is 76 square: the box and the button are
-   one dock and the design sizes them together, so a row that was 70 of box and
-   100 of circle is now one height across. The circle came down and the box went
-   up, which is the trade the design intends — the box is what a question is
-   typed into and it was the smaller of the two, and a 100dp circle beside a
-   70dp box read as the microphone being the way in and typing being the
-   fallback. It is the other way round on most nights. */
+/* 68dp, and the microphone beside it is 68 square: the box and the button are
+   one dock and the design sizes them together, so whatever else changes they
+   change as a pair. Both came down from 76 with the transport, which is where
+   the height for the type above them came from. The two being equal is the part
+   that matters and has not changed — a bigger circle beside a smaller box reads
+   as the microphone being the way in and typing being the fallback, and it is
+   the other way round on most nights. */
 #question {
   /* It is a search field for the keyboard's benefit, so the platform styling
      that comes with one has to be taken back off before the pill survives. */
@@ -989,7 +1015,7 @@ h1 {
   -webkit-appearance: none;
   flex: 1;
   min-width: 0;
-  min-height: 3.8rem;
+  min-height: 3.4rem;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 999px;
@@ -1017,8 +1043,8 @@ h1 {
 
 #talk {
   flex: none;
-  width: 3.8rem;
-  height: 3.8rem;
+  width: 3.4rem;
+  height: 3.4rem;
   border-radius: 50%;
   border: 1px solid var(--hairline);
   background: var(--surface);
