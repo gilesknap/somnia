@@ -1269,13 +1269,22 @@ button:disabled {
    ignoring it. Turn the text up and the same stack needs more room, and this
    fires sooner, which is right.
 
-   34rem is over the measurement rather than on it. Rendered at 360x780 with a
-   20px root, the player stops fitting — the dock goes off the bottom of the
-   screen — at about 27.5rem with a one-line title and a one-line chapter name;
-   both are allowed a second line, which is another 2.2 and 1.8 of them, so the
-   worst case is a little over 31.5rem. The number is not new and is not moved by
-   this pass: it is what the page shipped at, and what the reading gives way at
-   is the same as it was yesterday.
+   34rem is on the measurement, not over it, and it is not a number to shave.
+   Rendered at 360x780 with this query taken out and the root turned up a notch
+   at a time: with a two-line title and a one-line chapter name the player still
+   fits at 32.5rem and the title has run into the clock by 31.2rem; with the
+   chapter name on two lines as well — which is the case a long chapter title
+   gives you and the one the number has to hold — it fits at 35.4rem, is touching
+   by 33.9rem, and overlaps by 32.5rem. Nothing scrolls on the way: the column is
+   `flex: 1` all the way down, so the spacers give until there is nothing left to
+   give and then the type lands on top of the type below it, which is a failure
+   that looks like a font bug rather than like a page out of room.
+
+   So the number is what the page shipped at and it stays there. What it buys, at
+   a large text scale, is worth saying plainly: from about root 23 up this fires
+   on a 780px phone and the reading goes, sleep timer with it. That is a real
+   loss and it is the one the reader who turned their text up still takes. It is
+   also the smaller half of what they used to take — see below.
 
    What it is NOT is a way of asking whether the keyboard is up. That was the
    other half of this block, and the whole of the bug: a window dragged short has
@@ -1326,10 +1335,11 @@ body.chat-screen #playpause svg {
   height: 1.6rem;
 }
 
-/* The dock is not in this rule and has nothing left to give: at 76dp square it
-   is already the smallest the design draws it, and it used to be here only
-   because the microphone was a 100dp circle that could afford to lose a quarter
-   of itself. What is under the keyboard is the same dock as what is over it. */
+/* The dock is not on this screen's list and has nothing left to give: at 76dp
+   square it is already the smallest the design draws it, and it used to be here
+   only because the microphone was a 100dp circle that could afford to lose a
+   quarter of itself. What is under the keyboard is the same dock as what is over
+   it. */
 
 body.chat-screen #composer {
   padding-top: 0.55rem;
@@ -1401,6 +1411,14 @@ body.chat-screen #transcript .said.you {
    reading gone is one empty column and a transport squeezed into the other, and
    that is what a phone on its side with a keyboard up used to get.
 
+   `:not([hidden])` is the price of that class. `#player-bar` is `display:
+   contents`, so `#player-bar[hidden]` has to say `display: none` again by hand
+   — and a class on <body> outranks an attribute, which a bare `#player-bar` did
+   not. Without the exclusion, a short wide window with no book open lays the
+   whole player out for a book that is not there: a blank title, a scrub line
+   under it, a sleep timer, and a transport whose play button has nothing to
+   start.
+
    Asked as a width rather than as `orientation: landscape` because width is
    what actually decides it. A phone held upright with a keyboard up is under
    34rem across and a phone on its side is over it, and something wide, short
@@ -1409,7 +1427,7 @@ body.chat-screen #transcript .said.you {
    app also asks for portrait in the webmanifest, but that binds nothing in a
    browser tab, which is where the page is read before it is ever installed. */
 @media (max-height: 34rem) and (min-width: 34rem) {
-  body.player-screen #player-bar {
+  body.player-screen #player-bar:not([hidden]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
     align-items: center;
@@ -1870,7 +1888,8 @@ body.keyboard-up #candidates-note {
 /* Shorter than this and there is nothing left to arrange, even lying down: the
    reading has to go after all or it takes the bottom off whatever is under it.
    Well under any phone on its side with nothing over it — those are 320px and up
-   — and well under what is left of one with a keyboard up, which is around 220px.
+   — and well over what is left of one with a keyboard up, which is around 220px,
+   which is the whole point: it has to fire there and nowhere above it.
 
    The only thing this says that the fit query further up does not is that it
    also applies in landscape, where the reading is beside the transport rather

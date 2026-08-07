@@ -365,6 +365,25 @@ test("the left corner holds one pill on each screen", async (t) => {
   }
 });
 
+// The other thing a class on <body> costs, and the one the sheet cannot say for
+// itself. `#player-bar` is `display: contents`, which beats the browser's own
+// `[hidden] { display: none }`, so the sheet has to hide it again by hand — and
+// an attribute is weaker than a class, so the moment a screen name goes in front
+// of `#player-bar` that hand-written rule is beaten and a page with no book open
+// draws the player for a book that is not there. It was reachable: a short wide
+// window before the first book is opened.
+test("no screen lays the player out on a page with no book open", async (t) => {
+  for (const [selector, body] of rules(SHEET)) {
+    if (!selector.includes("#player-bar")) continue;
+    if (!selector.includes("body.")) continue;
+    if (!/\bdisplay\s*:/.test(body)) continue;
+    assert.ok(
+      selector.includes(":not([hidden])"),
+      `this outranks #player-bar[hidden]: ${selector.trim()}`,
+    );
+  }
+});
+
 // Written while fixing one. The sheet is nine tenths prose and a comment
 // terminator loose in the middle of a paragraph does not break it loudly: the
 // parser reads the rest of the paragraph as a selector, swallows the next rule
@@ -398,6 +417,16 @@ test("the stylesheet opens and closes every comment exactly once", async (t) => 
 function where(at) {
   const line = SHEET.slice(0, at).split("\n").length;
   return `line ${line}: ${SHEET.slice(Math.max(0, at - 60), at + 2)}`;
+}
+
+// Every plain rule in the sheet as `[selector, declarations]`, whether it sits
+// at the top level or inside a media query — the pattern only matches a brace
+// pair with no brace between, which is what a rule is and what a media query is
+// not. Comments come out first, because this sheet's prose quotes selectors and
+// whole rules at itself and every one of them would read as another rule here.
+function rules(sheet) {
+  const bare = sheet.replace(/\/\*[\s\S]*?\*\//g, "");
+  return [...bare.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1], m[2]]);
 }
 
 // Every `@media` block in the sheet, as its own text. Braces are counted rather
