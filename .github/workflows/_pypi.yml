@@ -4,9 +4,12 @@ on:
 jobs:
   upload:
     runs-on: ubuntu-latest
-    # PyPI's trusted publisher for somnia-reader is configured against this
-    # environment name as well as the workflow filename, so renaming it here
-    # without renaming it there turns every publish into an auth failure.
+    # The trusted publisher on PyPI has to name *this* file, `_pypi.yml`, and
+    # this environment, `release`. Not `ci.yml`: PyPI checks the OIDC
+    # `job_workflow_ref` claim, and for a reusable workflow GitHub fills that
+    # in with the reusable file that holds the job, not the entry point that
+    # called it. Register the caller and every publish is an auth failure on
+    # the tag. Rename either of these two without renaming it there, likewise.
     environment: release
 
     steps:
