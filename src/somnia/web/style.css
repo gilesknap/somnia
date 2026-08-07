@@ -332,15 +332,24 @@ h1 {
   flex-direction: column;
 }
 
-/* The conversation sits on the bottom of whatever space is going, so a short
-   one is next to the box it was typed into and the buttons under it, rather
-   than stranded at the top of a screen someone is holding at arm's length in
-   the dark. An auto margin and not `justify-content: flex-end`: the margin
-   collapses to nothing the moment the text is long enough to scroll, which is
-   the case where flex-end quietly cuts the top off instead. */
-#transcript > :first-child {
-  margin-top: auto;
-}
+/* On the player the conversation sits at the TOP, twelve pixels under the
+   header, and every pixel of leftover height pools in the one gap beneath it.
+
+   The design is explicit that this screen has exactly one flexible gap and that
+   sharing the slack around is the easiest thing to get wrong: spread evenly, it
+   opens a canyon under the agent's line and drifts the transport and the dock
+   apart while the middle looks crowded. `#transcript` is `flex: 1`, so leaving
+   its content top-aligned makes the space below it that single spacer.
+
+   It used to carry `margin-top: auto` here, which bottom-anchored the reading
+   against the player — and that put the slack above the conversation instead of
+   below it: 137px over the placement line and 40 under it, when the one under
+   it is supposed to be the largest gap on the screen. That rule is right for
+   the chat screen and wrong for this one, so it now lives in the keyboard-up
+   query where a short conversation should still sit next to the box it was
+   typed into. An auto margin there rather than `justify-content: flex-end`,
+   because the margin collapses the moment the text is long enough to scroll,
+   which is the case flex-end quietly cuts the top off instead. */
 
 /* On the player this is the design's last-placement line, and nothing louder.
    The brief gives the slot above the book's title one job — italic 19dp at .42,
@@ -419,11 +428,18 @@ h1 {
   padding: 0.3rem 1rem 0;
 }
 
-/* The band at the bottom is dead space between the sleep timer and the button
-   directly below it, and it is wider than it looks like it needs to be for the
-   same reason as every other gap on this page: a miss that lands on nothing
-   costs one more press, and a miss that lands on +30 costs thirty seconds of a
-   book someone is falling asleep to. */
+/* The band at the bottom is dead space between the chapter circles and the
+   transport directly below them: a miss that lands on nothing costs one more
+   press, and a miss that lands on +30 costs thirty seconds of a book somebody
+   is falling asleep to.
+
+   It is 18dp now rather than 34. That is the design's number, asked for twice
+   and in a table, and it is the one change in this pass with an argument
+   against it — 34 was chosen by hand against a thumb, and half of it is still
+   half of it. Two things make it survivable: what sits directly above the
+   transport is a 64dp circle whose own generous target absorbs a low reach, and
+   the design frees enough height elsewhere that nothing had to come out of a
+   tap target to pay for this. Worth watching on a real night. */
 #now-playing {
   display: flex;
   flex-direction: column;
@@ -433,12 +449,7 @@ h1 {
      the screen, and the only thing on the player deliberately left ranged left
      is the placement line above them, which is prose and reads as prose. */
   text-align: center;
-  /* 1.7rem is the design's gap between one section of a screen and the next,
-     and this is the most literal section boundary on the page: above it is
-     everything that is read, below it is everything that is pressed. It was
-     1.05rem, which was already dead space chosen by hand for the reason above;
-     the scale wanted it wider and there is height to spend. */
-  margin: 0 0 1.7rem;
+  margin: 0 0 0.75rem;
 }
 
 /* The book's name, and the largest thing on the player. It is the top of a
@@ -466,8 +477,13 @@ h1 {
   white-space: nowrap;
 }
 
+/* 18dp above, which is the design's gap between one group on this screen and
+   the next, and the reason this stack reads as two blocks rather than six
+   stacked lines: the book and what is true about it all night, then the chapter
+   and the circles that change it. Everything inside each group is tight — 2 to
+   4dp — so the only gaps the eye finds are the ones that mean something. */
 #chapter-title {
-  margin: 0;
+  margin: 0.9rem 0 0;
   font-size: 1.1rem;
   color: var(--mid);
   overflow: hidden;
@@ -623,6 +639,50 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+/* The book as a line: a 2dp track the width of the column, an amber fill, and a
+   knob at the head of it. The design's sizes exactly — what it does not get is
+   the 44dp tap area, for the reason written over the markup.
+
+   `margin-top: 2px` and no more, because the group above it is meant to read as
+   one thing: title, position, line, timer. The air on this screen belongs in
+   the one gap above the title, not sprinkled between the parts of a group. */
+#whole-progress {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 2px;
+  margin-top: 2px;
+  background: var(--hairline);
+}
+
+#whole-played {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  /* Set by drawPlayer. Zero until a book is open, so an empty page draws an
+     empty track rather than a full one. */
+  width: 0;
+  background: var(--accent);
+  /* The design's 500ms, and the only thing on the player that animates. It is
+     here because the fill moves on its own as the book plays; a jump would read
+     as the page having been re-rendered rather than as time passing. */
+  transition: width 0.5s linear;
+}
+
+/* The head of the fill, so the line reads as a position and not only as an
+   amount. 8dp, centred on the track. */
+#whole-played::after {
+  content: "";
+  position: absolute;
+  right: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--accent);
+}
+
 /* The sleep timer says what it is doing and a tap changes it, so the readout
    and the control are one thing in one place. 48dp of height and 24dp either
    side of the words: what it needs is a target a deliberate reach can land on,
@@ -764,11 +824,17 @@ h1 {
      miss on the page; falling in the gap costs one more press. */
   gap: 1.1rem;
   /* No safe-area inset here: the body already carries it, and adding it twice
-     spent an inch of a phone's screen on nothing. The band above is wider than
-     it looks like it needs to be for the same reason as the gap: the
+     spent an inch of a phone's screen on nothing.
+
+     14dp above the dock and 4 below it, which is what the design's rhythm table
+     asks for. The band above used to be 26dp, on the argument that the
      microphone and the forward-thirty button are the two controls a right hand
-     reaches for, one directly above the other. */
-  padding: 1.3rem 1rem 0.9rem;
+     reaches for, one directly above the other. That argument has not gone away
+     — what changed is that the 1.1rem gap beside the pill, which is the other
+     half of the same protection, is untouched, and both controls either side of
+     that reach are still their full measured size. The height bought here is
+     what pays for the rest of the column fitting. */
+  padding: 0.7rem 1rem 0.2rem;
 }
 
 /* 76dp, and the microphone beside it is 76 square: the box and the button are
@@ -945,6 +1011,15 @@ button:disabled {
      is the air between turns that gives, not their size: shrinking the type is
      how a page becomes unreadable at the exact moment somebody is composing a
      sentence into it. */
+  /* Bottom-anchored here and nowhere else: with a keyboard up a short
+     conversation belongs next to the box it was typed into, not stranded at the
+     top of a screen held at arm's length in the dark. On the player the same
+     element is top-aligned, so the slack below it can be the screen's one
+     flexible gap. */
+  #transcript > :first-child {
+    margin-top: auto;
+  }
+
   .said {
     margin-bottom: 0.7rem;
     font-size: 1.35rem;

@@ -707,6 +707,10 @@ globalThis.__page = {
     chapter: chapterTitle.textContent,
     chapterCount: chapterCount.textContent,
     clock: clock.textContent,
+    // The same pair as the clock above, drawn as a line. Reported as the raw
+    // width string so a test can tell "0%" — nobody wrote down how long the
+    // book is — apart from a fill that was never set at all.
+    through: wholePlayed.style.width,
     // What the corner is offering. It is a label and not a state because that
     // is the whole of the confirm: the first press changes this word and
     // nothing else in this object.

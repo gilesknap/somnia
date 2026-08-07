@@ -146,6 +146,30 @@
         <p id="whereabouts">
           <span id="clock"></span>
 
+          <!-- How far through the book, as a line rather than as two numbers to
+               subtract. The design asked for it twice: without it there is no
+               visual sense of how much book is left, which is half of what the
+               position group is for.
+
+               It is a readout and not a control, and that is the one place this
+               departs from the brief, which wanted a 44dp tap area that seeks
+               proportionally. A whole-book scrubber 360px wide on a nine-hour
+               novel is about ninety seconds to the pixel — the same arithmetic
+               that keeps the lock screen's scrubber chapter-scale, and the same
+               conclusion: useless for the nudge anybody actually wants, and one
+               sleepy thumb from landing past the spoiler guard in the ending of
+               a book they have not read.
+
+               So it carries no tap target at all rather than a small one. A
+               hairline nobody can press is a fact about the book; a hairline
+               that moves the night by two hours when a thumb brushes it is not
+               a thing to meet at 2am. Everything that does move the position —
+               ±30, the chapter circles, the lock screen, the agent — is still
+               exactly where it was. -->
+          <span id="whole-progress" aria-hidden="true">
+            <span id="whole-played"></span>
+          </span>
+
           <!-- The sleep timer is its own readout: it says how long the night
                has left, and a tap is what sets it. Taps walk 15, 30, 45 and 60
                minutes, then the end of the chapter, then off again — one

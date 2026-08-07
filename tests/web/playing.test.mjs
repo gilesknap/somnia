@@ -456,3 +456,40 @@ test("no position is ever published that the platform would refuse", async (t) =
   );
   assert.equal(page.session.positions.length > 10, true);
 });
+
+// The book as a line, which the design asked for twice: two clocks to subtract
+// is not a sense of how much book is left. What it must never become is a
+// control — 24 seconds of tone book hides it, but a nine-hour novel is about
+// ninety seconds to the pixel, and a thumb that lands on it in the dark would
+// be past the spoiler guard and into the ending. So these check what it draws,
+// and nothing here presses it, because there is nothing to press.
+test("the line under the clock fills with the book, not the chapter", async (t) => {
+  const page = await boot(t);
+  page.audio.ready();
+  // Six seconds into a 24-second book is a quarter of the way through it, and
+  // three quarters of the way through the eight-second chapter it is in. The
+  // line is the book's, so a quarter is the only right answer.
+  page.seek(6000);
+  assert.equal(page.probe().through, "25%");
+  assert.equal(page.probe().clock, "0:00:06 of 0:00:24");
+});
+
+test("a book nobody measured draws an empty line rather than a full one", async (t) => {
+  // total_ms of 0 is a book whose length was never written down. Dividing by it
+  // gives Infinity, and a fill of Infinity% is a book drawn as finished — the
+  // one reading that is worse than drawing nothing, because it says they have
+  // heard all of something they have not started.
+  const page = await boot(t, { book: { ...TONE_BOOK, total_ms: 0 } });
+  page.audio.ready();
+  assert.equal(page.probe().through, "0%");
+});
+
+test("a position past the end of a re-rendered book stops at the end of the line", async (t) => {
+  const page = await boot(t);
+  page.audio.ready();
+  // A mark left in a book that was later rendered shorter. The fill is clamped
+  // rather than allowed past 100%, which would run the knob off its track.
+  page.seek(999000);
+  const through = page.probe().through;
+  assert.equal(Number.parseFloat(through) <= 100, true, `${through} is past the end`);
+});

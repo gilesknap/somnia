@@ -61,7 +61,13 @@ FIXTURE = {
     # than the one on the phone — which is exactly the kind of plausible, wrong
     # picture this whole file exists to prevent. The value is style.css's own
     # default, restated; if the two ever drift the render is the one that lies.
-    "styles": {"dim": {"opacity": "0.12"}},
+    # `whole-played` is here for the same reason as `dim`, and it matters more:
+    # drawPlayer sets the fill and drawPlayer does not run in a snapshot, so
+    # without this every render photographs a book nobody has started — an
+    # empty track with the knob parked at the gutter — whatever the clock above
+    # it says. 12.4% is 1:12:08 of 9:41:33, so the line and the numbers beside
+    # it are telling the same story.
+    "styles": {"dim": {"opacity": "0.12"}, "whole-played": {"width": "12.4%"}},
 }
 
 FILL = """

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0a09;font-family:Newsreader,Georgia,serif;color:#e6dcc8}
+a{color:#c8873c}a:hover{color:#dda059}
+input::placeholder{color:rgba(230,220,200,.32)}
+@keyframes somUp{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes somIn{from{opacity:0}to{opacity:1}}
+@keyframes somPulse{0%,100%{opacity:.35}50%{opacity:.9}}
+@keyframes somRing{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.9);opacity:0}}
+</style>
+</helmet>
+
+<section style="display:flex;gap:54px;align-items:flex-start;padding:46px 50px 64px;font-family:Newsreader,Georgia,serif">
+
+  <div style="width:390px;flex:none;display:flex;flex-direction:column;gap:20px">
+    <div>
+      <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:rgba(230,220,200,.38)">Turn 1 · Android · clickable</div>
+      <h1 style="font-weight:300;font-size:46px;line-height:1;margin:14px 0 0;letter-spacing:.28em">somnia</h1>
+      <p style="font-size:17px;line-height:1.6;color:rgba(230,220,200,.6);margin:16px 0 0;text-wrap:pretty">Your two screens, kept intact and extended: the player and the agent now sit inside a whole night — library, Gutenberg ingest, and a drift banner for the mornings after.</p>
+    </div>
+
+    <div style="border:1px solid rgba(230,220,200,.1);border-radius:14px;padding:20px 22px">
+      <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:rgba(230,220,200,.36)">What I kept</div>
+      <ul style="margin:12px 0 0;padding-left:18px;font-size:16px;line-height:1.65;color:rgba(230,220,200,.62)">
+        <li>Letterspaced wordmark, “start over”, amber-on-black, all-serif voice.</li>
+        <li>The −30 / pause / +30 slab grid and the pill + mic dock, unchanged in weight.</li>
+        <li>Em-dash user turns in the agent thread.</li>
+      </ul>
+    </div>
+
+    <div style="border:1px solid rgba(230,220,200,.1);border-radius:14px;padding:20px 22px">
+      <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:rgba(230,220,200,.36)">What I added</div>
+      <ul style="margin:12px 0 0;padding-left:18px;font-size:16px;line-height:1.65;color:rgba(230,220,200,.62)">
+        <li><strong style="font-weight:400;color:#c8873c">Scrub line</strong> — the only thing the player lacked; tap anywhere on it to move.</li>
+        <li><strong style="font-weight:400;color:#c8873c">Candidates</strong> — when the agent isn't sure, it offers three places with its reasoning, not one guess.</li>
+        <li><strong style="font-weight:400;color:#c8873c">Drift banner</strong> — after a sleep-timer fade, the player opens asking if you want the last thing you heard awake.</li>
+        <li><strong style="font-weight:400;color:#c8873c">Gutenberg → ingest</strong> — search, select, watch the server take it in.</li>
+      </ul>
+    </div>
+
+    <div style="font-size:15.5px;line-height:1.65;color:rgba(230,220,200,.45)">Tweaks panel carries the dim level, jump size and sleep-timer default. Next: chapter/bookmark drawer, server pairing, offline downloads, and a lock-screen widget in the same language.</div>
+  </div>
+
+  <div style="flex:none">
+    <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" dark="{{ true }}" width="{{ 360 }}" height="{{ 780 }}" hint-size="360px,780px">
+      <div style="height:100%;position:relative;background:#0b0a09;color:#e6dcc8;display:flex;flex-direction:column;overflow:hidden;font-family:Newsreader,Georgia,serif">
+
+        <sc-if value="{{ showHeader }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:none;position:relative;display:flex;align-items:center;justify-content:space-between;padding:4px 14px 0;height:48px">
+          <div onClick="{{ goLibrary }}" style="flex:none;height:48px;display:flex;align-items:center;cursor:pointer">
+            <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 15px;border-radius:99px;border:1px solid {{ libBorder }};background:{{ libBg }};white-space:nowrap;font-size:16.5px;color:{{ libColor }}" style-active="border-color:rgba(200,135,60,.6)">
+              <div style="width:0;height:0;border-right:6px solid {{ libColor }};border-top:5px solid transparent;border-bottom:5px solid transparent"></div>library
+            </div>
+          </div>
+          <div style="position:absolute;left:50%;top:4px;height:48px;display:flex;align-items:center;transform:translateX(-50%);margin-left:.15em;font-size:18px;letter-spacing:.3em;white-space:nowrap;color:rgba(230,220,200,.4);pointer-events:none">somnia</div>
+          <sc-if value="{{ showStartOver }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ startOver }}" style="flex:none;min-width:56px;height:48px;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap;font-size:15px;color:{{ startOverColor }};cursor:pointer" style-hover="color:rgba(230,220,200,.55)">{{ rightAction }}</div>
+          </sc-if>
+          <sc-if value="{{ hideStartOver }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:none;min-width:56px;height:48px"></div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isPlayer }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:0 20px 4px;min-height:0;animation:somIn .2s ease-out">
+
+          <div>
+            <div style="font-style:italic;font-size:19px;line-height:1.4;color:rgba(230,220,200,.42);margin-top:12px">{{ lastLine }}</div>
+          </div>
+
+          <div style="text-align:center">
+            <div style="font-size:29px;line-height:1.15;letter-spacing:-.005em">{{ bookTitle }}</div>
+            <div onClick="{{ goPositions }}" style="display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:18px;color:rgba(230,220,200,.45);margin-top:2px;cursor:pointer" style-active="color:#c8873c">
+              <span style="border-bottom:1px dotted rgba(230,220,200,.28);padding-bottom:2px">{{ posLabel }}</span>
+              <span style="font-size:15px;color:rgba(230,220,200,.3);white-space:nowrap">{{ positionsBadge }}</span>
+            </div>
+            <div onClick="{{ seek }}" style="height:44px;display:flex;align-items:center;cursor:pointer;margin-top:2px">
+              <div style="width:100%;height:2px;background:rgba(230,220,200,.13);position:relative">
+                <div style="position:absolute;left:0;top:0;bottom:0;background:#c8873c;width:{{ progressPct }}"></div>
+                <div style="position:absolute;top:-3px;width:8px;height:8px;border-radius:99px;background:#c8873c;left:{{ progressPct }};margin-left:-4px"></div>
+              </div>
+            </div>
+            <div onClick="{{ cycleTimer }}" style="display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border-radius:99px;border:1px solid {{ timerBorder }};color:{{ timerColor }};font-size:18px;cursor:pointer;margin-top:4px;white-space:nowrap">{{ timerText }}</div>
+          </div>
+
+          <div style="text-align:center">
+            <div style="font-size:22px;color:rgba(230,220,200,.8)">{{ chapterTitle }}</div>
+            <div style="font-size:16.5px;color:rgba(230,220,200,.4);margin-top:3px">{{ chapterPos }}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+              <div onClick="{{ prevChapter }}" style="width:64px;height:64px;border-radius:99px;border:1px solid rgba(230,220,200,.13);display:flex;align-items:center;justify-content:center;cursor:pointer" style-active="border-color:rgba(200,135,60,.6)">
+                <div style="display:flex;align-items:center;gap:3px"><div style="width:3px;height:20px;background:rgba(230,220,200,.6)"></div><div style="width:0;height:0;border-right:12px solid rgba(230,220,200,.6);border-top:10px solid transparent;border-bottom:10px solid transparent"></div></div>
+              </div>
+              <div style="text-align:center;color:rgba(230,220,200,.45)">
+                <div style="font-size:16px">chapter</div>
+                <div style="font-size:19px;color:rgba(230,220,200,.7);margin-top:2px">{{ chapterCount }}</div>
+              </div>
+              <div onClick="{{ nextChapter }}" style="width:64px;height:64px;border-radius:99px;border:1px solid rgba(230,220,200,.13);display:flex;align-items:center;justify-content:center;cursor:pointer" style-active="border-color:rgba(200,135,60,.6)">
+                <div style="display:flex;align-items:center;gap:3px"><div style="width:0;height:0;border-left:12px solid rgba(230,220,200,.6);border-top:10px solid transparent;border-bottom:10px solid transparent"></div><div style="width:3px;height:20px;background:rgba(230,220,200,.6)"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1.05fr 1fr;gap:12px">
+            <div onClick="{{ back }}" style="height:96px;border-radius:20px;background:#16151b;display:flex;align-items:center;justify-content:center;font-size:30px;color:rgba(230,220,200,.75);cursor:pointer" style-active="background:#1d1c23">{{ backLabel }}</div>
+            <div onClick="{{ togglePlay }}" style="height:96px;border-radius:20px;background:#241a08;border:1px solid rgba(200,135,60,.4);display:flex;align-items:center;justify-content:center;cursor:pointer" style-active="background:#2e2109">
+              <sc-if value="{{ playing }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:8px"><div style="width:10px;height:38px;border-radius:2px;background:#c8873c"></div><div style="width:10px;height:38px;border-radius:2px;background:#c8873c"></div></div>
+              </sc-if>
+              <sc-if value="{{ paused }}" hint-placeholder-val="{{ true }}">
+                <div style="width:0;height:0;border-left:26px solid #c8873c;border-top:17px solid transparent;border-bottom:17px solid transparent;margin-left:5px"></div>
+              </sc-if>
+            </div>
+            <div onClick="{{ fwd }}" style="height:96px;border-radius:20px;background:#16151b;display:flex;align-items:center;justify-content:center;font-size:30px;color:rgba(230,220,200,.75);cursor:pointer" style-active="background:#1d1c23">{{ fwdLabel }}</div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;padding-bottom:2px">
+            <div onClick="{{ openAgent }}" style="flex:1;height:76px;border-radius:99px;background:#16151b;display:flex;align-items:center;padding:0 24px;font-size:20px;color:rgba(230,220,200,.4);cursor:pointer;overflow:hidden;white-space:nowrap">{{ dockHint }}</div>
+            <div onClick="{{ startVoice }}" style="width:76px;height:76px;border-radius:99px;background:#16151b;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;position:relative">
+              <div style="width:15px;height:24px;border-radius:99px;background:#c8873c"></div>
+              <div style="position:absolute;bottom:19px;width:25px;height:9px;border:2.5px solid #c8873c;border-top:0;border-radius:0 0 99px 99px"></div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isAgent }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0;animation:somIn .2s ease-out">
+          <div onClick="{{ goPlayer }}" style="flex:1;overflow:auto;padding:12px 20px 8px;display:flex;flex-direction:column;gap:20px;cursor:pointer">
+            <sc-for list="{{ thread }}" as="m" hint-placeholder-count="4">
+              <div style="animation:somUp .26s ease-out">
+                <div style="font-size:{{ m.size }};line-height:1.45;color:{{ m.color }};font-style:{{ m.italic }}">{{ m.text }}</div>
+                <sc-if value="{{ m.hasCandidates }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+                    <sc-for list="{{ m.candidates }}" as="c" hint-placeholder-count="3">
+                      <div onClick="{{ c.pick }}" style="border:1px solid {{ c.border }};border-radius:14px;padding:16px 18px;cursor:pointer" style-active="border-color:rgba(200,135,60,.7)">
+                        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+                          <div style="font-size:21px;color:rgba(230,220,200,.85)">{{ c.where }}</div>
+                          <div style="font-size:16px;color:{{ c.confColor }};flex:none">{{ c.conf }}</div>
+                        </div>
+                        <div style="font-size:17px;line-height:1.45;color:rgba(230,220,200,.45);margin-top:6px;font-style:italic">{{ c.why }}</div>
+                      </div>
+                    </sc-for>
+                    <div onClick="{{ goPositions }}" style="min-height:52px;display:flex;align-items:center;font-size:18px;color:rgba(230,220,200,.4);cursor:pointer" style-active="color:#c8873c">see all places without asking →</div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ listening }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:21px;color:#c8873c;animation:somPulse 1.6s ease-in-out infinite">listening…</div>
+            </sc-if>
+            <div style="font-size:15.5px;font-style:italic;color:rgba(230,220,200,.22);padding-top:6px">tap anywhere here to go back to the controls</div>
+            <div style="height:6px"></div>
+          </div>
+
+          <div style="flex:none;display:flex;align-items:center;gap:12px;padding:6px 20px 10px">
+            <div style="flex:1;height:80px;border-radius:99px;background:#16151b;display:flex;align-items:center;padding:0 24px;min-width:0">
+              <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onDraftKey }}" placeholder="the bit where…" style="border:0;outline:0;background:transparent;font:22px Newsreader,Georgia,serif;color:#e6dcc8;width:100%" />
+            </div>
+            <div onClick="{{ startVoice }}" style="width:80px;height:80px;border-radius:99px;background:#16151b;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;position:relative">
+              <div style="width:16px;height:25px;border-radius:99px;background:#c8873c"></div>
+              <div style="position:absolute;bottom:20px;width:26px;height:9px;border:2.5px solid #c8873c;border-top:0;border-radius:0 0 99px 99px"></div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isWake }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:0 20px 16px;animation:somIn .3s ease-out">
+          <div style="padding-top:28px">
+            <div style="font:400 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:rgba(230,220,200,.3)">good morning</div>
+            <div style="font-size:28px;line-height:1.3;color:rgba(230,220,200,.88);margin-top:16px">The timer faded you out at 1:47.</div>
+            <div style="font-size:22px;line-height:1.4;font-style:italic;color:rgba(230,220,200,.42);margin-top:12px">You were probably gone before that.</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div onClick="{{ goPositions }}" style="height:92px;border-radius:20px;border:1px solid rgba(200,135,60,.45);background:rgba(200,135,60,.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer" style-active="background:rgba(200,135,60,.12)">
+              <div style="font-size:22px;color:#c8873c">see where you might be</div>
+              <div style="font-size:16px;color:rgba(200,135,60,.6)">{{ positionsBadge }}</div>
+            </div>
+            <div onClick="{{ openAgent }}" style="height:80px;border-radius:20px;background:#16151b;display:flex;align-items:center;justify-content:center;font-size:21px;color:rgba(230,220,200,.7);cursor:pointer" style-active="background:#1d1c23">tell me what you remember</div>
+            <div onClick="{{ dismissDrift }}" style="height:72px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:19px;color:rgba(230,220,200,.38);cursor:pointer" style-active="color:rgba(230,220,200,.65)">{{ keepItLabel }}</div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isPositions }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0;animation:somIn .2s ease-out">
+          <div style="flex:1;overflow:auto;padding:18px 20px 8px">
+            <div style="font-size:34px;color:rgba(230,220,200,.85)">Places you might be</div>
+            <div style="font-size:17px;line-height:1.5;color:rgba(230,220,200,.4);margin-top:8px">{{ positionsSummary }}</div>
+
+            <div style="display:flex;flex-direction:column;margin-top:22px">
+              <sc-for list="{{ positions }}" as="p" hint-placeholder-count="6">
+                <div>
+                  <sc-if value="{{ p.isHere }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:12px;padding:8px 0 14px">
+                      <div style="font:400 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:#c8873c;white-space:nowrap">you are here · {{ p.time }}</div>
+                      <div style="flex:1;height:1px;background:rgba(200,135,60,.35)"></div>
+                    </div>
+                    <div style="font-size:15px;font-style:italic;color:rgba(230,220,200,.3);padding-bottom:16px">anything below this line you may not have heard</div>
+                  </sc-if>
+                  <div style="padding:16px 0;border-bottom:1px solid rgba(230,220,200,.07);display:flex;gap:16px;align-items:flex-start">
+                    <div onClick="{{ p.toggle }}" style="flex:1;min-width:0;cursor:pointer">
+                      <sc-if value="{{ p.hasFit }}" hint-placeholder-val="{{ false }}">
+                        <div style="font:400 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:#c8873c;margin-bottom:8px">{{ p.fitLabel }}</div>
+                      </sc-if>
+                      <div style="display:flex;align-items:baseline;gap:12px">
+                        <div style="font-size:24px;color:{{ p.timeColor }};white-space:nowrap">{{ p.time }}</div>
+                        <div style="font-size:16.5px;color:rgba(230,220,200,.38);min-width:0">{{ p.chapter }}</div>
+                      </div>
+                      <div style="font-size:16px;color:{{ p.sourceColor }};margin-top:5px">{{ p.source }}</div>
+                      <sc-if value="{{ p.hidden }}" hint-placeholder-val="{{ true }}">
+                        <div style="font-size:16.5px;font-style:italic;color:{{ p.revealColor }};margin-top:9px">{{ p.revealLabel }}</div>
+                      </sc-if>
+                      <sc-if value="{{ p.shown }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:19px;line-height:1.45;font-style:italic;color:rgba(230,220,200,.62);margin-top:9px;animation:somIn .2s ease-out">{{ p.snippet }}</div>
+                      </sc-if>
+                    </div>
+                    <div onClick="{{ p.jump }}" style="flex:none;min-width:92px;height:60px;border-radius:99px;border:1px solid {{ p.jumpBorder }};color:{{ p.jumpColor }};display:flex;align-items:center;justify-content:center;font-size:18px;white-space:nowrap;cursor:pointer" style-active="background:rgba(200,135,60,.1)">{{ p.jumpLabel }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font-size:15.5px;font-style:italic;color:rgba(230,220,200,.25);margin-top:18px">tap a time to reveal what is said there · tap goto to move</div>
+            <div style="height:16px"></div>
+          </div>
+
+          <div style="flex:none;padding:8px 20px 12px;background:linear-gradient(to top,#0b0a09 65%,rgba(11,10,9,0))">
+            <div onClick="{{ goPlayer }}" style="height:68px;border-radius:20px;background:#16151b;display:flex;align-items:center;justify-content:center;font-size:21px;color:rgba(230,220,200,.65);cursor:pointer" style-active="background:#1d1c23">close</div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0;animation:somIn .2s ease-out">
+          <div style="flex:1;overflow:auto;padding:18px 20px 8px">
+            <div style="font-size:34px;color:rgba(230,220,200,.85)">Books</div>
+
+            <div style="margin-top:24px">
+              <div style="font:400 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:rgba(230,220,200,.3)">reading now</div>
+              <sc-if value="{{ reading }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top:10px">
+                  <div style="font-size:25px;line-height:1.3;color:rgba(230,220,200,.9)">{{ nowTitle }}</div>
+                  <div style="font-size:17.5px;color:rgba(230,220,200,.42);margin-top:5px">{{ nowMeta }}</div>
+                  <div style="height:2px;background:rgba(230,220,200,.1);margin-top:14px;position:relative">
+                    <div style="position:absolute;inset:0 auto 0 0;background:#c8873c;width:{{ nowPct }}"></div>
+                  </div>
+                  <div style="display:flex;gap:12px;margin-top:16px">
+                    <div onClick="{{ resume }}" style="flex:1;height:64px;border-radius:99px;border:1px solid rgba(200,135,60,.45);background:rgba(200,135,60,.06);color:#c8873c;display:flex;align-items:center;justify-content:center;font-size:20px;white-space:nowrap;cursor:pointer" style-active="background:rgba(200,135,60,.12)">{{ resumeLabel }}</div>
+                    <div onClick="{{ stopReading }}" style="flex:none;height:64px;padding:0 22px;border-radius:99px;border:1px dashed rgba(230,220,200,.2);color:rgba(230,220,200,.4);display:flex;align-items:center;justify-content:center;font-size:18px;white-space:nowrap;cursor:pointer" style-active="color:rgba(230,220,200,.7)">put it down</div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ notReading }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:21px;font-style:italic;color:rgba(230,220,200,.35);margin-top:10px">nothing on the go — pick something below</div>
+              </sc-if>
+            </div>
+
+            <div style="margin-top:34px">
+              <div style="font:400 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:rgba(230,220,200,.3)">on the shelf</div>
+              <div style="display:flex;flex-direction:column;margin-top:4px">
+                <sc-for list="{{ shelf }}" as="b" hint-placeholder-count="3">
+                  <div onClick="{{ b.open }}" style="padding:18px 0;border-bottom:1px solid rgba(230,220,200,.07);cursor:pointer" style-active="opacity:.6">
+                    <div style="font-size:22px;line-height:1.3;color:rgba(230,220,200,.82)">{{ b.title }}</div>
+                    <div style="font-size:16.5px;color:rgba(230,220,200,.38);margin-top:4px">{{ b.meta }}</div>
+                    <div style="height:2px;background:rgba(230,220,200,.09);margin-top:11px;position:relative">
+                      <div style="position:absolute;inset:0 auto 0 0;background:rgba(200,135,60,.65);width:{{ b.pct }}"></div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="margin-top:34px">
+              <div style="font:400 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:rgba(230,220,200,.3)">bring in something new · gutenberg</div>
+              <div style="display:flex;gap:12px;margin-top:12px">
+                <div style="flex:1;height:68px;border-radius:99px;background:#16151b;display:flex;align-items:center;padding:0 24px;min-width:0">
+                  <input value="{{ query }}" onChange="{{ onQuery }}" onKeyDown="{{ onQueryKey }}" placeholder="a title, or an author" style="border:0;outline:0;background:transparent;font:20px Newsreader,Georgia,serif;color:#e6dcc8;width:100%" />
+                </div>
+                <div onClick="{{ find }}" style="flex:none;width:96px;height:68px;border-radius:18px;background:#16151b;display:flex;align-items:center;justify-content:center;font-size:20px;color:rgba(230,220,200,.7);cursor:pointer" style-active="background:#1d1c23">find</div>
+              </div>
+              <div style="font-size:15.5px;color:rgba(230,220,200,.3);margin-top:14px">{{ resultsLabel }}</div>
+              <div style="display:flex;flex-direction:column;margin-top:2px">
+                <sc-for list="{{ results }}" as="r" hint-placeholder-count="5">
+                  <div style="display:flex;gap:16px;align-items:center;padding:16px 0;border-bottom:1px solid rgba(230,220,200,.07)">
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:21px;line-height:1.3;color:rgba(230,220,200,.8)">{{ r.title }}</div>
+                      <div style="font-size:16px;color:rgba(230,220,200,.36);margin-top:3px">{{ r.meta }}</div>
+                    </div>
+                    <div onClick="{{ r.ingest }}" style="min-width:104px;height:56px;border-radius:99px;border:1px solid {{ r.border }};color:{{ r.color }};display:flex;align-items:center;justify-content:center;font-size:17.5px;white-space:nowrap;cursor:pointer;flex:none">{{ r.action }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ hasQueue }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:22px;border:1px solid rgba(230,220,200,.1);border-radius:14px;padding:18px 20px">
+                  <div style="font-size:18px;color:rgba(230,220,200,.55)">the server is working</div>
+                  <div style="display:flex;flex-direction:column;gap:14px;margin-top:14px">
+                    <sc-for list="{{ queue }}" as="q" hint-placeholder-count="1">
+                      <div>
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:17.5px;color:rgba(230,220,200,.7)"><span>{{ q.title }}</span><span style="color:{{ q.color }};flex:none">{{ q.status }}</span></div>
+                        <div style="height:2px;background:rgba(230,220,200,.1);margin-top:9px;position:relative"><div style="position:absolute;inset:0 auto 0 0;background:#c8873c;width:{{ q.pct }};transition:width .5s ease"></div></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+            <div style="height:16px"></div>
+          </div>
+
+          <div style="flex:none;padding:8px 20px 12px;background:linear-gradient(to top,#0b0a09 65%,rgba(11,10,9,0))">
+            <div onClick="{{ goPlayer }}" style="height:68px;border-radius:20px;background:#16151b;display:flex;align-items:center;justify-content:center;font-size:21px;color:rgba(230,220,200,.65);cursor:pointer" style-active="background:#1d1c23">close</div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:22px;right:22px;bottom:26px;border:1px solid rgba(200,135,60,.35);background:#150f06;border-radius:14px;padding:16px 18px;font-size:18px;color:#c8873c;animation:somUp .24s ease-out;z-index:90">{{ toast }}</div>
+        </sc-if>
+
+        <div style="position:absolute;inset:0;background:#000;pointer-events:none;z-index:95;opacity:{{ dimOpacity }};transition:opacity .3s ease"></div>
+      </div>
+    </x-import>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;dimLevel&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.12,&quot;min&quot;:0,&quot;max&quot;:0.6,&quot;step&quot;:0.02,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Night comfort&quot;},&quot;jumpSeconds&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[15,30,60],&quot;default&quot;:30,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Playback&quot;},&quot;sleepTimerDefault&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;off&quot;,&quot;15 min&quot;,&quot;30 min&quot;,&quot;45 min&quot;,&quot;end of chapter&quot;],&quot;default&quot;:&quot;off&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Playback&quot;}}">
+const AMBER = "#c8873c";
+const fmt = (s) => {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+  const p = (n) => String(n).padStart(2, "0");
+  return h ? h + ":" + p(m) + ":" + p(x) : m + ":" + p(x);
+};
+
+const CHAPTERS = [
+  { n: "I. The River Bank", len: 2280 }, { n: "II. The Open Road", len: 2160 },
+  { n: "III. The Wild Wood", len: 2400 }, { n: "IV. Mr Toad", len: 2472 },
+  { n: "V. Dulce Domum", len: 2640 },
+];
+
+class Component extends DCLogic {
+  state = {
+    screen: "player",
+    confirmReset: false,
+    playing: false,
+    pos: 4328,
+    duration: 34893,
+    timerIdx: 0,
+    drift: true,
+    lastLine: "— and then where the horse bolts",
+    listening: false,
+    draft: "",
+    toast: "",
+    query: "",
+    thread: [
+      { id: 1, who: "som", text: "Where do you want to be?" },
+      { id: 2, who: "you", text: "the bit where they set off in the caravan" },
+      { id: 3, who: "som", text: "Chapter two, about nine minutes in. Moving there now." },
+    ],
+    queue: [],
+    revealed: {},
+    fits: {}, fitQuery: "",
+    marks: [
+      { id: "m1", pos: 2985, source: "you paused here, awake", snippet: "“…they were quite out of sight of the river now, and the road ran on ahead of them.”" },
+      { id: "m2", pos: 3910, source: "last time you spoke to me", snippet: "“— the bit where they set off in the caravan.”" },
+      { id: "m3", pos: 4328, source: "steady listening ended", snippet: "“The Mole was so touched by his kind manner of speaking…”" },
+      { id: "m4", pos: 4820, source: "agent · most likely", snippet: "“…a low whistle sounded somewhere in the Wild Wood behind them.”" },
+      { id: "m5", pos: 6240, source: "you were still for 11 minutes", snippet: "“The Rat put out a neat little brown paw and gripped Toad firmly by the neck.”" },
+      { id: "m6", pos: 7100, source: "sleep timer faded out here", snippet: "“Toad sat straight down in the middle of the dusty road…”" },
+      { id: "m7", pos: 7460, source: "audio stopped", snippet: "“…and then where the horse bolts.”" },
+    ],
+    reading: true,
+    books: [
+      { id: "b2", title: "Dracula — Stoker, Bram, 1847–1912", pct: 52, meta: "chapter 14 of 27 · 6h56m listened" },
+      { id: "b3", title: "Three Men in a Boat — Jerome, Jerome K., 1859–1927", pct: 64, meta: "chapter 12 of 19 · 4h02m listened" },
+      { id: "b4", title: "The Sleeper Awakes — Wells, H. G., 1866–1946", pct: 3, meta: "chapter 1 of 21 · 11m listened" },
+      { id: "b5", title: "A Child's Garden of Verses — Stevenson, R. L., 1850–1894", pct: 88, meta: "22m left · almost done" },
+    ],
+    catalog: [
+      { id: "g1", title: "The Wind in the Willows", meta: "Kenneth Grahame · 1908 · epub, text" },
+      { id: "g2", title: "The Moonstone", meta: "Wilkie Collins · 1868 · epub, text" },
+      { id: "g3", title: "Kidnapped", meta: "R. L. Stevenson · 1886 · epub" },
+      { id: "g4", title: "Cranford", meta: "Elizabeth Gaskell · 1853 · epub, text" },
+      { id: "g5", title: "The Woodlanders", meta: "Thomas Hardy · 1887 · text" },
+    ],
+  };
+
+  TIMERS = ["off", "15 min", "30 min", "45 min", "end of chapter"];
+
+  componentDidMount() {
+    this._iv = setInterval(() => {
+      if (this.state.playing) this.setState((s) => ({ pos: Math.min(s.duration, s.pos + 1) }));
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this._iv); clearTimeout(this._t); }
+
+  jump() { return this.props.jumpSeconds ?? 30; }
+
+  say(t) {
+    clearTimeout(this._t);
+    this.setState({ toast: t });
+    this._t = setTimeout(() => this.setState({ toast: "" }), 2800);
+  }
+
+  chapterAt(pos) {
+    let acc = 0;
+    for (let i = 0; i < CHAPTERS.length; i++) {
+      if (pos < acc + CHAPTERS[i].len) return { i, into: pos - acc, start: acc, ch: CHAPTERS[i] };
+      acc += CHAPTERS[i].len;
+    }
+    const i = CHAPTERS.length - 1;
+    return { i, into: CHAPTERS[i].len, start: acc - CHAPTERS[i].len, ch: CHAPTERS[i] };
+  }
+
+  moveTo(pos, note) {
+    this.setState({ pos, fits: {}, fitQuery: "", screen: "player", drift: false, playing: true, lastLine: note ? "— " + note : this.state.lastLine });
+    this.say("moved · playing");
+  }
+
+  answer(text) {
+    const q = text.toLowerCase();
+    const sure = /caravan|horse|toad|motor|wood|river/.test(q);
+    const base = this.state.thread.concat([{ id: Date.now(), who: "you", text: "— " + text }]);
+    if (sure) {
+      const pos = 1240 + Math.floor(Math.random() * 400);
+      this.setState({ thread: base.concat([{ id: Date.now() + 1, who: "som", text: "Chapter two, about nine minutes in. Moving there now." }]), draft: "" });
+      setTimeout(() => this.moveTo(pos, text), 900);
+    } else {
+      const fits = { m4: "most likely · fits what you said", m3: "possible · fits what you said", m6: "also possible" };
+      this.setState({
+        draft: "",
+        fits, fitQuery: text,
+        thread: base.concat([{ id: Date.now() + 1, who: "som", text: "I can't narrow that to one place. Three of your marks fit — I'll show you all of them." }]),
+      });
+      setTimeout(() => this.setState({ screen: "positions" }), 1100);
+    }
+  }
+
+  ingest = (item) => {
+    if (this.state.queue.some((q) => q.id === item.id)) return;
+    this.setState((s) => ({ queue: s.queue.concat([{ id: item.id, title: item.title, step: 0 }]) }));
+    const steps = [1, 2, 3];
+    steps.forEach((st, k) => setTimeout(() => {
+      this.setState((s) => ({ queue: s.queue.map((q) => (q.id === item.id ? { ...q, step: st } : q)) }));
+      if (st === 3) this.say(item.title + " · in your library");
+    }, 1400 * (k + 1)));
+  };
+
+  renderVals() {
+    const s = this.state, c = this.chapterAt(s.pos), jump = this.jump();
+    const screen = s.screen;
+    const timerLabel = this.TIMERS[s.timerIdx];
+    const timerOn = s.timerIdx > 0;
+
+    const thread = s.thread.map((m) => ({
+      text: m.text,
+      size: m.who === "som" ? "27px" : "24px",
+      color: m.who === "som" ? "rgba(230,220,200,.88)" : "rgba(230,220,200,.5)",
+      italic: m.who === "som" ? "normal" : "normal",
+      hasCandidates: !!m.candidates,
+      candidates: (m.candidates || []).map((cd, i) => ({
+        where: cd.where, why: cd.why, conf: cd.conf,
+        border: i === 0 ? "rgba(200,135,60,.45)" : "rgba(230,220,200,.12)",
+        confColor: i === 0 ? AMBER : "rgba(230,220,200,.35)",
+        pick: () => this.moveTo(cd.pos, cd.where.split("·")[0].trim().toLowerCase()),
+      })),
+    }));
+
+    const results = s.catalog
+      .filter((b) => {
+        const words = s.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        const hay = (b.title + " " + b.meta).toLowerCase();
+        return words.every((w) => hay.includes(w));
+      })
+      .map((b) => {
+        const q = s.queue.find((x) => x.id === b.id);
+        const done = q && q.step === 3;
+        return {
+          title: b.title, meta: b.meta,
+          action: done ? "in library" : q ? "working" : "ingest",
+          color: q ? AMBER : "rgba(230,220,200,.6)",
+          border: q ? "rgba(200,135,60,.45)" : "rgba(230,220,200,.16)",
+          ingest: () => this.ingest(b),
+        };
+      });
+
+    const STEPS = ["queued", "fetching text", "narrating", "ready"];
+    return {
+      isWake: screen === "player" && s.drift,
+      isPlayer: screen === "player" && !s.drift, isAgent: screen === "agent",
+      keepItLabel: "keep it where it stopped · " + fmt(s.pos),
+      isLibrary: screen === "library",
+      libColor: screen === "library" ? AMBER : "rgba(230,220,200,.6)",
+      libBorder: screen === "library" ? "rgba(200,135,60,.5)" : "rgba(230,220,200,.16)",
+      libBg: screen === "library" ? "rgba(200,135,60,.07)" : "transparent",
+      showStartOver: screen === "player", hideStartOver: screen !== "player",
+      rightAction: s.confirmReset ? "sure? tap again" : "start over",
+      startOverColor: s.confirmReset ? AMBER : "rgba(230,220,200,.3)",
+      dimOpacity: this.props.dimLevel ?? 0.12,
+
+      bookTitle: "The Wind in the Willows",
+      posLabel: fmt(s.pos) + " of " + fmt(s.duration),
+      progressPct: (100 * s.pos / s.duration).toFixed(2) + "%",
+      chapterTitle: c.ch.n,
+      chapterPos: fmt(c.into) + " of " + fmt(c.ch.len),
+      chapterCount: (c.i + 1) + " of 37",
+      jump: String(jump), backLabel: "\u2212" + jump, fwdLabel: "+" + jump,
+      timerText: "sleep timer · " + timerLabel,
+      playing: s.playing, paused: !s.playing,
+      timerLabel, timerBorder: timerOn ? "rgba(200,135,60,.45)" : "rgba(230,220,200,.14)",
+      timerColor: timerOn ? AMBER : "rgba(230,220,200,.55)",
+      drift: s.drift, showLastLine: !s.drift,
+      lastLine: s.lastLine,
+      dockHint: s.listening ? "listening…" : "the bit where…",
+      thread, listening: s.listening, draft: s.draft, toast: s.toast,
+      query: s.query, results, resultsLabel: results.length + " public-domain titles",
+      hasQueue: s.queue.length > 0,
+      queue: s.queue.map((q) => ({ title: q.title, status: STEPS[q.step], pct: (q.step / 3 * 100) + "%", color: q.step === 3 ? AMBER : "rgba(230,220,200,.45)" })),
+      isPositions: screen === "positions",
+      showHeader: screen !== "library" && screen !== "positions" && !(screen === "player" && s.drift),
+      positionsLinkLabel: "or see all " + s.marks.length + " places you might be",
+      positionsBadge: s.marks.length + " places found",
+      positionsSummary: Object.keys(s.fits || {}).length
+        ? "“" + s.fitQuery + "” could be any of " + Object.keys(s.fits).length + " of these " + s.marks.length + " marks. Text stays hidden until you ask for it."
+        : s.marks.length + " marks between " + fmt(s.marks[0].pos) + " and " + fmt(s.marks[s.marks.length - 1].pos) + ". Text stays hidden until you ask for it.",
+      positions: s.marks.slice().sort((a, b) => a.pos - b.pos).map((m, i, arr) => {
+        const fits = s.fits || {};
+        const isHere = s.pos >= m.pos && (!arr[i + 1] || s.pos < arr[i + 1].pos);
+        const ahead = m.pos > s.pos;
+        const shown = !!s.revealed[m.id];
+        return {
+          time: fmt(m.pos), chapter: this.chapterAt(m.pos).ch.n, source: m.source, snippet: m.snippet,
+          isHere, hidden: !shown, shown,
+          timeColor: isHere ? AMBER : "rgba(230,220,200,.85)",
+          sourceColor: isHere ? "rgba(200,135,60,.75)" : "rgba(230,220,200,.38)",
+          revealLabel: ahead ? "tap to reveal · may spoil" : "tap to reveal",
+          revealColor: ahead ? "rgba(200,135,60,.5)" : "rgba(230,220,200,.3)",
+          hasFit: !!fits[m.id], fitLabel: fits[m.id] || "",
+          jumpLabel: isHere ? "here" : "goto",
+          jumpBorder: isHere ? "rgba(200,135,60,.5)" : "rgba(230,220,200,.16)",
+          jumpColor: isHere ? AMBER : "rgba(230,220,200,.6)",
+          toggle: () => this.setState((p) => ({ revealed: { ...p.revealed, [m.id]: !p.revealed[m.id] } })),
+          jump: () => (isHere ? this.setState({ screen: "player" }) : this.moveTo(m.pos, m.source)),
+        };
+      }),
+      goPositions: () => this.setState({ screen: "positions", drift: false }),
+      reading: s.reading, notReading: !s.reading,
+      nowTitle: "The Wind in the Willows — Grahame, Kenneth, 1859–1932",
+      nowMeta: "chapter " + (c.i + 1) + " of 37 · " + Math.floor(s.pos / 3600) + "h" + String(Math.floor((s.pos % 3600) / 60)).padStart(2, "0") + "m listened",
+      nowPct: (100 * s.pos / s.duration).toFixed(2) + "%",
+      resumeLabel: s.playing ? "back to it · playing" : "pick it up at " + fmt(s.pos),
+      shelf: s.books.map((b) => ({
+        title: b.title, meta: b.meta, pct: b.pct + "%",
+        open: () => { this.setState({ screen: "player", reading: true }); this.say("opened · " + b.title.split(" —")[0]); },
+      })),
+      resume: () => this.setState({ screen: "player" }),
+      stopReading: () => { this.setState({ reading: false, playing: false }); this.say("shelved at " + fmt(s.pos)); },
+      find: () => (s.query.trim() ? this.say(this.state.catalog.length + " searched · gutenberg") : this.say("type a title or an author")),
+      onQueryKey: (e) => { if (e.key === "Enter") this.say("searched gutenberg"); },
+
+      goLibrary: () => this.setState({ screen: "library" }),
+      goPlayer: () => this.setState({ screen: "player" }),
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      openAgent: () => this.setState({ screen: "agent", drift: false }),
+      startOver: () => {
+        if (!s.confirmReset) {
+          this.setState({ confirmReset: true });
+          clearTimeout(this._cr);
+          this._cr = setTimeout(() => this.setState({ confirmReset: false }), 3200);
+          return;
+        }
+        clearTimeout(this._cr);
+        this.setState({ pos: 0, drift: false, confirmReset: false }, () => this.say("back to the beginning"));
+      },
+      dismissDrift: () => this.setState({ drift: false }),
+      togglePlay: () => this.setState((p) => ({ playing: !p.playing })),
+      back: () => this.setState((p) => ({ pos: Math.max(0, p.pos - jump) })),
+      fwd: () => this.setState((p) => ({ pos: Math.min(p.duration, p.pos + jump) })),
+      prevChapter: () => this.setState({ pos: this.chapterAt(s.pos).start }),
+      nextChapter: () => this.setState({ pos: Math.min(s.duration, c.start + c.ch.len) }),
+      cycleTimer: () => {
+        const n = (s.timerIdx + 1) % this.TIMERS.length;
+        this.setState({ timerIdx: n });
+        if (n > 0) this.say("fading out in " + this.TIMERS[n]);
+      },
+      seek: (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+        this.setState({ pos: Math.round(f * s.duration) });
+      },
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      onDraftKey: (e) => { if (e.key === "Enter" && this.state.draft.trim()) this.answer(this.state.draft.trim()); },
+      startVoice: () => {
+        this.setState({ screen: "agent", listening: true, drift: false });
+        setTimeout(() => { this.setState({ listening: false }); this.answer("something about a boat, near the end of the night"); }, 1800);
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

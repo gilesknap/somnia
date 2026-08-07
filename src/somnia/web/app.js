@@ -28,6 +28,7 @@ const chapterTitle = document.getElementById("chapter-title");
 const chapterWord = document.getElementById("chapter-word");
 const chapterCount = document.getElementById("chapter-count");
 const clock = document.getElementById("clock");
+const wholePlayed = document.getElementById("whole-played");
 const sleepButton = document.getElementById("sleep");
 const playpause = document.getElementById("playpause");
 const back30 = document.getElementById("back30");
@@ -515,6 +516,16 @@ function drawPlayer() {
   chapterTitle.textContent = current.chapter.title;
   const whole = timestamp(manifest.total_ms);
   clock.textContent = `${timestamp(positionMs)} of ${whole}`;
+  // The same pair as the line above it, drawn instead of written. Clamped both
+  // ends: a position past the last chapter — a book re-rendered shorter than
+  // the mark somebody left in it — would otherwise run the fill off the end of
+  // its track and take the knob with it. A book with no total is drawn empty
+  // rather than full, because nobody knowing how long it is does not mean it
+  // has been finished.
+  const through = manifest.total_ms
+    ? Math.min(100, Math.max(0, (positionMs / manifest.total_ms) * 100))
+    : 0;
+  wholePlayed.style.width = `${through}%`;
   // Off the chapter row and the book's own clock, never off the element's
   // currentTime: that number restarts at zero on every swap, and during one it
   // belongs to whichever of the two chapters the element happens to be holding.
