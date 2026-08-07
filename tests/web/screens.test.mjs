@@ -237,14 +237,56 @@ test("with nothing to measure, leaving the box is still the way back", async (t)
   assert.equal(page.probe().keyboardUp, false);
 });
 
+// -------------------------------------------------- the header's two corners
+
+// The header is one row on both screens and it holds a different thing in each
+// corner on each of them, which is the second thing the page needed a screen
+// for. Which pill is in which corner is the sheet's business and is tested
+// further down, against the sheet. What is testable from in here is the one of
+// the three that does something app.js knows about: the way back to the
+// controls, which is a press and not a keyboard deciding to leave.
+
+test("the header's way back off chat is a press", async (t) => {
+  const page = await boot(t);
+  keyboardOver(page);
+  page.click("to-controls");
+  assert.equal(page.probe().screen, "player");
+  assert.equal(page.probe().keyboardUp, false);
+  assert.deepEqual(classes(page), ["player-screen"]);
+});
+
+// The same promise the keyboard makes coming up, made again going down: the
+// book is still playing, still where it was, and the conversation is still in
+// the document waiting to be come back to.
+test("the way back off chat moves nothing on the page but the screen", async (t) => {
+  const page = await boot(t);
+  const before = page.probe();
+  keyboardOver(page);
+  page.click("to-controls");
+  assert.deepEqual(page.probe(), before);
+});
+
+// The reason the press does not simply call blur() and wait to be told. A
+// keyboard nobody can measure is a keyboard nobody can watch go away, and this
+// is the corner that exists so that somebody in that position still has a way
+// back to the book.
+test("with nothing to measure, the press off chat still lands", async (t) => {
+  const page = await boot(t, { canMeasure: false });
+  page.focus("question");
+  assert.equal(page.probe().screen, "chat");
+  page.click("to-controls");
+  assert.equal(page.probe().screen, "player");
+  assert.equal(page.probe().keyboardUp, false);
+});
+
 // ------------------------------------------------------------------- the sheet
 
-// The one test here that reads the stylesheet, because the bug was in the
-// stylesheet and nothing else in this file can see it: everything above proves
-// the page knows which screen it is on, and none of it can prove the sheet is
-// asking. The conversation coming back is the whole of what "you are on the
-// chat screen" looks like, so if no media query can turn it on then no window
-// size, and no text scale, can put somebody there.
+// The tests that read the stylesheet, because two of the things this issue is
+// about are in the stylesheet and nothing else in this file can see them:
+// everything above proves the page knows which screen it is on, and none of it
+// can prove the sheet is asking. The conversation coming back is the whole of
+// what "you are on the chat screen" looks like, so if no media query can turn
+// it on then no window size, and no text scale, can put somebody there.
 const SHEET = readFileSync(
   fileURLToPath(new URL("../../src/somnia/web/style.css", import.meta.url)),
   "utf8",
@@ -261,6 +303,47 @@ test("no size of window can turn the conversation on by itself", async (t) => {
   // And it is on for exactly one reason. A test that only counted media queries
   // would pass on a sheet with no rule at all.
   assert.ok(sheet.includes("body.chat-screen #transcript {"));
+});
+
+// The sheet with its prose taken out and its whitespace flattened, so a rule can
+// be looked for as the one string it is. Written literally rather than picked
+// apart with a parser: three declarations decide which pill is in which corner,
+// two of them are one word long, and a test that reproduced the cascade to check
+// them would be a second implementation of the thing it is checking.
+const RULES = SHEET.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ");
+
+// The design is explicit that the right-hand corner is empty on the player, and
+// says why: a press that throws something away has no business in the top corner
+// of the screen somebody taps half asleep. So it is off by default and turned on
+// by the chat screen, and not the other way about — a class that failed to be
+// written can then only leave a corner empty, never fill it.
+test("start over is drawn on the chat screen and nowhere else", async (t) => {
+  assert.ok(RULES.includes("#to-controls, #restart { display: none; }"));
+  assert.ok(
+    RULES.includes(
+      "body.chat-screen #to-controls, body.chat-screen #restart { display: flex; }",
+    ),
+  );
+  for (const block of mediaBlocks(RULES)) {
+    assert.ok(
+      !block.includes("#restart"),
+      `a media query is drawing start over: ${block.slice(0, 120)}`,
+    );
+  }
+});
+
+// The other corner, which is one place holding one of two pills. `library ›`
+// goes to the panel and `‹ controls` comes back, and exactly one of them is
+// drawn at a time — a header with both would be two doors in one corner, and a
+// header with neither has no way out of anything.
+test("the left corner holds one pill on each screen", async (t) => {
+  assert.ok(RULES.includes("body.chat-screen #books { display: none; }"));
+  for (const block of mediaBlocks(RULES)) {
+    assert.ok(
+      !block.includes("#books"),
+      `a media query is drawing the way to the library: ${block.slice(0, 120)}`,
+    );
+  }
 });
 
 // Written while fixing one. The sheet is nine tenths prose and a comment

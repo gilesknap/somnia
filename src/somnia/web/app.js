@@ -20,6 +20,12 @@ const composer = document.getElementById("composer");
 const question = document.getElementById("question");
 const talk = document.getElementById("talk");
 const restart = document.getElementById("restart");
+// The header's other left-hand pill: the way back off the chat screen. It is a
+// second button rather than `books` relabelled because the two do different
+// things, and a control whose action is held in a variable is one the sheet
+// cannot draw and a reader cannot trust. Which of them is in the corner is the
+// screen's business, and the screen is a class on <body>.
+const toControls = document.getElementById("to-controls");
 const statusLine = document.getElementById("status");
 const player = document.getElementById("player");
 const playerBar = document.getElementById("player-bar");
@@ -252,40 +258,24 @@ composer.addEventListener("submit", (event) => {
   ask(question.value.trim());
 });
 
-// How long `start over` stands asked before the corner forgets it. Long enough
-// to read four words and decide, short enough that a phone put down face up
-// with the question still on it is not one press from an empty screen. The
-// queue's `stop reading this` is the same pattern with a longer fuse, because
-// that press ends hours of rendering and this one ends a conversation.
-const RESTART_CONFIRM_MS = 3200;
-
-// The wake that will put the label back, or 0 for a corner that is not asking.
-// One variable and not two: the label is drawn from it, so "is it armed?" and
-// "what does it say?" cannot come apart.
-let restartTimer = 0;
-
-function forgetRestart() {
-  clearTimeout(restartTimer);
-  restartTimer = 0;
-  restart.textContent = "start over";
-  restart.classList.remove("armed");
-}
-
-// Two presses, and the button itself is the question — the same answer the
-// queue panel gives, so that the page has one way of asking rather than two.
-// Not a confirm dialog: that would be the first thing on this page to take
-// focus from anybody, and an overlay over a conversation somebody is about to
-// throw away is one more thing to get out of.
-restart.addEventListener("click", () => {
-  if (!restartTimer) {
-    restart.textContent = "sure? tap again";
-    restart.classList.add("armed");
-    restartTimer = setTimeout(forgetRestart, RESTART_CONFIRM_MS);
-    return;
-  }
-  forgetRestart();
-  startOver();
-});
+// One press, and there is no second one to wait for.
+//
+// It took two until this corner learned which screen it was on, and the button
+// itself was the question: `sure? tap again` where the label had been, on a
+// three-second fuse. That was the right answer to the wrong control. `start
+// over` was in the top corner of the *player* then, which is the screen a hand
+// reaches for in the dark with the room black and the eyes shut, and a press
+// that throws something away sitting there wants asking about twice.
+//
+// It is not there any more. The only screen it is on is the one somebody is
+// typing into, looking at, with a keyboard up under it — and on that screen
+// what the press costs is questions that can be asked again in the same words.
+// So the confirm was guarding a risk that has been designed out of the corner
+// rather than talked out of it, and a page that still asked would be charging
+// two presses for the cheapest thing on it. The queue's `stop reading this`
+// keeps its two presses and its longer fuse, because that one ends hours of
+// rendering and lives on a panel anybody can wander into.
+restart.addEventListener("click", startOver);
 
 // What is thrown away is the conversation, and only the conversation. The book
 // keeps playing, keeps its position and keeps its sleep timer: "start over"
@@ -2329,7 +2319,7 @@ async function openTheBook() {
       // The state that most needs the panel, and the one with no book, no
       // manifest and no gid — so the nudge has to name the control rather than
       // relying on anything on the screen to be about a book.
-      setStatus("nothing yet — press books to add one");
+      setStatus("nothing yet — press library to add one");
       return;
     }
     await openBook(chosen);
@@ -3391,14 +3381,37 @@ for (const field of typingFields) {
     // it wants — which is worth it, because a page that waited for a resize
     // that never came on an engine that does not send them would leave somebody
     // stranded on the chat screen, which is the whole of this issue.
-    typing = null;
-    readKeyboard();
+    stoppedTyping();
     setTimeout(() => {
       fit();
       readKeyboard();
     }, 250);
   });
 }
+
+// Nobody is typing any more, whoever said so. The box losing focus is one way
+// of saying it and the header's `‹ controls` pill is the other, and they have to
+// mean the same thing or the page has two ideas of which screen it is on.
+function stoppedTyping() {
+  typing = null;
+  readKeyboard();
+}
+
+// The way off the chat screen that is a press rather than a keyboard leaving.
+//
+// Giving the keyboard back is most of it: on the phone, blurring the composer
+// is what takes those letters off the bottom half of the screen, and there is
+// no other way to ask for that. But the screen is set here as well rather than
+// left to the blur that follows, because a press whose result waits on the
+// platform answering is a press that does nothing on the platform that does
+// not — and this is the press that exists so that somebody who cannot get the
+// keyboard down still has a way back to the book. Both paths end in
+// stoppedTyping(), so pressing this and dismissing the keyboard by hand are the
+// same event twice and not two states.
+toControls.addEventListener("click", () => {
+  question.blur?.();
+  stoppedTyping();
+});
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});

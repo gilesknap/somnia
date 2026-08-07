@@ -127,8 +127,10 @@ something — the toast, for instance — by hand.
 - `1:12:08 of 9:41:33` and the sleep pill share one row and only just: at the
   sizes before the type scale landed they wrapped, and they still wrap if the
   sleep label grows past about eleven characters
-- the header — `somnia`, `books`, `start over` — fills most of the 320 and has
-  no room for a fourth thing
+- the header holds two things and a name, and they are not the same two on both
+  screens: `library ›` and `somnia` on the player, with the right corner empty;
+  `‹ controls`, `somnia` and `start over` on chat. The chat row fills most of
+  the 320 and has no room for a fourth thing
 
 Measure these off the PNG, not off `getBoundingClientRect` in an injected
 script: instrumentation run inside a headless screenshot has reported a viewport

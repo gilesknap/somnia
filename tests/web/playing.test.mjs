@@ -377,65 +377,67 @@ test("the end of the last chapter is the end of the book", async (t) => {
 
 // ------------------------------------------------- the corner that throws away
 
-// How long `start over` stands asked before it forgets. The same shape as the
-// queue's `stop reading this`, because a page with two confirmations that work
-// differently is a page where neither of them can be pressed without reading.
-const RESTART_CONFIRM_MS = 3200;
+// It used to ask first: one press put `sure? tap again` where the label was, on
+// a three-second fuse, and only the second press did anything. That was the
+// right answer while this corner was on the player, where a sleepy thumb finds
+// it. It is the chat screen's corner now, and there the press costs nothing but
+// questions that can be asked again — so it is one tap, and the two tests that
+// used to be here are these two: everything happens on the first press, and
+// nothing is left running behind it.
 
-test("start over asks once before it throws the conversation away", async (t) => {
+test("start over throws the conversation away on the first press", async (t) => {
   const page = await playing(t);
   page.seek(12_000, { play: true });
   page.audio.ready();
   await page.ask("the bit where the horse dies");
   assert.equal(page.el("transcript").children.length, 2);
 
-  page.click("restart");
-  await page.settle();
-  // One press changes the word and nothing else. The conversation is still
-  // there, the server has not been told to forget anything, and the book has
-  // not moved — which is the half of this control most easily got wrong, since
-  // "start over" is a sentence about a book as easily as about a chat.
-  assert.equal(page.probe().restart, "sure? tap again");
-  assert.equal(page.el("transcript").children.length, 2);
-  assert.equal(page.fetches.includes("api/forget"), false);
-  assert.equal(page.probe().positionMs, 12_000);
-  assert.deepEqual(page.waits(), [RESTART_CONFIRM_MS]);
-
   const stale = page.storageSession.getItem("somnia-token");
   page.click("restart");
   await page.settle();
-  // And the second press does the whole of it: the transcript is the one line
-  // the page opens with, the conversation the server was holding is thrown
-  // away, and the name it went by is not the name the next question carries.
+  // The whole of it, at once: the transcript is the one line the page opens
+  // with, the conversation the server was holding is thrown away, and the name
+  // it went by is not the name the next question carries.
   assert.deepEqual(
     page.el("transcript").children.map((line) => line.textContent),
     ["Where do you want to be?"],
   );
   assert.equal(page.fetches.includes("api/forget"), true);
   assert.notEqual(page.storageSession.getItem("somnia-token"), stale);
-  // Still where the book was. Nothing in here is a seek.
+  // Still where the book was, and still playing it. Nothing in here is a seek,
+  // which is the half of this control most easily got wrong: "start over" is a
+  // sentence about a book as easily as about a chat, and a press that took
+  // somebody back to the beginning of a nine-hour novel would be the one
+  // mistake on this page nothing could undo.
   assert.equal(page.probe().positionMs, 12_000);
-  assert.equal(page.probe().restart, "start over");
-  assert.deepEqual(page.waits(), []);
+  assert.equal(page.probe().playing, true);
 });
 
-test("a start over left alone forgets it was asked", async (t) => {
+test("start over leaves nothing armed and nothing waiting", async (t) => {
   const page = await boot(t);
   page.click("restart");
-  assert.equal(page.probe().restart, "sure? tap again");
-  assert.deepEqual(page.waits(), [RESTART_CONFIRM_MS]);
-
-  assert.equal(page.wake(RESTART_CONFIRM_MS), true);
-  // A corner left asking over a phone face down on a table is one press away
-  // from throwing away the conversation somebody comes back to in the morning.
-  assert.equal(page.probe().restart, "start over");
+  await page.settle();
+  // No fuse, so no phone put down face up with a question on it and no wake to
+  // clear.
   assert.deepEqual(page.waits(), []);
+  // And nothing armed: no class, and not a word written into the corner. The
+  // label is the document's own now and the page never touches it, so an empty
+  // string here is the whole of "app.js has nothing to say about that word" —
+  // which is what it would have to have again to ask anybody anything.
+  assert.equal(page.el("restart").classes.has("armed"), false);
+  assert.equal(page.el("restart").textContent, "");
 
+  const stale = page.storageSession.getItem("somnia-token");
   page.click("restart");
   await page.settle();
-  // So the next press is the first press again, not the second.
-  assert.equal(page.probe().restart, "sure? tap again");
-  assert.equal(page.fetches.includes("api/forget"), false);
+  // And the next press is the same press again, not the second half of the
+  // last one: an already-empty conversation is thrown away again, with a new
+  // name, which is the only shape this control has now.
+  assert.notEqual(page.storageSession.getItem("somnia-token"), stale);
+  assert.deepEqual(
+    page.el("transcript").children.map((line) => line.textContent),
+    ["Where do you want to be?"],
+  );
 });
 
 test("no position is ever published that the platform would refuse", async (t) => {
