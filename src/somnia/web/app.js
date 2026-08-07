@@ -206,7 +206,15 @@ async function ask(text) {
     const response = await fetch("api/ask", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token, question: text }),
+      // The open book travels with the question. Without it the agent could see
+      // the three books on the shelf and nothing saying which one was making
+      // the sound, so the only honest answer to "where was I" was "which book?"
+      // — asked over the book they were listening to, every single turn.
+      //
+      // Read here rather than captured with `asked`, because it is a fact about
+      // the moment the question is sent. `gid` is null until a book is open,
+      // and the server treats that as "no book" rather than refusing the turn.
+      body: JSON.stringify({ token, question: text, gid }),
     });
     const body = await response.json();
     // They started over while this was in flight: the answer belongs to a

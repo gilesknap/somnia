@@ -180,13 +180,26 @@ anything.
 ## `POST /api/ask`
 
 ```json
-{"token": "…", "question": "where does the horse get hurt?"}
+{"token": "…", "question": "where does the horse get hurt?", "gid": 271}
 ```
 
 `token` is minted by the page when it starts and keys a conversation held in
-memory; nothing is written to disk. Both fields are required — 400 otherwise —
-and a turn that fails is a 500 whose body says *Something went wrong down
-here.*
+memory; nothing is written to disk. `token` and `question` are required — 400
+otherwise — and a turn that fails is a 500 whose body says *Something went wrong
+down here.*
+
+`gid` is the book the page has open, and it is optional. It is named to the
+model on the end of the system prompt, once per turn, so that a question over a
+playing book is not answered with *which book do you mean?* — which is what
+happened while it was missing, on every turn, because the model could list the
+shelf and nothing told it which of them was making the sound. Anything that is
+not a positive integer — absent, `null`, a string, a bool — is taken as "no book
+open" rather than refused, so a page that has opened nothing can still ask, and
+a cached older `app.js` keeps working.
+
+It is sent per turn rather than fixed at the start of a conversation: the page
+can open another book between two questions, and a conversation that remembered
+the first one would answer the second about the wrong book.
 
 ```json
 {"reply": "…", "move": {"gid": 271, "position_ms": 9930000, "seq": 4}}

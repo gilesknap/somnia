@@ -26,11 +26,17 @@ TOKEN = "tab-1"
 class FakeConversation:
     """Answers with its own turn count, so tests can tell conversations apart."""
 
+    # Class-level, because `create_app` keeps its Conversations to itself and
+    # there is no handle on the instance from outside. What is being proved is
+    # that a value crossed the wire, and that is the same proof either way.
+    seen_gids: list[int | None] = []
+
     def __init__(self, cfg: Config, library: Library) -> None:
         self.turns: list[str] = []
 
-    def ask(self, question: str) -> Turn:
+    def ask(self, question: str, gid: int | None = None) -> Turn:
         self.turns.append(question)
+        FakeConversation.seen_gids.append(gid)
         return Turn(reply=f"{len(self.turns)}: {question}")
 
 
@@ -44,7 +50,7 @@ class MovingConversation:
     def __init__(self, cfg: Config, library: Library) -> None:
         self._library = library
 
-    def ask(self, question: str) -> Turn:
+    def ask(self, question: str, gid: int | None = None) -> Turn:
         moved = self._library.move_to(GID, 12_000)
         return Turn(reply="You're back at the fair.", move=moved)
 
@@ -67,7 +73,7 @@ class OfferingConversation:
     def __init__(self, cfg: Config, library: Library) -> None:
         self._library = library
 
-    def ask(self, question: str) -> Turn:
+    def ask(self, question: str, gid: int | None = None) -> Turn:
         offer = self._library.offer_positions(GID, self.places)
         assert isinstance(offer, Offer), offer
         return Turn(reply=OFFER_SENTENCE, move=self.move, candidates=offer)
@@ -162,6 +168,38 @@ def test_starting_over_forgets_what_was_said(client: TestClient) -> None:
     assert client.post("/api/forget", json={"token": TOKEN}).status_code == 200
     status, body = ask(client, "again")
     assert (status, body) == (200, {"reply": "1: again"})
+
+
+def test_the_book_the_page_has_open_reaches_the_turn(client: TestClient) -> None:
+    """Without this the agent could see the whole shelf and nothing saying
+    which book was making the sound, so it asked "which book?" every turn.
+    """
+    FakeConversation.seen_gids.clear()
+    ask_with(client, "where was I?", gid=271)
+    assert FakeConversation.seen_gids == [271]
+
+
+def test_a_page_that_sends_no_book_is_still_answered(client: TestClient) -> None:
+    """Optional on purpose, and in two directions. A page that has opened
+    nothing has questions worth asking, and a cached app.js from before this
+    change must keep working rather than meet a 400 in the dark.
+
+    Anything that is not a positive integer is no book at all: a gid that
+    arrived as a string, a bool or a null is a page saying it does not know, and
+    a guess would answer about a book nobody is listening to.
+    """
+    FakeConversation.seen_gids.clear()
+    for sent in ({}, {"gid": None}, {"gid": "271"}, {"gid": True}, {"gid": 0}):
+        status, _ = ask_with(client, "where was I?", **sent)
+        assert status == 200
+    assert FakeConversation.seen_gids == [None] * 5
+
+
+def ask_with(client: TestClient, question: str, **rest: Any) -> Any:
+    response = client.post(
+        "/api/ask", json={"token": TOKEN, "question": question, **rest}
+    )
+    return response.status_code, response.json()
 
 
 def test_a_blank_question_is_not_put_to_the_agent(client: TestClient) -> None:

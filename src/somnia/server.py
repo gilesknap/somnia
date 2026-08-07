@@ -89,7 +89,7 @@ class Conversations:
         self._lock = threading.Lock()
         self._by_token: OrderedDict[str, Conversation] = OrderedDict()
 
-    def ask(self, token: str, question: str) -> Turn:
+    def ask(self, token: str, question: str, gid: int | None = None) -> Turn:
         with self._lock:
             conversation = self._by_token.pop(token, None)
             if conversation is None:
@@ -97,7 +97,11 @@ class Conversations:
             self._by_token[token] = conversation
             while len(self._by_token) > MAX_CONVERSATIONS:
                 self._by_token.popitem(last=False)
-            return conversation.ask(question)
+            # Passed per turn rather than held on the conversation: the page can
+            # open another book between two questions, and a conversation that
+            # remembered the first one would answer the second about the wrong
+            # book without either end noticing.
+            return conversation.ask(question, gid)
 
     def forget(self, token: str) -> None:
         """Start again — they have changed the subject, or the agent is lost."""
@@ -230,10 +234,18 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         question = str(payload.get("question") or "").strip()
         if not token or not question:
             return JSONResponse({"error": "token and question are required"}, 400)
+        # Which book the page has open, and optional on purpose: a page that has
+        # opened nothing yet still has questions worth asking, and an older
+        # cached app.js that does not send it must keep working rather than 400.
+        # Anything that is not a positive integer is no book at all — a gid that
+        # arrived as a string or a null is a page saying it does not know, and
+        # guessing one would answer about a book nobody is listening to.
+        raw = payload.get("gid")
+        gid = raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else None
         try:
             # A turn blocks for seconds on the model and on sqlite, so it runs
             # off the event loop.
-            turn = await run_in_threadpool(conversations.ask, token, question)
+            turn = await run_in_threadpool(conversations.ask, token, question, gid)
         except Exception:
             logger.exception("agent turn failed")
             return JSONResponse({"error": "Something went wrong down here."}, 500)
