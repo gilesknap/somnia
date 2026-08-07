@@ -424,13 +424,24 @@ def build_tools(
             )
         else:
             lines.append("Nothing in that stretch.")
-        lines.append(
-            "These are the closest passages in that stretch, which is not the"
-            " same as passages about what they asked. If none of them is, then"
-            " what they asked about has not come up yet in what they have"
-            " heard: say that, and not what it is, and not that it comes up"
-            " later."
-        )
+        if recalled.searched_to_ms is not None:
+            lines.append(
+                "These are the closest passages in that stretch, which is not"
+                " the same as passages about what they asked. If none of them"
+                " is, then what they asked about has not come up yet in what"
+                " they have heard: say that, and not what it is, and not that"
+                " it comes up later."
+            )
+        else:
+            # "It hasn't come up yet" is a lie on a book they have heard the
+            # end of — there is no yet left, and nothing was held back from
+            # this search — so the honest sentence there is the ordinary one a
+            # search that found nothing gets.
+            lines.append(
+                "These are the closest passages in the book, which is not the"
+                " same as passages about what they asked. If none of them is,"
+                " say you couldn't find it."
+            )
         return "\n\n".join(lines)
 
     @beta_tool

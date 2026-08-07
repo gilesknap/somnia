@@ -983,6 +983,26 @@ def test_a_recall_says_what_the_answer_is_when_nothing_it_found_is_about_it(
     assert "not that it comes up later" in result
 
 
+def test_a_book_they_have_finished_is_never_answered_with_not_yet(
+    searchable: Searchable,
+) -> None:
+    """The one book where "it hasn't come up yet" is a false sentence.
+
+    Nothing is held back from a recall on a book they have heard the end of, so
+    a question it cannot find an answer to is a question the book does not
+    answer — and telling somebody who finished Black Beauty last night that
+    Ginger has not come up yet is the sort of wrongness they notice at 2am.
+    """
+    with searchable.conn:
+        searchable.conn.execute("UPDATE books SET position_ms = 900000 WHERE gid = 271")
+
+    result = wired(searchable).call("recall", gid=271, question="anybody at all")
+
+    assert "nothing left to keep back" in result
+    assert "say you couldn't find it" in result
+    assert "not come up yet" not in result
+
+
 def test_a_turn_that_answered_a_question_will_not_also_move_the_book(
     searchable: Searchable,
 ) -> None:
