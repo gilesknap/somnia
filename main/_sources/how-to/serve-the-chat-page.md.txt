@@ -131,14 +131,15 @@ passage is in a book that was not even open, that book opens. Nothing has to be
 pressed afterwards.
 
 When more than one place could be what you meant, it does not ask — it puts
-them on the screen. The list is headed *Where do you mean?* and each row is a
+them on the screen. The screen is headed *Places you might be*, with a line
+under it saying how many there are and what they span, and each row is a
 time, a chapter and the book's own words — its own, never a description of
 them, so you recognise the moment rather than take somnia's word for it, and
 never the words of a place you have not reached yet, which is the paragraph
 after this one. There is a *you are here* marker sitting
 between them in book order so you can see which are behind you and which are
-ahead. Press one and the book goes there and plays. Press *cancel* at the
-bottom and nothing whatever happens: the book carries on exactly as it was, in
+ahead. Press *goto* on a row and the book goes there and plays. Press *close* at
+the bottom and nothing whatever happens: the book carries on exactly as it was, in
 the same place, with the same sleep timer running. Nothing has moved while the
 list is up, so there is nothing to undo. The book keeps playing underneath it
 the whole time, which also means a sleep timer left to run out under a list
@@ -151,8 +152,9 @@ being taken forward does not unlock what you were carried over. What you get
 instead is that place as a row on the list, marked *ahead*, showing its time
 and its chapter number and nothing else — no words, and not even the chapter's
 name, since a chapter called *How Ginger Died* gives away as much as the
-sentence under it. Press *show me what's there* and it uncovers, and you decide
-having read it; press the row and you go there without reading it at all. Two
+sentence under it. What it says instead is *tap to reveal · may spoil*: press
+anywhere on the row's reading and it uncovers, and you decide having read it;
+press *goto* and you go there without reading it at all. Two
 things follow from measuring it that way. A book
 somnia has never played is bounded at its opening minute, so if a book you have
 been listening to for a fortnight puts everything on the list as *ahead*, the
@@ -239,14 +241,35 @@ again at once, so there is nothing to press.
 ## Adding a book from the page
 
 *books*, in the corner beside *start over*, opens a panel over the page. The
-book keeps playing underneath it, nothing on it opens a book or moves the one
-you are listening to, and *close* puts it away having changed nothing at all.
+book keeps playing underneath it, nothing on it opens a book or switches which
+one you are listening to, and *close* puts it away having changed nothing at
+all.
 
-What is at the top is what is happening: the book being rendered, saying which
-chapter it is on and how much of it can be played now — *chapter 4 of 39 ·
-1h12m read so far* — and under it whatever is waiting, saying how far down the
-line it is. One book renders at a time, always, so a queue of three is three
-books' worth of waiting and not three renders fighting over two cores.
+At the top, under *reading now*, is the book that is playing underneath the
+panel — *The Moonstone — Collins, Wilkie, 1824-1889*, and under it *chapter 4
+of 37 · 1h12m in* over a hairline showing how far through it you are. *in*, and
+not *listened*: nothing anywhere records how long you have listened for, so the
+number is how far into the book the mark is. The hairline is not drawn at all
+while the book is still being rendered, because until the render is over the
+book's length is only how much of it exists so far. *pick it up at 1:12:08*
+starts it and puts the panel away — the same press as the play button, made
+from up here, and the only book it can reach is the one already playing. When
+it is already playing that button reads *back to it · playing* and does nothing
+but take you back to the controls.
+
+Under that is what is happening, in a box headed *the server is working*: the book being rendered, with *narrating* in the corner of its line
+and, under the name, which chapter it is on and how much of it can be played
+now — *chapter 4 of 39 · 1h12m read so far* — over a hairline that fills as the
+chapters land. Under it is whatever is waiting, marked *queued*, saying how far
+down the line it is. One book renders at a time, always, so a queue of three is
+three books' worth of waiting and not three renders fighting over two cores.
+
+The word in the corner is the stage — *queued*, *narrating*, *ready*, *failed*,
+*stopped* — and the line under the name is what is actually going on inside it.
+A book whose text has not been parsed yet has no hairline at all rather than one
+sitting at nothing: until the parse has run, nobody has written down how many
+chapters there are, and the line says *fetching the text* instead of counting.
+The box is not drawn at all when nothing is rendering.
 
 A render that has not been heard from for five minutes says *not responding*
 instead of pretending. That is a real answer: it means the worker died, or the

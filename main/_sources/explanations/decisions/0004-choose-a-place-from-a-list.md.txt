@@ -2,7 +2,15 @@
 
 ## Status
 
-Accepted
+Accepted. Amended by the redesign pass, which changed how the list is drawn and
+nothing about what it decides. The overlay is titled **Places you might be** and
+carries a line saying how many places there are and what they span; the reveal
+is the whole left of a row and `goto` is a pill on the right, which inverts the
+emphasis described below — the press that can be taken back is now the big one;
+the "you are here" marker is a rule across the list rather than a row in it; and
+the inert cancel says `close`. The list still replaces the conversation rather
+than the seek, the guard is still decided once on the server, and the way out
+still touches nothing.
 
 ## Context
 
