@@ -36,7 +36,13 @@ window.addEventListener('load', () => {
     const r = el.getBoundingClientRect();
     return {top: r.top, bottom: r.bottom, height: r.height};
   };
-  const said = [...document.querySelectorAll('#transcript .said')];
+  // Only the turns that are actually on the screen. On the player the sheet
+  // draws the newest turn and hides the rest, so querying them all put a
+  // display:none element — a rect of all zeroes — at the top of the
+  // conversation, and the first gap came out as -48 against a layout that was
+  // right. A hidden turn is not where the reading starts.
+  const said = [...document.querySelectorAll('#transcript .said')]
+    .filter((el) => el.getClientRects().length > 0);
   const last = said.length ? said[said.length - 1].getBoundingClientRect() : null;
   const out = {
     root: parseFloat(getComputedStyle(document.documentElement).fontSize),

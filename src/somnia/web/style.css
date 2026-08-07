@@ -352,11 +352,24 @@ h1 {
    which is the case flex-end quietly cuts the top off instead. */
 
 /* On the player this is the design's last-placement line, and nothing louder.
-   The brief gives the slot above the book's title one job — italic 19dp at .42,
+   The brief gives the slot above the book's title one job — italic 22dp at .42,
    "— and then where the horse bolts" — while 27dp at .88 is the *chat* screen's
    agent turn. This page has no routes, so both screens are this same element at
    two viewport heights, and drawing the chat's type on the player put the
    loudest text on the page above the book somebody is actually listening to.
+
+   One turn of it, not the thread. The brief is explicit that the player shows
+   no replies — the scrollback is the chat screen's, and the dock pill and the
+   microphone are the way into it — so on the player everything but the newest
+   turn is off the screen, and what is left is a line. That is the same split
+   the type above already makes, drawn at the same boundary: the conversation is
+   a screen when there is a keyboard up to have made one, and a placement line
+   when there is not.
+
+   It is display and nothing else. The turns are all still in the document, in
+   order, and app.js neither knows nor cares — which is what makes the keyboard
+   coming up the whole of the way back to them, rather than a route with a
+   history to keep. */
 
    Italic is not decoration here. It means what it means everywhere else in this
    sheet: words that are not somnia's own, and words from the book you may not
@@ -367,10 +380,28 @@ h1 {
 .said {
   margin: 0 0 0.75rem;
   max-width: 34rem;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-style: italic;
   line-height: 1.4;
   color: var(--placement);
+}
+
+#transcript .said:not(:last-child) {
+  display: none;
+}
+
+/* 22dp, the design's size for the placement line, and set through #transcript
+   so it outranks the chat size the keyboard-up query gives the same element.
+   Written here rather than on `.said` because the two rules have to be able to
+   beat each other in one direction only, and this is the one that must lose
+   when there is a keyboard up. */
+#transcript .said {
+  font-size: 1.1rem;
+  /* Explicit, because the turns above this one are `display: none` and the
+     browser's own `p { margin: 1em 0 }` was landing on whichever turn was left
+     — a gap that grew with the type and put the placement line 34px under the
+     header instead of the design's 12. */
+  margin-top: 0;
 }
 
 /* Their own words, kept a shade back from the answer without being dropped so
@@ -452,29 +483,50 @@ h1 {
   margin: 0 0 0.75rem;
 }
 
-/* The book's name, and the largest thing on the player. It is the top of a
-   stack of three one-line readouts — book, chapter, how far into the chapter —
-   and every one of them is cut with an ellipsis rather than allowed to wrap.
-   That is not tidiness: the stack has to be the same height with every book and
-   every chapter in it, because a title that ran to two lines would push the
-   chapter circles, the clock and the transport down the screen, and the bottom
-   of that stack is the button a hand arrives at without looking first.
+/* The book's name, and the largest thing on the player. This is the one line
+   `index.html` calls the only thing true all night — the line that answers "am
+   I in the right book?" — so at 34dp it wraps to a second line rather than
+   losing its tail to an ellipsis.
 
-   Each has the whole width to itself, which is what makes the ellipsis an edge
-   case rather than most nights. The chapter's name and its clock shared a line
-   for one afternoon: the clock never varies in width and the name always does,
-   so a book with long chapter names spent every night truncated to make room
-   for eleven characters that had somewhere better to be. */
+   It was cut to one line until this pass, and the argument for that was that a
+   second line would push the chapter circles, the clock and the transport down
+   the screen, and the bottom of that stack is the button a hand arrives at
+   without looking first. That argument does not survive the rhythm this screen
+   now has. The slack on the player is pooled in one gap — `#transcript` is
+   `flex: 1; min-height: 0` — so what a second line takes is a line of the
+   conversation, which scrolls, and not a pixel of anything below it. The
+   transport does not move. That is checked in a render at the longest title in
+   the library, not assumed, because it is the whole permission for the wrap.
+
+   The chapter's name below is still cut to one line. It is a different claim:
+   the book is worth two lines of this screen every night and a chapter is not,
+   and "The Further Adventures of the Water Rat" would spend a second line
+   saying what the circles either side of it already let somebody change. */
 #book-title {
   margin: 0;
-  font-size: 1.45rem;
+  /* 34dp, up from 29. The design revised the whole player scale up a size and
+     named this as the worst of the misses, and the reason it gives is the one
+     this sheet already opens with: it is read at arm's length without glasses.
+     What paid for it was the gap above — 36.6px of slack was pooling there,
+     which is the design's own instruction about where the spare room on this
+     screen goes ("spend it on type, not on gaps"). */
+  font-size: 1.7rem;
+  /* Tighter than the page's 1.45, which is leading for paragraphs. Two lines of
+     a title are one name and have to read as one: at 1.45 they come apart into
+     two things to read, which is the failure this whole stack is arranged
+     against. The same number `#candidates-title` uses, for the same reason. */
+  line-height: 1.15;
   /* Closed up by a hair, which at this size is the difference between a title
      and a title that has been set. Nothing else on the page is tracked in. */
   letter-spacing: -0.005em;
   color: var(--ink);
+  /* Two lines and then the ellipsis, so that the one book somebody has given a
+     paragraph for a title cannot take the screen. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* 18dp above, which is the design's gap between one group on this screen and
@@ -483,8 +535,15 @@ h1 {
    and the circles that change it. Everything inside each group is tight — 2 to
    4dp — so the only gaps the eye finds are the ones that mean something. */
 #chapter-title {
-  margin: 0.9rem 0 0;
-  font-size: 1.1rem;
+  /* 0.8rem and not 0.9, because `#now-playing`'s own 0.1rem row gap is added to
+     it: 18dp is the design's gap between one group and the next, and it was
+     measuring 20. The 2dp goes where the design says spare height goes — into
+     the one flexible gap above the title, which has to be the largest on the
+     screen and was two pixels short of it. */
+  margin: 0.8rem 0 0;
+  /* 26dp. It stays a step under the book's own name, which is the hierarchy
+     this stack is for: the book is true all night and the chapter is not. */
+  font-size: 1.3rem;
   color: var(--mid);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -524,12 +583,12 @@ h1 {
 }
 
 #chapter-word {
-  font-size: 0.825rem;
+  font-size: 0.9rem;
   color: var(--dim);
 }
 
 #chapter-count {
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   color: var(--mid);
   font-variant-numeric: tabular-nums;
 }
@@ -589,12 +648,12 @@ h1 {
    chapter buttons — and at 1rem in Newsreader `3:24 of 41:12` did not fit that,
    wrapping onto a second line and pushing the transport down the screen on
    every chapter that ran past ten minutes. The width it was measured against is
-   gone, but the size stays: 0.825rem is what the design asks for, and it is the
-   size that keeps this a footnote to the chapter's name rather than a second
-   thing to read. */
+   gone, and the size went up with the rest of the player: 19dp is what the
+   design asks for now, and it is still a step under the chapter's own name, so
+   this stays a footnote to it rather than a second thing to read. */
 #chapter-clock {
   margin: 0;
-  font-size: 0.825rem;
+  font-size: 0.95rem;
   color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
@@ -630,7 +689,9 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.9rem;
+  /* 21dp. The position is the one number on this screen somebody opens their
+     eyes to read, and it inherits down to the clock and the sleep timer. */
+  font-size: 1.05rem;
   color: var(--mid);
 }
 
@@ -685,7 +746,7 @@ h1 {
   text-underline-offset: 0.25em;
 }
 
-/* What pressing would open: `4 places found`, at 15dp, in the faintest ink the
+/* What pressing would open: `4 places found`, at 17dp, in the faintest ink the
    palette has — the design's .3, which is --faint's .32 and the same colour as
    everything else on the page that is there if it is wanted.
 
@@ -694,7 +755,7 @@ h1 {
    that is a readout on most nights, and it would have to disappear or start
    lying on the first night nobody asked anything. */
 #places-found {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   line-height: 1.2;
   color: var(--faint);
 }
@@ -772,7 +833,9 @@ h1 {
   border-radius: 999px;
   background: none;
   color: var(--mid);
-  font-size: 0.9rem;
+  /* 21dp, the same as the position above it: they are the two readouts in this
+     block and the design sets them together. */
+  font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
   min-height: 2.4rem;
   padding: 0.5rem 1.2rem;
@@ -828,7 +891,11 @@ h1 {
   border-radius: 1rem;
   background: var(--surface);
   color: var(--ink);
-  font-size: 1.5rem;
+  /* 34dp, and the same size as the book's own name on purpose — the design
+     calls them "the two things you hit without your glasses on". The cells did
+     not grow with the numerals: 110px was measured against a thumb and there is
+     nothing about larger type that changes what a thumb is. */
+  font-size: 1.7rem;
   font-variant-numeric: tabular-nums;
   transition: background-color 90ms linear;
 }
@@ -1080,14 +1147,25 @@ button:disabled {
     margin-top: auto;
   }
 
-  .said {
+  /* And here the thread comes back. On the player only the newest turn is
+     drawn; a keyboard up is somebody asking something, and the answer to it is
+     read against what was asked before it. This is the whole of the route into
+     the scrollback and the whole of the route out of it. */
+  #transcript .said:not(:last-child) {
+    display: block;
+  }
+
+  /* Through #transcript, to match the player rule above it. Both sizes have to
+     be written at the same specificity or the one outside this query wins at
+     every height and the chat screen is drawn at the placement line's size. */
+  #transcript .said {
     margin-bottom: 0.7rem;
     font-size: 1.35rem;
     font-style: normal;
     color: var(--ink);
   }
 
-  .said.you {
+  #transcript .said.you {
     font-size: 1.2rem;
     color: var(--mid);
   }
