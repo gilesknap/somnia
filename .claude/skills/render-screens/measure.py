@@ -113,8 +113,8 @@ if __name__ == "__main__":
     d = measure(src, int(sys.argv[2]) if len(sys.argv) > 2 else 867)
     print(f"root={d['root']}px  viewport={d['viewport']}  scrollH={d['scrollH']}")
     print(f"SCROLLS: {d['scrollH'] > d['viewport'] + 1}")
-    # The player carries no conversation at all now — the whole thread is the
-    # keyboard-up screen — so on it there is one gap where there used to be two,
+    # The player carries no conversation at all now — the whole thread is on the
+    # chat screen — so on it there is one gap where there used to be two,
     # and it runs from the header straight down to the book. Measured from
     # whatever is actually on the screen rather than from a hidden element,
     # because a `display: none` turn has a rect of all zeroes and reported -48
