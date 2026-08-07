@@ -3,8 +3,9 @@
 A render tells you a layout is wrong. It does not tell you by how much, and on
 2026-08-07 it did not tell you at all: the page looked right and four of its six
 gaps were out, with all the slack pooled above the conversation rather than
-below it. The design brief gives exact numbers — 14/14/12 between the groups,
-one flexible spacer taking the rest — so the honest check is arithmetic.
+below it. The design brief gives three weighted spacers with floors and ceilings —
+2:1:1, 12/14/14 floors, 180/70/70 ceilings — so the honest check is
+arithmetic.
 
 Run it against a snapshot, not the live page:
 
@@ -136,8 +137,13 @@ if __name__ == "__main__":
             ),
         ]
     rows += [
-        ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), 14),
-        ("chapter group -> transport", gap(d["chapterStrip"], d["transport"]), 14),
+        # Spacers B and C are a range, not a number. The design gives them a
+        # floor of 14 and a ceiling of 70 and shares the slack 2:1:1 with the
+        # spacer above the title, so what they measure depends on how much room
+        # the zoom level left over. A fixed 14 here would report a correct
+        # screen as broken on every phone but the tightest.
+        ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), (14, 70)),
+        ("chapter group -> transport", gap(d["chapterStrip"], d["transport"]), (14, 70)),
         ("transport -> dock (the pill itself)", gap(d["transport"], d["pill"]), 12),
         (
             "dock -> bottom of screen",
@@ -147,7 +153,14 @@ if __name__ == "__main__":
     ]
     for name, got, want in rows:
         flag = ""
-        if isinstance(want, int) and got is not None:
+        if isinstance(want, tuple) and got is not None:
+            lo, hi = want
+            flag = (
+                f"  OK (floor {lo}, ceiling {hi})"
+                if lo - 1 <= got <= hi + 1
+                else f"  <-- want {lo}..{hi}"
+            )
+        elif isinstance(want, int) and got is not None:
             flag = (
                 "  OK"
                 if abs(got - want) <= 3

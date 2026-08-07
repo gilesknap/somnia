@@ -324,6 +324,12 @@ h1 {
 }
 
 #transcript {
+  /* Off the player entirely, and not merely empty. Its contents were already
+     hidden, but as a `flex: 1` child of the body it went on competing with
+     #player-bar for the leftover height — which is the pool the three spacers
+     divide, so a share taken here is a share the rhythm never sees. The
+     keyboard-up query below puts it back, where it is the whole screen. */
+  display: none;
   flex: 1;
   /* Without this a flex child refuses to shrink below its content, so the
      column grows past the screen: the composer slides off the bottom and the
@@ -332,7 +338,12 @@ h1 {
   overflow-y: auto;
   padding: 0.6rem 1rem 0;
   overscroll-behavior: contain;
-  display: flex;
+  /* No `display` here. It is set once at the top of this rule — `none`, because
+     the player has no conversation on it — and the keyboard-up query turns it
+     back into the flex column. A second `display` further down this block is
+     how the first one was silently undone once already: same rule, later
+     declaration, and the element went on taking a share of the height the three
+     spacers are supposed to divide. */
   flex-direction: column;
 }
 
@@ -466,8 +477,80 @@ h1 {
   opacity: 0.75;
 }
 
+/* The one flex column the whole rhythm lives in. It takes every pixel the body
+   has left, and the three spacers inside it decide where that goes — which only
+   works because they are siblings here. Three spacers in three nested
+   containers each share out their own container's leftover, and nothing can
+   then hand a capped spacer's remainder on to the next one, which is the half
+   of the design's rule that is easy to miss.
+
+   No padding at the top: the gap above the book is Spacer A's job and nothing
+   else's, and a padding here would be slack that never reaches the pool. */
 #player-bar {
-  padding: 0.3rem 1rem 0;
+  /* Not a box either, for the same reason #now-playing is not: the three
+     spacers, the transport and the dock all have to be items of ONE flex
+     column so that the height they share is one pool. As a box this element
+     absorbed the body's whole surplus and then had nowhere to put what its
+     capped spacers could not use — which came out as 191px of nothing between
+     the transport and the dock on a roomy screen. Flattened, the column is the
+     body, and what the spacers cannot use ends up under the dock, which is
+     where the design says it goes.
+
+     The gutters move to the children, which is the pattern the page already
+     uses: the header, the status line and the composer each carry their own. */
+  display: contents;
+}
+
+/* And `hidden` has to be said again. `display: contents` beats the browser's
+   own `[hidden] { display: none }`, so without this the player would still be
+   laid out on a page that has no book open. */
+#player-bar[hidden] {
+  display: none;
+}
+
+/* The 20dp screen gutters, on the elements that used to inherit them from
+   #player-bar's padding. */
+#book-title,
+#whereabouts,
+#chapter-title,
+#chapter-clock,
+.chapter-strip,
+.transport {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Empty by definition — the design says nothing renders inside them — and the
+   floors are the tight rhythm the conformance table asks for. At the tightest
+   zoom every one of them sits on its floor and the screen is exactly 14/14/12;
+   past that they share what is spare, 2 : 1 : 1, most of it above the book.
+
+   The ceilings are the part that stops this being the old layout with extra
+   steps. Without them Spacer A simply grows until the player is welded to the
+   bottom of a roomy screen again, which is the failure the design named. When
+   A caps, flexbox hands what is left to B and C — that is what being siblings
+   buys — and when those cap too the remainder sits under the dock, which is the
+   design's own stated ending for it. */
+.rhythm {
+  flex: 1 1 0;
+}
+
+/* px and not rem, which is the one place on this page that is deliberate. Every
+   size here is dp, and dp is a CSS pixel — the rem elsewhere is so type rides
+   the OS font scale, which is what the design asks for and what a void does not
+   want. A ceiling in rem grows with the font setting, so the gap the ceiling
+   exists to bound gets bigger on exactly the screens that already had too much
+   of it. At the root this was drawn at the two are the same number anyway. */
+.rhythm-a {
+  flex-grow: 2;
+  min-height: 12px;
+  max-height: 180px;
+}
+
+.rhythm-b,
+.rhythm-c {
+  min-height: 14px;
+  max-height: 70px;
 }
 
 /* The band at the bottom is dead space between the chapter circles and the
@@ -483,15 +566,17 @@ h1 {
    that comes in high off `+30` lands on a control that costs one chapter to
    undo rather than on nothing. Worth watching on a real night. */
 #now-playing {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  /* Not a box. Its children are laid out by #player-bar, beside the spacers,
+     for the reason the markup gives. It still exists, and still hands its
+     centring down: `display: contents` takes the box away and leaves
+     inheritance alone. */
+  display: contents;
   /* Centred, as the design draws it. Both readout blocks — the book with its
      position and timer, and the chapter with its circles — sit on the middle of
-     the screen, and the only thing on the player deliberately left ranged left
-     is the placement line above them, which is prose and reads as prose. */
+     the screen. Inherited rather than applied to a box, which `display:
+     contents` still allows, and it reaches the spacers too, where it is
+     harmless because nothing renders in them. */
   text-align: center;
-  margin: 0 0 0.6rem;
 }
 
 /* The book's name, and the largest thing on the player. This is the one line
@@ -551,12 +636,9 @@ h1 {
    and the circles that change it. Everything inside each group is tight — 2 to
    4dp — so the only gaps the eye finds are the ones that mean something. */
 #chapter-title {
-  /* 0.6rem and not 0.7, because `#now-playing`'s own 0.1rem row gap is added to
-     it: 14dp is the design's gap between one group and the next, and it is the
-     same 14 that falls under the chapter group. Everything spare goes where the
-     design says spare height goes — into the one flexible gap above the title,
-     which has to be the largest on the screen. */
-  margin: 0.6rem 0 0;
+  /* No margin: Spacer B above it is this gap now, floor and all, and a margin
+     here would be 14dp that the pool never sees. */
+  margin: 0;
   /* 29dp. It stays a step under the book's own name, which is the hierarchy
      this stack is for: the book is true all night and the chapter is not. */
   font-size: 1.45rem;
@@ -588,8 +670,9 @@ h1 {
   gap: 0.6rem;
   /* Its own space above and below. Under it sits the book's clock, and under
      that the transport: this row must not read as the top of the button
-     cluster, because it is not one. */
-  margin: 0.5rem 0 0.1rem;
+     cluster, because it is not one. The band below is Spacer C's and is not
+     written here any more. */
+  margin: 0.5rem 0 0;
 }
 
 /* Which chapter of how many, between the two buttons that change it. Two lines
@@ -679,7 +762,9 @@ h1 {
    design asks for now, and it is still a step under the chapter's own name, so
    this stays a footnote to it rather than a second thing to read. */
 #chapter-clock {
-  margin: 0;
+  /* 3dp, the design's own figure for it. It used to fall out of
+     `#now-playing`'s row gap, which went with the box. */
+  margin: 0.15rem 0 0;
   font-size: 1.05rem;
   color: var(--dim);
   font-variant-numeric: tabular-nums;
@@ -1192,6 +1277,11 @@ button:disabled {
      Through #transcript, to match the player rule above it. Both have to be
      written at the same specificity or whichever comes last in the file wins at
      every height rather than the one whose media query matched. */
+  /* The chat screen: the thread comes back, and the element with it. */
+  #transcript {
+    display: flex;
+  }
+
   #transcript .said {
     display: block;
     margin-bottom: 0.7rem;

@@ -123,6 +123,33 @@
     <audio id="player" preload="metadata"></audio>
 
     <section id="player-bar" hidden>
+      <!-- The first of the three spacers the design's rhythm is made of, and
+           the reason all three are elements rather than margins: a margin
+           cannot be told to take twice as much of what is left over as the
+           next one, and cannot be given a floor and a ceiling.
+
+           The screen has to fill whatever height the phone gives it, and how
+           much that is varies by a factor of two across Android's display-size
+           and font-size settings. Pooling the difference in one gap — which is
+           what this page did until now — leaves the player welded to the
+           bottom of the screen under a void, on every setting looser than the
+           one it was drawn at. So the slack is shared 2:1:1: most of it above
+           the book, half as much again above the chapter, the same above the
+           transport.
+
+           The floors are the tight rhythm (14/14/12), so at the tightest zoom
+           the screen is exactly what the conformance table asks for and does
+           not scroll. The ceilings are what stop this one growing without
+           limit on a roomy screen and putting the void back. -->
+      <div class="rhythm rhythm-a"></div>
+
+      <!-- `display: contents` in the sheet. It still carries the centring and
+           still names the block for anyone reading this file, but it is not a
+           box: its children are laid out by #player-bar directly, beside the
+           spacers, because three spacers in three different flex containers
+           cannot share one pool of leftover height between them — and sharing
+           it 2:1:1, including where it goes when one of them hits its ceiling,
+           is the whole of what the design asked for. -->
       <div id="now-playing">
         <!-- The book, and then the chapter of it. The manifest has carried the
              book's own name since the beginning and the page drew everything
@@ -235,6 +262,11 @@
           </button>
         </p>
 
+        <!-- The second spacer: between everything true about the book all
+             night and everything true about this chapter. Floor 14dp, and it
+             takes half of what the spacer above it takes. -->
+        <div class="rhythm rhythm-b"></div>
+
         <!-- Both of these are one line and cut with an ellipsis rather than
              allowed to wrap, and that is the whole discipline of this stack:
              everything below — the chapter circles, the clocks, the transport —
@@ -309,8 +341,15 @@
             </svg>
           </button>
         </div>
-
       </div>
+
+      <!-- The third, and the dead band over the transport. It is the one whose
+           floor matters most: below it are the three things pressed without
+           looking, and a thumb reaching low for `+30` and landing high must
+           find nothing rather than the chapter circles. 14dp is the design's
+           floor and this is allowed to grow past it, never under. -->
+      <div class="rhythm rhythm-c"></div>
+
       <!-- Three buttons, the same three, at the same size they were measured
            against a thumb. Everything the chapter needs happens a row and a
            dead band away from here, because this is the row that gets pressed

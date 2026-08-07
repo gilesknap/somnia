@@ -164,32 +164,44 @@ Two failure modes seen in real ports, both visible in a screenshot:
 
 ### Player vertical rhythm (read this before laying the screen out)
 
-The player is one column with **exactly one flexible gap**. Everything else is a fixed margin. Distributing
-the leftover height evenly — `justify-content: space-between`, or a spacer between every group — is wrong:
-it opens a canyon under the agent line and pushes the transport and dock apart, which is what happened on
-the first port.
+The player is one column that **fills whatever height it is given at any system zoom level**. Do not pool
+all the leftover height in one gap (an earlier draft did, and at looser zoom levels it opened a ~330dp void
+under the header while everything else stayed welded to the bottom). Instead there are **three weighted
+flexible spacers**, each with a floor and a ceiling, and the transport and dock stay pinned to the bottom by
+fixed margins.
 
-Column order, top to bottom, with the ONLY flexible element marked:
+Column order, top to bottom:
 
-| # | Element | Spacing above |
+| # | Element | Spacing / flex |
 | --- | --- | --- |
-| 1 | **Flexible spacer — `flex: 1`, `min-height: 12dp`** — empty; nothing renders above the title | absorbs *all* slack |
-| 2 | Title group: book title → position line → scrub line → sleep pill | — |
-| 3 | Chapter group: chapter title → chapter position → nav row | **14dp** |
-| 4 | Transport grid | **14dp** |
-| 5 | Dock: pill (a portal to chat) + mic | **12dp** |
-| — | bottom of screen | 4dp |
+| 1 | Header row | 48 tall |
+| 2 | **Spacer A** | `flex: 2 1 0`, `min-height: 12`, `max-height: 180` |
+| 3 | Title group: book title → position line → scrub line → sleep pill | `flex: none` |
+| 4 | **Spacer B** | `flex: 1 1 0`, `min-height: 14`, `max-height: 70` |
+| 5 | Chapter group: chapter title → chapter position → nav row | `flex: none` |
+| 6 | **Spacer C** | `flex: 1 1 0`, `min-height: 14`, `max-height: 70` |
+| 7 | Transport grid | `flex: none` |
+| 8 | Dock: pill (a portal to chat) + mic | `flex: none`, **12** above |
+| — | bottom of content area | 4 |
 
-Every group except (1) is `flex: none`. Within the groups the internal spacing is tight and fixed:
+How it behaves:
 
-- Title group: position line `margin-top: 2dp` (its 44dp tap area supplies the visual space); scrub line
-  `margin-top: 2dp`; sleep pill `margin-top: 4dp`.
-- Chapter group: chapter position `margin-top: 3dp`; nav row `margin-top: 10dp`.
+- **Tightest zoom** (least dp available): all three spacers hit their floors and the layout collapses to the
+  14/14/12 rhythm — still no scroll, because the floors are what the fixed content needs and no more.
+- **Middle** (the common case): slack is shared **2 : 1 : 1**, so the largest breathing space is above the
+  title, and the chapter group and transport each get half as much. The screen looks composed rather than
+  bottom-heavy.
+- **Loosest zoom** (most dp available): the ceilings stop Spacer A running away; any remaining slack
+  distributes into B and C until they cap too, then sits at the bottom. The proportions stay recognisable at
+  every zoom instead of one gap swallowing everything.
 
-Consequence to sanity-check on device: the empty band between the header and the book title should be the
-**largest** gap on screen, and the gaps between title group / chapter group / transport / dock should look
-near-identical (14/14/12). If the transport and dock are drifting apart while the middle looks crowded, the
-slack is being shared instead of pooled.
+Do **not** use `justify-content: space-between` (equalises all gaps, ignores the 2:1:1 intent) and do **not**
+use a single `flex: 1` spacer (pools all slack in one place). Nothing renders inside the spacers.
+
+Consequence to sanity-check on device, at whatever zoom you use: the gap above the book title should be the
+largest on screen but clearly finite — roughly twice the gap above the chapter group, which should itself
+look about the same as the gap above the transport. If the top gap looks like half the screen, the ceilings
+are missing.
 
 ### Target sizes (the player fits 360×780 exactly at these)
 
