@@ -68,6 +68,10 @@ somnia` gets you a stranger's package that will not answer to any command on
 this site. The extra name is the only thing that changed: `import somnia` and
 the `somnia` command are untouched.
 
+If pip answers *No matching distribution found for somnia-reader*, there is no
+release on PyPI for it to find — the first one may not have gone out yet. The
+repository has the code either way, and that is the next section.
+
 ## Ahead of the last release
 
 A tagged release is a snapshot, and `main` moves. If you are chasing a fix that
