@@ -33,6 +33,18 @@ python3 -m pip install "somnia-reader[ml] @ git+https://github.com/gilesknap/som
 Uninstall by the *distribution* name, `somnia-reader` — `pip uninstall somnia`
 finds nothing to remove and exits happily, which looks exactly like success.
 
+**`--ref` only reaches back as far as the rename.** 0.5 and everything older
+calls itself `somnia` in its own metadata, and pip will not take a direct URL
+whose name disagrees with what it builds: *has inconsistent name: expected
+'somnia-reader', but metadata has 'somnia'*. It does not stop there either — it
+discards the ref you asked for and looks the name up on PyPI instead, so once
+there is a release it will quietly hand you the newest one and call that
+success. Install an old version under the name it was published with:
+
+```bash
+python3 -m pip install "somnia[ml] @ git+https://github.com/gilesknap/somnia.git@0.5"
+```
+
 The uninstall itself is not superstition either. pip treats a direct URL
 requirement as satisfied when the name and version already match, so re-running
 the install command with a new `--ref` clones the repository, decides there is

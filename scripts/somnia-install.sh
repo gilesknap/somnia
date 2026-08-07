@@ -211,6 +211,9 @@ else
     # says somnia-reader, discards the whole thing as "inconsistent name" —
     # and then goes looking for somnia on PyPI, where the other project is
     # waiting. What you get is either a confusing failure or a stranger.
+    # The same trap runs backwards: --ref 0.5, or any ref from before the
+    # rename, builds metadata saying somnia and is discarded the same way —
+    # docs/how-to/upgrade.md says what to type instead.
     spec="$DIST_NAME$extras @ git+$REPO_URL@$ref"
 fi
 
