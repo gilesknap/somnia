@@ -112,13 +112,30 @@ if __name__ == "__main__":
     d = measure(src, int(sys.argv[2]) if len(sys.argv) > 2 else 867)
     print(f"root={d['root']}px  viewport={d['viewport']}  scrollH={d['scrollH']}")
     print(f"SCROLLS: {d['scrollH'] > d['viewport'] + 1}")
-    rows = [
-        ("header -> conversation (top of it)", gap(d["header"], d["firstSaid"]), 12),
-        (
-            "placement line -> title  (the flexible one: should be LARGEST)",
-            gap(d["lastSaid"], d["bookTitle"]),
-            "max",
-        ),
+    # The player carries no conversation at all now — the whole thread is the
+    # keyboard-up screen — so on it there is one gap where there used to be two,
+    # and it runs from the header straight down to the book. Measured from
+    # whatever is actually on the screen rather than from a hidden element,
+    # because a `display: none` turn has a rect of all zeroes and reported -48
+    # against a layout that was right.
+    if d["firstSaid"] is None:
+        rows = [
+            (
+                "header -> title  (the flexible one: should be LARGEST)",
+                gap(d["header"], d["bookTitle"]),
+                "max",
+            ),
+        ]
+    else:
+        rows = [
+            ("header -> conversation (top of it)", gap(d["header"], d["firstSaid"]), 12),
+            (
+                "conversation -> title  (the flexible one: should be LARGEST)",
+                gap(d["lastSaid"], d["bookTitle"]),
+                "max",
+            ),
+        ]
+    rows += [
         ("title group -> chapter group", gap(d["sleep"], d["chapterTitle"]), 18),
         ("chapter group -> transport", gap(d["chapterStrip"], d["transport"]), 18),
         ("transport -> dock (the pill itself)", gap(d["transport"], d["pill"]), 14),

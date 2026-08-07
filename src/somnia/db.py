@@ -148,6 +148,30 @@ def _migrate(conn: sqlite3.Connection) -> None:
         if column not in existing:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
+    # And then write down what the older books never got the chance to. A book
+    # rendered before that column existed has a 0 in it, which everything
+    # reading it correctly treats as "don't know" — so the player says
+    # `chapter 4` where it should say `chapter 4 of 49`, and the one line on
+    # that screen saying how much book is left says nothing at all. On the box
+    # this runs on that was the book actually being listened to.
+    #
+    # Only for a book that has finished rendering. While one is still being
+    # read the chapter rows are how many exist *so far*, so counting them would
+    # write a total that is wrong and then stop looking wrong — a denominator
+    # that quietly settles two chapters short is worse than the honest 0,
+    # because nothing downstream would ever question it again.
+    #
+    # Idempotent, and it runs on every open: the guard is `chapters_total = 0`,
+    # so a book that has a real total is never recounted and a book still
+    # rendering is picked up by this the first time it is opened after it
+    # finishes.
+    conn.execute(
+        "UPDATE books SET chapters_total = ("
+        "  SELECT COUNT(*) FROM chapters WHERE chapters.book_gid = books.gid"
+        ") WHERE status = 'done' AND chapters_total = 0"
+        "  AND EXISTS (SELECT 1 FROM chapters WHERE chapters.book_gid = books.gid)"
+    )
+
 
 def connect(db_path: Path, *, cross_thread: bool = False) -> sqlite3.Connection:
     """Open (creating if needed) the somnia database.

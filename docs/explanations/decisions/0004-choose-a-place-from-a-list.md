@@ -8,7 +8,10 @@ carries a line saying how many places there are and what they span; the reveal
 is the whole row and `goto` is a pill on its last line, ranged right, which
 inverts the emphasis described below — the press that can be taken back is now
 the big one; the "you are here" marker is a rule across the list rather than a
-row in it; and the inert cancel says `close`. The list still replaces the
+row in it; and the inert cancel is a `‹ controls` pill in the top left — the
+same corner, the same word and the same gesture as the way out of the books
+panel and as the player's own navigation pill, replacing a slab across the
+bottom that said `close`. The list still replaces the
 conversation rather than the seek, the guard is still decided once on the
 server, and the way out still touches nothing.
 

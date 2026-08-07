@@ -259,7 +259,11 @@ h1 {
   color: var(--mid);
 }
 
-#books .pill {
+/* Not scoped to #books any more. It is the shape of "this goes somewhere" on
+   this page, and there are three of them now: `books` on the player, and
+   `‹ controls` on each of the two overlays. Written once so the three cannot
+   drift apart, which is the only reason they read as one control. */
+.pill {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -274,7 +278,7 @@ h1 {
 /* Small, and pointing the way the panel arrives from. currentColor, so it warms
    with the word rather than being a second thing that has to be kept in step
    with it. */
-#books .caret {
+.caret {
   flex: none;
   width: 0.3rem;
   height: 0.5rem;
@@ -358,18 +362,25 @@ h1 {
    two viewport heights, and drawing the chat's type on the player put the
    loudest text on the page above the book somebody is actually listening to.
 
-   One turn of it, not the thread. The brief is explicit that the player shows
-   no replies — the scrollback is the chat screen's, and the dock pill and the
-   microphone are the way into it — so on the player everything but the newest
-   turn is off the screen, and what is left is a line. That is the same split
-   the type above already makes, drawn at the same boundary: the conversation is
-   a screen when there is a keyboard up to have made one, and a placement line
-   when there is not.
+   None of it, in the end. The brief is explicit that the player shows no
+   replies, and it gives that slot a *placement line* — where somnia last put
+   you — rather than a turn of a conversation. somnia has no such readout, and
+   the nearest thing it has is the last turn, which is most often the question
+   that was typed. Drawing that is chat on the control screen by another name,
+   so the whole conversation is off this screen and the slot is empty. The
+   player is the book and the controls, and nothing that was said.
+
+   The gap that is left is the screen's one flexible spacer, which is why
+   #transcript keeps its box and only its contents go: `flex: 1` on an element
+   with nothing in it is still the thing all the slack pools in. Take the
+   element away instead and the slack has nowhere to be.
 
    It is display and nothing else. The turns are all still in the document, in
    order, and app.js neither knows nor cares — which is what makes the keyboard
    coming up the whole of the way back to them, rather than a route with a
-   history to keep. */
+   history to keep. What is not on this screen and never was is #status:
+   "listening…" and "tap anywhere to carry on" are somnia talking about itself,
+   not a conversation, and they stay. */
 
    Italic is not decoration here. It means what it means everywhere else in this
    sheet: words that are not somnia's own, and words from the book you may not
@@ -386,7 +397,7 @@ h1 {
   color: var(--placement);
 }
 
-#transcript .said:not(:last-child) {
+#transcript .said {
   display: none;
 }
 
@@ -1147,18 +1158,16 @@ button:disabled {
     margin-top: auto;
   }
 
-  /* And here the thread comes back. On the player only the newest turn is
-     drawn; a keyboard up is somebody asking something, and the answer to it is
-     read against what was asked before it. This is the whole of the route into
-     the scrollback and the whole of the route out of it. */
-  #transcript .said:not(:last-child) {
-    display: block;
-  }
+  /* And here the whole thread comes back. The player has none of it; a keyboard
+     up is somebody asking something, and this is the screen they asked it on.
+     One rule in each direction is the entire route in and the entire route
+     out.
 
-  /* Through #transcript, to match the player rule above it. Both sizes have to
-     be written at the same specificity or the one outside this query wins at
-     every height and the chat screen is drawn at the placement line's size. */
+     Through #transcript, to match the player rule above it. Both have to be
+     written at the same specificity or whichever comes last in the file wins at
+     every height rather than the one whose media query matched. */
   #transcript .said {
+    display: block;
     margin-bottom: 0.7rem;
     font-size: 1.35rem;
     font-style: normal;
@@ -1542,45 +1551,47 @@ button.candidate-show:active {
 }
 
 /* Over the last of the reading rather than after it, which is what the fade is
-   for: the negative margin pulls the foot up a thumb's width and the gradient
-   takes the rows into the room instead of ending them on a hard edge.
+   for. The gradient and the pull-up are gone with it: there is nothing at the
+   bottom of this overlay now to fade the last row into, and a fade over
+   nothing is a gradient nobody can see.
 
-   That overlap is also a dead band. A press in it lands on this div, which
-   listens for nothing, so a high miss on `close` costs one more press instead
-   of landing on the last row's `goto` — the same trade the whole page is built
-   on, made in the one place where a miss would move the book. */
-#candidates-foot {
+   What went with them is a dead band the row no longer needs. It stopped a
+   high miss on `close` landing on the last row's `goto`; there is no control
+   down there to miss onto any more. */
+#candidates-head,
+#queue-head {
   flex: none;
-  margin-top: -1.2rem;
-  padding-top: 1.2rem;
-  background: linear-gradient(to top, var(--bg) 65%, transparent);
+  /* The header's own 48dp target on the player, so the pill sits at the same
+     height off the top of the screen whichever of the three screens is up —
+     which is the entire argument for moving it here. */
+  display: flex;
+  align-items: center;
+  min-height: 2.4rem;
+  margin-bottom: 0.6rem;
 }
 
-/* --surface and --ink, never --accent-surface: the warm one is reserved for the
-   control pressed without looking, and this one is pressed on purpose. Now that
-   the page has one amber and uses it for everything warm, that rule is the only
-   thing left keeping the amber worth noticing. It is the full width of the
-   screen at the bottom of it, which is the one place a hand already holding the
-   phone arrives at without aiming.
-
-   68dp and unoutlined, where it used to be 110px with a hairline round it. It
-   is a way out of a screen somebody has finished reading, not a transport
-   button, and the height it gave up is four more lines of places. It is the
-   only slab on this overlay, which is enough to find it by. */
-#candidates-cancel {
-  width: 100%;
-  min-height: 3.4rem;
+/* The same pill as `books` in the header, because it is the same kind of thing
+   — the one control on the screen that goes somewhere — and a listener should
+   not have to learn it twice. Everything that shapes it is inherited from
+   `#books .pill` below; what is set here is only the target around it. */
+#candidates-cancel,
+#queue-close {
+  display: flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0;
   border: 0;
-  border-radius: 1rem;
-  background: var(--surface);
+  background: none;
   color: var(--mid);
-  font-size: 1.05rem;
 }
 
-#candidates-cancel:active {
-  background: var(--surface-active);
-  color: var(--ink);
+#candidates-cancel:active .pill,
+#queue-close:active .pill {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
 }
+
 
 /* A keyboard over half the screen, or a phone on its side — and a keyboard is
    the state this page is in at the moment a question has just been asked, which
@@ -1627,9 +1638,11 @@ button.candidate-show:active {
     display: none;
   }
 
-  #candidates-cancel {
-    min-height: 2.8rem;
-  }
+  /* The way out keeps its full 48dp target with a keyboard up. It shrank when
+     it was a slab across the bottom competing for the same pixels as the list;
+     a pill in the corner is not in the list's way, and the one control that
+     leaves the screen is the last one that should get smaller on the screen
+     that is hardest to read. */
 }
 
 /* Shorter than this and there is nothing left to arrange: it is a keyboard on
@@ -2152,36 +2165,9 @@ button.candidate-show:active {
   color: var(--accent);
 }
 
-/* Over the last of the reading rather than after it, exactly as on the list of
-   places: the negative margin pulls the foot up a thumb's width and the
-   gradient takes the rows into the room instead of ending them on a hard edge.
-   The overlap is also the dead band that keeps a high miss on `close` off the
-   last result's press. */
-#queue-foot {
-  flex: none;
-  margin-top: -1.2rem;
-  padding-top: 1.2rem;
-  background: linear-gradient(to top, var(--bg) 65%, transparent);
-}
-
-/* The same word as #candidates-cancel, in the same place, and now at the same
-   size: 68dp, unoutlined, --surface and --mid. The height it gave up is two
-   more rows of books, and the sameness is the point — whichever overlay is up,
-   the way out is one slab across the bottom of the screen, which is where a
-   hand already holding the phone arrives without aiming. */
-#queue-close {
-  width: 100%;
-  min-height: 3.4rem;
-  border: 0;
-  border-radius: 1rem;
-  background: var(--surface);
-  color: var(--mid);
-  font-size: 1.05rem;
-}
-
-#queue-close:active {
-  background: var(--surface-active);
-}
+/* #queue-foot and #queue-close's own rules are gone: the way out of this panel
+   is the pill at the top of it, styled with the list of places' one above, and
+   the two are written together there because being identical is the point. */
 
 /* A keyboard over half the screen, which on this panel is not the exception —
    searching for a book is what it is for. The rows shrink, the list scrolls,
@@ -2214,11 +2200,10 @@ button.candidate-show:active {
     min-height: 2.6rem;
   }
 
-  /* The same 2.8rem the way out of the list of places takes with a keyboard up,
-     so that the two panels still agree about where `close` is — and the same
-     for the one press at the top of the panel, which is the other slab a thumb
-     goes to without reading the screen twice. */
-  #queue-close,
+  /* The one press at the top of the panel, which is the slab a thumb goes to
+     without reading the screen twice. The way out is not in here with it any
+     more: it is a pill in the corner rather than a slab in the list's way, and
+     it keeps its full target at every height. */
   #reading-resume {
     min-height: 2.8rem;
   }

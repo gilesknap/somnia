@@ -21,18 +21,26 @@
 
          The order down the page is the order a hand reaches: the name, the way
          to the books and the one button that throws anything away, all of them
-         as far from the thumb as the screen allows; the conversation in the
-         middle where it is read rather than touched; and the two things pressed
-         without looking — the book and the microphone — where a hand already
-         holding the phone can find them.
+         as far from the thumb as the screen allows; the book and its readouts
+         in the middle where they are read rather than touched; and the two
+         things pressed without looking — the transport and the microphone —
+         where a hand already holding the phone can find them.
+
+         The conversation is in the middle of that order in the document and on
+         none of it on screen. With no keyboard up this is the control screen
+         and it carries the book and the controls and nothing that was said; the
+         keyboard coming up is what turns the same element into the chat screen,
+         and going away is what turns it back. There is still nowhere else to
+         go: the thread never left the document, so there is no history to keep
+         and nothing to come back from.
 
          The one screen now has one overlay over it — #candidates, at the foot
          of this file — and it is still the same screen underneath. It is raised
          only by an answer that is itself a choice ("which of these places did
          you mean?"), the book keeps playing beneath it, nothing has moved while
-         it is up, and its `close` button puts it away having changed nothing at
+         it is up, and its `‹ controls` pill puts it away having changed nothing at
          all. It is not a route and there is nothing to come back from: the ways
-         out are a `goto`, `close`, and the agent moving the book itself, and
+         out are a `goto`, `‹ controls`, and the agent moving the book itself, and
          every one of them leaves the page in a state it already knows how to be
          in.
 
@@ -53,7 +61,7 @@
          the panel is standing over. That is the play button pressed from up
          here rather than from behind, and it is the only book the panel can
          reach: it opens nothing, switches nothing, and the sentence above
-         survives word for word. So there are two ways out now — `close`, which
+         survives word for word. So there are two ways out now — `‹ controls`, which
          changes nothing at all, and that one press, which takes the panel away
          with it because it has just answered the question the panel was opened
          with. -->
@@ -389,12 +397,12 @@
     </form>
 
     <!-- Still one screen. This is over the page, not away from it: the book
-         keeps playing underneath, nothing has moved yet, and `close` puts it
+         keeps playing underneath, nothing has moved yet, and `‹ controls` puts it
          back exactly as it was. It exists because the alternative was a
          conversation — "did you mean the one an hour in or the one at four
          hours?" — read in the dark by someone half asleep, and a list of times
          is something a thumb can answer without composing a sentence. The three
-         ways out are a `goto`, `close`, and the agent moving the book itself,
+         ways out are a `goto`, `‹ controls`, and the agent moving the book itself,
          and each leaves the page in a state it already knows how to be in.
 
          Every row is two targets and only one of them moves anything. The
@@ -428,9 +436,37 @@
          that everything behind it is inert, and everything behind it is a book
          still playing that the lock screen can still stop. -->
     <section id="candidates" hidden aria-labelledby="candidates-title">
+      <!-- The way out, in the corner it is in on every screen of this app.
+
+           It was a slab across the bottom saying `close`, on the argument that
+           the bottom of the screen is where a hand already holding the phone
+           arrives without aiming. That is true and it was not enough: the
+           player's own navigation pill is the top left, so the page had two
+           different places meaning "leave this", picked by which screen you
+           happened to be on. One corner, one word, one gesture is worth more in
+           the dark than a shorter reach, and it is the design's own rule —
+           "the same gesture in the same place on every screen".
+
+           Above the scroller rather than in it, so it is in the same place
+           whatever the list is doing. `controls` and not `close` because it now
+           says where it goes rather than what it does to this screen, and the
+           caret points back the way the player is. -->
+      <div id="candidates-head">
+        <!-- Still the inert cancel: it moves nothing, reports nothing and hands
+             back the tap-to-resume the list took. Only the word and the corner
+             changed. -->
+        <button id="candidates-cancel" type="button">
+          <span class="pill">
+            <svg class="caret back" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+              <path d="M6 0 0 5 6 10Z" fill="currentColor" />
+            </svg>
+            controls
+          </span>
+        </button>
+      </div>
       <!-- Everything except the way out, as on the books panel and for the same
            reason: the reading scrolls when there is more of it than screen, and
-           `close` does not move when it does. -->
+           the way out does not move when it does. -->
       <div id="candidates-scroll">
         <!-- It said "Where do you mean?" — the conversation's own opening line
              asked back — for as long as this was only ever raised by an answer.
@@ -458,19 +494,6 @@
           tap to reveal what you have not heard · tap goto to move
         </p>
       </div>
-      <!-- Outside the scrolling part, so however many rows there are the way
-           out is in the same place, at the bottom, where a hand already holding
-           the phone is. It overlaps the reading by a thumb's width and eats
-           whatever lands there, which is the dead band that keeps a high miss
-           on `close` off the last row's `goto`. -->
-      <div id="candidates-foot">
-        <!-- `close`, and it is still the cancel: it moves nothing, reports
-             nothing and hands back the tap-to-resume the list took. The word
-             changed because the screen did — a question is called off, a screen
-             is left — and because the way out of the books panel is in the same
-             place and has always said `close`. -->
-        <button id="candidates-cancel" type="button">close</button>
-      </div>
     </section>
 
     <!-- The books panel. Sibling of #candidates and after it, built to the same
@@ -490,12 +513,31 @@
          the only part of it that wants a keyboard, so it sits below the reading
          where the keyboard can cover it without covering anything else.
 
-         #queue-foot is outside the scrolling part, so `close` is in the same
-         place however many rows there are and whatever the keyboard is doing.
-         That matters more here than on the list of places: this panel can be
-         open with a keyboard up, and a way out that has been pushed under the
-         keyboard is a way out that does not exist. -->
+         #queue-head is outside the scrolling part, so the way out is in the
+         same place however many rows there are and whatever the keyboard is
+         doing. That matters more here than on the list of places: this panel
+         can be open with a keyboard up, and a way out that has been pushed
+         under the keyboard is a way out that does not exist. -->
     <section id="queue" hidden aria-labelledby="queue-title">
+      <!-- The same pill, in the same corner, saying the same word as the list
+           of places. That sameness is the whole point of moving it: whichever
+           overlay is up, the way back is one gesture in one place.
+
+           At the top rather than the bottom, which also settles the argument
+           the old comment here made for itself. This panel is nearly always
+           read with a keyboard up, and a way out that the keyboard can push
+           off the screen is not one — the top of the screen is the half a
+           keyboard can never reach. -->
+      <div id="queue-head">
+        <button id="queue-close" type="button">
+          <span class="pill">
+            <svg class="caret back" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+              <path d="M6 0 0 5 6 10Z" fill="currentColor" />
+            </svg>
+            controls
+          </span>
+        </button>
+      </div>
       <div id="queue-scroll">
         <!-- Inside the scroller now, with the list of places' title and for the
              same reason: what is pinned to this panel is the way out and
@@ -651,16 +693,6 @@
              own sentence, from the same function the agent's add_book returns,
              so the panel and the voice cannot disagree about what happened. -->
         <p id="queue-said"></p>
-      </div>
-      <!-- Outside the scroller, over a fade into the room, the same 68dp slab
-           in the same place as the way out of the list of places. Both panels
-           are read with a keyboard up — this one nearly always is — and a way
-           out that has been pushed under the letters is a way out that does not
-           exist. The two used to be different heights, which was a debt this
-           pass paid: whichever overlay is up, `close` is the same slab at the
-           same size at the bottom of the screen. -->
-      <div id="queue-foot">
-        <button id="queue-close" type="button">close</button>
       </div>
     </section>
 

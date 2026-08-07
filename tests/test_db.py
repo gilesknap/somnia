@@ -66,3 +66,109 @@ def test_a_database_from_before_this_feature_gains_the_chapter_count(
     assert (row["position_ms"], row["position_seq"]) == (300_000, 3)
     assert (row["position_at"], row["heard_to_ms"]) == ("2026-08-05 23:40:00", 250_000)
     assert (row["status"], row["total_ms"]) == ("done", 900_000)
+
+
+def test_a_finished_book_gets_its_chapter_count_written_from_its_chapters(
+    tmp_path: Path,
+) -> None:
+    """The column arriving empty is only half a fix.
+
+    Every book on the VPS that was rendered before it existed carries a 0, and
+    0 correctly means "don't know" everywhere it is read — so the player says
+    `chapter 4` and drops the only line on that screen saying how much book is
+    left. On the box this runs on that was the book actually being listened to:
+    Black Beauty, 49 chapters on disk, 0 written down.
+
+    Counting them is safe for a book that has finished and only for one. While
+    a book renders, its chapter rows are how many exist *so far*, so a total
+    counted then would be wrong and would then stop looking wrong — a
+    denominator that quietly settles two chapters short is worse than an honest
+    0, because nothing downstream would question it again.
+    """
+    db_path = tmp_path / "somnia.db"
+    old = sqlite3.connect(db_path)
+    old.executescript(_OLD_SCHEMA)
+    old.executescript(
+        "CREATE TABLE chapters ("
+        " book_gid INTEGER NOT NULL, idx INTEGER NOT NULL, title TEXT NOT NULL,"
+        " start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL,"
+        " audio_file TEXT NOT NULL, PRIMARY KEY (book_gid, idx))"
+    )
+    old.execute(
+        "INSERT INTO books (gid, title, voice, status, total_ms) VALUES"
+        " (271, 'Black Beauty', 'af_heart', 'done', 900000)"
+    )
+    # Still being read: two chapters of it exist, and nobody knows how many it
+    # will end up with.
+    old.execute(
+        "INSERT INTO books (gid, title, voice, status, total_ms) VALUES"
+        " (999, 'Dracula', 'af_heart', 'rendering', 40000)"
+    )
+    for gid, count in ((271, 3), (999, 2)):
+        for idx in range(count):
+            old.execute(
+                "INSERT INTO chapters (book_gid, idx, title, start_ms, end_ms,"
+                " audio_file) VALUES (?, ?, 'a chapter', 0, 1000, 'x.opus')",
+                (gid, idx),
+            )
+    old.commit()
+    old.close()
+
+    conn = connect(db_path)
+    try:
+        conn.row_factory = sqlite3.Row
+        totals = {
+            r["gid"]: r["chapters_total"]
+            for r in conn.execute("SELECT gid, chapters_total FROM books")
+        }
+    finally:
+        conn.close()
+
+    assert totals == {271: 3, 999: 0}
+
+
+def test_a_book_that_already_knows_its_total_is_never_recounted(
+    tmp_path: Path,
+) -> None:
+    """The backfill runs on every open, so it has to be idempotent in the one
+    way that matters: a book whose real total is larger than the chapters on
+    disk must keep it. That is every book between "the text was parsed" and
+    "the last chapter was encoded", and overwriting it there would walk the
+    denominator backwards while somebody watched.
+    """
+    db_path = tmp_path / "somnia.db"
+    old = sqlite3.connect(db_path)
+    old.executescript(_OLD_SCHEMA)
+    old.executescript(
+        "CREATE TABLE chapters ("
+        " book_gid INTEGER NOT NULL, idx INTEGER NOT NULL, title TEXT NOT NULL,"
+        " start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL,"
+        " audio_file TEXT NOT NULL, PRIMARY KEY (book_gid, idx))"
+    )
+    old.execute(
+        "INSERT INTO books (gid, title, voice, status, total_ms) VALUES"
+        " (271, 'Black Beauty', 'af_heart', 'done', 900000)"
+    )
+    old.execute(
+        "INSERT INTO chapters (book_gid, idx, title, start_ms, end_ms,"
+        " audio_file) VALUES (271, 0, 'a chapter', 0, 1000, 'x.opus')"
+    )
+    old.commit()
+    old.close()
+
+    # First open fills it in from the one chapter on disk.
+    connect(db_path).close()
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE books SET chapters_total = 49 WHERE gid = 271")
+    conn.commit()
+    conn.close()
+
+    # Second open leaves the real total alone rather than counting again.
+    conn = connect(db_path)
+    try:
+        total = conn.execute(
+            "SELECT chapters_total FROM books WHERE gid = 271"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert total == 49
