@@ -15,6 +15,7 @@ model is told how hard to think rather than left to decide.
 
 import logging
 import sqlite3
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -40,9 +41,11 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-# Which models will accept an effort level, asked of the API once each and
-# remembered for the life of the process. See :func:`effort_for`.
-_EFFORT_SUPPORT: dict[str, bool] = {}
+# Whether (model, level) will be accepted, asked of the API once each and
+# remembered for the life of the process. Both halves of the key matter: a
+# model can have the dial and not the setting. See :func:`effort_for`.
+_EFFORT_SUPPORT: dict[tuple[str, str], bool] = {}
+_EFFORT_LOCK = threading.Lock()
 
 # The only sentence that belongs beside a list of places. It names no place, no
 # chapter, no character and no time, because the screen holds all of that and
@@ -584,9 +587,20 @@ def effort_for(client: Anthropic, cfg: Config) -> BetaOutputConfigParam | Omit:
 
     The API is asked rather than a list of model names being kept here, because
     a list of model names is wrong the week after it is written and wrong
-    silently. It is asked once per model per process, and
+    silently. It is asked once per model and level per process, and
     :meth:`somnia.server.Conversations.warm` asks before anybody has a question,
     so no turn waits on it.
+
+    Remembered against the model *and* the level, because the question is about
+    both. Keyed on the model alone, an answer about ``low`` would be handed back
+    as though it were an answer about ``xhigh`` — a level the same model may not
+    have — which is the 400 this exists to prevent, arriving by the door the fix
+    came through.
+
+    Under a lock, because it is asked from two threads: the warm-up at startup
+    and, if a question beats it, the turn itself. Without one they can both miss
+    and both go and ask, and a lookup that fails can land on top of one that
+    succeeded.
 
     Anything unexpected — an unreachable API, a model it has never heard of, a
     capability list in a shape this does not know — answers "no dial", which is
@@ -594,26 +608,29 @@ def effort_for(client: Anthropic, cfg: Config) -> BetaOutputConfigParam | Omit:
     question is answered, two seconds slower. The opposite guess costs the whole
     night.
     """
-    model = cfg.agent_model
-    if model not in _EFFORT_SUPPORT:
-        try:
-            capabilities = client.models.retrieve(model).capabilities
-            effort = capabilities.effort if capabilities is not None else None
-            level = getattr(effort, cfg.agent_effort, None)
-            _EFFORT_SUPPORT[model] = bool(
-                effort is not None
-                and effort.supported
-                and level is not None
-                and level.supported
-            )
-        except Exception:
-            logger.warning(
-                "could not ask whether %s takes an effort level; not sending one",
-                model,
-                exc_info=True,
-            )
-            _EFFORT_SUPPORT[model] = False
-    if not _EFFORT_SUPPORT[model]:
+    asked = (cfg.agent_model, cfg.agent_effort)
+    with _EFFORT_LOCK:
+        if asked not in _EFFORT_SUPPORT:
+            try:
+                capabilities = client.models.retrieve(cfg.agent_model).capabilities
+                effort = capabilities.effort if capabilities is not None else None
+                level = getattr(effort, cfg.agent_effort, None)
+                _EFFORT_SUPPORT[asked] = bool(
+                    effort is not None
+                    and effort.supported
+                    and level is not None
+                    and level.supported
+                )
+            except Exception:
+                logger.warning(
+                    "could not ask whether %s takes effort=%s; not sending one",
+                    cfg.agent_model,
+                    cfg.agent_effort,
+                    exc_info=True,
+                )
+                _EFFORT_SUPPORT[asked] = False
+        supported = _EFFORT_SUPPORT[asked]
+    if not supported:
         return omit
     return {"effort": cfg.agent_effort}
 

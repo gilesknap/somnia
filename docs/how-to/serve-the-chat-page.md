@@ -53,7 +53,8 @@ every book, it never moves a position backwards, and running it again changes
 nothing — so if you are unsure whether it worked, run it again.
 
 `SOMNIA_AGENT_MODEL` overrides Sonnet 5. Haiku was the first choice, on cost,
-and was dropped for one specific mistake it no longer makes: set
+and was dropped for one specific mistake it did not make once in five tries at
+the same question, against a prompt hardened a great deal since: set
 `SOMNIA_AGENT_MODEL=claude-haiku-4-5` to go back to it. Over 85 trial questions
 on nuc2 it matched Sonnet on every routing case and answered in half the time,
 for a fifth of the cost. If the wait is what is bothering you, this is the

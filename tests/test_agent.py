@@ -608,6 +608,30 @@ def test_a_level_this_model_does_not_offer_is_not_sent_either(
     assert calls[-1]["output_config"] is omit
 
 
+def test_what_was_learned_about_one_level_is_not_reused_for_another(
+    library_with_book: Library,
+) -> None:
+    """The answer is about a model *and* a level, so it is remembered as both.
+
+    Remembered against the model alone, the first question asked would settle
+    it: having learned that this model takes `low`, somnia would go on to send
+    it `xhigh` — which the same model may not have — and that is the 400 this
+    whole function exists to prevent, coming back in through the fix.
+    """
+    calls: list[dict[str, Any]] = []
+    client = client_recording_calls(calls, levels="low medium high")
+    cfg = Config()
+    cfg.agent_model = "a-model-without-xhigh"
+
+    cfg.agent_effort = "low"
+    Conversation(cfg, library_with_book, client).ask("hi", 271)
+    assert calls[-1]["output_config"] == {"effort": "low"}
+
+    cfg.agent_effort = "xhigh"
+    Conversation(cfg, library_with_book, client).ask("hi", 271)
+    assert calls[-1]["output_config"] is omit
+
+
 def test_a_model_we_cannot_ask_about_is_sent_no_effort_either(
     library_with_book: Library,
 ) -> None:
