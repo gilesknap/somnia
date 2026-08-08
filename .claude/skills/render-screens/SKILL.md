@@ -81,9 +81,15 @@ layout that was right.
 
 ## Doing it
 
+The three overlays are `--panel books`, `--panel workshop` and `--panel places`.
+Each fills its own lists, which app.js builds and a snapshot otherwise cannot
+see — without the fixture those screens photograph as a heading over nothing,
+which is a picture that looks fine and is not the page.
+
 ```bash
 S=.claude/skills/render-screens
 python3 $S/snapshot.py --out /tmp/somnia/page.html
+python3 $S/snapshot.py --out /tmp/somnia/places.html --panel places
 python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/player.png
 python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/chat.png --screen chat --height 470
 python3 $S/measure.py /tmp/somnia/page.html 867
@@ -155,11 +161,14 @@ something — the toast, for instance — by hand.
 - transport buttons **5.5rem**; the chapter circles **3.2rem**; the microphone
   **5rem**; the header **2.4rem**
 - the text column is **320px** — 360 less the 1rem gutter each side
-- `1:12:08 of 9:41:33` and the sleep pill share one row and only just: at the
-  sizes before the type scale landed they wrapped, and they still wrap if the
-  sleep label grows past about eleven characters
+- `1:12:08 of 9:41:33` and the sleep pill are **no longer on one row**. The
+  position line, the count under it, the scrub line and the pill are four
+  stacked full-width lines, so the pill has the whole 320 to itself and the old
+  eleven-character ceiling on its label is gone with the row it was about. The
+  fixture holds `sleep timer · 60 min left`, the widest of the six states, and
+  it fits with room either side
 - the header holds two things and a name, and they are not the same two on both
-  screens: `library ›` and `somnia` on the player, with the right corner empty;
+  screens: `books ›` and `somnia` on the player, with the right corner empty;
   `‹ controls`, `somnia` and `start over` on chat. The chat row fills most of
   the 320 and has no room for a fourth thing
 

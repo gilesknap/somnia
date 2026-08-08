@@ -1400,18 +1400,23 @@ function sleepSentence() {
 
 // What the pill says, and what it says out loud, decided in one place.
 //
-// The visible label is one pre-assembled string — `sleep timer · 30m` — and
-// not a word with a value appended to it. `sleep` on its own was the control's
-// name on the nights it was off and a state on the nights it was on, and the
-// only thing telling those two readings apart was whether anything followed
-// it. Half asleep that is not a distinction anybody makes. Now the pill always
-// says both what it is and what it is set to, which is also what makes it the
-// one control on the page that can be read without being understood first.
+// The visible label is one pre-assembled string — `sleep timer · 24 min left`
+// — and not a word with a value appended to it. `sleep` on its own was the
+// control's name on the nights it was off and a state on the nights it was on,
+// and the only thing telling those two readings apart was whether anything
+// followed it. Half asleep that is not a distinction anybody makes. Now the
+// pill always says both what it is and what it is set to, which is also what
+// makes it the one control on the page that can be read without being
+// understood first.
+//
+// What follows the dot is what is *left*, not what it was set to. `30m` read
+// as either at 1am, and only one of the two is a question anybody asks of a
+// sleep timer.
 //
 // The spoken form is built from the same branch rather than beside it, so a
 // state cannot be added to one and forgotten in the other — and it stays a
 // sentence rather than the pill's own string, because a screen reader saying
-// "sleep timer middle dot thirty m" is not what the pill means.
+// "sleep timer middle dot twenty four min left" is not what the pill means.
 function drawSleep() {
   const choice = SLEEP_CHOICES[sleepChoice];
   let says = "off";
@@ -1422,11 +1427,23 @@ function drawSleep() {
   } else if (choice === "chapter") {
     says = "chapter end";
     spoken = "at the end of this chapter";
+  } else if (sleepLeftMs !== null && sleepLeftMs < 60_000) {
+    // Under the last minute it counts in seconds. `1m` stood for everything
+    // from fifty-nine seconds down, which is the stretch where the difference
+    // is the only thing anybody wants from the control — the question at that
+    // point is whether there is time for the rest of the chapter, and a whole
+    // minute of the answer being the same number cannot answer it. The floor is
+    // the fade rather than zero: at twenty seconds the timer hands over and the
+    // pill reads `fading`, so nothing below that is ever drawn here.
+    const seconds = Math.max(1, Math.ceil(sleepLeftMs / 1_000));
+    says = `${seconds}s left`;
+    spoken = `${seconds} seconds left`;
   } else if (sleepLeftMs !== null) {
-    // Rounded up, and never zero: a countdown that says nothing is left has
-    // nothing left to say, and by then the sound itself is the announcement.
-    const minutes = Math.max(1, Math.ceil(sleepLeftMs / 60_000));
-    says = `${minutes}m`;
+    // Rounded up: what is left, not what it was set to. `30m` was ambiguous at
+    // 1am in the one way that matters — total or remaining — and only remaining
+    // is a question anybody asks of a sleep timer.
+    const minutes = Math.ceil(sleepLeftMs / 60_000);
+    says = `${minutes} min left`;
     spoken = `${minutes} minutes left`;
   }
   sleepButton.textContent = `sleep timer · ${says}`;

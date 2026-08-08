@@ -141,10 +141,10 @@ test("one tap walks the choices and the last takes it all back", async (t) => {
   // Six taps wrap, so the worst a mis-tap can do is offer to end the night
   // early, and the next tap takes it back.
   assert.deepEqual(walked, [
-    "sleep timer · 15m",
-    "sleep timer · 30m",
-    "sleep timer · 45m",
-    "sleep timer · 60m",
+    "sleep timer · 15 min left",
+    "sleep timer · 30 min left",
+    "sleep timer · 45 min left",
+    "sleep timer · 60 min left",
     "sleep timer · chapter end",
     "sleep timer · off",
   ]);
@@ -158,7 +158,7 @@ test("the timer says what it is doing to a screen reader as well", async (t) => 
   // the spoken form is a sentence because it is heard. Both come off the same
   // branch in drawSleep, so they cannot come to disagree about the setting —
   // and both are checked here, because only one of them can be looked at.
-  assert.equal(page.probe().sleep, "sleep timer · 15m");
+  assert.equal(page.probe().sleep, "sleep timer · 15 min left");
   assert.equal(page.probe().spokenSleep, "Sleep timer, 15 minutes left");
   assert.equal(page.probe().armed, true);
   for (let tap = 0; tap < 4; tap++) page.click("sleep");
@@ -192,11 +192,23 @@ test("a timer that outlived the page is still counting down", async (t) => {
   const page = await boot(t, { stored: armed(1, 300_000) });
   // The minutes they had left are still the minutes they have left, whether
   // the reload took two seconds or the phone killed the tab an hour ago.
-  assert.equal(page.probe().sleep, "sleep timer · 5m");
+  assert.equal(page.probe().sleep, "sleep timer · 5 min left");
   page.audio.ready();
   page.click("playpause");
   listen(page, 61_000);
-  assert.equal(page.probe().sleep, "sleep timer · 4m");
+  assert.equal(page.probe().sleep, "sleep timer · 4 min left");
+});
+
+test("the last minute is counted in seconds", async (t) => {
+  const page = await playing(t, { stored: armed(1, 65_000) });
+  assert.equal(page.probe().sleep, "sleep timer · 2 min left");
+  // `1m` stood for everything from fifty-nine seconds down. That is the one
+  // stretch where the number is the whole point of the control — the question
+  // is whether there is time for the rest of the chapter — and a minute of the
+  // answer not changing cannot answer it.
+  listen(page, 20_000);
+  assert.equal(page.probe().sleep, "sleep timer · 45s left");
+  assert.equal(page.probe().spokenSleep, "Sleep timer, 45 seconds left");
 });
 
 test("a timer from a night that is over is not applied to this one", async (t) => {
@@ -263,7 +275,7 @@ test("reaching for the control during the fade brings the sound back too", async
   assert.equal(page.probe().volume, 1);
   assert.equal(page.audio.paused, false);
   // And the tap they made is the new setting, not a cancellation of the old.
-  assert.equal(page.probe().sleep, "sleep timer · 15m");
+  assert.equal(page.probe().sleep, "sleep timer · 15 min left");
 });
 
 test("the night ends where the chapter's clock ends, not where the file does", async (t) => {

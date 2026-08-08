@@ -133,11 +133,22 @@ html {
    that stops listening the next time they turn it up again.
 
    Descending, so a size can be checked against the design without arithmetic:
-   1.7 a page title · 1.45 a book · 1.35 what somnia says · 1.2 what you said,
-   and a time on a list · 1.1 what you are typing, and a chapter · 1.05 the way
-   out, and a search result · 0.95 a chapter count, and the book's own words ·
-   0.9 a second-rank control, and where you are in the book · 0.825 what a row
-   is, under its name, and either pill in the header · 0.775 a footnote.
+   1.7 a page title · 1.45 a book · 1.35 what somnia says · 1.2 what you said ·
+   1.1 what you are typing, and a chapter · 1.05 the way out, and a search
+   result · 0.95 a chapter count · 0.9 a second-rank control, and where you are
+   in the book · 0.825 what a row is, under its name, and either pill in the
+   header · 0.775 a footnote.
+
+   Places is read off a scale of its own, a notch above the list screens: 1.7
+   its title · 1.6 a time · 1.2 the book's own words · 1.1 the way to a place ·
+   1.05 its subhead, a chapter, and what a press will cost · 0.95 the line under
+   the rule and the line under the list. It is not a list screen read in
+   daylight; it is a night screen read at the player's arm's length, by someone
+   who has just woken up enough to ask where they are, and the design sizes it
+   with the player rather than with the shelf. The first port took it for a list
+   and set it two notches down, and the words a place is recognised by came out
+   at 22dp — the longest run of text on any night screen, and the one nobody
+   could read.
 
    The corner that throws things away used to be a step below all of it, at
    0.75, on the grounds that a destructive press should be the quietest thing
@@ -1579,11 +1590,18 @@ body.chat-screen #transcript .said.you {
 }
 
 /* What is on the screen, counted. Not a headline and not a footnote: the size
-   the page uses for a line under a name. */
+   the page uses for a line under a name — on this screen's own scale, which
+   puts it a notch above the same line on a list screen.
+
+   .45 rather than --dim's .4, here and on the chapter below it, because both
+   are the design's value for a context line on Places and the two must move
+   together: they are the same rank read one under the other, and rounding one
+   to a token while the other keeps the literal is how a hierarchy stops reading
+   as one. */
 #candidates-summary {
   margin: 0.35rem 0 0;
-  font-size: 0.85rem;
-  color: var(--dim);
+  font-size: 1.05rem;
+  color: rgba(230, 220, 200, 0.45);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1592,18 +1610,20 @@ body.chat-screen #transcript .said.you {
    do: there is no scrolling document on this page and the pull-to-refresh
    gesture must not be handed back.
 
-   Four places ahead of them and the mark among them fit 360x780 without
-   moving — checked in a render at the padding the rows carry now, not assumed —
-   and that is the whole reason four is the most the server will ever offer. It
-   is the shape the list arrives in when the question is where to go next: every
-   row a time and a warning, nothing uncovered yet.
+   Nothing fits on one screen any more, and that is no longer a thing to design
+   around. Four covered rows and the mark among them used to come in under
+   360x780 exactly, which was once the whole reason four is the most the server
+   will ever offer; at this screen's own type scale two and a half of them reach
+   the bottom, checked in a render (`--panel places`) rather than reasoned about.
+   Four is still the cap, and the reason is now the one the design gives — more
+   than four is not useful and each row is tall — rather than an arithmetic about
+   height that stopped being true the moment the words got big enough to read.
 
-   The other shapes do not fit and are not meant to. A row whose words are
-   already up carries three lines of the book and is twice the height of one
-   that does not, so a list of places behind them is taller than the screen the
-   moment it opens, and so is any list after a reveal or two. That is the right
-   way round — it started fitting, and it stopped because somebody asked it for
-   more. A keyboard up is the third case, and the rows shrink for it. */
+   So this scrolls in every shape, including the one the list arrives in. What
+   is worth keeping from the old note is the ordering it implies: a row whose
+   words are up is most of a screen on its own, so the first thing below the fold
+   after a reveal is that row's own `goto`, and the reveal is what put it there.
+   A keyboard up is the third case, and the rows shrink for it. */
 #candidates-scroll {
   flex: 1;
   min-height: 0;
@@ -1678,14 +1698,15 @@ button.candidate-show:active {
   background: var(--surface);
 }
 
-/* The time, on its own line and the largest thing on the row — 30dp, up from
-   24, which it can afford now that nothing shares the line with it. It is what
-   a place is picked out by when the words are still covered. */
+/* The time, on its own line and the largest thing on the row — 32dp, up from
+   30 and before that 24, which it can afford now that nothing shares the line
+   with it. It is what a place is picked out by when the words are still
+   covered. */
 .candidate-when {
   margin: 0;
   line-height: 1.2;
   color: var(--ink);
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   white-space: nowrap;
   /* So a column of times can be compared down the page rather than read. */
   font-variant-numeric: tabular-nums;
@@ -1698,22 +1719,34 @@ button.candidate-show:active {
    lines below it; the list scrolls instead, which is what it is for. */
 .candidate-where {
   margin: 0.2rem 0 0;
-  color: var(--dim);
-  font-size: 0.95rem;
+  /* .45, and see the subhead above: the two context lines on this screen carry
+     the same value. */
+  color: rgba(230, 220, 200, 0.45);
+  font-size: 1.05rem;
   line-height: 1.3;
 }
 
-/* The book's own words, which are what a place is actually recognised by — and
-   the second of the two things italic means on this page. It leans because it
-   is a quotation: not somnia talking about the book, but the book, at a place
-   somebody has not necessarily heard yet. Every other quiet line on the page
-   gave its italic up in this pass so that this one would still mean
-   something. */
+/* The book's own words, which are what a place is actually recognised by, and
+   now the longest thing anybody reads on a night screen: 24dp, upright, at .72.
+   It was 22dp italic at .6, and this rule used to argue for the lean — that it
+   is a quotation, not somnia talking about the book — while every other quiet
+   line on the page gave its italic up so that this one would still mean
+   something. The argument was sound and the result could not be read. Italic
+   serif at low light costs real legibility over more than a few words, and a
+   passage is many more than a few; whatever the lean was worth, it was not
+   worth the one run of text on this page somebody is actually reading, at the
+   hour they are reading it.
+
+   The quotation marks are what took the italic's job, and they arrive in the
+   same change rather than after it — dropping the lean on its own would leave
+   the book's words and somnia's own set identically, which is the confusion the
+   italic was there to prevent. They are drawn rather than stored: the text is
+   the server's, and a page that wrapped it in punctuation of its own would be
+   quoting a string it might one day be handed already quoted. */
 .candidate-what {
   margin: 0.45rem 0 0;
-  color: var(--mid);
-  font-size: 1.1rem;
-  font-style: italic;
+  color: rgba(230, 220, 200, 0.72);
+  font-size: 1.2rem;
   /* Whole, or not at all — the design's rule, and the right one for this
      screen. It was clamped to three lines, which on a long passage cut the
      sentence somebody was reading to recognise the place, and half a sentence
@@ -1722,6 +1755,14 @@ button.candidate-show:active {
      The passage is still truncated on the server, which is where a bound on
      this belongs. */
   line-height: 1.5;
+}
+
+.candidate-what::before {
+  content: "“";
+}
+
+.candidate-what::after {
+  content: "”";
 }
 
 .candidate-what[hidden] {
@@ -1737,12 +1778,14 @@ button.candidate-show:active {
 
 /* What the press will cost, in the only place on the page that says so. Amber
    and italic: amber because on this page amber is the warm thing and a warning
-   is one, italic because the line is standing in for words that are not there
-   yet — the same italic those words will arrive in. */
+   is one, italic because it is a short aside about the row rather than anything
+   in the book — which is now the only thing italic means here. It used to be
+   justified as the same italic the words would arrive in; the words arrive
+   upright, and this line leans for its own reason instead. */
 .candidate-hint {
   margin: 0.45rem 0 0;
   color: var(--accent);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-style: italic;
 }
 
@@ -1780,7 +1823,7 @@ button.candidate-show:active {
   border-radius: 999px;
   background: none;
   color: var(--mid);
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   padding: 0 0.9rem;
 }
 
@@ -1821,17 +1864,21 @@ button.candidate-show:active {
    of. */
 .here-caveat {
   margin: 0.4rem 0 0;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-style: italic;
-  color: var(--faint);
+  /* .35, a hair above --faint's .32: it is the sentence the screen is arranged
+     around, and the design lifts it with everything else on this list. */
+  color: rgba(230, 220, 200, 0.35);
 }
 
-/* Which press does what. The smallest type on the page that is still meant to
-   be read, at the foot of the reading rather than repeated on every row: it is
-   read on the first night and skipped over on every night after it. */
+/* Which press does what. The quietest type on this screen that is still meant
+   to be read, at the foot of the reading rather than repeated on every row: it
+   is read on the first night and skipped over on every night after it. No
+   longer the smallest on the page — this screen's floor came up with the rest
+   of its scale, and 19dp is where its two footnotes sit. */
 #candidates-note {
   margin: 0.6rem 0 0;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-style: italic;
   color: var(--faint);
 }
