@@ -46,7 +46,13 @@ FIXTURE = {
         # one worth holding here: if this fits, both fit. It is also the state
         # the transcript below is in, which has just asked two questions.
         "places-found": "4 places found",
-        "sleep": "sleep timer · off",
+        # The widest the pill ever gets, for the reason the count above it is
+        # held at its taller state: if this fits, every other state does. It
+        # used to sit here at `off`, which is the narrowest of the six, and the
+        # label has since become a countdown — `60 min left` is eight characters
+        # more than the `45m` this row was last measured against, on a row that
+        # was already described as only just fitting.
+        "sleep": "sleep timer · 60 min left",
     },
     # The conversation, oldest first. The last line is the reader's, because
     # that is the state the page is in between asking and being answered.
@@ -127,6 +133,48 @@ PANELS = {
             ["The Adventures of Sherlock Holmes", "not started", True],
             ["The Moonstone", "2:03:55 in · part rendered", True],
         ],
+    },
+    # The list the whole spoiler rule is arranged around, and the one screen in
+    # this app whose height is decided by its content rather than by its
+    # controls. It was unphotographable until this fixture existed, which is
+    # part of why its type sat two notches below what a night screen wants and
+    # nobody saw: every render of Places was a heading over an empty <ol>.
+    #
+    # The shape is the one the server actually offers — four places at most,
+    # the mark somewhere among them — and it is deliberately the expensive one:
+    # a row behind the position carries its words uncovered, which is the
+    # tallest a row gets, and two of them do here. A list that fits at four
+    # covered rows and overflows at two revealed ones is a list that fits only
+    # in the picture nobody took.
+    "places": {
+        "unhide": ["candidates"],
+        "text": {"candidates-summary": "4 places between 0:58:14 and 2:11:40"},
+        # `ahead` is the server's word for a place they have not reached, and it
+        # is what decides everything about the row: whether the words are there
+        # at all, whether the reading is a button, and which hint it carries.
+        # The two behind the mark hold real sentences, because the length of a
+        # passage is what this screen's height turns on.
+        "places": [
+            [
+                "0:58:14",
+                "Ch 3 · The Wild Wood",
+                "The Rat was sitting on the river bank, singing a little song.",
+                False,
+            ],
+            [
+                "1:09:02",
+                "Ch 4 · Mr. Badger",
+                "He had been having a long and comfortable dream, and it was "
+                "only the cold that woke him at last, and the sound of the wind "
+                "in the bare branches over his head.",
+                False,
+            ],
+            ["1:24:51", "Ch 4", "", True],
+            ["2:11:40", "Ch 6", "", True],
+        ],
+        # Where the rule goes: after the second row, which is the last one at or
+        # before the position the rest of the fixture is set at.
+        "here": {"at": "1:12:08", "after": 2, "more": True},
     },
     "workshop": {
         "unhide": ["queue", "workshop", "queue-working", "queue-ended"],
@@ -325,6 +373,41 @@ FILL = """
     };
     put("queue-live", (PANEL.live || []).map(jobRow(false)));
     put("queue-gone", (PANEL.gone || []).map(jobRow(true)));
+
+    // candidateRow and hereRow from app.js, class for class. The reading is a
+    // <button> only on a place still covered up: where the words are already
+    // there, there is nothing to ask for and the row is a plain div.
+    if (PANEL.places) {
+      const rows = [];
+      PANEL.places.forEach(([when, where, text, ahead], i) => {
+        const li = document.createElement("li");
+        li.className = ahead ? "candidate ahead" : "candidate";
+        const show = document.createElement(ahead ? "button" : "div");
+        if (ahead) show.type = "button";
+        show.className = "candidate-show";
+        show.append(p("candidate-when", when), p("candidate-where", where));
+        const what = p("candidate-what", ahead ? "" : text);
+        if (ahead) what.hidden = true;
+        show.append(what);
+        if (ahead) show.append(p("candidate-hint", "tap to reveal · may spoil"));
+        li.append(show, pill("candidate-go", "goto"));
+        rows.push(li);
+        const here = PANEL.here;
+        if (here && here.after === i + 1) {
+          const rule = document.createElement("li");
+          rule.className = "candidate here";
+          rule.setAttribute("aria-current", "true");
+          rule.append(p("section-label here-mark", "you are here · " + here.at));
+          if (here.more) {
+            rule.append(
+              p("here-caveat", "anything below this line you may not have heard"),
+            );
+          }
+          rows.push(rule);
+        }
+      });
+      put("candidate-list", rows);
+    }
   }
 
   // Rendered into the page rather than logged: a headless screenshot is the
