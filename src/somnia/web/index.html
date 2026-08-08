@@ -84,9 +84,9 @@
          book, and tell me it worked" sitting up with the lights on, and is
          allowed to be denser than anything else in the app because of it —
          denser, and brighter, which is the half that took a second pass to get
-         right. It is reached only from the quietest row at the foot of Books,
-         and its way out says `‹ books` rather than `‹ controls`, because that
-         is where it goes.
+         right. It is reached only from a quiet `workshop ›` pill in Books' own
+         right-hand corner, and its way out says `‹ books` rather than
+         `‹ controls`, because that is where it goes.
 
          And a fourth — #settings, before Books in the file — which is the only
          one of them opened from the right-hand corner of the header rather than
@@ -799,15 +799,26 @@
          that is what buys the type back: this screen is read in the same dark
          at the same arm's length as the player, so it is set at the player's
          own scale, and nothing that is done sitting up in daylight is on it.
-         What went is on #workshop at the foot of this file, behind the quietest
-         row here.
+         What went is on #workshop at the foot of this file, behind the pill in
+         this screen's own right-hand corner.
 
          The order down it is the order the questions are asked in. Which book
          am I already in — `reading now`, at the top where the eye lands. What
          else have I got — `on the shelf` under it, which is the same question
-         asked about the other books and is answered by pressing one. And then
-         the way out to the daytime work, last and quietest, because nothing
-         behind it is a night job.
+         asked about the other books and is answered by pressing one. And that
+         is the whole of the scroller: everything on it is about choosing a
+         book, and the one control here that is not is out of it, up in the
+         header.
+
+         The way to the daytime work was the last row on that scroller, and the
+         argument for it there was that nothing behind it is a night job, so it
+         should be quiet and far. That much still holds and the pill is still
+         quiet — what the row got wrong was not how loud it was but where the
+         scroll put it. On a twenty-book library, reaching the one thing on the
+         screen that is not about books meant scrolling past every book that is.
+         A header pill is at the same reach on one book or a hundred, it is
+         where every other move between screens on this page already is, and it
+         is still one whole screen further from a sleepy thumb than the player.
 
          `how dark` used to be on this screen, between the two, and the argument
          for it was sound as far as it went: it is a setting judged by looking at
@@ -837,7 +848,13 @@
            and it is #workshop that is now the panel read with a keyboard up.
            This one keeps the shape because the shape is the panel's, and a way
            out that moved between two screens built alike would be the one thing
-           worth having: it is in the same place on all three. -->
+           worth having: it is in the same place on all three.
+
+           Two pills in this row rather than one, which is the one way this
+           header differs from the other three. The rule they share is written
+           `space-between`, so a head with one button puts it at the start and a
+           head with two puts them at the ends, and nothing here is told how
+           many it has. -->
       <div id="queue-head">
         <button id="queue-close" type="button">
           <span class="pill">
@@ -845,6 +862,37 @@
               <path d="M6 0 0 5 6 10Z" fill="currentColor" />
             </svg>
             controls
+          </span>
+        </button>
+        <!-- The way to the daytime half, in the corner opposite the way back,
+             with the caret pointing forward because that is where the screen
+             is. Every other cross-screen move on this page is a pill in a
+             corner of a header — `books ›`, `‹ controls`, `settings ›`,
+             `‹ books` — and this was the one that was not.
+
+             `workshop`, one word and lowercase, like `books` beside it. The
+             pill says what the door is; the screen behind it says `Workshop`
+             in its own title, and the two agreeing in meaning without agreeing
+             in case is how every other door on this page is written.
+
+             Quiet is still what it is drawn as, and quiet is still right:
+             finding a book takes a keyboard and reading a queue takes
+             attention, and both are done sitting up with the lights on. It is
+             the same hairline outline and the same 36dp pill as its neighbour,
+             which is as loud as anything in a header on this page gets — and
+             somebody who lands on it half asleep gets a screen that says
+             `Workshop` in daylight type and one press back.
+
+             It is also still the only route to that screen. There is no second
+             door from the player, because a second door is a second thing a
+             sleepy thumb can find, and the corner it would go in is the one the
+             design refused it: daylight in a dark-adapted eye. -->
+        <button id="to-workshop" type="button">
+          <span class="pill">
+            workshop
+            <svg class="caret" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+              <path d="M0 0 6 5 0 10Z" fill="currentColor" />
+            </svg>
           </span>
         </button>
       </div>
@@ -1003,28 +1051,6 @@
              is about. There is no race with the other line now — they are on
              different screens, written by different requests. -->
         <p id="shelf-note"></p>
-
-        <!-- The way to the daytime half, and everything about how it is drawn
-             is an argument that it is not a night control.
-
-             It is the last thing on the screen, below a rule, in the page's
-             quietest readable type, with no card and no fill — a row, and the
-             only one on this panel whose press opens another screen rather than
-             doing something to a book. Nothing behind it is a job for 2am:
-             finding a book takes a keyboard and reading a queue takes
-             attention, and both of them are things done sitting up with the
-             lights on. Somebody who lands on it half asleep gets a screen that
-             says `Workshop` in daylight type and one press back.
-
-             It is also the only route to that screen. There is no second door
-             from the player, because a second door is a second thing a sleepy
-             thumb can find. -->
-        <button id="to-workshop" type="button">
-          Workshop — add books
-          <svg class="caret" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
-            <path d="M0 0 6 5 0 10Z" fill="currentColor" />
-          </svg>
-        </button>
       </div>
     </section>
 

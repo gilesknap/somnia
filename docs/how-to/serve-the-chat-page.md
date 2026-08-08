@@ -200,9 +200,9 @@ you want it.
 
 To read something else, open *books* and press the book on the shelf — or ask,
 which still works and is still the shortest way to say it. There is still no
-library of things you do not have to browse: *Workshop*, behind the quiet row at
-the foot of *Books*, is where a book is *added*, and its search goes to
-Gutenberg's catalog rather than to your shelf.
+library of things you do not have to browse: *Workshop*, behind the quiet
+*workshop ›* pill in the top-right corner of *Books*, is where a book is
+*added*, and its search goes to Gutenberg's catalog rather than to your shelf.
 
 Those two are one screen each on purpose. **Books** is the night screen — which
 book — and it is set at the same type size as the player, because it is read in
@@ -319,16 +319,20 @@ phone, and it is metadata about a book you already own and chose. The title is
 what you recognise a book you own by. Who wrote it appears in *Workshop*, where
 you are choosing among seventy thousand you do not.
 
-Last, above a hairline and deliberately quiet, is the row to *Workshop*. Nothing
-behind it is a job for 2am.
+The way to *Workshop* is a quiet *workshop ›* pill in this screen's own
+top-right corner, opposite *‹ controls*. Nothing behind it is a job for 2am,
+which is why it is drawn no louder than the way back — but it is not at the
+bottom of the shelf either. It used to be, and on a twenty-book library that
+meant scrolling past every book on the screen to reach the one thing on it that
+is not about books.
 
 *how dark* used to sit under the shelf. It is on *Settings* now, which is a
 night screen too, so nothing it needed is lost — and this screen is back to
-answering one question.
+answering one question with nothing on its scroll but books.
 
 ## Adding a book, and watching it made: *Workshop*
 
-*Workshop — add books*, at the foot of *Books*, and reachable no other way. *‹ books* comes back, and *Books* is exactly where you left it.
+*workshop ›*, in the top-right corner of *Books*, and reachable no other way. *‹ books* comes back, and *Books* is exactly where you left it.
 
 This is the daytime screen and it is denser than anything else in the app,
 because it is read sitting up with the lights on — denser, and brighter. It is

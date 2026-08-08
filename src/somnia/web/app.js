@@ -66,8 +66,8 @@ const candidatesCancel = document.getElementById("candidates-cancel");
 // tests and this file is a diff that hides the change actually being made.
 const booksButton = document.getElementById("books");
 const queuePanel = document.getElementById("queue");
-// Workshop, the daytime screen, and the row at the foot of Books that is the
-// only way to it.
+// Workshop, the daytime screen, and the pill in Books' header that is the only
+// way to it.
 const workshop = document.getElementById("workshop");
 const workshopClose = document.getElementById("workshop-close");
 const toWorkshop = document.getElementById("to-workshop");
