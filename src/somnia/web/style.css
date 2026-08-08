@@ -1668,10 +1668,11 @@ body.chat-screen #transcript .said.you {
   border-bottom: 1px solid var(--hairline);
 }
 
-/* The reading, and the larger of the row's two targets by a long way. On a
-   place they have not heard it is a button and the press uncovers the words; on
-   a place they have, it is a div and there is nothing to press, because
-   everything it could have shown is already on the screen.
+/* The reading, and the larger of the row's two targets by a long way. It is a
+   button on every row: the press uncovers the words, and there are no words on
+   any row until it is pressed. It used to be a div on the places behind them,
+   where nothing was being withheld and so nothing was left to ask for — see
+   candidateRow for why that half-rule went.
 
    The negative left margin and the padding that answers it are so that the wash
    under a press has somewhere to be: the text stays lined up with the title
@@ -1692,9 +1693,10 @@ body.chat-screen #transcript .said.you {
   border-radius: 0.9rem;
 }
 
-/* The platform's tap flash is off page-wide, so every button shows its own —
-   and only the rows that are buttons get one. */
-button.candidate-show:active {
+/* The platform's tap flash is off page-wide, so every button shows its own.
+   Every row now, which is the point: a list where some readings light up under
+   a thumb and some do not is a list somebody learns the wrong rule from. */
+.candidate-show:active {
   background: var(--surface);
 }
 
@@ -1776,17 +1778,34 @@ button.candidate-show:active {
    silently: a revealed row is still the tallest thing on this screen, and that
    is still the right way round. */
 
-/* What the press will cost, in the only place on the page that says so. Amber
-   and italic: amber because on this page amber is the warm thing and a warning
-   is one, italic because it is a short aside about the row rather than anything
-   in the book — which is now the only thing italic means here. It used to be
-   justified as the same italic the words would arrive in; the words arrive
-   upright, and this line leans for its own reason instead. */
+/* What pressing offers, on every row. Italic because it is a short aside about
+   the row rather than anything in the book — which is the only thing italic
+   means here. It used to be justified as the same italic the words would arrive
+   in; the words arrive upright, and this line leans for its own reason instead.
+
+   Cream at .3 is the quiet version and the one most rows wear: it is the list
+   saying how it is read, at the weight of something read once and then known.
+   It is the same value the design gives the closed rows and a hair below the
+   caveat under the rule, which is the louder of the two things this screen says
+   about itself. */
 .candidate-hint {
   margin: 0.45rem 0 0;
-  color: var(--accent);
+  color: rgba(230, 220, 200, 0.3);
   font-size: 1.05rem;
   font-style: italic;
+}
+
+/* And the loud version, on the rows past where they have listened. Amber,
+   because on this page amber is the warm thing and a warning is one.
+
+   This line and its three extra words are now the whole of what makes a row
+   ahead of them look different from a row it is safe to open — before every row
+   closed, the difference was a paragraph of book present or absent, which no
+   one could miss. So it carries more than it did, and it is a colour and not
+   only a phrase for that reason: at 2am the colour is read and the sentence is
+   skipped. */
+.candidate.ahead .candidate-hint {
+  color: var(--accent);
 }
 
 .candidate-hint[hidden] {
@@ -1833,14 +1852,37 @@ button.candidate-show:active {
 }
 
 /* Where they are: a rule across the list at the point they have got to, with
-   the time on it. Not a row and not somewhere to go — it is the one thing in
-   this list that is not a place — so it is drawn as a label on a line rather
-   than as anything with an edge round it, and it carries the list's only
-   hairline that is amber. */
+   the time on it. Still not a place — it is the one thing in this list that is
+   not one — so the label is a label on a line rather than anything with an edge
+   round it, and it carries the list's only hairline that is amber.
+
+   It is somewhere to go now all the same, and the pill under it is the only
+   part of it with an edge. Column rather than block so that pill can range
+   right the way every other row's does; with nothing but the mark and the
+   caveat in it, which is most of the time it is on screen, this lays out
+   exactly as the block did. */
 .candidate.here {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   padding: 0.3rem 0 0.5rem;
   border-bottom: 0;
+}
+
+/* The way back, drawn as a `goto` because that is what it is: the shape says
+   "this seeks", and on this screen that shape is already spoken for. Amber says
+   the rest — it is the design's colour for the current row, and it marks this
+   one out as the press that goes nowhere new. The border comes up to the amber
+   hairline for the same reason, so the pill belongs to the rule above it rather
+   than to the list of places around it.
+
+   The extra top margin is the rule's own: the pill hangs off a line rather than
+   off a paragraph of reading, and at `.candidate-go`'s 0.7rem it sat close
+   enough to the caveat to read as part of the sentence. */
+.here-go {
+  margin-top: 1rem;
+  color: var(--accent);
+  border-color: var(--accent-line);
 }
 
 .here-mark {
