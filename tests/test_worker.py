@@ -516,3 +516,69 @@ def test_a_render_that_breaks_says_so_in_one_sentence_and_keeps_the_traceback(
     assert "MemoryError" in error
     assert "the box ran out" in error
     assert book_row(conn)["status"] == "pending"
+
+
+# ------------------------------------------------------------ which voice reads it
+
+
+class NamesItsVoice(SilentEngine):
+    """Silence again, but built the way the real engine is: from a voice name."""
+
+    def __init__(self, voice: str = "af_heart", lang_code: str = "") -> None:
+        self.voice = voice
+
+
+@pytest.mark.usefixtures("gutenberg")
+def test_the_render_is_built_with_the_voice_the_request_asked_for(
+    conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The one line the injected-engine tests cannot reach, and the whole point.
+
+    ``render_one`` imports KokoroEngine inside the function — so that the
+    supervisor holds none of torch — which is also what makes it substitutable
+    here. Everything else in this module hands ``render_one`` an engine and so
+    never exercises the choice of one.
+    """
+    from somnia import tts
+
+    monkeypatch.setattr(tts, "KokoroEngine", NamesItsVoice)
+    submit(conn, 271, "bm_george")
+
+    rendered = render_one(
+        cfg(tmp_path),
+        conn,
+        embedder=cast(Embedder, FakeEmbedder()),
+        stopping=never,
+        beat_every_s=0,
+    )
+
+    assert rendered is not None and rendered.state == "done"
+    # And it is written down as what read the book, because every timestamp in
+    # the row above was measured in this voice and a re-render in another one
+    # would move all of them.
+    voice = conn.execute("SELECT voice FROM books WHERE gid = 271").fetchone()["voice"]
+    assert voice == "bm_george"
+
+
+@pytest.mark.usefixtures("gutenberg")
+def test_a_request_that_named_no_voice_gets_the_renderers_own(
+    conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Which is what the agent submits: nobody picks a voice out loud at 2am."""
+    from somnia import tts
+
+    monkeypatch.setattr(tts, "KokoroEngine", NamesItsVoice)
+    settings = cfg(tmp_path)
+    settings.voice = "af_bella"
+    submit(conn, 271)
+
+    render_one(
+        settings,
+        conn,
+        embedder=cast(Embedder, FakeEmbedder()),
+        stopping=never,
+        beat_every_s=0,
+    )
+
+    voice = conn.execute("SELECT voice FROM books WHERE gid = 271").fetchone()["voice"]
+    assert voice == "af_bella"
