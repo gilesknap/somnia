@@ -399,10 +399,14 @@ but being adjustable are not a screen.
 ## Check screen-off playback before you trust a night to it
 
 Everything above rests on an installed PWA being allowed to keep playing with
-the screen off, and on its notification surviving a chapter boundary. Both were
-confirmed on 2026-08-06 — so this is not an open question, it is the check to
-run again on a new phone, after an Android update, or on the first night that
-goes quiet. It is a property of the handset, not of this code, and it cannot be
+the screen off, and on its notification surviving a chapter boundary. The first
+was confirmed on 2026-08-06 and is not an open question; it is the check to run
+again on a new phone, after an Android update, or on the first night that goes
+quiet. The second was confirmed on the same night on the phone's own speaker,
+and that turned out not to settle it — over Bluetooth the notification is torn
+down and rebuilt at every boundary, and some nights it does not come back. That
+is issue #31, and it is why this page now asks a second question as well. Both
+are properties of the handset rather than of this code, and neither can be
 tested from a desk.
 
 It is checked with a page of its own, which generates its own audio so it needs
@@ -422,15 +426,72 @@ everything rests on, and it is the one Android treats more generously, so a tab
 that keeps playing is good news for both while a tab that stops is not by itself
 proof about the app.
 
-Press *Start* and confirm you can hear a tick once a second — the tick is the
-cheapest stall detector there is, because you can hear time passing with the
-screen off. Lock the phone, leave it two minutes, and wake it. If **shortfall**
-is under a couple of seconds, nothing ever stopped it. Then press every button
-you own — the lock screen, the pillow speaker, the headphones — and check each
-one appears in the log, and use *Agent move* to confirm the book can be moved
-and played again with no gesture at all, which is what the agent does every
-time it takes you somewhere.
+In *Tone chapters*, press *Start* and confirm you can hear a tick once a second
+— the tick is the cheapest stall detector there is, because you can hear time
+passing with the screen off. Lock the phone, leave it two minutes, and wake it.
+If **shortfall** is under a couple of seconds, nothing ever stopped it. Then
+press every button you own — the lock screen, the pillow speaker, the headphones
+— and check each one appears in the log, and use *Agent move* to confirm the
+book can be moved and played again with no gesture at all, which is what the
+agent does every time it takes you somewhere.
+
+That mode is also a demonstration of the bug: it gives the element a new file at
+every chapter, exactly as the player does, and **src writes** on the readout
+counts the teardowns.
+
+### Whether one file can carry a whole book
+
+*Whole book* is the other question, and it is the one that decides whether the
+player can stop letting go at a boundary. It loads a real book — the longest one
+somnia has, or `?gid=<gid>` for a particular one — from a single URL,
+`/api/stream/{gid}/{n}`, and never touches the element again: a chapter boundary
+becomes arithmetic on the render clock, and the only thing that happens is that
+the notification is renamed. `?book` on the URL starts the page in this mode, so
+a home-screen shortcut can go straight to it in the dark.
+
+It has to be run over Bluetooth with the screen locked, because that is the
+route the last check got wrong. Watch **src writes** stay at 1 all night; watch
+**chapter changes** climb without it moving. Then look at the notification
+across a boundary — no log can see this, and it is the whole question: does the
+panel keep the same session and simply change its title, or does it blink out
+and come back?
+
+Four other things are worth doing while it is up, all of them nightly in the
+real player:
+
+- *Seek to the middle*, which is the morning resume: the log says how long the
+  seek took and how long until sound came back.
+- Watch **holding** — the byte ranges Chrome has kept. If the first range goes
+  on starting at 0 all night, the phone is holding the whole book.
+- Turn the tailnet off for half a minute and back on. A stall shows as
+  **shortfall**; whether the phone had to fetch the book again shows in
+  **holding**, and the other half of that answer is in the server's own log —
+  `journalctl -u somnia -f` shows a second `GET /api/stream/...` if Chrome
+  threw the book away and asked for it again.
+- Press the pillow speaker's skip and its scrubber. The panel is told the
+  *chapter's* length and not the book's, so what those buttons move by is the
+  question, and the log writes down what the panel was told each time.
 
 It is a spike and it is meant to read like one. It is served rather than kept
 out of the way because a diagnostic nobody can open from the handset is a
-diagnostic nobody runs, and this is the one question the whole pivot rests on.
+diagnostic nobody runs, and these are the two questions the whole pivot rests
+on.
+
+### Asking the same question of the real player
+
+The player itself now loads the whole book from one URL, so the spike is no
+longer the only place the question can be asked. To compare the two ways on the
+same night, over the same speaker, open the app with `?chapters` on the address:
+
+```
+https://<node>.<tailnet>.ts.net:8443/?chapters
+```
+
+That plays the book a file at a time, the way it played before — a load at every
+boundary, which is the bug — while the app opened normally plays it from one
+file. Nothing else about the page differs, and nothing is remembered: it is a
+property of the address, so closing the tab is the whole of undoing it.
+
+Listen across a boundary each way, locked, over Bluetooth. The answer is what
+the notification does, and there is nothing on any screen or in any log that can
+stand in for it.

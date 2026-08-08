@@ -18,7 +18,14 @@ an off-by-one in a manifest has nowhere to hide.
 To regenerate the audio, once per tone::
 
     ffmpeg -f lavfi -i "sine=frequency=440:sample_rate=24000:duration=8" \
-        -c:a aac -b:a 64k -ac 1 "001 - The First Tone.m4a"
+        -c:a aac -b:a 64k -ac 1 -movflags +faststart "001 - The First Tone.m4a"
+
+``+faststart`` is not decoration. It is what ``somnia.audio.ChapterAudio.encode``
+passes, so without it these files have their ``moov`` after their ``mdat`` and
+are not the shape ingest writes. That made no difference while a chapter was
+only ever fetched whole; it makes one now that chapters are joined into a
+single stream, because where the header sits decides whether the phone can
+start playing on the first response or has to go back for the tail.
 """
 
 import shutil

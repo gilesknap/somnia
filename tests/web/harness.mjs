@@ -47,6 +47,12 @@ export const TONE_BOOK = {
   // what a finished book looks like — the interesting case, where the two
   // disagree, is PART_READ.
   chapters_total: 3,
+  // The whole book down one URL, named by how many chapters it holds, and how
+  // much book that is on the render clock. This is what the element is given at
+  // boot and never given again: the chapters below keep a url each, and they
+  // are the fallback for a book with no stream — see chapterAtATime in app.js.
+  stream_url: "api/stream/900001/3",
+  stream_ms: 24000,
   chapters: [
     {
       idx: 0,
@@ -85,6 +91,8 @@ export const OTHER_BOOK = {
   seq: 7,
   heard_to_ms: 16000,
   chapters_total: 2,
+  stream_url: "api/stream/900002/2",
+  stream_ms: 16000,
   chapters: [
     {
       idx: 0,
@@ -120,6 +128,10 @@ export const RENDERING_BOOK = {
   // column existed says as well, which is every book on the live VPS, so the
   // page has to read it as "don't know" rather than as "no chapters".
   chapters_total: 0,
+  // Nothing to join, so nothing is offered. A url advertised here would be one
+  // that answers 404 at the moment somebody is trying to open the book.
+  stream_url: null,
+  stream_ms: 0,
   chapters: [],
 };
 
@@ -139,6 +151,8 @@ export const PART_READ = {
   seq: 0,
   heard_to_ms: 0,
   chapters_total: 3,
+  stream_url: "api/stream/900006/1",
+  stream_ms: 8000,
   chapters: [
     {
       idx: 0,
@@ -170,6 +184,8 @@ export const HALF_HEARD = {
   seq: 2,
   heard_to_ms: 1_800_000,
   chapters_total: 2,
+  stream_url: "api/stream/900005/2",
+  stream_ms: 3_600_000,
   chapters: [
     {
       idx: 0,
@@ -204,6 +220,8 @@ export const UNCOUNTED_BOOK = {
   seq: 0,
   heard_to_ms: 16000,
   chapters_total: 0,
+  stream_url: "api/stream/900007/2",
+  stream_ms: 16000,
   chapters: [
     {
       idx: 0,
@@ -241,6 +259,8 @@ export const UNMEASURED_BOOK = {
   seq: 0,
   heard_to_ms: 0,
   chapters_total: 2,
+  stream_url: "api/stream/900009/2",
+  stream_ms: 16000,
   chapters: [
     {
       idx: 0,
@@ -276,6 +296,8 @@ export const SHRUNK_BOOK = {
   seq: 0,
   heard_to_ms: 16000,
   chapters_total: 2,
+  stream_url: "api/stream/900010/2",
+  stream_ms: 16000,
   chapters: [
     {
       idx: 0,
@@ -314,6 +336,8 @@ export const GROWING_BOOK = {
   seq: 0,
   heard_to_ms: 1_800_000,
   chapters_total: 37,
+  stream_url: "api/stream/900008/5",
+  stream_ms: 3_000_000,
   chapters: [0, 1, 2, 3, 4].map((idx) => ({
     idx,
     title: `Chapter ${idx + 1}`,
@@ -337,6 +361,8 @@ export const NIGHT_BOOK = {
   seq: 0,
   heard_to_ms: 3_600_000,
   chapters_total: 2,
+  stream_url: "api/stream/900004/2",
+  stream_ms: 3_600_000,
   chapters: [
     {
       idx: 0,
@@ -355,12 +381,49 @@ export const NIGHT_BOOK = {
   ],
 };
 
+// A book with no stream to be had. Two chapters with audio behind them, and
+// nothing offering the whole of it down one URL — because the join could not be
+// made (one chapter of it will not open, and half a book is not this book), or
+// because the somnia answering is older than the field. Either way it plays,
+// a file at a time, the way every book played before: the per-chapter urls are
+// the fallback and this is the fixture that proves the page still takes it.
+export const UNJOINED_BOOK = {
+  gid: 900011,
+  title: "Would Not Join",
+  authors: "Somnia Test",
+  status: "done",
+  total_ms: 16000,
+  position_ms: 0,
+  seq: 0,
+  heard_to_ms: 16000,
+  chapters_total: 2,
+  stream_url: null,
+  stream_ms: 0,
+  chapters: [
+    {
+      idx: 0,
+      title: "One On Its Own",
+      start_ms: 0,
+      end_ms: 8000,
+      url: "api/audio/900011/0",
+    },
+    {
+      idx: 1,
+      title: "And Another",
+      start_ms: 8000,
+      end_ms: 16000,
+      url: "api/audio/900011/1",
+    },
+  ],
+};
+
 const MANIFESTS = new Map(
   [
     TONE_BOOK,
     OTHER_BOOK,
     RENDERING_BOOK,
     NIGHT_BOOK,
+    UNJOINED_BOOK,
     HALF_HEARD,
     PART_READ,
     UNCOUNTED_BOOK,
@@ -640,6 +703,26 @@ class FakeElement {
   blur() {}
 }
 
+// How long the audio at a url really is, in seconds, according to the same
+// manifests the fake server hands the page. A stream is the chapters it joins,
+// laid end to end; a chapter file is that one chapter. Anything else — an
+// element that was never given a source — is a duration nobody has said, which
+// is what a browser reports before metadata arrives.
+function lengthOfSource(url) {
+  const stream = /^api\/stream\/(\d+)\/(\d+)$/.exec(url ?? "");
+  if (stream) {
+    const book = MANIFESTS.get(`api/book/${stream[1]}`);
+    const held = book?.chapters.slice(0, Number(stream[2]));
+    return held?.length ? held[held.length - 1].end_ms / 1000 : NaN;
+  }
+  const chapter = /^api\/audio\/(\d+)\/(\d+)$/.exec(url ?? "");
+  if (!chapter) return NaN;
+  const row = MANIFESTS.get(`api/book/${chapter[1]}`)?.chapters[
+    Number(chapter[2])
+  ];
+  return row ? (row.end_ms - row.start_ms) / 1000 : NaN;
+}
+
 // One <audio> element for the life of the page, as index.html insists on. The
 // events below are fired in the order a browser fires them, and the comments
 // say which part of the spec each one is standing in for.
@@ -710,10 +793,26 @@ class FakeAudio extends FakeElement {
   // Metadata arrived: the point at which there is a duration to clamp a
   // pending offset against. `seeked` follows because landing at that offset is
   // a seek, and the page reports one.
-  ready(duration = 8) {
+  //
+  // The duration is the real length of whatever was loaded, worked out from the
+  // same manifests this fake's server answers with, because it is not a number
+  // a test should have to keep in step: the element holds a whole book now, and
+  // a test that said eight seconds out of habit would be testing a page whose
+  // book ends after chapter one — which is `ended`, which is the one event that
+  // takes the lock screen down. Pass one to say something else on purpose: a
+  // truncated encode, or a stream that came up short of the book.
+  ready(duration = lengthOfSource(this.src)) {
     this.duration = duration;
     this.readyState = 1;
     this.fire("loadedmetadata");
+    this.fire("seeked");
+  }
+
+  // The element got where it was told to go. A browser fires `seeking` and then
+  // `seeked` a little after currentTime is written, and the page listens for
+  // the second — so a seek inside what is already loaded, which under one URL
+  // per book is every seek, only finishes when a test says it did.
+  arrived() {
     this.fire("seeked");
   }
 
@@ -824,6 +923,11 @@ globalThis.__page = {
     untouched,
     swapping,
     wantsSound,
+    // Which way this book is being played: one file per chapter, or the whole
+    // of it. A fact about what was loaded rather than about what the manifest
+    // says now, and a test that wants to know whether a boundary will load
+    // anything is asking this.
+    perChapter: holdingOneChapter,
     idx: current && current.idx,
     // The book, over the chapter, over how many chapters there are. All three
     // come off the manifest and are drawn in one pass, so a page that named the
@@ -907,7 +1011,15 @@ globalThis.__page = {
   // reaching for directly: every clamp in them is there because a decoder, a
   // render clock or a book shorter than a thirty-second step disagreed with
   // the arithmetic once, and none of those are reproducible on demand.
-  math: { locate, toElementSeconds, toGlobalMs, timestamp, chapterTime, rewindFor },
+  math: {
+    locate,
+    toElementSeconds,
+    toGlobalMs,
+    toBookMs,
+    timestamp,
+    chapterTime,
+    rewindFor,
+  },
 };
 `;
 
@@ -950,6 +1062,10 @@ export async function boot(t, options = {}) {
     // whatever engines turn out to do. Every other test here is a page with a
     // thumb on it.
     activated = true,
+    // The query on the address the app was opened at. "?chapters" is the one
+    // the page reads: play the book a file at a time, the way it was played
+    // before the whole of it came down one URL.
+    query = "",
   } = options;
 
   // Everything the element and the media session did, in the order they did
@@ -1074,6 +1190,12 @@ export async function boot(t, options = {}) {
     crypto: { randomUUID: () => `test-token-${++minted}` },
     Blob: FakeBlob,
     MediaMetadata: FakeMediaMetadata,
+    URLSearchParams,
+    // The address the app was opened at. Only the query is ever read, and only
+    // once, at load: `?chapters` is how the same phone can be made to play the
+    // book the old way on the same night, and a page that read it later than
+    // this could be in two minds about a book half way through one.
+    location: { search: query },
     Date: { now: () => clock.now() },
     navigator: {
       language: "en-GB",

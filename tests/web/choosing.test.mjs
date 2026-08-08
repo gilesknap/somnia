@@ -111,7 +111,9 @@ function offer(overrides = {}) {
 // listening.
 async function opened(t, options) {
   const page = await boot(t, { lastGid: HALF_HEARD.gid, ...options });
-  page.audio.ready(1800);
+  // The whole book, which is what the element is given: an hour of it, in two
+  // half-hour chapters, so a place named an hour in is a place in the file.
+  page.audio.ready();
   return page;
 }
 
@@ -770,8 +772,9 @@ test("choosing a place they have not heard raises the mark only by what then pla
   page.posts.length = 0;
   page.click("candidate-go-13");
   await page.settle();
-  // A chapter they have never played, arriving.
-  page.audio.ready(1800);
+  // A place they have never played, arrived at — inside the book already
+  // loaded, so there is nothing to fetch and nothing to wait for.
+  page.audio.arrived();
   for (let turn = 0; turn < 3; turn++) await page.settle();
   assert.equal(page.probe().positionMs, 1_800_000);
   // Not one millisecond of it is claimed as listened to. Going somewhere is not
@@ -813,7 +816,7 @@ test("a row in another book opens that book and lands in the right place", async
   const srcWrites = page.audio.srcWrites.length;
   page.click("candidate-go-21");
   for (let turn = 0; turn < 3; turn++) await page.settle();
-  page.audio.ready(8);
+  page.audio.ready();
   assert.equal(page.probe().gid, OTHER_BOOK.gid);
   // The chosen place, and not the 0:00:04 that book was last left at: nothing
   // has been written to it, so `at` is the only thing carrying the choice
@@ -821,11 +824,12 @@ test("a row in another book opens that book and lands in the right place", async
   assert.equal(page.probe().positionMs, 12_000);
   assert.equal(page.probe().seq, OTHER_BOOK.seq);
   assert.equal(page.probe().clock, "0:00:12 of 0:00:16");
-  // One source and one notification for one press. Seeking after the swap
-  // instead of before it would show the chapter twice and build the media
-  // notification twice.
+  // One source and one notification for one press. Another book is the one
+  // press that does still load something — it is a different book, so a
+  // different file — and seeking after the load instead of before it would show
+  // the chapter twice and build the media notification twice.
   assert.deepEqual(page.audio.srcWrites.slice(srcWrites), [
-    "api/audio/900002/1",
+    "api/stream/900002/2",
   ]);
   assert.deepEqual(
     page.order.slice(from).filter((step) => step.startsWith("metadata:")),
@@ -1315,7 +1319,7 @@ test("the count goes with the book it was about", async (t) => {
   page.click("candidates-cancel");
   assert.equal(line(page).found, "4 places found");
   await page.openBook(OTHER_BOOK.gid);
-  page.audio.ready(8);
+  page.audio.ready();
   // Another book, and the places were about the last one. Left standing, the
   // count would be four places in a book that is no longer on the screen.
   assert.deepEqual(line(page), {

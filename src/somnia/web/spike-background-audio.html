@@ -45,6 +45,7 @@
     padding: 10px 12px;
   }
   button.primary { background: #2b4a7a; border-color: #3f6bad; }
+  button.chosen { background: #2f7d4f; border-color: #48a86f; }
   button:active { filter: brightness(1.35); }
   button:disabled { opacity: 0.45; }
   #log {
@@ -71,24 +72,35 @@
 </head>
 <body>
 
-<h1>somnia spike — does an installed PWA keep playing with the screen off?</h1>
+<h1>somnia spike — screen off, and what a chapter boundary costs</h1>
 
 <div class="verdict idle" id="verdict">
   <div id="headline">Not started</div>
   <dl class="grid">
+    <dt>mode</dt><dd id="v-mode">—</dd>
     <dt>wall clock</dt><dd class="big" id="v-wall">—</dd>
     <dt>audio played</dt><dd class="big" id="v-audio">—</dd>
     <dt>shortfall</dt><dd class="big" id="v-drift">—</dd>
     <dt>chapter</dt><dd id="v-chapter">—</dd>
-    <dt>swaps</dt><dd id="v-swaps">0</dd>
+    <dt>chapter changes</dt><dd id="v-swaps">0</dd>
+    <dt>src writes</dt><dd class="big" id="v-srcs">0</dd>
+    <dt>panel told</dt><dd id="v-told">—</dd>
+    <dt>buffered</dt><dd id="v-buffered">—</dd>
     <dt>paused</dt><dd id="v-paused">0s in 0 pauses</dd>
     <dt>largest event gap</dt><dd id="v-stall">—</dd>
   </dl>
 </div>
 
 <div class="buttons">
-  <button id="start" class="primary">Start</button>
+  <button id="mode-tones" class="primary">Tone chapters (a file each)</button>
+  <button id="mode-book" class="primary">Whole book (one file)</button>
+</div>
+
+<div class="buttons">
+  <button id="start">Start</button>
   <button id="pause">Pause</button>
+  <button id="middle">Seek to the middle</button>
+  <button id="buffered">What is held?</button>
   <button id="agent-now">Agent move (3s, no gesture)</button>
   <button id="agent-later">Agent move in 20s</button>
   <button id="copy">Copy log</button>
@@ -96,9 +108,20 @@
 </div>
 
 <p class="hint">
-  Start, confirm you hear a tick once a second, lock the phone, wait two minutes,
-  wake it. If <b>shortfall</b> is still under a couple of seconds it never stopped.
-  Every lock-screen and Bluetooth button you press should appear in the log.
+  <b>Tone chapters</b> is the original question. Start, confirm you hear a tick
+  once a second, lock the phone, wait two minutes, wake it. If <b>shortfall</b>
+  is still under a couple of seconds it never stopped. Every lock-screen and
+  Bluetooth button you press should appear in the log.
+</p>
+<p class="hint">
+  <b>Whole book</b> is the new one, and it is only answered over Bluetooth with
+  the screen locked. It loads one real book from one URL, once — watch
+  <b>src writes</b> stay at 1 all night — and renames the chapter in the
+  notification from a timer as the stream crosses each boundary. What has to be
+  <i>looked at</i>, because no log can see it: does the panel keep the same
+  session across a rename, or does it blink out and come back? Then use
+  <b>Seek to the middle</b> for the morning resume, and turn the tailnet off for
+  half a minute to find out whether the phone still holds the book.
 </p>
 
 <div class="env" id="env"></div>
@@ -117,6 +140,26 @@
 // therefore read straight off the media element's currentTime whenever the
 // page is looked at, and the log is written to localStorage as it happens so
 // that even a discarded, reloaded page still shows what went wrong.
+//
+// It answers two questions now, and they are meant to be run on the same phone
+// on the same night, because the comparison is the whole point.
+//
+// TONE CHAPTERS is the original one, and the one ADR 0003 rests on: does an
+// installed PWA keep playing with the screen off at all? One element, a new
+// file per chapter — which is exactly what the player does today, and so is
+// also a demonstration of the failure in issue #31: assigning src runs the
+// media element load algorithm, empties the element, and leaves Chrome nothing
+// to hang a platform media session on. Over Bluetooth that teardown is
+// sometimes not survived.
+//
+// WHOLE BOOK is the question the fix rests on. One URL for the entire book
+// (/api/stream/{gid}/{n}), assigned once, so a chapter boundary is arithmetic
+// and touches neither the element nor the network. The panel is kept honest
+// about which chapter is playing by reassigning navigator.mediaSession.metadata
+// from timeupdate. That reassignment, on a *playing* element, is the single
+// assumption the whole route stands on, and it cannot be checked anywhere but
+// on the handset: this page can log that it happened, but only a person looking
+// at a lock screen over Bluetooth can say whether the notification survived it.
 // ---------------------------------------------------------------------------
 
 const audio = document.getElementById("audio");
@@ -209,19 +252,34 @@ function makeArtwork(size, label) {
 
 // --- accounting -----------------------------------------------------------
 
+let mode = "tones";         // "tones" — a file per chapter, or "book" — one file
 let firstPlayWall = null;   // when playback first began
 let completedMs = 0;        // audio finished in chapters we have left behind
+let seekShiftMs = 0;        // how much of currentTime got there by seeking
+let lastSeenSecond = 0;     // where the element was last seen, so a seek can be
+                            // taken back off the tally of sound that came out
 let pausedTotalMs = 0;      // wall time spent deliberately paused
 let pausedAt = null;
 let pauseCount = 0;
-let swaps = 0;
+let swaps = 0;              // chapter changes, however they were made
+let srcWrites = 0;          // the number issue #31 is about
 let maxGapMs = 0;           // largest gap between timeupdate events (diagnostic)
 let lastTickWall = null;
 let pauseReason = null;     // set just before any pause we asked for
-let index = 0;
+let index = 0;              // which tone, in tone mode
 let srcs = [];
+let book = null;            // the manifest being streamed, in whole-book mode
+let chapterIdx = 0;         // which of its chapters the stream is inside
+let toldText = "—";         // the last thing setPositionState was handed
 
+// In tone mode each file is a chapter, so what has been heard is what is behind
+// us plus where we are. In whole-book mode currentTime is the book's own clock
+// and a seek moves it by hours, so every jump is subtracted back off. It is
+// done that way rather than by adding up the ticks because a page Chrome has
+// frozen delivers no ticks, and an accounting that could miss one would report
+// a stall that never happened — which is the one lie this page must not tell.
 function audioMs() {
+  if (mode === "book") return audio.currentTime * 1000 - seekShiftMs;
   const ct = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
   return completedMs + ct * 1000;
 }
@@ -234,13 +292,52 @@ function wallMs() {
 
 const secs = (ms) => (ms / 1000).toFixed(1) + "s";
 
+// The chapter the notification should be naming, whichever mode we are in. In
+// tone mode the element holds exactly one chapter, so its bounds are the file's
+// own; in whole-book mode they come from the manifest — the render clock, which
+// is the clock the saved position and the search results already speak, and
+// which the join preserves to within a tenth of a second over five hours.
+function chapterNow() {
+  if (mode !== "book") {
+    return {
+      title: CHAPTERS[index].title,
+      start_ms: 0,
+      end_ms: (Number.isFinite(audio.duration) ? audio.duration : CHAPTER_SECONDS) * 1000,
+    };
+  }
+  return book && book.chapters[chapterIdx] ? book.chapters[chapterIdx] : null;
+}
+
+function chapterLabel() {
+  const c = chapterNow();
+  if (!c) return mode === "book" ? "no book loaded" : "—";
+  if (mode !== "book") return c.title;
+  return (chapterIdx + 1) + "/" + book.chapters.length + " — " + c.title;
+}
+
+function bufferedText() {
+  const b = audio.buffered;
+  const total = Number.isFinite(audio.duration) ? audio.duration.toFixed(1) : "?";
+  if (!b || b.length === 0) return "nothing of " + total;
+  const parts = [];
+  for (let i = 0; i < b.length; i++) {
+    parts.push(b.start(i).toFixed(1) + "–" + b.end(i).toFixed(1));
+  }
+  return parts.join(", ") + " of " + total;
+}
+
 function render() {
   const w = wallMs(), a = audioMs(), drift = w - a;
+  document.getElementById("v-mode").textContent =
+    mode === "book" ? (book ? "whole book — " + book.title : "whole book") : "tone chapters";
   document.getElementById("v-wall").textContent = firstPlayWall ? secs(w) : "—";
   document.getElementById("v-audio").textContent = firstPlayWall ? secs(a) : "—";
   document.getElementById("v-drift").textContent = firstPlayWall ? secs(drift) : "—";
-  document.getElementById("v-chapter").textContent = CHAPTERS[index].title;
+  document.getElementById("v-chapter").textContent = chapterLabel();
   document.getElementById("v-swaps").textContent = String(swaps);
+  document.getElementById("v-srcs").textContent = String(srcWrites);
+  document.getElementById("v-told").textContent = toldText;
+  document.getElementById("v-buffered").textContent = bufferedText();
   document.getElementById("v-paused").textContent =
     secs(pausedTotalMs + (pausedAt === null ? 0 : Date.now() - pausedAt)) +
     " in " + pauseCount + " pauses";
@@ -264,35 +361,75 @@ function frame() { if (!document.hidden) render(); requestAnimationFrame(frame);
 // --- media session --------------------------------------------------------
 // Metadata is set before play(), not after: the notification is built from
 // whatever mediaSession.metadata holds at the moment playback starts.
+//
+// In whole-book mode it is also set *during* play, at every chapter boundary,
+// and that is the assumption on trial. Every assignment is logged with whether
+// the element was playing at the time, because "the panel blinked" and "the
+// panel was renamed" are the same four lines of code from in here.
 
 const ART = [
   { src: makeArtwork(96, "S"), sizes: "96x96", type: "image/png" },
   { src: makeArtwork(512, "S"), sizes: "512x512", type: "image/png" },
 ];
 
-function setMetadata() {
-  if (!("mediaSession" in navigator)) return;
+function setMetadata(why) {
+  const c = chapterNow();
+  if (!c) return;
+  if (!("mediaSession" in navigator) || typeof MediaMetadata !== "function") return;
   navigator.mediaSession.metadata = new MediaMetadata({
-    title: CHAPTERS[index].title,
-    artist: "somnia background-audio spike",
-    album: "Screen-off proof",
+    title: c.title,
+    artist: mode === "book" ? (book.authors || "") : "somnia background-audio spike",
+    album: mode === "book" ? (book.title || "") : "Screen-off proof",
     artwork: ART,
   });
+  log("metadata := " + c.title + " (" + (audio.paused ? "element paused" : "ELEMENT PLAYING") +
+      ", " + why + ")", audio.paused ? "" : "good");
 }
 
-function setPosition() {
+// What the lock screen scrubber is told, and it is chapter-scale in both modes
+// on purpose — this is app.js:606-634's argument, being tried out over an
+// element that holds five hours instead of one chapter. A whole-book scrubber
+// on a twelve-hour novel is three minutes to the pixel: useless for a nudge,
+// and one sleepy thumb from the ending. So the numbers come from the chapter
+// bounds and not from the element, which also means every seekto that comes
+// back from the panel is on the chapter's scale and has to be put back on the
+// book's clock by hand — see the handler below.
+//
+// It is not logged every time. A push a second for eight hours would evict
+// every interesting line in the log, so what is written down is the first push
+// of each chapter, anything the platform refused, and a heartbeat once a
+// minute. The live value is on the readout, where it costs nothing.
+let lastToldLog = 0;
+function tellThePanel(why) {
   if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
-  const d = audio.duration;
-  if (!Number.isFinite(d) || d <= 0) return;
+  const c = chapterNow();
+  if (!c) return;
+  const span = (c.end_ms - c.start_ms) / 1000;
+  if (!Number.isFinite(span) || span <= 0) return;
+  const into = (mode === "book" ? audio.currentTime * 1000 - c.start_ms
+                                : audio.currentTime * 1000) / 1000;
+  const state = {
+    duration: span,
+    playbackRate: audio.playbackRate || 1,
+    // Clamped rather than trusted. In whole-book mode the element can be a
+    // quarter of a second past the boundary before this runs, and a position
+    // past duration throws TypeError — which leaves the PREVIOUS chapter's
+    // scrubber up rather than clearing it.
+    position: Math.min(Math.max(into, 0), span),
+  };
+  toldText = state.duration.toFixed(1) + "s long, at " + state.position.toFixed(1) + "s";
   try {
-    navigator.mediaSession.setPositionState({
-      duration: d,
-      playbackRate: audio.playbackRate || 1,
-      position: Math.min(Math.max(audio.currentTime, 0), d),
-    });
+    navigator.mediaSession.setPositionState(state);
   } catch (e) {
-    // A position past duration throws TypeError and leaves the scrubber stale.
-    log("setPositionState refused: " + e.message, "bad");
+    log("setPositionState REFUSED " + toldText + " (element at " +
+        audio.currentTime.toFixed(1) + "s): " + e.message, "bad");
+    return;
+  }
+  const now = Date.now();
+  if (why || now - lastToldLog > 60000) {
+    lastToldLog = now;
+    log("panel told: chapter is " + toldText + ", element at " +
+        audio.currentTime.toFixed(1) + "s" + (why ? " (" + why + ")" : ""));
   }
 }
 
@@ -305,37 +442,57 @@ function installHandlers() {
   set("play", () => { log("ACTION play (lock screen / bluetooth)", "good"); start("action"); });
   set("pause", () => { log("ACTION pause (lock screen / bluetooth)", "good"); doPause("action"); });
   set("stop", () => { log("ACTION stop", "good"); doPause("action"); });
-  set("nexttrack", () => { log("ACTION nexttrack", "good"); swap(+1); });
-  set("previoustrack", () => { log("ACTION previoustrack", "good"); swap(-1); });
+  set("nexttrack", () => { log("ACTION nexttrack", "good"); skipChapter(+1); });
+  set("previoustrack", () => { log("ACTION previoustrack", "good"); skipChapter(-1); });
   set("seekforward", (d) => {
     log("ACTION seekforward " + (d.seekOffset || 10));
-    audio.currentTime = Math.min(audio.currentTime + (d.seekOffset || 10), audio.duration || 0);
-    setPosition();
+    seekTo(audio.currentTime + (d.seekOffset || 10), "seekforward");
   });
   set("seekbackward", (d) => {
     log("ACTION seekbackward " + (d.seekOffset || 10));
-    audio.currentTime = Math.max(audio.currentTime - (d.seekOffset || 10), 0);
-    setPosition();
+    seekTo(audio.currentTime - (d.seekOffset || 10), "seekbackward");
   });
   set("seekto", (d) => {
-    log("ACTION seekto " + (d.seekTime || 0).toFixed(1) + (d.fastSeek ? " (fast)" : ""));
-    if (d.fastSeek && audio.fastSeek) audio.fastSeek(d.seekTime); else audio.currentTime = d.seekTime;
-    setPosition();
+    // seekTime comes back on the scale we published, which is this chapter's.
+    // Over a whole-book element that is the difference between a nudge and
+    // waking up four hours further on, so it is put back on the book's clock
+    // here and both numbers are written down.
+    const c = chapterNow();
+    const asked = d.seekTime || 0;
+    const target = mode === "book" && c ? c.start_ms / 1000 + asked : asked;
+    log("ACTION seekto " + asked.toFixed(1) + "s into the chapter = " +
+        target.toFixed(1) + "s into the file" + (d.fastSeek ? " (fast)" : ""));
+    if (d.fastSeek && audio.fastSeek) { seekAsked(target, "seekto"); audio.fastSeek(target); }
+    else seekTo(target, "seekto");
   });
   log("action handlers installed");
 }
 
 // --- transport ------------------------------------------------------------
 
+// The one place a URL is ever handed to the element, so the count on the
+// readout is the truth. In whole-book mode it must read 1 in the morning: a
+// second write means something reloaded the book, and a reload is the teardown
+// the route exists to avoid.
+let srcAt = null;          // when the element was last given a URL
+let firstSoundLogged = false;
+function setSrc(url, why) {
+  srcWrites++;
+  srcAt = Date.now();
+  firstSoundLogged = false;
+  log("src #" + srcWrites + " := " + url + " (" + why + ")", srcWrites > 1 ? "note" : "");
+  audio.src = url;
+}
+
 function loadChapter() {
-  setMetadata();
-  audio.src = srcs[index];
+  setMetadata("tone chapter");
+  setSrc(srcs[index], "tone chapter " + (index + 1));
   audio.load();
 }
 
-// One element, reused. Two elements handed off to each other make Android
-// tear down audio focus for the old one and take it again for the new one,
-// which is what makes the notification blink out between chapters.
+// A tone-mode chapter change: a new file, a new load, a new session. This is
+// what the player does today at every boundary, and what issue #31 says is
+// sometimes not survived over Bluetooth.
 function swap(dir) {
   completedMs += (Number.isFinite(audio.currentTime) ? audio.currentTime : 0) * 1000;
   index = (index + dir + CHAPTERS.length) % CHAPTERS.length;
@@ -349,6 +506,41 @@ function swap(dir) {
   play("swap");
 }
 
+// The same press in whole-book mode is a seek and nothing else: no request, no
+// load, no pause, and the notification is renamed by the timeupdate below when
+// the new position lands. Note it cannot be a chapter change *by itself* —
+// followChapter is the only thing that moves chapterIdx, precisely so that a
+// boundary crossed by playing and one crossed by a thumb are the same code.
+function skipChapter(dir) {
+  if (mode !== "book" || !book) { swap(dir); return; }
+  const to = chapterIdx + dir;
+  if (to < 0 || to >= book.chapters.length) { log("no chapter that way", "note"); return; }
+  seekTo(book.chapters[to].start_ms / 1000, "chapter " + (to + 1));
+}
+
+// Every seek goes through here so the morning-resume question — what does
+// currentTime = 15000 cost on a five-hour progressive file — is answered with a
+// number every time one happens, rather than only when the button is pressed.
+let seekAskedAt = null;
+let seekTarget = null;
+function seekAsked(target, why) {
+  seekAskedAt = Date.now();
+  seekTarget = target;
+  // Called before the element is moved, never after, because this is also
+  // where the jump is taken back off the tally of sound that came out.
+  seekShiftMs += (target - lastSeenSecond) * 1000;
+  log("seek to " + target.toFixed(1) + "s from " + lastSeenSecond.toFixed(1) +
+      "s (" + why + "), holding " + bufferedText(), "note");
+}
+
+function seekTo(target, why) {
+  const limit = Number.isFinite(audio.duration) ? audio.duration : null;
+  const to = Math.max(0, limit === null ? target : Math.min(target, limit - 0.05));
+  seekAsked(to, why);
+  audio.currentTime = to;
+  tellThePanel("after a seek");
+}
+
 function play(why) {
   const p = audio.play();
   if (p && p.catch) {
@@ -358,21 +550,149 @@ function play(why) {
 }
 
 function start(why) {
+  if (mode === "book" && !audio.src) { openWholeBook(); return; }
   if (!audio.src) loadChapter();
   play(why);
 }
 
 function doPause(why) { pauseReason = why; audio.pause(); }
 
+// --- the whole book -------------------------------------------------------
+// One URL, fetched once, for a book that really exists. Everything here is the
+// shape the player would take under route 2, written out longhand so that what
+// the phone is doing is readable from the phone.
+
+async function fetchJson(url) {
+  const started = Date.now();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(url + " answered " + res.status);
+  const body = await res.json();
+  log("GET " + url + " -> " + res.status + " in " + (Date.now() - started) + "ms");
+  return body;
+}
+
+// ?gid= names a book; otherwise the longest one somnia has. Not the one last
+// listened to, which is what the player opens: every unknown this mode exists
+// to settle is about a five-hour file — whether Chrome holds it, what its
+// header costs, what a seek into the middle of it costs — and a twenty-minute
+// book answers none of them.
+async function chooseBook() {
+  const wanted = Number(new URLSearchParams(location.search).get("gid")) || 0;
+  if (wanted) return wanted;
+  const list = await fetchJson("api/books");
+  const playable = (list.books || []).filter((b) => b.chapters > 0);
+  if (!playable.length) return null;
+  playable.sort((a, b) => b.total_ms - a.total_ms);
+  log("longest book of " + playable.length + ": " + playable[0].title +
+      " (" + Math.round(playable[0].total_ms / 60000) + " min). ?gid= to pick another.");
+  return playable[0].gid;
+}
+
+let opening = false;
+async function openWholeBook() {
+  if (opening) return;
+  if (srcWrites > 0) {
+    // Loading it twice would spoil the only number that matters. Reloading the
+    // page is the honest way to start again.
+    log("the element already holds a book — reload the page to load one again", "note");
+    play("whole book, again");
+    return;
+  }
+  opening = true;
+  try {
+    const gid = await chooseBook();
+    if (gid === null) { log("somnia has no book with any audio yet", "bad"); return; }
+    book = await fetchJson("api/book/" + gid);
+    if (!book.chapters.length) { log("that book has no chapters yet", "bad"); book = null; return; }
+    chapterIdx = 0;
+    const n = book.chapters.length;
+    log(book.title + " — " + n + " chapters, " +
+        Math.round(book.total_ms / 60000) + " min, status " + book.status);
+    if (book.status === "rendering") {
+      // Worth knowing before the night rather than after it: the stream is only
+      // as long as the chapters that existed when it was asked for, and an
+      // element that reaches the end of its media is removed from the platform
+      // session — which destroys the panel just as surely as a src write does.
+      log("still rendering: this stream stops at chapter " + n +
+          " and the element will END there, which is the one thing that certainly " +
+          "takes the notification away", "note");
+    }
+    setMetadata("whole book, first chapter");
+    // The first ask for a version builds it: a second or two of ffmpeg on the
+    // server, in front of the first byte, and it lands in the gap before
+    // loadedmetadata below. A long wait here on a fresh book is the join, not
+    // the phone.
+    setSrc("api/stream/" + gid + "/" + n, "whole book, " + n + " chapters");
+    play("whole book");
+  } catch (e) {
+    log("could not open the book: " + e.message, "bad");
+  } finally {
+    opening = false;
+  }
+}
+
+// The boundary, in whole-book mode: arithmetic on a clock, and a rename. This
+// is the four lines app.js would grow, running at 4 Hz on the busiest handler
+// in the page, which is why it is idempotent — chapterIdx only ever moves when
+// the position genuinely leaves the chapter, so a tick inside one costs nothing
+// and the panel is not thrashed all night.
+function followChapter() {
+  if (mode !== "book" || !book) return;
+  const ms = audio.currentTime * 1000;
+  let i = chapterIdx;
+  while (i + 1 < book.chapters.length && ms >= book.chapters[i].end_ms) i++;
+  while (i > 0 && ms < book.chapters[i].start_ms) i--;
+  if (i === chapterIdx) return;
+  chapterIdx = i;
+  swaps++;
+  log("chapter change to " + (i + 1) + "/" + book.chapters.length +
+      " at element " + audio.currentTime.toFixed(1) + "s — no src, no load, no request", "good");
+  // After chapterIdx, never before: the panel takes whatever metadata is
+  // current, and naming the chapter we have just left would leave the wrong
+  // title up for the rest of the book.
+  setMetadata("chapter change");
+  tellThePanel("chapter change");
+}
+
 // --- element events -------------------------------------------------------
+
+// Every media event the element can fire, written down with the time it
+// happened, because the failure being hunted arrives as a night that went
+// quiet rather than as anything in a console. timeupdate and progress are the
+// two exceptions and they are handled below: at four and three a second they
+// would fill the log with the one thing that is never news.
+//
+// `emptied` is red on sight. In whole-book mode it is the failure itself — the
+// element has lost its media, which leaves Chrome nothing to hang a platform
+// media session on, and it is the one line in this log that would explain a
+// notification that went away and did not come back.
+for (const name of [
+  "loadstart", "durationchange", "loadeddata", "canplay",
+  "canplaythrough", "emptied", "abort", "suspend", "volumechange",
+]) {
+  audio.addEventListener(name, () => log(name, name === "emptied" ? "bad" : ""));
+}
 
 audio.addEventListener("play", () => {
   if (firstPlayWall === null) { firstPlayWall = Date.now(); log("playback began", "good"); }
   if (pausedAt !== null) { pausedTotalMs += Date.now() - pausedAt; pausedAt = null; }
   lastTickWall = Date.now();
+  lastSeenSecond = audio.currentTime;
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
-  setPosition();
+  tellThePanel("play");
   render();
+});
+
+audio.addEventListener("playing", () => {
+  // Time to first sound, which is the moov question: 1.7 MB of header for a
+  // five-hour book has to arrive before a single frame decodes, and on a first
+  // ask the server's join is in here too.
+  if (!firstSoundLogged && srcAt !== null) {
+    firstSoundLogged = true;
+    log("playing — first sound " + (Date.now() - srcAt) + "ms after the src write", "note");
+  } else {
+    log("playing");
+  }
 });
 
 audio.addEventListener("pause", () => {
@@ -385,14 +705,59 @@ audio.addEventListener("pause", () => {
   render();
 });
 
-audio.addEventListener("ended", () => { log("chapter ended"); swap(+1); });
+audio.addEventListener("ended", () => {
+  if (mode === "book") {
+    // Not a boundary — the end of the media. The player is removed from the
+    // platform session here and the panel goes with it, so a night that ends
+    // in this line ends in silence with nothing to press.
+    log("ELEMENT ENDED — the whole stream is done and the session is gone", "bad");
+    render();
+    return;
+  }
+  log("chapter ended");
+  swap(+1);
+});
 
-audio.addEventListener("loadedmetadata", () => { setPosition(); });
-audio.addEventListener("ratechange", setPosition);
-audio.addEventListener("seeked", () => { log("seeked to " + audio.currentTime.toFixed(1)); setPosition(); });
-audio.addEventListener("stalled", () => log("stalled", "bad"));
-audio.addEventListener("waiting", () => log("waiting (rebuffering)", "note"));
-audio.addEventListener("error", () => log("element error: " + (audio.error && audio.error.message), "bad"));
+audio.addEventListener("loadedmetadata", () => {
+  log("header in after " + (srcAt === null ? "?" : Date.now() - srcAt) + "ms, duration " +
+      (Number.isFinite(audio.duration) ? audio.duration.toFixed(3) + "s" : "unknown"), "note");
+  tellThePanel("metadata");
+});
+audio.addEventListener("ratechange", () => tellThePanel("rate"));
+audio.addEventListener("seeking", () => log("seeking"));
+audio.addEventListener("seeked", () => {
+  log("seeked to " + audio.currentTime.toFixed(1) +
+      (seekAskedAt === null ? "" : " after " + (Date.now() - seekAskedAt) + "ms") +
+      ", holding " + bufferedText());
+  lastSeenSecond = audio.currentTime;
+  tellThePanel("seeked");
+});
+audio.addEventListener("stalled", () => log("stalled — holding " + bufferedText(), "bad"));
+audio.addEventListener("waiting", () => log("waiting (rebuffering) — holding " + bufferedText(), "note"));
+audio.addEventListener("error", () =>
+  log("element error: " + (audio.error && audio.error.code) + " " +
+      (audio.error && audio.error.message) + " — networkState " + audio.networkState +
+      ", holding " + bufferedText(), "bad"));
+
+// What Chrome is holding, and when it stops holding it. This is the eviction
+// question: if the phone keeps the whole 161 MB, the first buffered range goes
+// on starting at 0 all night; if Chrome throws it away and asks again after the
+// tailnet blips, the range starts somewhere else, and that is the moment worth
+// having a timestamp for. So the shape is watched rather than the event —
+// progress fires three times a second and is never news on its own.
+let lastShape = "";
+let lastBufferedLog = 0;
+function noteBuffered(why) {
+  const b = audio.buffered;
+  const shape = (b ? b.length : 0) + "@" + (b && b.length ? b.start(0).toFixed(0) : "-");
+  const now = Date.now();
+  const moved = shape !== lastShape;
+  if (!why && !moved && now - lastBufferedLog < 60000) return;
+  lastShape = shape;
+  lastBufferedLog = now;
+  log("holding " + bufferedText() + (why ? " (" + why + ")" : ""), moved ? "note" : "");
+}
+audio.addEventListener("progress", () => noteBuffered(null));
 
 let lastPositionPush = 0;
 audio.addEventListener("timeupdate", () => {
@@ -402,7 +767,18 @@ audio.addEventListener("timeupdate", () => {
     if (gap > maxGapMs) maxGapMs = gap;
   }
   lastTickWall = now;
-  if (now - lastPositionPush > 1000) { lastPositionPush = now; setPosition(); }
+
+  const ct = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+  lastSeenSecond = ct;
+
+  if (seekAskedAt !== null && !audio.paused && seekTarget !== null && ct > seekTarget + 0.2) {
+    log("sound again " + (Date.now() - seekAskedAt) + "ms after the seek was asked for", "note");
+    seekAskedAt = null;
+    seekTarget = null;
+  }
+
+  followChapter();
+  if (now - lastPositionPush > 1000) { lastPositionPush = now; tellThePanel(null); }
   if (!document.hidden) render();
 });
 
@@ -413,7 +789,8 @@ audio.addEventListener("timeupdate", () => {
 function snapshot(label, cls) {
   log(label + " — wall " + secs(wallMs()) + ", audio " + secs(audioMs()) +
       ", shortfall " + secs(wallMs() - audioMs()) +
-      ", " + (audio.paused ? "PAUSED" : "playing"), cls);
+      ", " + (audio.paused ? "PAUSED" : "playing") +
+      ", src writes " + srcWrites + ", holding " + bufferedText(), cls);
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -424,11 +801,46 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => snapshot("pagehide", "note"));
 window.addEventListener("freeze", () => log("PAGE FROZEN by Chrome", "bad"));
 window.addEventListener("resume", () => log("page resumed from frozen", "note"));
+// The tailnet going and coming back. navigator.onLine is about the phone's own
+// radio and not about whether nuc2 can be reached, so this is a hint and not an
+// answer — but a blip that shows up here saves a lot of squinting at the rest.
+window.addEventListener("offline", () => log("the phone says it is offline", "note"));
+window.addEventListener("online", () => log("the phone says it is online again", "note"));
 
 // --- buttons --------------------------------------------------------------
 
+function chooseMode(next) {
+  if (mode === next) return;
+  if (srcWrites > 0) {
+    // The two modes share one element and one set of counters, and a night is
+    // a comparison between them rather than a mixture of them. Reloading is
+    // cheap and the log survives it, so it is the honest way to switch.
+    log("reload the page to change mode — this one already has a book in it", "note");
+    return;
+  }
+  mode = next;
+  document.getElementById("mode-tones").classList.toggle("chosen", mode === "tones");
+  document.getElementById("mode-book").classList.toggle("chosen", mode === "book");
+  log("mode: " + (mode === "book" ? "whole book, one file, one src write" :
+                  "tone chapters, a file and a load each"), "note");
+  render();
+}
+
+document.getElementById("mode-tones").addEventListener("click", () => chooseMode("tones"));
+document.getElementById("mode-book").addEventListener("click", () => {
+  chooseMode("book");
+  if (mode === "book") openWholeBook();
+});
 document.getElementById("start").addEventListener("click", () => start("button"));
 document.getElementById("pause").addEventListener("click", () => doPause("button"));
+// The morning resume, in one press: the middle of a five-hour progressive file
+// is the seek that either comes back in a moment or spends seconds walking an
+// index, and it happens every day.
+document.getElementById("middle").addEventListener("click", () => {
+  if (!Number.isFinite(audio.duration)) { log("no duration yet", "note"); return; }
+  seekTo(audio.duration / 2, "the middle");
+});
+document.getElementById("buffered").addEventListener("click", () => noteBuffered("asked"));
 document.getElementById("copy").addEventListener("click", async () => {
   const text = lines.map((l) => l.t + "  " + l.text).join("\n");
   try { await navigator.clipboard.writeText(text); log("log copied"); }
@@ -444,12 +856,12 @@ document.getElementById("reset").addEventListener("click", () => {
 function agentMove(delay) {
   log("agent move scheduled in " + delay + "s", "note");
   setTimeout(() => {
-    const target = Math.min((audio.duration || 45) - 8, audio.currentTime + 12);
+    const limit = Number.isFinite(audio.duration) ? audio.duration : CHAPTER_SECONDS;
+    const target = Math.min(limit - 8, audio.currentTime + 12);
     log("agent move firing: pause, seek to " + target.toFixed(1) + ", play");
     pauseReason = "agent";
     audio.pause();
-    audio.currentTime = Math.max(target, 0);
-    setPosition();
+    seekTo(target, "agent");
     play("agent, no gesture");
   }, delay * 1000);
 }
@@ -475,7 +887,20 @@ log("built " + CHAPTERS.length + " x " + CHAPTER_SECONDS + "s tones in " +
 log(standalone ? "running installed (standalone)" : "running in a browser tab", standalone ? "good" : "note");
 
 installHandlers();
-loadChapter();
+
+// Nothing is loaded at boot any more. Tone mode used to put its first chapter
+// in the element here, which would now be a src write before either question
+// had been chosen — and in whole-book mode the count of those is the answer.
+document.getElementById("mode-tones").classList.add("chosen");
+if (new URLSearchParams(location.search).get("book") !== null) {
+  // ?book, so the night can be started from a home-screen shortcut without
+  // finding the right button in the dark. The load still waits for a press,
+  // because a page that took audio focus on being opened would be its own bug.
+  mode = "book";
+  document.getElementById("mode-tones").classList.remove("chosen");
+  document.getElementById("mode-book").classList.add("chosen");
+  log("whole-book mode, from the URL — press Start", "note");
+}
 render();
 requestAnimationFrame(frame);
 </script>

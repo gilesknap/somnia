@@ -123,7 +123,7 @@ test("a report held back is built when it goes out, not when it was asked for", 
   // position over a newer one; what must not happen is the LAST position being
   // the one that got dropped.
   page.seek(9000);
-  page.audio.ready();
+  page.audio.arrived();
   page.hold(false);
   page.release();
   for (let turn = 0; turn < 4; turn++) await page.settle();
@@ -258,25 +258,28 @@ test("playback a report never got out with is carried by the next one", async (t
   );
 });
 
-test("the silence at a chapter boundary is nobody's listening", async (t) => {
+test("a chapter boundary is listening like any other second", async (t) => {
   const page = await playing(t);
-  for (let tick = 0; tick < 14; tick++) page.audio.advance(0.5);
+  // Straight across the boundary at the rate sound comes off the pipeline, and
+  // then far enough for a heartbeat to carry what it saw.
+  for (let tick = 0; tick < 18; tick++) page.audio.advance(0.5);
   page.posts.length = 0;
-  page.audio.currentTime = 7.7;
-  page.audio.fire("timeupdate");
-  page.audio.ready();
+  page.tick(15_000);
+  page.audio.advance(0.5);
   await page.settle();
-  const [chapter, landed] = page.posts;
+  // Nine and a half seconds of book, boundary and all, and every millisecond of
+  // it after the first sample is claimed — that one is the baseline the rest are
+  // measured from, and it is the only one the whole stretch costs.
+  //
+  // It used to cost a great deal more. A boundary was a swap, and a swap threw
+  // the baseline away and stepped over four hundred milliseconds of rendered
+  // silence, so the guard was told about a chapter change and about landing in
+  // the new file, in two reports, with nothing played between them. With the
+  // whole book down one URL there is no discontinuity to step over and nothing
+  // to forgive: the media clock runs on, and what it says is what was heard.
   assert.deepEqual(
-    [chapter.body.reason, chapter.body.position_ms, chapter.body.played_ms],
-    ["chapter", 7700, 7200],
-  );
-  // The three hundred milliseconds between the two reports are the rendered
-  // silence the swap steps over: the position moves and nothing plays. Nothing
-  // is claimed for them, which is what the guard's slack is there to absorb.
-  assert.deepEqual(
-    [landed.body.reason, landed.body.position_ms, landed.body.played_ms],
-    ["seek", 8000, 0],
+    page.posts.map((p) => [p.body.reason, p.body.position_ms, p.body.played_ms]),
+    [["tick", 9500, 9000]],
   );
 });
 
@@ -295,11 +298,12 @@ test("a refusal takes them where the agent said, and plays it", async (t) => {
   page.audio.advance(0.5);
   await page.settle();
   assert.equal(page.probe().positionMs, 20_000);
-  assert.equal(page.audio.srcWrites.at(-1), "api/audio/900001/2");
+  // A move the agent made is a seek like any other, and lands with nothing
+  // loaded: twenty seconds into the book is twenty seconds into the file.
+  assert.equal(page.audio.srcWrites.length, 1);
+  assert.equal(page.audio.currentTime, 20);
   assert.equal(page.audio.paused, false);
-  // Reproducing "now press play yourself" in JavaScript would be a joke.
-  page.audio.ready();
-  assert.equal(page.audio.currentTime, 4);
+  assert.equal(page.probe().chapter, "The Third Tone");
 });
 
 test("the next report carries the count the refusal gave it", async (t) => {
@@ -314,7 +318,7 @@ test("the next report carries the count the refusal gave it", async (t) => {
   page.tick(15_000);
   page.audio.advance(0.5);
   await page.settle();
-  page.audio.ready();
+  page.audio.arrived();
   page.reply({ accepted: true, gid: 900001 });
   page.posts.length = 0;
   page.tick(15_000);
@@ -326,7 +330,7 @@ test("the next report carries the count the refusal gave it", async (t) => {
 test("a move already applied moves nothing", async (t) => {
   const page = await playing(t);
   page.follow({ gid: 900001, position_ms: 20_000, seq: 3 });
-  page.audio.ready();
+  page.audio.arrived();
   // The same move arrives twice by design — the reply to the question that
   // caused it, and the refusal of the next report — so the second one has to
   // cost nothing.
@@ -390,7 +394,7 @@ test("following a book with no chapters yet leaves the book playing", async (t) 
   assert.equal(page.probe().status, "the first chapter is still being read");
   page.click("fwd30");
   assert.equal(page.probe().positionMs, 24_000);
-  assert.equal(page.audio.srcWrites.at(-1), "api/audio/900001/2");
+  assert.equal(page.audio.srcWrites.at(-1), "api/stream/900001/3");
 });
 
 test("a refusal about the book they have left is ignored", async (t) => {

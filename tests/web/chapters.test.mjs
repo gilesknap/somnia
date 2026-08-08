@@ -27,7 +27,6 @@ async function playing(t) {
 test("the chapter clock counts the chapter and not the book", async (t) => {
   const page = await playing(t);
   page.seek(20_000, { play: true });
-  page.audio.ready();
   // Twenty seconds into the book is four into chapter three, and the two
   // clocks have to disagree in exactly that way. A chapter clock reading
   // 0:00:20 would be the book's clock wearing a different label, which is the
@@ -43,10 +42,8 @@ test("the count between the circles says which chapter of how many", async (t) =
   // timer is actually asking.
   assert.equal(page.probe().chapterCount, "1 of 3");
   page.click("nextchapter");
-  page.audio.ready();
   assert.equal(page.probe().chapterCount, "2 of 3");
   page.click("nextchapter");
-  page.audio.ready();
   assert.equal(page.probe().chapterCount, "3 of 3");
   // And the circle either side of it still says where there is nothing to go
   // to, rather than going nowhere quietly.
@@ -63,7 +60,6 @@ test("a book nobody counted says which chapter and no denominator", async (t) =>
   // book still being read would say "1 of 1" and then "1 of 2" an hour later.
   assert.equal(page.probe().chapterCount, "chapter 1");
   page.click("nextchapter");
-  page.audio.ready();
   assert.equal(page.probe().chapterCount, "chapter 2");
   assert.equal(page.probe().canSkipOn, false);
 });
@@ -89,14 +85,12 @@ test("a chapter under an hour drops the leading hour, and over it keeps it", asy
 test("the next chapter button walks forward and stops at the end", async (t) => {
   const page = await playing(t);
   page.click("nextchapter");
-  page.audio.ready();
   assert.equal(page.probe().positionMs, 8000);
   assert.equal(page.probe().chapter, "The Second Tone");
   // A skip lands at the top of the chapter, so its own clock starts again.
   assert.equal(page.probe().chapterClock, "0:00 of 0:08");
 
   page.click("nextchapter");
-  page.audio.ready();
   assert.equal(page.probe().positionMs, 16_000);
 
   // Nowhere left to go. It says so rather than doing something.
@@ -108,7 +102,6 @@ test("the next chapter button walks forward and stops at the end", async (t) => 
 test("the previous chapter button restarts this one before it leaves it", async (t) => {
   const page = await playing(t);
   page.seek(22_000, { play: true });
-  page.audio.ready();
   // Five seconds into the last chapter, so "previous" means the top of it —
   // what it means on every music player anyone has used, and the more
   // forgiving of the two answers for a thumb that missed.
@@ -116,14 +109,12 @@ test("the previous chapter button restarts this one before it leaves it", async 
   assert.equal(page.probe().positionMs, 16_000);
   // Now it is at the top, so the same press goes back a chapter.
   page.click("prevchapter");
-  page.audio.ready();
   assert.equal(page.probe().positionMs, 8000);
 });
 
 test("previous on the first chapter starts it again rather than doing nothing", async (t) => {
   const page = await playing(t);
   page.seek(6000, { play: true });
-  page.audio.ready();
   page.click("prevchapter");
   // There is no chapter before this one, and a button that does nothing at all
   // is indistinguishable from a page that has stopped working.
@@ -134,15 +125,11 @@ test("previous on the first chapter starts it again rather than doing nothing", 
 test("the buttons and the lock screen are the same two functions", async (t) => {
   const byThumb = await playing(t);
   byThumb.click("nextchapter");
-  byThumb.audio.ready();
   byThumb.click("nextchapter");
-  byThumb.audio.ready();
 
   const byRemote = await playing(t);
   byRemote.press("nexttrack");
-  byRemote.audio.ready();
   byRemote.press("nexttrack");
-  byRemote.audio.ready();
 
   // The page and the notification cannot be allowed to drift: for most of the
   // night the lock screen is the only transport there is, and a skip that
@@ -158,21 +145,18 @@ test("skipping a chapter reports the seek once, at the top of the chapter", asyn
   await page.settle();
   const before = page.posts.length;
   page.click("nextchapter");
-  page.audio.ready();
+  page.audio.arrived();
   await page.settle();
-  // Two reports, because landing on a boundary is both a seek and a chapter
-  // change and the swap machine has always said so. That is the point of
-  // pinning it here: the button inherits the existing path rather than growing
-  // one of its own, and both reports carry the same position. Two reports at
-  // two different positions is how the later one comes to be refused — and a
-  // refusal is read as the agent having moved the book, which would carry them
-  // somewhere nobody asked to go.
+  // One report, and it is a seek, which is what a press of this button is. It
+  // used to be two — the skip loaded the chapter's own file, and a source
+  // landing is reported as well — and two reports for one press is how the
+  // later one comes to be refused if they ever disagree about the position. A
+  // refusal is read as the agent having moved the book, which would carry
+  // somebody somewhere nobody asked to go. There is nothing to load now, so
+  // there is nothing to say twice.
   assert.deepEqual(
     page.posts.slice(before).map((p) => [p.body.reason, p.body.position_ms]),
-    [
-      ["chapter", 8000],
-      ["seek", 8000],
-    ],
+    [["seek", 8000]],
   );
 });
 
@@ -180,14 +164,11 @@ test("there is somewhere to skip to until the last chapter", async (t) => {
   const page = await playing(t);
   assert.equal(page.probe().canSkipOn, true);
   page.seek(8000, { play: true });
-  page.audio.ready();
   assert.equal(page.probe().canSkipOn, true);
   page.seek(16_000, { play: true });
-  page.audio.ready();
   assert.equal(page.probe().canSkipOn, false);
   // And back again: the book is still being read on some nights, and a chapter
   // that did not exist a minute ago is the normal case rather than the odd one.
   page.seek(4000, { play: true });
-  page.audio.ready();
   assert.equal(page.probe().canSkipOn, true);
 });

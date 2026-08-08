@@ -7,35 +7,11 @@ those tests still passes while the player is broken. So the fixture is checked
 against the bytes on disk here, once, rather than trusted everywhere else.
 """
 
-import struct
 from pathlib import Path
 
 from conftest import ToneBook
+from mp4 import boxes, duration_ms
 from tone_book import CHAPTER_MS, CHAPTERS, GID, TOTAL_MS
-
-
-def mp4_duration_ms(path: Path) -> int:
-    """Read an m4a's duration from its moov/mvhd box, with no ffmpeg to hand.
-
-    ffmpeg makes the fixture but must not be needed to run the suite, so this
-    walks the handful of MP4 boxes it takes to reach the one number wanted.
-    """
-    data = path.read_bytes()
-
-    def find(box: bytes, start: int, end: int) -> tuple[int, int]:
-        offset = start
-        while offset < end:
-            (size,) = struct.unpack(">I", data[offset : offset + 4])
-            if data[offset + 4 : offset + 8] == box:
-                return offset + 8, offset + size
-            offset += size
-        raise AssertionError(f"no {box.decode()} box in {path}")
-
-    moov_start, moov_end = find(b"moov", 0, len(data))
-    mvhd_start, _ = find(b"mvhd", moov_start, moov_end)
-    # Version 0 mvhd: version+flags, created, modified, timescale, duration.
-    timescale, duration = struct.unpack(">II", data[mvhd_start + 12 : mvhd_start + 20])
-    return round(duration * 1000 / timescale)
 
 
 def test_every_chapter_row_points_at_audio_that_is_really_there(
@@ -59,8 +35,26 @@ def test_the_audio_is_as_long_as_the_database_says(tone_book: ToneBook) -> None:
         (GID,),
     ).fetchall()
     for row in rows:
-        played = mp4_duration_ms(Path(row["audio_file"]))
+        played = duration_ms(Path(row["audio_file"]))
         assert played == row["end_ms"] - row["start_ms"] == CHAPTER_MS
+
+
+def test_the_fixtures_have_their_header_where_ingest_puts_it(
+    tone_book: ToneBook,
+) -> None:
+    """A fixture that is not the shape ingest writes tests the wrong file.
+
+    ``somnia.audio.ChapterAudio.encode`` passes ``-movflags +faststart``, which
+    moves ``moov`` in front of ``mdat``. Nothing cared while a chapter was only
+    ever fetched whole, so the regeneration recipe in :mod:`tone_book` was
+    written without it and the committed files came out the other way round.
+    Joining chapters into one stream cares: the joined header is the thing the
+    phone must have before the first note, and a fixture with it at the end
+    would let a stream that costs an extra round trip at 2am look correct here.
+    """
+    for chapter in CHAPTERS:
+        names = [name for name, _, _ in boxes(tone_book.book_dir / chapter.file_name)]
+        assert names.index("moov") < names.index("mdat"), chapter.file_name
 
 
 def test_the_chapters_tile_the_book_without_gaps(tone_book: ToneBook) -> None:
