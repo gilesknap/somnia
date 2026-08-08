@@ -397,8 +397,18 @@ def test_there_is_no_second_way_to_ask_what_is_at_a_place_they_have_not_heard(
     asked over a tailnet at 2am on the one press where a spinner does the most
     damage, because they pressed it precisely when they were unsure.
 
-    So the reveal is a hidden span being unhidden, and nothing here hands out a
-    passage by id. The page fetches nothing at all when it is pressed.
+    So every place on the list carries its own words down with the answer that
+    named it, the reveal is a string in a closure reaching the DOM, and nothing
+    anywhere hands out a passage by id.
+
+    ``/api/passage`` is not that route and this is where the difference is
+    written down. Its address is a point on the book's clock, not an identifier:
+    there is no id to guess, the row it returns is bounded by ``heard_to_ms``
+    inside the same statement that finds it — see
+    :meth:`somnia.player.Player.passage_at` — and no way of asking makes it
+    return anything the sound has not already said out loud. It exists for the
+    one row on that screen the answer carries nothing for, which is the row that
+    is by definition behind the mark: where they are now.
     """
     # Only the route table is under test, but the app is still started and
     # stopped properly, because create_app builds a Player that opens its own
@@ -414,9 +424,13 @@ def test_there_is_no_second_way_to_ask_what_is_at_a_place_they_have_not_heard(
     assert "/api/ask" in paths
     for path in paths:
         assert "chunk" not in path
-        assert "passage" not in path
         assert "reveal" not in path
         assert "candidate" not in path
+    # And the one route that does serve the book's own words is addressed by a
+    # time and nothing else. A path that took an id would be the oracle whatever
+    # its handler did with it.
+    text_routes = [path for path in paths if "passage" in path]
+    assert text_routes == ["/api/passage/{gid:int}/{ms:int}"]
 
 
 def test_a_turn_that_moved_nothing_says_nothing_about_moving(
@@ -1227,6 +1241,45 @@ def test_a_book_with_no_sentence_to_offer_is_not_an_error(
     response = tone_client.get(f"/api/sentence/{GID + 1}/5000")
     assert response.status_code == 200
     assert response.json()["start_ms"] is None
+
+
+def test_the_page_can_ask_what_is_being_said_where_they_are(
+    tone_client: TestClient,
+) -> None:
+    """The words for the "you are here" row, which no answer carries down."""
+    body = tone_client.get(f"/api/passage/{GID}/5000").json()
+    assert body == {
+        "gid": GID,
+        "ms": 5_000,
+        "text": "the low tone holds to the end of the first chapter",
+    }
+
+
+def test_the_only_route_that_serves_book_text_cannot_serve_unheard_text(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The one thing this route must never do, asked for directly.
+
+    There is no chunk id in the address and no way to put one there: the address
+    is a point on the clock, and what comes back is bounded by how far the sound
+    has really got — so a caller naming the last millisecond of the book is
+    answered from behind the mark like everybody else. See Player.passage_at.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET heard_to_ms = 12000 WHERE gid = ?", (GID,)
+        )
+    body = tone_client.get(f"/api/passage/{GID}/{TOTAL_MS}").json()
+    assert body["text"] == "the second tone, a fifth above the first"
+
+
+def test_a_book_with_nothing_to_say_where_they_are_is_not_an_error(
+    tone_client: TestClient,
+) -> None:
+    """The row offers no reveal, and that is the whole of what happens."""
+    response = tone_client.get(f"/api/passage/{GID + 1}/5000")
+    assert response.status_code == 200
+    assert response.json()["text"] is None
 
 
 # ------------------------------------------------------------- adding a book

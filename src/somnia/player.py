@@ -538,6 +538,47 @@ class Player:
             ).fetchone()
         return int(row["start_ms"]) if row is not None else None
 
+    def passage_at(self, gid: int, ms: int) -> str | None:
+        """The book's own words at ``ms``, never any further on than they got.
+
+        For the "you are here" row on the list of places. Every other row on
+        that screen carries its words down with the answer that named it; this
+        one names no passage at all — it is a rule drawn at wherever the book
+        has got to tonight, which normally falls between two of the places and
+        inside none — so its words are the one thing on that screen the page has
+        to come back and ask for.
+
+        The guard is in the statement rather than in a branch above it, and that
+        is the whole of why this route is safe to exist. ``start_ms <
+        heard_to_ms`` is the spoiler guard's own predicate — it is exactly what
+        :class:`somnia.tools.Candidate` calls not being ``ahead``, written the
+        other way round — and it is applied to the row, not to the argument: a
+        caller who asks about a point an hour past where anybody has listened is
+        answered with the last passage that really was spoken, not refused and
+        not obliged. So there is no number to guess and no error to read a
+        frontier off. The furthest this can ever hand back is the furthest the
+        sound has ever reached.
+
+        ``heard_to_ms`` and not ``position_ms``, for the reason the column
+        exists: being taken backwards must not shrink what may be shown, and the
+        page asks about where they are now, which is at or behind it either way.
+
+        None when there is nothing to say: no such book, a book whose text was
+        never indexed, or a book nobody has played a second of — the last of
+        those falls out of the same comparison, since no passage begins before
+        zero. The row simply offers no reveal then, which is what it did before
+        this existed.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT chunks.text FROM chunks JOIN books ON books.gid ="
+                " chunks.book_gid WHERE chunks.book_gid = ? AND chunks.start_ms"
+                " <= ? AND chunks.start_ms < books.heard_to_ms"
+                " ORDER BY chunks.start_ms DESC LIMIT 1",
+                (gid, ms),
+            ).fetchone()
+        return str(row["text"]) if row is not None else None
+
     def chapter_file(self, gid: int, idx: int) -> Path | None:
         """The audio of one chapter, or None if it cannot honestly be served.
 

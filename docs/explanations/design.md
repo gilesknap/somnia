@@ -287,6 +287,17 @@ it would for a press of *−30*. A turn either moves the book or asks which plac
 was meant, never both — refused in the tool, before a move can write anything,
 and again in the shape of the reply.
 
+Every row's words travel with the answer that named them, which is why there is
+no route anywhere that hands back the text of a chunk by id: that would be a
+general way to read unheard book text, one guessed integer wide, sitting on the
+server for the life of the deployment. The one exception proves the rule rather
+than bending it. `/api/passage/{gid}/{ms}` exists for the *you are here* row,
+which names no passage and so carries none — and it is addressed by a point on
+the book's clock, not by an identifier, and answers out of a statement whose own
+`WHERE` carries `start_ms < heard_to_ms`. Ask it about the last millisecond of
+the book and it replies with the last thing that was really spoken. There is
+nothing to guess and no refusal to read a frontier off.
+
 ## Getting through the night is the page's job now
 
 Three things the ABS app used to absorb, which nothing absorbs any more. All

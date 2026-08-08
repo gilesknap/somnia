@@ -33,6 +33,7 @@ __all__ = [
     "Position",
     "Recall",
     "Refused",
+    "shorten",
 ]
 
 # How many places may go on one screen. Four is what somebody half awake can
@@ -498,7 +499,7 @@ class Library:
                 # range to be found and still covered up here. That is the safe
                 # direction, and it costs one press.
                 ahead=int(row["start_ms"]) >= heard,
-                text=_shorten(str(row["text"]), CANDIDATE_TEXT_CHARS),
+                text=shorten(str(row["text"]), CANDIDATE_TEXT_CHARS),
             )
             for row in rows[:CANDIDATE_MAX]
         ]
@@ -591,8 +592,13 @@ class Library:
         return int(row["position_seq"]) if row is not None else None
 
 
-def _shorten(text: str, limit: int) -> str:
+def shorten(text: str, limit: int) -> str:
     """A passage cut to a length a row can hold, on a word boundary.
+
+    Public because the "you are here" row is cut by it too, from the other side
+    of the app: its words come back from ``/api/passage`` rather than down with
+    an offer, and a rule that only half the rows on one screen obeyed would show
+    up as the one row that can be longer than the screen.
 
     The ellipsis goes on only when something was actually cut, so a row that
     ends in one is telling the truth about there being more. There is never a

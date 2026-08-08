@@ -1848,6 +1848,16 @@ body.chat-screen #transcript .said.you {
   color: var(--accent);
 }
 
+/* And back to quiet the moment the offer is taken. What this line says on a
+   revealed row is "tap to hide", which is not a warning about anything: the
+   spoiler has already been spent, and leaving it amber would be a row going on
+   warning about a cost that has been paid. After `.candidate.ahead` on purpose
+   — the two selectors weigh the same, so the order in this file is what decides
+   it. */
+.candidate.revealed .candidate-hint {
+  color: rgba(230, 220, 200, 0.3);
+}
+
 .candidate-hint[hidden] {
   display: none;
 }
@@ -1891,22 +1901,17 @@ body.chat-screen #transcript .said.you {
   color: var(--accent);
 }
 
-/* Where they are: a rule across the list at the point they have got to, with
-   the time on it. Still not a place — it is the one thing in this list that is
-   not one — so the label is a label on a line rather than anything with an edge
-   round it, and it carries the list's only hairline that is amber.
+/* Where they are, and a place on the list now rather than a caption between
+   two. It is drawn exactly as the rows around it are — the same column, the
+   same padding, the same hairline under it — because it holds the same things
+   they do: a time, words one press away, and a pill at the foot. What tells it
+   apart is the amber, and the rule with a name on it above everything else.
 
-   It is somewhere to go now all the same, and the pill under it is the only
-   part of it with an edge. Column rather than block so that pill can range
-   right the way every other row's does; with nothing but the mark and the
-   caveat in it, which is most of the time it is on screen, this lays out
-   exactly as the block did. */
+   Its top padding is the rule's own. `.candidate`'s 1rem would leave the amber
+   line floating in the middle of the gap it shares with the row above; the line
+   belongs to what is under it, so it sits up close to it. */
 .candidate.here {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  padding: 0.3rem 0 0.5rem;
-  border-bottom: 0;
+  padding-top: 0.4rem;
 }
 
 /* The way back, drawn as a `goto` because that is what it is: the shape says
@@ -1916,19 +1921,37 @@ body.chat-screen #transcript .said.you {
    hairline for the same reason, so the pill belongs to the rule above it rather
    than to the list of places around it.
 
-   The extra top margin is the rule's own: the pill hangs off a line rather than
-   off a paragraph of reading, and at `.candidate-go`'s 0.7rem it sat close
-   enough to the caveat to read as part of the sentence. */
+   It used to carry an extra 0.3rem of top margin, because it hung off a line
+   rather than off a paragraph of reading and at `.candidate-go`'s 0.7rem it sat
+   close enough to the caveat to read as part of the sentence. There is a
+   reading above it now, like every other row, so it takes that row's spacing
+   and the exception is gone. */
 .here-go {
-  margin-top: 1rem;
   color: var(--accent);
   border-color: var(--accent-line);
 }
 
+/* The name on the rule, and the one label on this page that is meant to be
+   read. `.section-label` sets 0.55rem — 11dp, the size of a thing the eye takes
+   in as a divider and never as words — and at that size the sentence somebody
+   opened this screen to find, "you are here", was the smallest type on it. This
+   is 19dp: still mono, still uppercase, still tracked wide, so it is still a
+   rule with a word on it and not a heading; just a rule somebody can read at
+   arm's length in the dark.
+
+   The time went the other way and out of this string entirely — it is stated
+   below at the size every other row states its time, which is where a number
+   you are meant to compare against four other numbers belongs. */
 .here-mark {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  /* Its own, because `.section-label` sets `margin: 0` and the caveat used to
+     be what held the time off this line. The caveat is at the foot of the row
+     now — see hereRow — so without this the label and the time it introduces
+     touch. */
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
   color: var(--accent);
   white-space: nowrap;
 }
@@ -1940,17 +1963,28 @@ body.chat-screen #transcript .said.you {
   background: var(--accent-line);
 }
 
-/* The sentence the whole screen is arranged around, said once, under the line
-   it is about. app.js leaves it off entirely when the mark lands at the bottom
-   of the list, because with nothing below it there is nothing it is true
-   of. */
+/* The sentence the whole screen is arranged around, said once, immediately
+   above the first row it is true of. app.js leaves it off entirely when the
+   mark lands at the bottom of the list, because with nothing below it there is
+   nothing it is true of — and puts it at the foot of the rule's row rather than
+   under the label, which is a change worth reading hereRow for. */
 .here-caveat {
-  margin: 0.4rem 0 0;
+  margin: 0.9rem 0 0;
   font-size: 0.95rem;
   font-style: italic;
   /* .35, a hair above --faint's .32: it is the sentence the screen is arranged
      around, and the design lifts it with everything else on this list. */
   color: rgba(230, 220, 200, 0.35);
+}
+
+/* The time they are at, and the one time on this list that is about them rather
+   than about somewhere they might go. Amber for that and nothing else — it is
+   the design's own colour for the current row, worn by the two things on this
+   row a thumb goes for. Everything else about it is `.candidate-when`: same
+   size, same tabular figures, so it can be compared down the column with the
+   places above and below it, which is the only reason it is on the screen. */
+.here-when {
+  color: var(--accent);
 }
 
 /* Which press does what. The quietest type on this screen that is still meant
@@ -2058,13 +2092,18 @@ body.keyboard-up #candidate-list {
    saved by cutting it further buys a fraction of a row and sells the only thing
    keeping a low miss off the next place's `goto`.
 
-   Not the `here` row, which is a rule across the list and not a place: it has
-   its own padding a few rules up, and the exclusion has to be written now that
-   this selector carries a class. As a bare `.candidate` inside a media query it
-   lost to `.candidate.here` on specificity and the mark kept its own spacing
-   without anyone having to say so. */
-body.keyboard-up .candidate:not(.here) {
+   The `here` row takes it too. It used to be excluded, because it was a rule
+   across the list and not a place and had no `goto` under it to fall short of;
+   it is a place now, with a pill of its own, so the gap this rule is protecting
+   is a gap it needs. Only its top stays its own, and that has to be said out
+   loud: `body.keyboard-up .candidate` outweighs `.candidate.here`, so the
+   exception is written at this weight or it silently does not happen. */
+body.keyboard-up .candidate {
   padding: 1rem 0;
+}
+
+body.keyboard-up .candidate.here {
+  padding-top: 0.4rem;
 }
 
 body.keyboard-up .candidate-what {

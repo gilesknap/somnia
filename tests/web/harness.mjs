@@ -1080,6 +1080,16 @@ export async function boot(t, options = {}) {
     lastGid = 900001,
     reply = { accepted: true },
     sentenceStart = null,
+    // What is being said where the "you are here" rule falls — the one thing on
+    // the list of places the page has to go back and ask for, because the rule
+    // names no passage and the answer that drew the list carried none for it.
+    //
+    // A passage by default, because that is what a book with text in it
+    // answers, and the interesting arms are the two that are not: `null` is a
+    // book nobody has played a second of or one whose text was never indexed,
+    // and `gone.passage` is the tailnet. Both have to leave the row with no
+    // reveal on it rather than with one that does nothing.
+    passageText = "The lamps were going out along the road.",
     stored = {},
     answer = { reply: "…" },
     // Which books there are at all. Every fixture, unless a test says
@@ -1148,6 +1158,7 @@ export async function boot(t, options = {}) {
   const posts = [];
   const beacons = [];
   const sentenceAsks = [];
+  const passageAsks = [];
   const asks = [];
   let positionReply = reply;
   let askReply = answer;
@@ -1183,6 +1194,7 @@ export async function boot(t, options = {}) {
     catalog: false,
     open: false,
     books: false,
+    passage: false,
   };
 
   const fakeWindow = new FakeElement("window");
@@ -1336,6 +1348,11 @@ export async function boot(t, options = {}) {
         sentenceAsks.push(url);
         return json({ start_ms: sentenceStart });
       }
+      if (url.startsWith("api/passage/")) {
+        if (gone.passage) throw new Error("no route to host");
+        passageAsks.push(url);
+        return json({ text: passageText });
+      }
       if (url === "api/position") {
         // A report that never gets out at all, which is a different thing from
         // one that is answered late: the page is told nothing, so whatever it
@@ -1412,6 +1429,7 @@ export async function boot(t, options = {}) {
     beacons,
     fetches,
     sentenceAsks,
+    passageAsks,
     asks,
     storageSession: sessionStorage,
     settle,
