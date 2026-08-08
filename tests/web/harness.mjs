@@ -503,6 +503,9 @@ const BORN_HIDDEN = new Set([
   "candidates",
   "candidates-book",
   "queue",
+  // Workshop, which ships hidden like the two overlays above it and is the one
+  // of the three that can only be reached through another.
+  "workshop",
   // The card the live rows sit in and the label over the rows that are over.
   // Both are in the document with nothing in them and both ship hidden, so a
   // page whose script has not run yet does not show a heading over an empty
@@ -867,12 +870,19 @@ globalThis.__page = {
     revealed: candidateList.children.filter((li) =>
       li.classList.contains("revealed"),
     ).length,
-    // Whether the books panel is over the page, and whether it has a wake
-    // scheduled. Both are in the probe for the same reason as the two above:
-    // close promises that everything else in this object is unchanged, and a
-    // timer still running after close is exactly the promise being broken —
-    // a radio wake every five seconds, all night, beside somebody asleep.
+    // Whether Books is over the page, whether Workshop is over that, and
+    // whether there is a wake scheduled. All three are in the probe for the
+    // same reason as the two above: close promises that everything else in this
+    // object is unchanged, and a timer still running after close is exactly the
+    // promise being broken — a radio wake every five seconds, all night, beside
+    // somebody asleep.
+    //
+    // The wake belongs to Workshop now, which is the screen the queue rows are
+    // on. queueUp true with workshopUp false and queuePolling false is the
+    // ordinary state of a night: the book list is open and nothing is asking
+    // the server anything.
     queueUp: !queuePanel.hidden,
+    workshopUp: !workshop.hidden,
     queuePolling: queuePoll !== 0,
     // Which of the two screens the page is on, and whether there is a keyboard
     // over whatever is showing. Two facts and not one: a keyboard over the books

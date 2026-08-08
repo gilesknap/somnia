@@ -52,12 +52,23 @@ const candidatesBook = document.getElementById("candidates-book");
 const summaryLine = document.getElementById("candidates-summary");
 const candidateList = document.getElementById("candidate-list");
 const candidatesCancel = document.getElementById("candidates-cancel");
-// The books panel. `queuePanel` rather than `queue` because "the queue" in this
-// file means the rows the server is holding, and the two are not the same thing
-// — the panel is a photograph of them, taken every five seconds and only while
-// somebody is looking.
+// Books, the night panel. `queuePanel` rather than `queue` because "the queue"
+// in this file means the rows the server is holding, and those are not on this
+// screen at all any more — they are in Workshop, which is a photograph of them
+// taken every five seconds and only while somebody is looking.
+//
+// The id stayed `queue` when the panel became Books and then when the queue left
+// it, which is two chances to rename it not taken. Both were declined for the
+// same reason the header's pill says `books` over an element called `#books`: an
+// id is not a word anybody reads at 2am, and renaming one across the sheet, the
+// tests and this file is a diff that hides the change actually being made.
 const booksButton = document.getElementById("books");
 const queuePanel = document.getElementById("queue");
+// Workshop, the daytime screen, and the row at the foot of Books that is the
+// only way to it.
+const workshop = document.getElementById("workshop");
+const workshopClose = document.getElementById("workshop-close");
+const toWorkshop = document.getElementById("to-workshop");
 // The card the live rows sit in, and the label over the rows that are over.
 // Both are drawn empty in the document and shown only when there is something
 // in them: a card with a heading and no rows under it says something should be
@@ -87,9 +98,26 @@ const readingResume = document.getElementById("reading-resume");
 // follows, because a heading over nothing is a claim that something is there.
 const shelfLabel = document.getElementById("shelf-label");
 const shelf = document.getElementById("shelf");
+// Whether that shelf is what somnia has or the last thing it said before the
+// tailnet went. Its own line, on its own screen — see askForTheShelf.
+const shelfNote = document.getElementById("shelf-note");
 // The page's second voice, and the sheet of black over the whole of it.
 const toastLine = document.getElementById("toast");
 const dimLayer = document.getElementById("dim");
+// The two presses that move that sheet, and the readout between them. On Books
+// rather than on a settings screen, because the layer is over Books too: this is
+// the one setting that is judged by looking at what it is doing.
+const dimDown = document.getElementById("dim-down");
+const dimUp = document.getElementById("dim-up");
+const dimFill = document.getElementById("dim-fill");
+// What `−30` and `+30` mean, set in Workshop and read on the player. Kept by
+// their value rather than in an array of elements, because what the rest of this
+// file asks is "which one is 30?" and never "which one is second?".
+const jumpButtons = new Map([
+  [15, document.getElementById("jump-15")],
+  [30, document.getElementById("jump-30")],
+  [60, document.getElementById("jump-60")],
+]);
 
 // One conversation per launch of the app. The server holds the history; this
 // is only the name it goes by.
@@ -163,16 +191,53 @@ function forgetToast() {
 // was in a pocket. Unlike the timer it never goes stale — a room that was dark
 // last night is dark tonight.
 //
-// Nothing on the page writes it yet. The control that would belongs with the
-// jump size and the default sleep timer on a settings surface this page does
-// not have, and inventing one to carry a single slider is a screen somebody
-// has to find in the dark.
+// What writes it is `how dark` on Books, which is on that screen rather than on
+// a settings surface because the layer is over that screen too. Every press
+// dims the page it is being set on, so the right level is the one it looks
+// right at, and there is nothing to picture from a number.
 const DIM_KEY = "somnia-dim";
 const DIM_DEFAULT = 0.12;
-// Past this the page stops being readable, and there is nothing on screen to
-// turn it back down with. A half-written record must not be able to black out
-// the only transport in the room.
+// Past this the page stops being readable, and the control that would turn it
+// back down is under the layer that just went up. A half-written record must
+// not be able to black out the only transport in the room, and neither must ten
+// presses of `+`.
 const DIM_MAX = 0.6;
+// Ten presses from clear to the floor. Small enough that no single press can
+// lose the page, coarse enough that the whole range is walkable in the dark
+// without anybody counting.
+const DIM_STEP = 0.06;
+
+let dimLevel = DIM_DEFAULT;
+
+// The level on the layer, on the readout, and in the two presses that change
+// it. Everything that sets `dimLevel` comes through here, so the four cannot
+// disagree.
+function drawDim() {
+  dimLayer.style.opacity = String(dimLevel);
+  // The fill is the level against the range it can be set to, not against 1:
+  // this is a readout of a control, and the control stops at DIM_MAX.
+  dimFill.style.width = `${Math.round((dimLevel / DIM_MAX) * 1000) / 10}%`;
+  // A press at either end says it can do nothing rather than doing nothing
+  // quietly — the rule the position readout follows when a book has no places.
+  dimDown.disabled = dimLevel <= 0;
+  dimUp.disabled = dimLevel >= DIM_MAX;
+}
+
+// Rounded to the step before anything is written down, because 0.06 in binary
+// floating point walks to 0.18000000000000002 in three presses and that is what
+// would land in storage and come back on the next launch. The page would still
+// be the right darkness; the record of it would be a number nobody chose.
+function setDim(level) {
+  dimLevel = Math.min(DIM_MAX, Math.max(0, Math.round(level / DIM_STEP) * DIM_STEP));
+  drawDim();
+  try {
+    localStorage.setItem(DIM_KEY, String(dimLevel));
+  } catch (error) {
+    // Storage refused. The level still applies to this session, which is the
+    // half of it that matters tonight.
+    console.error(error);
+  }
+}
 
 function restoreDim() {
   let level = DIM_DEFAULT;
@@ -189,10 +254,82 @@ function restoreDim() {
     // Storage refused. The page ships at 0.12 and this changes nothing.
     console.error(error);
   }
-  dimLayer.style.opacity = String(level);
+  // Not through setDim: what is on disk is what somebody chose, and rounding it
+  // to this version's step and writing it straight back would edit a record
+  // nobody asked to have edited. It is only drawn.
+  dimLevel = level;
+  drawDim();
 }
 
 restoreDim();
+
+dimDown.addEventListener("click", () => setDim(dimLevel - DIM_STEP));
+dimUp.addEventListener("click", () => setDim(dimLevel + DIM_STEP));
+
+// ---------------------------------------------------------- how far a skip is
+//
+// What `−30` and `+30` mean, chosen once in Workshop and read on the player.
+//
+// Beside the dim level in localStorage and for the same reason: it is a fact
+// about how this person uses the app, not about tonight. The sleep timer is the
+// one setting that is *not* kept that way — it expires after six hours on
+// purpose, because a timer is an intent about one night and a night that
+// inherited last night's would end early.
+const JUMP_KEY = "somnia-jump";
+// Fifteen seconds is a sentence, thirty is a paragraph, a minute is a page. Past
+// that the chapter arrows are the better instrument, which is why the list stops
+// where it does rather than going on to five minutes.
+const JUMP_CHOICES = [15, 30, 60];
+const JUMP_DEFAULT = 30;
+
+let jumpStep = JUMP_DEFAULT;
+
+// The two labels on the most-pressed row in the app, and the three pills in
+// Workshop that set them.
+//
+// Built as one string each rather than a sign beside a number: the design asks
+// for that everywhere on this page, and the reason is that two flex children
+// lose the space between them and land on different baselines. The aria-label
+// is written out in words for the same reason it always was — a screen reader
+// saying "minus thirty" is reading arithmetic aloud.
+function drawJump() {
+  back30.textContent = `−${jumpStep}`;
+  fwd30.textContent = `+${jumpStep}`;
+  back30.setAttribute("aria-label", `Back ${jumpStep} seconds`);
+  fwd30.setAttribute("aria-label", `Forward ${jumpStep} seconds`);
+  for (const [seconds, button] of jumpButtons) {
+    button.classList.toggle("chosen", seconds === jumpStep);
+  }
+}
+
+function setJump(seconds) {
+  if (!JUMP_CHOICES.includes(seconds)) return;
+  jumpStep = seconds;
+  drawJump();
+  try {
+    localStorage.setItem(JUMP_KEY, String(seconds));
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function restoreJump() {
+  try {
+    const saved = Number(localStorage.getItem(JUMP_KEY));
+    // Only one of the three, and nothing else. A stored 45 would draw a
+    // transport whose labels no control on the page could change back.
+    if (JUMP_CHOICES.includes(saved)) jumpStep = saved;
+  } catch (error) {
+    console.error(error);
+  }
+  drawJump();
+}
+
+restoreJump();
+
+for (const [seconds, button] of jumpButtons) {
+  button.addEventListener("click", () => setJump(seconds));
+}
 
 // A short buzz confirms the button caught the press, for a listener who can't
 // see much and shouldn't be listening for a beep. Android honours this; iOS
@@ -322,8 +459,9 @@ function startOver() {
 // ingest appends rises with it.
 const SWAP_LEAD_S = 0.4;
 
-// What "back a bit" means, in the absence of anyone able to say.
-const SEEK_STEP_S = 30;
+// What "back a bit" means is `jumpStep`, further up: it is a setting now rather
+// than a constant, so the constant that used to be here is gone rather than
+// left beside it as a second answer to the same question.
 
 // How far into a chapter "previous" stops meaning the one before and starts
 // meaning the top of this one. The same five seconds every music player has
@@ -1434,8 +1572,11 @@ playpause.addEventListener("click", () => {
   else pauseHere();
 });
 const nudge = (seconds) => seekGlobal(positionMs + seconds * 1000);
-back30.addEventListener("click", () => nudge(-SEEK_STEP_S));
-fwd30.addEventListener("click", () => nudge(SEEK_STEP_S));
+// Read at the moment of the press, not captured when the listener was added:
+// Workshop can change what a skip is while the page is up, and a closure over
+// the old value would leave the button saying `−15` and moving thirty.
+back30.addEventListener("click", () => nudge(-jumpStep));
+fwd30.addEventListener("click", () => nudge(jumpStep));
 
 // Five seconds in, "previous" means the start of this chapter — what it means
 // on every music player anyone has used, and the more forgiving of the two
@@ -1492,8 +1633,12 @@ function listenForRemoteControls() {
   // a nudge back from the first seconds of a chapter lands in the one before,
   // which is what "back a bit" means to someone who is listening to a book and
   // not to a pile of files.
-  handle("seekbackward", (d) => nudge(-(d?.seekOffset ?? SEEK_STEP_S)));
-  handle("seekforward", (d) => nudge(d?.seekOffset ?? SEEK_STEP_S));
+  // The setting, where the platform has not said how far. A lock screen that
+  // skipped a different distance from the two buttons on the page would be the
+  // app disagreeing with itself about what a skip is, in the one place nobody
+  // can see the labels to check.
+  handle("seekbackward", (d) => nudge(-(d?.seekOffset ?? jumpStep)));
+  handle("seekforward", (d) => nudge(d?.seekOffset ?? jumpStep));
   // seekTime comes back on the scale we published, which is this chapter's.
   // This is the one place it is put back on the book's clock.
   handle("seekto", (d) => {
@@ -2232,14 +2377,14 @@ document.addEventListener("visibilitychange", () => {
   if (!awaiting && manifest?.status === "rendering") {
     refreshManifest().catch((error) => console.error(error));
   }
-  // And if they left the panel up, whatever it is showing is as old as the
-  // sleep was — both lists of it. Asked now rather than in five seconds, for
-  // the same reason as the two above: coming back to the app is the moment
-  // somebody is looking, and for the shelf it is one of only two such moments.
-  if (!queuePanel.hidden) {
-    pollQueue();
-    askForTheShelf();
-  }
+  // And if they left either screen up, whatever it is showing is as old as the
+  // sleep was. Asked now rather than in five seconds, for the same reason as
+  // the two above: coming back to the app is the moment somebody is looking,
+  // and for the shelf it is one of only two such moments. Each screen is asked
+  // for its own thing — Books has no queue on it and Workshop has no shelf —
+  // and Workshop being up means Books is up behind it, so both fire.
+  if (!queuePanel.hidden) askForTheShelf();
+  if (!workshop.hidden) pollQueue();
 });
 
 // `play` is false at boot and true only when the agent has just moved this
@@ -2331,8 +2476,10 @@ async function openTheBook() {
     if (chosen === undefined) {
       // The state that most needs the panel, and the one with no book, no
       // manifest and no gid — so the nudge has to name the control rather than
-      // relying on anything on the screen to be about a book.
-      setStatus("nothing yet — press library to add one");
+      // relying on anything on the screen to be about a book. Two presses now
+      // rather than one, and it says so: adding a book is Workshop's job, and
+      // Workshop is behind Books.
+      setStatus("nothing yet — press books, then Workshop, to add one");
       return;
     }
     await openBook(chosen);
@@ -2510,18 +2657,30 @@ function bookName(row) {
 
 // Who wrote it, out of the one field the catalog has.
 //
-// Gutenberg's `authors` is already `Surname, Forename, dates` — the form the
-// design asks for — so one name needs nothing done to it at all. Several arrive
-// as one string with semicolons in it, and printed as they come that is a run
-// of commas and semicolons with nothing in it to say where one person ends and
-// the next begins: `Collins, Wilkie, 1824-1889; Reade, Charles, 1814-1884` is
-// two people and reads as one long list of somethings. Split on the semicolon
-// and set between them the separator this page already uses to hold two unlike
-// things apart on one line, and the eye has somewhere to stop.
+// Gutenberg's `authors` is already `Surname, Forename, dates`, so one name needs
+// nothing done to it at all. Several arrive as one string with semicolons in it,
+// and printed as they come that is a run of commas and semicolons with nothing
+// in it to say where one person ends and the next begins:
+// `Collins, Wilkie, 1824-1889; Reade, Charles, 1814-1884` is two people and
+// reads as one long list of somethings. Split on the semicolon and set between
+// them the separator this page already uses to hold two unlike things apart on
+// one line, and the eye has somewhere to stop.
 //
 // Empties are dropped rather than trimmed away afterwards, because the field
 // comes with a trailing semicolon often enough to matter and a name followed by
 // a lone separator reads as a second author whose name is missing.
+//
+// It is used in Workshop and nowhere else now, which is the answer to a question
+// this split made somebody look at. Books used to name every book
+// `Title — Surname, Forename, dates`, at 21dp, on a screen that had to be small
+// enough to hold eight blocks. At the night scale that screen is set at now, the
+// same string is three lines of a shelf row — a render of it was what settled
+// this — and two of those three lines are catalogue metadata about a book
+// somebody already owns and chose. What the shelf is for is recognising one of
+// three or four titles in the dark, and the title alone is what does that.
+//
+// Where the author does its work is choosing among seventy thousand books
+// nobody owns yet, which is a search result, which is Workshop.
 function whoWrote(authors) {
   return String(authors || "")
     .split(";")
@@ -2530,17 +2689,14 @@ function whoWrote(authors) {
     .join(" · ");
 }
 
-// `Title — Surname, Forename, dates`, which is how this panel names a book of
-// somnia's own — the block at the top of it and every row of the shelf under
-// that, out of one function so the two cannot drift.
+// What to call a book of somnia's own — the block at the top of Books and every
+// row of the shelf under it, out of one function so the two cannot drift.
 //
-// The fallback is the one drawPlayer uses for its headline: a book that has
-// been through nothing but the local catalog may have no title at all, and
+// The fallback is the one drawPlayer uses for its headline: a book that has been
+// through nothing but the local catalog may have no title at all, and
 // "book 1342" is a good deal better than an empty line where the name goes.
-function bookAndWho(title, id, authors) {
-  const name = title || `book ${id}`;
-  const who = whoWrote(authors);
-  return who ? `${name} — ${who}` : name;
+function titleOf(title, id) {
+  return title || `book ${id}`;
 }
 
 // The block at the top of the books panel: which book is playing under it, how
@@ -2566,7 +2722,7 @@ function drawReadingNow() {
     return;
   }
   readingNow.hidden = false;
-  readingTitle.textContent = bookAndWho(manifest.title, gid, manifest.authors);
+  readingTitle.textContent = titleOf(manifest.title, gid);
   // The player's own count, drawn again here rather than read off the screen:
   // 0 means nobody wrote the total down — every book rendered before that
   // column existed — so it says `chapter 4` and stops, and never `4 of 0`.
@@ -2661,7 +2817,7 @@ function shelfRow(entry) {
   text.className = "shelved-text";
   const name = document.createElement("p");
   name.className = "shelved-name";
-  name.textContent = bookAndWho(entry.title, entry.gid, entry.authors);
+  name.textContent = titleOf(entry.title, entry.gid);
   text.append(name);
   const meta = document.createElement("p");
   meta.className = "shelved-meta";
@@ -2735,17 +2891,16 @@ async function askForTheShelf() {
     listing = await response.json();
   } catch (error) {
     // Whatever was last drawn stays on the screen, exactly as the queue rows
-    // do: emptying the list would be the panel's one available lie, because an
-    // empty shelf and an unreachable server look identical and mean opposite
+    // do: emptying the list would be this screen's one available lie, because
+    // an empty shelf and an unreachable server look identical and mean opposite
     // things.
     //
-    // Nothing is said here, though, and that is deliberate. The panel has one
-    // line for "couldn't reach somnia" and the poll owns it — this request goes
-    // out on the same press, to the same box, so a shelf that could not be
-    // reached is a queue that could not be reached, and it is that line that
-    // says so. Two writers would race, and the one that lost would be this: the
-    // poll's success clears the line a moment after a failure here would have
-    // written to it, which is worse than not writing at all.
+    // And the doubt is written under it, which it did not use to be. While the
+    // queue was on this panel the poll owned the one line for "couldn't reach
+    // somnia" and this request went to the same box on the same press, so that
+    // line was true of the shelf as well and a second writer would only have
+    // raced it. The queue is on another screen now. A failure here that said
+    // nothing would be a shelf that had quietly stopped being a list of books.
     console.error(error);
   }
   // The panel may have gone while this was in flight — one press to open it and
@@ -2753,8 +2908,10 @@ async function askForTheShelf() {
   // forgets the shelf on purpose, so an answer that arrived afterwards and
   // adopted itself anyway would put a shelf from a night that is over back in
   // the DOM, to be found at the next opening. Nothing here is drawn while
-  // nobody is looking, which is the same rule drawReadingNow keeps.
+  // nobody is looking, which is the same rule drawReadingNow keeps — and it is
+  // why the line of doubt is written here rather than in the catch above.
   if (queuePanel.hidden) return;
+  shelfNote.textContent = listing ? "" : "couldn't reach somnia";
   if (listing) shelved = listing.books || [];
   drawShelf();
 }
@@ -2991,12 +3148,17 @@ function drawQueue() {
 // A book the catalog found: what it is called, who wrote it, and the one press
 // that can be made about it.
 //
-// The title and the author are two lines rather than one string now. The design
-// asks for `Author · year · formats` under the title and somnia's catalog has
-// the first of those three and neither of the others, so what is under the
-// title is the author and whatever the panel already knows about the book —
-// and no cover art, here or anywhere: a cover is a bright rectangle in a dark
-// room, and four lines of text are read faster half asleep.
+// The title and the author are two lines rather than one string. The design asks
+// for `Author · year · formats` under the title and somnia's catalog has the
+// first of those three and neither of the others, so what is under the title is
+// the author and whatever this screen already knows about the book — and no
+// cover art, here or anywhere: a cover is a bright rectangle in a dark room, and
+// four lines of text are read faster half asleep.
+//
+// This is the only list in the app that names an author, and it is the only one
+// that has to: it is a list of books nobody owns yet, several of them likely by
+// the same person, being read in daylight. Books names none of its own — see
+// whoWrote for why the shelf gave the author up.
 function foundRow(entry) {
   const li = document.createElement("li");
   li.className = "found";
@@ -3005,13 +3167,16 @@ function foundRow(entry) {
   text.className = "found-text";
   const name = document.createElement("p");
   name.className = "found-name";
-  name.textContent = entry.title || `book ${entry.gid}`;
+  name.textContent = titleOf(entry.title, entry.gid);
   text.append(name);
   const meta = document.createElement("p");
   meta.className = "found-meta";
   const by = document.createElement("span");
   by.className = "found-by";
-  by.textContent = entry.authors || "";
+  // Through whoWrote, which used to be spent on the shelf and is spent here
+  // instead: two authors arrive from the catalog as one semicolon-joined string,
+  // and this is the list where that shape actually turns up.
+  by.textContent = whoWrote(entry.authors);
   meta.append(by);
   const already = HAVE_WORDS[entry.have];
   if (already) {
@@ -3071,14 +3236,16 @@ async function pollQueue() {
   scheduleQueuePoll();
 }
 
-// Only while somebody is looking, and only while the panel is up. A hidden
-// page's timers are throttled to roughly one wake a minute, so a poll left
-// running in a pocket is both untimely and a radio wake beside somebody asleep
-// — worst of both. It is asked again in full when the page comes back.
+// Only while somebody is looking, and only while Workshop is up — which is now
+// a daytime screen two presses from the player, so this is a poll that cannot
+// run at night at all. A hidden page's timers are throttled to roughly one wake
+// a minute, so a poll left running in a pocket is both untimely and a radio
+// wake beside somebody asleep — worst of both. It is asked again in full when
+// the page comes back.
 function scheduleQueuePoll() {
   clearTimeout(queuePoll);
   queuePoll = 0;
-  if (queuePanel.hidden || document.visibilityState === "hidden") return;
+  if (workshop.hidden || document.visibilityState === "hidden") return;
   queuePoll = setTimeout(pollQueue, QUEUE_POLL_MS);
 }
 
@@ -3202,24 +3369,25 @@ async function addBook(entry, button) {
 function showQueue() {
   if (!queuePanel.hidden) return;
   queuePanel.hidden = false;
-  // Giving focus up, never taking it — and in particular never focusing the
-  // search box. Focusing it pops the keyboard, and the keyboard changes the
-  // geometry the fixed overlay just measured itself against, so the panel would
-  // arrive with its way out somewhere under the letters.
+  // Giving focus up, never taking it. There is no text input on this screen any
+  // more — the search left with the rest of the daytime work — but the composer
+  // behind it is one blur away from putting a keyboard over a panel that has
+  // just measured itself against a screen with none.
   question.blur?.();
-  queueQuery.blur?.();
   rearmOnQueueClose = tapToResume !== null;
   disarmTapToResume();
   // Before the first request comes back, so the answer to "which book is this
-  // standing over?" is on the screen the moment the panel is, rather than five
-  // seconds later with the queue. It is drawn from what this page already
-  // holds, so there is nothing to wait for.
+  // standing over?" is on the screen the moment the panel is, rather than a
+  // round trip later. It is drawn from what this page already holds, so there
+  // is nothing to wait for.
   drawReadingNow();
-  pollQueue();
   // The shelf is asked for once, here. Nothing about it is worth a wake every
   // five seconds — a book appears on it when a render finishes — and this is
   // the moment somebody is looking at it.
   askForTheShelf();
+  // No queue poll. That belongs to Workshop now, which is the screen the rows
+  // are on: a panel that polled for a list it does not draw would be a radio
+  // waking every five seconds to answer a question nobody has asked.
 }
 
 // The inert close. It forgets everything the panel was holding and gives back
@@ -3231,23 +3399,17 @@ function showQueue() {
 // not change that.
 function hideQueue() {
   if (queuePanel.hidden) return;
+  // Workshop is over this and cannot outlive it. Nothing on the page opens
+  // Workshop without opening Books first, so this can only be reached with
+  // Workshop already down — but a screen left standing over a panel that has
+  // gone would be the one state on this page with no way out of it, and one
+  // line is a cheaper guarantee than the argument that it cannot happen.
+  hideWorkshop();
   queuePanel.hidden = true;
-  stopQueuePoll();
-  forgetStop();
-  queueRows = [];
-  queueFound = [];
   shelved = [];
-  jobFills = new Map();
   shelf.replaceChildren();
   shelfLabel.hidden = true;
-  queueLive.replaceChildren();
-  queueWorking.hidden = true;
-  queueGone.replaceChildren();
-  queueEnded.hidden = true;
-  queueResults.replaceChildren();
-  queueNote.textContent = "";
-  queueSaid.textContent = "";
-  queueQuery.value = "";
+  shelfNote.textContent = "";
   const rearm = rearmOnQueueClose;
   rearmOnQueueClose = false;
   // True before the panel went up and true again now: the book is still paused,
@@ -3256,8 +3418,52 @@ function hideQueue() {
   if (rearm) armTapToResume();
 }
 
+// Workshop, over Books rather than instead of it. Books stays exactly as it was
+// underneath — same shelf, same block at the top, same scroll position — so
+// `‹ books` is a close and not a second opening, and nothing is re-fetched to
+// come back to a screen that never left.
+//
+// It owns the queue poll, and that ownership is the whole of why the split is
+// worth anything at runtime as well as on screen: the rows are only asked for
+// while the screen that draws them is up, so a night spent on Books is a night
+// with no five-second wake in it at all.
+function showWorkshop() {
+  if (!workshop.hidden) return;
+  workshop.hidden = false;
+  // Never focusing the search box. Focusing it pops the keyboard, and the
+  // keyboard changes the geometry the fixed overlay just measured itself
+  // against, so the screen would arrive with its way out under the letters.
+  queueQuery.blur?.();
+  pollQueue();
+}
+
+// And the way back, which changes nothing about the book and nothing about
+// Books. What it forgets is what this screen was holding — the rows, the
+// search, what the server last said — for the reason the panel below it forgets
+// the shelf: a photograph taken five seconds ago is not worth keeping, and one
+// taken last night is a lie.
+function hideWorkshop() {
+  if (workshop.hidden) return;
+  workshop.hidden = true;
+  stopQueuePoll();
+  forgetStop();
+  queueRows = [];
+  queueFound = [];
+  jobFills = new Map();
+  queueLive.replaceChildren();
+  queueWorking.hidden = true;
+  queueGone.replaceChildren();
+  queueEnded.hidden = true;
+  queueResults.replaceChildren();
+  queueNote.textContent = "";
+  queueSaid.textContent = "";
+  queueQuery.value = "";
+}
+
 booksButton.addEventListener("click", showQueue);
 queueClose.addEventListener("click", hideQueue);
+toWorkshop.addEventListener("click", showWorkshop);
+workshopClose.addEventListener("click", hideWorkshop);
 
 // The press that starts the book already open, and one of the two ways out of
 // this panel that are not `close`.
@@ -3786,6 +3992,29 @@ function stoppedTyping() {
 // way out that only gave the keyboard back would hand it straight to a page that
 // still believed it was wanted.
 toControls.addEventListener("click", () => {
+  stoppedAsking();
+  question.blur?.();
+  stoppedTyping();
+});
+
+// The same way out, made out of the biggest thing on the screen.
+//
+// The thread is a target as well as something to read, which is what the design
+// has asked for since the first handoff and what this page never built — because
+// while the transport was at the foot of the chat screen there were four ways
+// back and this was the least of them. The transport is gone from that screen
+// now, and this is the one way back that needs no aiming: a thumb anywhere in
+// the top two thirds of the phone.
+//
+// Through the same three lines as the pill, in the same order, so that pressing
+// the corner and pressing the words are one event and not two states.
+//
+// A drag is not a click, so scrolling back through the conversation does not
+// land on the player. And the guard on the screen class is belt to the sheet's
+// braces: #transcript is drawn on the chat screen and nowhere else, so on the
+// player there is nothing here to press in the first place.
+transcript.addEventListener("click", () => {
+  if (!document.body.classList.contains("chat-screen")) return;
   stoppedAsking();
   question.blur?.();
   stoppedTyping();

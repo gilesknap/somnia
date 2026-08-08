@@ -124,9 +124,20 @@ async function playing(t, options) {
   return page;
 }
 
-// Open the panel and let its first fetch land.
+// Open Books and let its one fetch — the shelf — land.
 async function books(page) {
   page.click("books");
+  await page.settle();
+  await page.settle();
+  return page;
+}
+
+// And on to Workshop, which is where the queue lives now. Two presses, because
+// that is what it is: the render queue is daytime work and Books is the night
+// screen it is reached through.
+async function workshop(page) {
+  await books(page);
+  page.click("to-workshop");
   await page.settle();
   await page.settle();
   return page;
@@ -218,18 +229,34 @@ test("nothing asks about the queue until somebody opens the panel", async (t) =>
   assert.deepEqual(page.waits(), []);
 });
 
-test("opening asks once at once and then every five seconds", async (t) => {
+// The night screen does not ask either, and that is the runtime half of the
+// split. Somebody who opens Books at 2am to change books gets one request for
+// the shelf and then silence — no five-second wake, no radio, nothing. The
+// queue is a daytime list and it is only asked for on the daytime screen.
+test("Books asks for the shelf and nothing else, and schedules no wake", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
+  const before = page.fetches.length;
   await books(page);
   assert.equal(page.probe().queueUp, true);
+  assert.equal(page.probe().workshopUp, false);
+  assert.deepEqual(page.fetches.slice(before), ["api/books"]);
+  assert.equal(page.probe().queuePolling, false);
+  assert.deepEqual(page.waits(), []);
+});
+
+test("opening Workshop asks once at once and then every five seconds", async (t) => {
+  const page = await opened(t);
+  page.queueView([job()]);
+  await workshop(page);
+  assert.equal(page.probe().workshopUp, true);
   assert.equal(
     page.fetches.filter((url) => url === "api/queue").length,
     1,
-    "the panel asks the moment it goes up, rather than five seconds later",
+    "the screen asks the moment it goes up, rather than five seconds later",
   );
-  // The only wake pending is the panel's own, and it is the five seconds the
-  // page says it is.
+  // The only wake pending is its own, and it is the five seconds the page says
+  // it is.
   assert.deepEqual(page.waits(), [POLL_MS]);
   assert.equal(page.wake(POLL_MS), true);
   await page.settle();
@@ -238,13 +265,15 @@ test("opening asks once at once and then every five seconds", async (t) => {
   assert.deepEqual(page.waits(), [POLL_MS]);
 });
 
-test("closing stops the asking and leaves no wake behind", async (t) => {
+test("closing Workshop stops the asking and leaves no wake behind", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
-  page.click("queue-close");
+  await workshop(page);
+  page.click("workshop-close");
   await page.settle();
-  assert.equal(page.probe().queueUp, false);
+  assert.equal(page.probe().workshopUp, false);
+  // Books is still standing behind it. `‹ books` is a close, not a route back.
+  assert.equal(page.probe().queueUp, true);
   assert.equal(page.probe().queuePolling, false);
   // Not merely "stopped": a wake still scheduled is a radio waking every five
   // seconds all night beside somebody asleep.
@@ -254,10 +283,26 @@ test("closing stops the asking and leaves no wake behind", async (t) => {
   assert.equal(page.fetches.filter((url) => url === "api/queue").length, asked);
 });
 
+// The one state the page cannot be left in. Nothing opens Workshop without
+// opening Books first, so leaving Books while Workshop is up is not reachable
+// by any press — and it is guarded anyway, because a screen standing over a
+// panel that has gone would have no way out of it at all.
+test("Workshop cannot outlive the screen it was opened from", async (t) => {
+  const page = await opened(t);
+  page.queueView([job()]);
+  await workshop(page);
+  page.click("queue-close");
+  await page.settle();
+  assert.equal(page.probe().workshopUp, false);
+  assert.equal(page.probe().queueUp, false);
+  assert.equal(page.probe().queuePolling, false);
+  assert.deepEqual(page.waits(), []);
+});
+
 test("the phone going in a pocket stops it, and coming back starts it", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
+  await workshop(page);
   const asked = () => page.fetches.filter((url) => url === "api/queue").length;
 
   page.document.visibilityState = "hidden";
@@ -279,7 +324,7 @@ test("the phone going in a pocket stops it, and coming back starts it", async (t
   assert.deepEqual(page.waits(), [POLL_MS]);
 });
 
-test("a page coming back with the panel shut asks nothing", async (t) => {
+test("a page coming back with both screens shut asks nothing", async (t) => {
   const page = await opened(t);
   page.document.visibilityState = "hidden";
   page.document.fire("visibilitychange");
@@ -318,25 +363,25 @@ test("close leaves a night that never started exactly as it found it", async (t)
   assert.deepEqual(page.beacons, []);
 });
 
-test("the panel asks about the queue and the shelf, and about no book", async (t) => {
+test("the two screens ask about two lists, and about no book", async (t) => {
   const page = await playing(t);
   const before = page.fetches.length;
   page.queueView([job(), waiting()]);
-  await books(page);
+  await workshop(page);
   page.wake(POLL_MS);
   await page.settle();
   page.click("queue-close");
   await page.settle();
-  // Every request the panel made, and there is nothing else in the list. The
-  // two it does make are lists — the queue, and which books there are — and
-  // neither of them is `api/book/{gid}`: two in-flight manifests can leave
-  // `current` holding a row from a manifest that is no longer the manifest.
-  // Nor is either of them api/position, which is the one thing on this page
-  // that can move somebody backwards.
+  // Every request the two screens made, and there is nothing else in the list.
+  // Books asks which books there are; Workshop asks for the queue and goes on
+  // asking. Neither of them is `api/book/{gid}`: two in-flight manifests can
+  // leave `current` holding a row from a manifest that is no longer the
+  // manifest. Nor is either of them api/position, which is the one thing on
+  // this page that can move somebody backwards.
   assert.deepEqual(
     page.fetches.slice(before),
-    ["api/queue", "api/books", "api/queue"],
-    "the panel reads two lists and asks about no book at all",
+    ["api/books", "api/queue", "api/queue"],
+    "each screen reads its own list and neither asks about a book",
   );
 });
 
@@ -443,20 +488,20 @@ function reading(page) {
   };
 }
 
-test("the panel names the book playing under it, and who wrote it", async (t) => {
+test("Books names the book playing under it, by its title alone", async (t) => {
   const page = await boot(t, { lastGid: GROWING_BOOK.gid });
   page.audio.ready(600);
   page.queueView([]);
   await books(page);
   assert.deepEqual(reading(page), {
     up: true,
-    // Gutenberg's own field is already `Surname, Forename, dates`, which is the
-    // form the design asks for — so one author needs nothing done to it. Two
-    // arrive as one string with a semicolon in it, and printed as they come
-    // that is a run of commas and semicolons with nothing to say where one
-    // person ends and the next begins.
-    title:
-      "The Moonstone — Collins, Wilkie, 1824-1889 · Reade, Charles, 1814-1884",
+    // The title, and nothing else. This block used to read
+    // `The Moonstone — Collins, Wilkie, 1824-1889 · Reade, Charles, 1814-1884`,
+    // which was right at 21dp on a panel doing eight jobs and is three lines of
+    // a night screen at 29. Who wrote it is catalogue metadata about a book
+    // somebody already owns and chose; where it earns its room is Workshop's
+    // search results, and that is the only list in the app that carries it now.
+    title: "The Moonstone",
     // `in`, not `listened`: nothing anywhere stores how long anybody has
     // listened for. ADR 3 dropped the session history on purpose, so the only
     // honest reading of this number is how far into the book the mark is.
@@ -611,7 +656,7 @@ test("the shelf says where each book was left and what is happening to it", asyn
   await books(page);
   assert.deepEqual(shelf(page), [
     {
-      name: "Another Book — Somnia Test",
+      name: "Another Book",
       // Where that book was left, on its own clock, which is the whole
       // question a shelf answers that a list of titles does not.
       meta: "0:00:04 in",
@@ -619,9 +664,11 @@ test("the shelf says where each book was left and what is happening to it", asyn
       open: "pick it up",
     },
     {
-      // Two authors, held apart by the page's own separator — the same
-      // treatment `reading now` gives the book above, out of one function.
-      name: "The Moonstone — Collins, Wilkie, 1824-1889 · Reade, Charles, 1814-1884",
+      // The title alone, as `reading now` above it, out of one function. Two
+      // authors held apart by the page's own separator is what this row used to
+      // say and is Workshop's job now — a shelf is read in the dark to
+      // recognise a book you already own, and the title is what does that.
+      name: "The Moonstone",
       // Still arriving, so no hairline: total_ms is how much of it exists
       // rather than how long it is, and a bar drawn from that reaches the end
       // at chapter five of thirty-seven.
@@ -632,7 +679,7 @@ test("the shelf says where each book was left and what is happening to it", asyn
     {
       // A render that stopped part way. It plays, so it is offered — and it
       // says what it is in the same words the search results below use for it.
-      name: "Stopped Part Way — Somnia Test",
+      name: "Stopped Part Way",
       meta: "0:00:00 in · part rendered",
       bar: null,
       open: "pick it up",
@@ -640,7 +687,7 @@ test("the shelf says where each book was left and what is happening to it", asyn
     {
       // Nothing to play at all. Marked rather than offered and then refused: a
       // press that was never available cannot be a press that did nothing.
-      name: "Still Being Read — Somnia Test",
+      name: "Still Being Read",
       meta: "the first chapter is still being read",
       bar: null,
       open: null,
@@ -668,7 +715,7 @@ test("the book playing underneath is not on the shelf as well", async (t) => {
   // A second row for it would be two controls doing one thing — and the row
   // would be the worse of them, because it would adopt the server's copy of
   // the position, which is up to fifteen seconds behind the sound.
-  assert.equal(reading(page).title, "Half Heard — Somnia Test");
+  assert.equal(reading(page).title, "Half Heard");
   assert.equal(
     shelf(page).some((row) => row.name.startsWith("Half Heard")),
     false,
@@ -846,9 +893,7 @@ test("a shelf that could not be asked for again is left exactly as it was", asyn
   const drawn = shelf(page);
   assert.equal(drawn.length > 0, true);
 
-  // The phone went in a pocket and came back, and by then the tailnet has gone
-  // — which takes both of the panel's lists with it, because they are asked for
-  // on the same wake and of the same box.
+  // The phone went in a pocket and came back, and by then the tailnet has gone.
   page.unreachable({ queue: true, books: true });
   page.document.visibilityState = "hidden";
   page.document.fire("visibilitychange");
@@ -857,10 +902,12 @@ test("a shelf that could not be asked for again is left exactly as it was", asyn
   await page.settle();
   await page.settle();
   // An empty shelf and an unreachable server look identical and mean opposite
-  // things, so the rows are left exactly as they were — and the panel's one
-  // line of doubt, which the poll owns, is what says which of the two this is.
+  // things, so the rows are left exactly as they were — and this screen's own
+  // line of doubt is what says which of the two this is. It has one now: the
+  // queue's line went to Workshop with the queue, and the shelf cannot borrow a
+  // sentence from a screen nobody is looking at.
   assert.deepEqual(shelf(page), drawn);
-  assert.equal(page.el("queue-note").textContent, "couldn't reach somnia");
+  assert.equal(page.el("shelf-note").textContent, "couldn't reach somnia");
 
   // A panel opened for the first time on a server that cannot be reached has
   // nothing to leave up, because close forgets the shelf on purpose. What keeps
@@ -869,7 +916,22 @@ test("a shelf that could not be asked for again is left exactly as it was", asyn
   await page.settle();
   await books(page);
   assert.deepEqual(shelf(page), []);
-  assert.equal(page.el("queue-note").textContent, "couldn't reach somnia");
+  assert.equal(page.el("shelf-note").textContent, "couldn't reach somnia");
+});
+
+// And the same line goes when the box comes back, rather than standing over a
+// shelf that has just been redrawn from a good answer.
+test("a shelf that arrives takes the doubt off the screen with it", async (t) => {
+  const page = await opened(t);
+  page.unreachable({ books: true });
+  await books(page);
+  assert.equal(page.el("shelf-note").textContent, "couldn't reach somnia");
+  page.unreachable({ books: false });
+  page.click("queue-close");
+  await page.settle();
+  await books(page);
+  assert.equal(page.el("shelf-note").textContent, "");
+  assert.equal(shelf(page).length > 0, true);
 });
 
 test("close forgets the shelf as well as the queue", async (t) => {
@@ -912,12 +974,57 @@ test("a somnia with one book has no shelf and no label over it", async (t) => {
   assert.equal(page.el("shelf-label").hidden, true);
 });
 
+// ------------------------------------------------- one screen, one sentence
+//
+// The cut that made two screens out of one is *when* each is used, and the only
+// way that stays true is if nothing daytime is drawn at night and nothing
+// nightly is drawn in daylight. These are that, written down.
+
+test("nothing daytime is on the night screen, and nothing nightly in daylight", async (t) => {
+  const page = await opened(t);
+  page.queueView([job()]);
+  await books(page);
+  // Books answers "what shall I listen to": the book playing, the shelf, how
+  // dark, and the quiet row to the other screen. Not the search, not the queue,
+  // not what the server last said.
+  for (const id of ["reading-now", "shelf", "dim-row", "to-workshop"]) {
+    assert.equal(page.el(id).hidden, false, id);
+  }
+  assert.equal(page.el("workshop").hidden, true);
+
+  page.click("to-workshop");
+  await page.settle();
+  await page.settle();
+  // And Workshop answers "get me a new book, and tell me it worked". Books is
+  // still standing behind it, unchanged — this is an overlay and not a route.
+  assert.equal(page.el("workshop").hidden, false);
+  assert.equal(page.el("queue").hidden, false);
+  for (const id of ["queue-search", "queue-results", "jump-row"]) {
+    assert.equal(page.el(id).hidden, false, id);
+  }
+});
+
+// The one thing on Books that the split could have quietly deleted. The shelf
+// and the queue used to be asked for on the same press and the queue's poll
+// owned the single line for "couldn't reach somnia" — so moving the queue out
+// left the shelf able to fail with nothing on screen to say it had.
+test("each screen says for itself whether the box could be reached", async (t) => {
+  const page = await opened(t);
+  page.unreachable({ books: true, queue: true });
+  await books(page);
+  assert.equal(page.el("shelf-note").textContent, "couldn't reach somnia");
+  page.click("to-workshop");
+  await page.settle();
+  await page.settle();
+  assert.equal(page.el("queue-note").textContent, "couldn't reach somnia");
+});
+
 // ------------------------------------------------------------------- the words
 
 test("a render says which chapter it is on and how much is ready to play", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
+  await workshop(page);
   assert.deepEqual(jobs(page), [
     {
       name: "Black Beauty — Anna Sewell",
@@ -948,7 +1055,7 @@ test("the corner says the stage, in the panel's word for it", async (t) => {
     job({ id: 4, state: "failed", error: "No HTML edition." }),
     job({ id: 5, state: "cancelled", chapters_done: 4 }),
   ]);
-  await books(page);
+  await workshop(page);
   assert.deepEqual(
     [...jobs(page), ...jobs(page, "queue-gone")].map((row) => row.stage),
     ["queued", "narrating", "ready", "failed", "stopped"],
@@ -963,7 +1070,7 @@ test("nothing on the panel ever says it is fetching the text as a stage", async 
   // the stage the server really is at, and the honest line about not knowing
   // the count goes under the name where it belongs.
   page.queueView([job({ chapters_total: 0, chapters_done: 0, rendered_ms: 0 })]);
-  await books(page);
+  await workshop(page);
   assert.equal(jobs(page)[0].stage, "narrating");
   assert.equal(jobs(page)[0].state, "fetching the text");
   assert.equal(
@@ -978,7 +1085,7 @@ test("a book nobody has counted gets no progress bar rather than an empty one", 
     job({ chapters_total: 0, chapters_done: 0 }),
     job({ id: 7, chapters_done: 13 }),
   ]);
-  await books(page);
+  await workshop(page);
   // 0 means nobody has written the total down — the parse is what produces it,
   // and it is 0 for ever on every book rendered before the column existed. A
   // bar drawn from that sits at nothing on a render that is working perfectly
@@ -990,7 +1097,7 @@ test("a book nobody has counted gets no progress bar rather than an empty one", 
 test("the progress bar is the same element from one poll to the next", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
+  await workshop(page);
   const first = page.el("queue-live").children[0];
   const bar = part(first, "job-fill");
   page.queueView([job({ chapters_done: 20 })]);
@@ -1008,7 +1115,7 @@ test("the progress bar is the same element from one poll to the next", async (t)
 test("a book that is only in the line says where in the line it is", async (t) => {
   const page = await opened(t);
   page.queueView([job(), waiting()]);
-  await books(page);
+  await workshop(page);
   assert.deepEqual(
     jobs(page).map((row) => row.state),
     ["chapter 4 of 39 · 1h12m read so far", "1st in line"],
@@ -1018,7 +1125,7 @@ test("a book that is only in the line says where in the line it is", async (t) =
 test("a render that has said nothing for five minutes says so", async (t) => {
   const page = await opened(t);
   page.queueView([job({ responding: false })]);
-  await books(page);
+  await workshop(page);
   // Not "rendering", which would be a claim about a process that may have died
   // with the box. The heartbeat is the only evidence either way and the server
   // has already read it.
@@ -1035,7 +1142,7 @@ test("a render that has said nothing for five minutes says so", async (t) => {
 test("a render that has been asked to stop says it is stopping", async (t) => {
   const page = await opened(t);
   page.queueView([job({ stopping: true })]);
-  await books(page);
+  await workshop(page);
   // It stays 'rendering' until the child reaches the end of its sentence, and
   // printing that would look like the press had been ignored.
   assert.equal(jobs(page)[0].state, "stopping at the end of this sentence");
@@ -1044,7 +1151,7 @@ test("a render that has been asked to stop says it is stopping", async (t) => {
 test("a book whose text has not been parsed yet says so rather than counting", async (t) => {
   const page = await opened(t);
   page.queueView([job({ chapters_total: 0, chapters_done: 0, rendered_ms: 0 })]);
-  await books(page);
+  await workshop(page);
   // 0 means nobody has written the number down, which is not the same as a
   // book with no chapters — "chapter 1 of 0" is the sentence this exists to
   // stop.
@@ -1068,7 +1175,7 @@ test("what went wrong is said in the server's own words, under the live rows", a
       error: "Gutenberg has book 4321 but no HTML edition, so somnia cannot read it.",
     }),
   ]);
-  await books(page);
+  await workshop(page);
   // Live above, over: the question at 2am is "is anything happening", and it is
   // answered by looking at the top of the panel.
   assert.deepEqual(
@@ -1101,7 +1208,7 @@ test("what went wrong is said in the server's own words, under the live rows", a
 test("an empty half of the panel takes its heading with it", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   // A card headed "the server is working" with nothing in it is a claim that
   // something should be happening, which at 2am is a reason to get up and look.
   assert.equal(page.el("queue-working").hidden, true);
@@ -1127,7 +1234,7 @@ test("a render somebody stopped says whether any of it is playable", async (t) =
     job({ id: 5, state: "cancelled", chapters_done: 4 }),
     job({ id: 6, gid: 120, title: "Treasure Island", authors: "", state: "cancelled", chapters_done: 0 }),
   ]);
-  await books(page);
+  await workshop(page);
   // Two quite different things, and the difference is whether asking for it
   // again is picking something up or starting it.
   assert.deepEqual(
@@ -1141,7 +1248,7 @@ test("a render somebody stopped says whether any of it is playable", async (t) =
 test("stopping a render takes two presses", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
+  await workshop(page);
   page.click("queue-stop-1");
   await page.settle();
   // Nothing has gone anywhere. The button says what the second press will do
@@ -1164,7 +1271,7 @@ test("stopping a render takes two presses", async (t) => {
 test("a stop that was armed and left alone forgets itself", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
+  await workshop(page);
   page.click("queue-stop-1");
   await page.settle();
   assert.equal(jobs(page)[0].stop, "really stop?");
@@ -1189,7 +1296,7 @@ test("a stop that was armed and left alone forgets itself", async (t) => {
 test("an armed stop survives the list being redrawn under it", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
+  await workshop(page);
   page.click("queue-stop-1");
   await page.settle();
   // The poll lands between the two presses, which at five seconds each is not a
@@ -1208,7 +1315,7 @@ test("an armed stop survives the list being redrawn under it", async (t) => {
 test("a row is a readout and not a target", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
+  await workshop(page);
   const before = night(page);
   page.el("job-1").fire("click");
   await page.settle();
@@ -1223,7 +1330,7 @@ test("a row is a readout and not a target", async (t) => {
 test("a search asks once per press, not once per keystroke", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   page.catalogEntries([entry()]);
   await search(page, "treasure island");
   assert.deepEqual(page.searches, ["api/catalog?q=treasure%20island"]);
@@ -1243,7 +1350,7 @@ test("a search asks once per press, not once per keystroke", async (t) => {
 test("a book somnia already has is marked and offers no button", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   page.catalogEntries([
     entry({ gid: 271, title: "Black Beauty", have: "rendering" }),
     entry({ gid: 11, title: "Alice", have: "done" }),
@@ -1265,7 +1372,7 @@ test("a book somnia already has is marked and offers no button", async (t) => {
 test("a render that died is offered again, because that retry was impossible", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   page.catalogEntries([entry({ have: "pending" })]);
   await search(page, "treasure");
   assert.deepEqual(results(page), [
@@ -1281,7 +1388,7 @@ test("a render that died is offered again, because that retry was impossible", a
 test("a press queues the book once and says where it landed", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   page.catalogEntries([entry()]);
   await search(page, "treasure");
   page.submitReply({
@@ -1314,7 +1421,7 @@ test("a press queues the book once and says where it landed", async (t) => {
 test("a book cannot be queued twice by pressing twice", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   page.catalogEntries([entry()]);
   await search(page, "treasure");
   page.click("queue-add-120");
@@ -1328,7 +1435,7 @@ test("a book cannot be queued twice by pressing twice", async (t) => {
 test("a refusal is an answer and is shown as one", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   page.catalogEntries([entry()]);
   await search(page, "treasure");
   // 200 with a sentence, as /api/queue answers: a refusal is the answer
@@ -1353,7 +1460,7 @@ test("a refusal is an answer and is shown as one", async (t) => {
 test("a queue that cannot be reached leaves the last list up and says so", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
-  await books(page);
+  await workshop(page);
   const drawn = jobs(page);
 
   page.unreachable({ queue: true });
@@ -1380,7 +1487,7 @@ test("a queue that cannot be reached leaves the last list up and says so", async
 test("a submit that never landed draws no row and says nothing was added", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   page.catalogEntries([entry()]);
   await search(page, "treasure");
   page.unreachable({ submit: true });
@@ -1402,7 +1509,7 @@ test("a submit that never landed draws no row and says nothing was added", async
 test("a search that cannot be reached says so rather than saying nothing", async (t) => {
   const page = await opened(t);
   page.queueView([]);
-  await books(page);
+  await workshop(page);
   page.unreachable({ catalog: true });
   await search(page, "treasure");
   assert.equal(page.el("queue-said").textContent, "couldn't reach somnia");
@@ -1442,11 +1549,19 @@ test("running out of audio at the end of a finished book still says so", async (
   assert.equal(page.probe().wantsSound, false);
 });
 
-test("an empty library says where to add one", async (t) => {
+test("a somnia with no books says which two presses add one", async (t) => {
   const page = await boot(t, { lastGid: null, library: [] });
   // The one state that most needs the panel, and the one with no book, no
   // manifest and no gid to press anything about.
-  // It names the control by the word on it, so the sentence and the header have
-  // to be changed together — which is why `library` is here as well.
-  assert.equal(page.probe().status, "nothing yet — press library to add one");
+  //
+  // It names the controls by the words on them, so the sentence, the header
+  // pill and the row at the foot of Books all have to be changed together —
+  // which is why both words are written out here. And there are two of them
+  // now: adding a book is Workshop's job and Workshop is behind Books, so a
+  // sentence naming one press would send somebody to a screen with no search
+  // on it.
+  assert.equal(
+    page.probe().status,
+    "nothing yet — press books, then Workshop, to add one",
+  );
 });

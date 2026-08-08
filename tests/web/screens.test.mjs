@@ -392,6 +392,34 @@ test("the header's way back off chat is a press", async (t) => {
   assert.deepEqual(classes(page), ["player-screen"]);
 });
 
+// And the same way back, made out of the thread itself. It is the biggest
+// target on the screen and the only one that needs no aiming, which is what
+// makes taking the transport off this screen a trade rather than a loss.
+test("a press on the thread is a way back off chat", async (t) => {
+  const page = await boot(t);
+  keyboardOver(page);
+  page.click("transcript");
+  assert.equal(page.probe().screen, "player");
+  assert.equal(page.probe().keyboardUp, false);
+  assert.deepEqual(classes(page), ["player-screen"]);
+});
+
+// It changes nothing else, as the pill does not — and it can only fire on the
+// screen it is a way off, which is the sheet's doing as well as the guard's:
+// the thread is drawn on chat and nowhere else.
+test("a press on the thread moves nothing but the screen, and nothing at all on the player", async (t) => {
+  const page = await boot(t);
+  const before = page.probe();
+  keyboardOver(page);
+  page.click("transcript");
+  assert.deepEqual(page.probe(), before);
+  // On the player it is not a control at all: a press changes nothing, and in
+  // particular does not put the page on a screen it is already on by another
+  // name.
+  page.click("transcript");
+  assert.deepEqual(page.probe(), before);
+});
+
 // The same promise the keyboard makes coming up, made again going down: the
 // book is still playing, still where it was, and the conversation is still in
 // the document waiting to be come back to.
@@ -498,7 +526,7 @@ test("the player's spacers are not on the chat screen", async (t) => {
   assert.ok(RULES.includes("body.chat-screen .rhythm { display: none; }"));
 });
 
-// The other corner, which is one place holding one of two pills. `library ›`
+// The other corner, which is one place holding one of two pills. `books ›`
 // goes to the panel and `‹ controls` comes back, and exactly one of them is
 // drawn at a time — a header with both would be two doors in one corner, and a
 // header with neither has no way out of anything.
@@ -507,7 +535,24 @@ test("the left corner holds one pill on each screen", async (t) => {
   for (const block of mediaBlocks(RULES)) {
     assert.ok(
       !block.includes("#books"),
-      `a media query is drawing the way to the library: ${block.slice(0, 120)}`,
+      `a media query is drawing the way to the books: ${block.slice(0, 120)}`,
+    );
+  }
+});
+
+// And the transport is not on the chat screen at all. It used to shrink and
+// stay, on the argument that a book still playing must stay stoppable; three
+// other things stop it — the keyboard going down, `‹ controls`, and the lock
+// screen — and what the row cost was the height of the one screen in the app
+// that is nothing but text.
+test("the transport is not on the chat screen", async (t) => {
+  assert.ok(
+    RULES.includes("body.chat-screen #player-bar:not([hidden]) { display: none; }"),
+  );
+  for (const [selector] of rules(SHEET)) {
+    assert.ok(
+      !/body\.chat-screen\s+\.transport/.test(selector),
+      `a rule is still drawing the transport on chat: ${selector.trim()}`,
     );
   }
 });
