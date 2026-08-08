@@ -666,7 +666,7 @@ def test_a_model_we_cannot_ask_about_is_sent_no_effort_either(
 
 
 def test_an_effort_level_that_is_not_one_is_ignored_rather_than_obeyed(
-    caplog: pytest.LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture, tmp_path: Path
 ) -> None:
     """A typo in a systemd unit must not become a 400 at 2am.
 
@@ -678,6 +678,10 @@ def test_an_effort_level_that_is_not_one_is_ignored_rather_than_obeyed(
     """
     monkey = pytest.MonkeyPatch()
     monkey.setenv("SOMNIA_AGENT_EFFORT", "meduim")
+    # And somewhere to put the data directory that is not the real one.
+    # `load_config` makes it, so without this every run of the suite created
+    # ~/.local/share/somnia on whatever machine it ran on.
+    monkey.setenv("SOMNIA_DATA_DIR", str(tmp_path))
     try:
         cfg = load_config()
     finally:
