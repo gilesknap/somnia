@@ -367,7 +367,16 @@ def render_one(
     from .tts import KokoroEngine  # noqa: PLC0415
 
     watch = _Watch(conn, job, lease=lease, stopping=stopping, every_s=beat_every_s)
-    engine = engine or KokoroEngine(voice=cfg.voice)
+    # In this order, and each step of it is a fix. The request's voice first:
+    # the choice belongs to whoever asked for the book, hours before this
+    # process existed, and reading it from this process's environment instead
+    # made it a property of whichever renderer happened to wake up. Then the
+    # voice already on the book, so a resume finishes in the narrator it
+    # started in. The configuration last, for a book nobody has said anything
+    # about — which is every book the agent adds.
+    voice = job.voice or _voice_already(conn, job.gid) or cfg.voice
+    logger.info("rendering book %d in %s", job.gid, voice)
+    engine = engine or KokoroEngine(voice=voice)
     embedder = embedder or RealEmbedder(cfg.embed_model)
     abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
 
@@ -411,6 +420,25 @@ def render_one(
 
     finish(conn, job.id, lease=lease, state="done")
     return Rendered(job.id, job.gid, "done")
+
+
+def _voice_already(conn: sqlite3.Connection, gid: int) -> str:
+    """Which voice has already read part of this book, if any has.
+
+    Between the request and the configuration, and it belongs there. A render
+    that died at chapter four comes back through this same path, and picking it
+    up in whatever the renderer happens to be set to now would finish the book
+    in a second voice — half of it read by one narrator and half by another,
+    which is not something a listener would ever ask for and is exactly what a
+    changed ``SOMNIA_VOICE`` would silently do.
+
+    A request that *named* a voice still wins, and there is no guard against
+    that: it can only come from a terminal, where somebody has typed the name
+    of a voice next to the id of a book somnia already has some of, and that is
+    a deliberate act rather than a thing to be protected from.
+    """
+    row = conn.execute("SELECT voice FROM books WHERE gid = ?", (gid,)).fetchone()
+    return str(row["voice"]) if row is not None else ""
 
 
 def _why_it_failed(conn: sqlite3.Connection, gid: int, error: Exception) -> str:

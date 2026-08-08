@@ -3789,6 +3789,224 @@ let jobFills = new Map();
 // cancel is a confirmation that expires at random.
 let stopArmed = null;
 let submitting = 0; // one submit in flight at a time, by gid
+
+// ------------------------------------------------------------ which voice reads it
+
+// The roster comes from the server rather than being written down here, so the
+// list this page draws and the list the server will accept cannot come apart —
+// a pill offering a voice the route refuses is a press that does nothing. Asked
+// for once and kept: it changes when somnia is deployed and not otherwise.
+//
+// null means "not asked yet or the ask failed", and that is a state with a
+// deliberate behaviour rather than an error: with no roster the add press does
+// what it always did and submits at once, and the render uses whatever the
+// renderer is set to. A picker is the improvement; adding a book is the job.
+let voiceRoster = null;
+// Which gid has its picker open. One at a time, because two open pickers is two
+// sets of pills on the same screen with one chosen in each, and the question
+// "which voice will this book be read in" then has two answers on it.
+let voicePicking = 0;
+// The block itself, and the pills inside it, held rather than looked up. The
+// page keeps hold of everything it has to redraw — jobFills does the same for
+// the progress hairlines — because a query selector is a second description of
+// a tree this file already built and can simply remember.
+let voiceOpen = null;
+let voicePills = [];
+// The last voice chosen, kept in localStorage beside the dim level and the skip
+// size and for the same reason: it is a fact about how this person listens, not
+// about tonight. It is what the picker opens on, so the second book of an
+// evening is two presses — open, add — and the choice is still in front of you.
+const VOICE_KEY = "somnia-voice";
+let chosenVoice = "";
+// One element for every sample, made on the first press rather than at load:
+// six Audio objects built for a screen nobody may open is six decoders held all
+// night on a phone.
+let sampler = null;
+
+function restoreVoice() {
+  try {
+    chosenVoice = localStorage.getItem(VOICE_KEY) || "";
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+restoreVoice();
+
+async function loadVoices() {
+  if (voiceRoster) return voiceRoster;
+  try {
+    const response = await fetch("api/voices");
+    if (!response.ok) throw new Error("no voices");
+    const body = await response.json();
+    voiceRoster = body.voices || [];
+  } catch (error) {
+    // Left null on purpose, and not retried on a timer. The press below falls
+    // back to adding the book without naming a voice, which is exactly what
+    // this page did before there was a choice.
+    console.error(error);
+    voiceRoster = null;
+  }
+  return voiceRoster;
+}
+
+// Which of the roster is in force. Not stored as an index: the roster can
+// change under a page left open across a deploy, and an index would then point
+// at a different voice than the one somebody chose.
+function voiceInForce() {
+  if (!voiceRoster?.length) return "";
+  const kept = voiceRoster.find((voice) => voice.id === chosenVoice);
+  // The first of the roster is the default, and the server's is the same one.
+  // A stored voice that has left the roster is forgotten rather than sent: it
+  // would be refused, and the refusal would arrive as the answer to a press
+  // about a book, which is a confusing place to be told about a voice.
+  return (kept || voiceRoster[0]).id;
+}
+
+// Play one sample, and stop whatever else was playing.
+//
+// The book is paused first if it is playing, through the app's own pauseHere so
+// that the fade, the media session and the position report all see it happen —
+// two things reading aloud at once is the one outcome worth any amount of care
+// to avoid. It is deliberately not started again afterwards: resuming a book
+// over somebody who is still choosing is worse than leaving the play button
+// where they can find it, and the automatic version of that is where all the
+// hard bugs in this file live.
+function playSample(id, said) {
+  if (!player.paused) {
+    pauseHere();
+    said.textContent = "the book is paused while you listen.";
+  }
+  if (!sampler) sampler = new Audio();
+  sampler.pause();
+  sampler.src = `voice/${id}.m4a`;
+  sampler.play().catch((error) => {
+    // A missing clip is not a reason to refuse the voice: the samples are
+    // rendered by hand on the box that has Kokoro and committed, so a voice
+    // added without one is the ordinary way this fails. The choice still works;
+    // only the audition is gone.
+    console.error(error);
+    said.textContent = "no sample for that one — it will still read the book.";
+  });
+}
+
+function drawVoicePills(said) {
+  const inForce = voiceInForce();
+  for (const pill of voicePills) {
+    const chosen = pill.dataset.voice === inForce;
+    // Said twice, once in amber and once in the accessibility tree, exactly as
+    // the skip-size pills on Settings are: a reader who cannot see the amber
+    // had a row of identical-looking buttons and no way to tell which of them
+    // was already true.
+    pill.classList.toggle("chosen", chosen);
+    pill.setAttribute("aria-pressed", String(chosen));
+    if (chosen) said.textContent = pill.dataset.says || "";
+  }
+}
+
+function chooseVoice(id, said) {
+  chosenVoice = id;
+  try {
+    localStorage.setItem(VOICE_KEY, id);
+  } catch (error) {
+    console.error(error);
+  }
+  drawVoicePills(said);
+  // One press does both: it says which voice, and it plays it. Selecting and
+  // auditioning are the same intention here — nobody presses a name they have
+  // never heard in order to *not* hear it — and splitting them would put a
+  // second press between somebody and the only information on the screen.
+  playSample(id, said);
+}
+
+// The picker, built under the row whose press opened it.
+//
+// Under rather than over: it belongs to one book, and a book is a row. It is
+// also why there is no cancel on it — the press that opened it closes it, so
+// the way out is the control the hand is already on.
+function voiceBlock(entry, button) {
+  const block = document.createElement("div");
+  block.className = "voices";
+  block.id = `voices-${entry.gid}`;
+  const label = document.createElement("p");
+  label.className = "voices-label";
+  label.textContent = "read in";
+  block.append(label);
+  const row = document.createElement("div");
+  row.className = "voice-row";
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", "Which voice reads this book");
+  const said = document.createElement("p");
+  said.className = "voices-note";
+  voicePills = [];
+  for (const voice of voiceRoster) {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "voice";
+    pill.id = `voice-${entry.gid}-${voice.id}`;
+    pill.dataset.voice = voice.id;
+    pill.dataset.says = voice.says;
+    pill.textContent = voice.name;
+    pill.addEventListener("click", () => chooseVoice(voice.id, said));
+    row.append(pill);
+    voicePills.push(pill);
+  }
+  block.append(row);
+  block.append(said);
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  // Warm, and the only warm press on this panel besides picking a dead render
+  // back up: by this point the book has been chosen and the voice has been
+  // chosen, and this is the press that spends six hours of the box on both.
+  confirm.className = "found-add again voices-add";
+  confirm.id = `queue-confirm-${entry.gid}`;
+  confirm.textContent = "add it";
+  confirm.addEventListener("click", () => addBook(entry, button, voiceInForce()));
+  block.append(confirm);
+  drawVoicePills(said);
+  return block;
+}
+
+function closeVoices() {
+  if (sampler) sampler.pause();
+  voiceOpen?.remove();
+  voiceOpen = null;
+  voicePills = [];
+  voicePicking = 0;
+}
+
+// The add press. It opens the picker rather than submitting, except when there
+// is no picker to open.
+async function pressAdd(entry, button) {
+  const open = voicePicking === entry.gid;
+  closeVoices();
+  if (open) return;
+  // Claimed before the first await, not after it. The first press of the night
+  // waits on a real fetch of the roster, and a thumb that presses twice inside
+  // that wait used to get two blocks under the one row — the second overwrote
+  // `voiceOpen`, so close could only ever remove one of them, and two buttons
+  // were left answering to `queue-confirm-<gid>`.
+  voicePicking = entry.gid;
+  await loadVoices();
+  // A press that landed during the fetch has taken the claim back. That press
+  // was the one that closes this picker, so there is nothing left to open.
+  if (voicePicking !== entry.gid) return;
+  if (!voiceRoster?.length) {
+    // No roster, so no choice to offer and nothing to wait for. This is the
+    // whole of the page's behaviour before voices existed, and it is the right
+    // fallback: the book is what somebody came here for.
+    voicePicking = 0;
+    await addBook(entry, button, "");
+    return;
+  }
+  const li = document.getElementById(`found-${entry.gid}`);
+  if (!li) {
+    voicePicking = 0;
+    return;
+  }
+  voiceOpen = voiceBlock(entry, button);
+  li.append(voiceOpen);
+}
 // One shelf press in flight at a time, by gid. Not `opening`, which is what
 // openBook already calls the manifest it is deciding whether to adopt — a
 // module-level name shadowed inside the one function this guard wraps is a
@@ -4193,9 +4411,26 @@ async function openShelved(entry, button) {
 // has been encoded. The hairline under this line is the same fraction drawn
 // rather than stated, which is as much as it can honestly claim: something is
 // moving, and this is roughly where it has got to.
+// Which voice a job named, in the short form the picker draws — `bm_george` is
+// a filename and this is a caption. Stripped rather than looked up in the
+// roster, because the queue is drawn the moment the panel opens and the roster
+// is only fetched when somebody reaches for the add press.
+//
+// Empty for a row that named no voice, and that is right: the renderer's own
+// is a thing this page cannot see, and guessing at it would put a name on the
+// screen that the book might not be read in.
+function voiceWords(row) {
+  return (row.voice || "").replace(/^[a-z]{2}_/, "");
+}
+
 function jobWords(row) {
   if (row.state === "queued") {
-    return row.place > 0 ? `${ordinal(row.place)} in line` : "waiting its turn";
+    const place = row.place > 0 ? `${ordinal(row.place)} in line` : "waiting its turn";
+    // Said here, on the row a press has just made, because this is the last
+    // moment the choice costs nothing to change: a book in the line can be
+    // taken out of it with the control on the same row.
+    const voice = voiceWords(row);
+    return voice ? `${place} · ${voice}` : place;
   }
   if (row.state === "rendering") {
     if (row.stopping) return "stopping at the end of this sentence";
@@ -4401,12 +4636,25 @@ function foundRow(entry) {
   add.className = resume ? "found-add again" : "found-add";
   add.id = `queue-add-${entry.gid}`;
   add.textContent = resume ? "finish this one" : "add this book";
-  add.addEventListener("click", () => addBook(entry, add));
+  // Opens the voice picker under this row; the press that opened it closes it,
+  // and `add it` inside it is what actually submits. A book somnia part
+  // rendered is the exception: it already has a voice, every timestamp in it
+  // was measured in that voice, and finishing it in another would move all of
+  // them — so `finish this one` is still one press and names no voice at all,
+  // which leaves the renderer's own to carry on with.
+  add.addEventListener("click", () =>
+    resume ? addBook(entry, add, "") : pressAdd(entry, add),
+  );
   li.append(add);
   return li;
 }
 
 function drawResults() {
+  // Before the rows are replaced, not after: the picker lives inside one of
+  // them, so a redraw takes it off the screen either way — and without this the
+  // page would go on believing it was open, and the press that should reopen it
+  // would read as the press that closes it.
+  closeVoices();
   queueResults.replaceChildren(...queueFound.map(foundRow));
 }
 
@@ -4521,18 +4769,31 @@ async function findBooks() {
   }
 }
 
-async function addBook(entry, button) {
+async function addBook(entry, button, voice) {
   // One at a time, and the guard is set before the first await: two presses a
   // frame apart are the ordinary way a thumb double-taps something that has not
   // answered yet.
   if (submitting) return;
   submitting = entry.gid;
   button.disabled = true;
+  // Whatever happens to the request, the choosing is over: the picker names a
+  // voice for a press that has now been made, and leaving it up would offer to
+  // change something already sent.
+  closeVoices();
   try {
     const response = await fetch("api/queue", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ gid: entry.gid }),
+      // The rule is: send exactly what was on the screen. A picker that drew a
+      // pill in amber has said which voice this book will be read in, so that
+      // is what goes — including when nobody pressed anything, because the
+      // default was still shown as chosen. Only a press with no picker at all
+      // behind it sends nothing, and then nothing was claimed either.
+      //
+      // Left out rather than sent as "": absent means "the renderer's own",
+      // which is a different request from naming one, and the route tells the
+      // two apart.
+      body: JSON.stringify(voice ? { gid: entry.gid, voice } : { gid: entry.gid }),
     });
     const body = await response.json();
     // Taken or refused, the server said a sentence and the sentence is the
@@ -4651,6 +4912,10 @@ function hideWorkshop() {
   drawDim();
   stopQueuePoll();
   forgetStop();
+  // The picker goes with the screen, and so does whatever sample was playing:
+  // a voice reading a line from Black Beauty out of a page that has been shut
+  // is a sound with nothing on screen to explain it.
+  closeVoices();
   queueRows = [];
   queueFound = [];
   jobFills = new Map();

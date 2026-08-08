@@ -127,9 +127,15 @@ class SilentEngine:
     A render test cannot have Kokoro — it is in the ``[ml]`` extra and takes a
     minute to load a model — and does not need one. What ingest actually does
     with the samples is count them.
+
+    It has a voice for the same reason the real engine does: ingest writes down
+    what actually read the book, and it asks the engine rather than the
+    configuration, because a request may have named a voice the renderer was
+    not set to.
     """
 
     sample_rate = 1000
+    voice = "af_heart"
 
     def render(self, text: str) -> Any:
         return np.zeros(10 * len(text), dtype=np.float32)
@@ -191,17 +197,29 @@ def unrendered(monkeypatch: pytest.MonkeyPatch) -> Fetched:
     return fetched
 
 
+class RecordingEngine(SilentEngine):
+    """A silent engine that keeps everything it was asked to say, in order."""
+
+    def __init__(self) -> None:
+        self.said: list[str] = []
+
+    def render(self, text: str) -> Any:
+        self.said.append(text)
+        return super().render(text)
+
+
 def _ingest(
     conn: Any,
     tmp_path: Path,
     *,
+    engine: Any = None,
     should_stop: Callable[[], bool] | None = None,
     on_chapter: Callable[[int], None] | None = None,
 ) -> None:
     ingest_book(
         _cfg(tmp_path),
         conn,
-        cast(TTSEngine, SilentEngine()),
+        cast(TTSEngine, engine or SilentEngine()),
         cast(Embedder, FakeEmbedder()),
         271,
         should_stop=should_stop,
@@ -311,6 +329,82 @@ def test_rendering_a_book_for_the_first_time_creates_its_row(tmp_path: Path) -> 
     # is: total_ms cannot serve, because while a book renders it means "how much
     # audio exists so far" and get_position leans on it meaning exactly that.
     assert row["chapters_total"] == 3
+
+
+# ------------------------------------------------------- saying which chapter it is
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_each_chapter_says_its_own_name_before_a_word_of_it(tmp_path: Path) -> None:
+    """Until this, a chapter boundary was silent — see :mod:`somnia.announce`.
+
+    The heading is rendered from the number and the name rather than verbatim,
+    which is what turns Black Beauty's "01 My Early Home" into something a
+    phonemiser reads as English.
+    """
+    conn = connect(tmp_path / "fresh.db")
+    engine = RecordingEngine()
+    try:
+        _ingest(conn, tmp_path, engine=engine)
+    finally:
+        conn.close()
+    assert engine.said[0] == "Chapter 1. My Early Home"
+    assert "Chapter 2. The Hunt" in engine.said
+    assert "Chapter 3. My Breaking In" in engine.said
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_what_the_chapter_says_about_itself_is_not_in_the_index(
+    tmp_path: Path,
+) -> None:
+    """The announcement is somnia's words, not the book's, and search is the book's.
+
+    Indexed, it would put the same phrase at the top of every chapter into the
+    semantic index — and hand the spoiler guard sentences no author wrote.
+    """
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        _ingest(conn, tmp_path)
+        rows = conn.execute("SELECT text FROM chunks WHERE book_gid = 271")
+        texts = [r["text"] for r in rows]
+    finally:
+        conn.close()
+    assert texts
+    assert not any("Chapter 1." in t for t in texts)
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_the_chapter_mark_lands_on_the_announcement_rather_than_after_it(
+    tmp_path: Path,
+) -> None:
+    """A press for chapter two should arrive at the words "chapter two".
+
+    The mark is where the chapter's audio begins, and the announcement is the
+    first thing in it — so the first *indexed* passage necessarily starts later
+    than the mark, by the length of the announcement and its silence. This is
+    the assertion that the announcement went in before the clock was read, and
+    therefore that every timestamp in the book is still exact.
+    """
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        _ingest(conn, tmp_path)
+        marks = {
+            r["idx"]: r["start_ms"]
+            for r in conn.execute(
+                "SELECT idx, start_ms FROM chapters WHERE book_gid = 271"
+            )
+        }
+        first = {
+            r["chapter_idx"]: r["start"]
+            for r in conn.execute(
+                "SELECT chapter_idx, MIN(start_ms) AS start FROM chunks"
+                " WHERE book_gid = 271 GROUP BY chapter_idx"
+            )
+        }
+    finally:
+        conn.close()
+    assert set(marks) == set(first)
+    assert all(first[idx] > marks[idx] for idx in marks)
 
 
 # ------------------------------------------------------- counting, stopping, resuming

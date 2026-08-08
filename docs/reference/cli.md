@@ -148,10 +148,18 @@ path. The book is marked `rendering` at the start and `done` at the end, which
 is how the page knows the difference between a book that is still growing and a
 render that died.
 
-`--voice` overrides `SOMNIA_VOICE` for this render only. **Never re-render a
-book with a different voice.** Every timestamp somnia holds — chapter marks,
-index entries, the place you fell asleep — belongs to the audio that was
-actually produced.
+`--voice` is written **on the queue row**, not on this process, so it survives
+the wait: if the worker unit claims the book before this command does, the
+render still uses the voice you named. It used to be set on this process's own
+configuration and was therefore lost in exactly that race, which is the usual
+one — the worker wakes every ten seconds.
+
+It will take any voice Kokoro knows, unlike the page, which offers
+[six](#the-voices). **Never re-render a book with a different voice.** Every
+timestamp somnia holds — chapter marks, index entries, the place you fell
+asleep — belongs to the audio that was actually produced. Resuming a
+render is safe without saying anything: a book that already has a voice on it is
+picked back up in that voice whatever the environment now says.
 
 Re-running it on a book it has already rendered is the ordinary way to finish
 one that died, and it **resumes**: it starts at the first chapter that has no

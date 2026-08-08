@@ -111,6 +111,23 @@ function entry(overrides = {}) {
   };
 }
 
+// The voice picker as somebody looking at it would read it: which names are on
+// offer and which of them is in force. The class is the amber and the attribute
+// is what a reader who cannot see amber is told, and they are asserted together
+// because a page that set one without the other is half a control.
+function voices(page, gid = 120) {
+  const row = part(page.el(`voices-${gid}`), "voice-row");
+  return row.children.map((pill) => ({
+    name: pill.textContent,
+    chosen: pill.classList.contains("chosen"),
+    said: pill.getAttribute("aria-pressed"),
+  }));
+}
+
+function pickerUp(page, gid = 120) {
+  return Boolean(page.el(`voices-${gid}`)?.parent);
+}
+
 // The page, open on a finished book, having played nothing. Nothing is waiting
 // on a timer in this state, which is what makes "the only wake pending is the
 // poll" an assertion rather than a hope.
@@ -1522,6 +1539,26 @@ test("a render that died is offered again, because that retry was impossible", a
   ]);
 });
 
+// Adding a book is two presses now: one opens the voice picker under the row,
+// and `add it` inside it is what submits. The roster arrives between them, so
+// the open has to be let settle before the confirm can be found.
+async function offerVoices(page, gid) {
+  page.click(`queue-add-${gid}`);
+  await page.settle();
+  await page.settle();
+  return page;
+}
+
+async function addWith(page, gid, voice) {
+  await offerVoices(page, gid);
+  if (voice) page.click(`voice-${gid}-${voice}`);
+  page.click(`queue-confirm-${gid}`);
+  await page.settle();
+  await page.settle();
+  await page.settle();
+  return page;
+}
+
 test("a press queues the book once and says where it landed", async (t) => {
   const page = await opened(t);
   page.queueView([]);
@@ -1534,11 +1571,12 @@ test("a press queues the book once and says where it landed", async (t) => {
     said: "Treasure Island is in the queue, behind one other book.",
   });
   page.queueView([job(), waiting()]);
-  page.click("queue-add-120");
-  await page.settle();
-  await page.settle();
-  await page.settle();
-  assert.deepEqual(page.submits, [{ gid: 120 }]);
+  await addWith(page, 120);
+  // The voice goes with it even though no pill was pressed, because one was
+  // drawn in amber: the picker showed a chosen voice, and a page that displays
+  // a choice and then submits "whatever you like" is a page that lied about
+  // what it was about to do.
+  assert.deepEqual(page.submits, [{ gid: 120, voice: "af_heart" }]);
   assert.equal(
     page.el("queue-said").textContent,
     "Treasure Island is in the queue, behind one other book.",
@@ -1561,12 +1599,16 @@ test("a book cannot be queued twice by pressing twice", async (t) => {
   await workshop(page);
   page.catalogEntries([entry()]);
   await search(page, "treasure");
-  page.click("queue-add-120");
-  page.click("queue-add-120");
+  await offerVoices(page, 120);
+  // Both on `add it`, a frame apart, which is what a thumb double-tapping
+  // something that has not answered yet actually does. The guard is on the
+  // press that submits, which is this one now.
+  page.click("queue-confirm-120");
+  page.click("queue-confirm-120");
   await page.settle();
   await page.settle();
   await page.settle();
-  assert.deepEqual(page.submits, [{ gid: 120 }]);
+  assert.deepEqual(page.submits, [{ gid: 120, voice: "af_heart" }]);
 });
 
 test("a refusal is an answer and is shown as one", async (t) => {
@@ -1582,10 +1624,7 @@ test("a refusal is an answer and is shown as one", async (t) => {
     id: 0,
     said: "Treasure Island is already here, all of it.",
   });
-  page.click("queue-add-120");
-  await page.settle();
-  await page.settle();
-  await page.settle();
+  await addWith(page, 120);
   assert.equal(
     page.el("queue-said").textContent,
     "Treasure Island is already here, all of it.",
@@ -1628,9 +1667,7 @@ test("a submit that never landed draws no row and says nothing was added", async
   page.catalogEntries([entry()]);
   await search(page, "treasure");
   page.unreachable({ submit: true });
-  page.click("queue-add-120");
-  await page.settle();
-  await page.settle();
+  await addWith(page, 120);
   assert.equal(
     page.el("queue-said").textContent,
     "couldn't reach somnia — nothing has been added",
@@ -1699,5 +1736,172 @@ test("a somnia with no books says which two presses add one", async (t) => {
   assert.equal(
     page.probe().status,
     "nothing yet — press books, then Workshop, to add one",
+  );
+});
+
+// -------------------------------------------------------- which voice reads it
+
+// A book is six hours of one narrator and the choice cannot be changed
+// afterwards — every timestamp somnia holds was measured in that voice. So the
+// press that starts a render opens the choice rather than making it.
+
+async function found(t, options) {
+  const page = await opened(t, options);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries([entry()]);
+  await search(page, "treasure");
+  return page;
+}
+
+test("the add press opens the voices rather than spending six hours", async (t) => {
+  const page = await found(t);
+  await offerVoices(page, 120);
+  assert.deepEqual(page.submits, [], "nothing has been asked for yet");
+  assert.deepEqual(voices(page), [
+    { name: "heart", chosen: true, said: "true" },
+    { name: "george", chosen: false, said: "false" },
+  ]);
+  // What the chosen one sounds like, for anybody the sample cannot reach — a
+  // phone on silent, a reader, a clip that did not arrive.
+  assert.equal(
+    words(page.el("voices-120"), "voices-note"),
+    "American, warm and unhurried",
+  );
+});
+
+test("the press that opened the voices closes them again", async (t) => {
+  const page = await found(t);
+  await offerVoices(page, 120);
+  assert.equal(pickerUp(page), true);
+  // The way out is the control the hand is already on, which is why there is
+  // no cancel drawn on the block at all.
+  await offerVoices(page, 120);
+  assert.equal(pickerUp(page), false);
+  assert.deepEqual(page.submits, []);
+});
+
+test("pressing a voice plays it, because a name is not a choice", async (t) => {
+  const page = await found(t);
+  await offerVoices(page, 120);
+  page.click("voice-120-bm_george");
+  assert.deepEqual(page.samples, ["voice/bm_george.m4a"]);
+  assert.deepEqual(
+    voices(page).map((pill) => [pill.name, pill.chosen]),
+    [
+      ["heart", false],
+      ["george", true],
+    ],
+  );
+  assert.equal(words(page.el("voices-120"), "voices-note"), "British, a man, low");
+});
+
+test("the voice chosen is the voice submitted", async (t) => {
+  const page = await found(t);
+  await addWith(page, 120, "bm_george");
+  assert.deepEqual(page.submits, [{ gid: 120, voice: "bm_george" }]);
+});
+
+test("a sample does not read over the book", async (t) => {
+  // Workshop is reached with the book still playing underneath it, and two
+  // things reading aloud at once is the one outcome worth any amount of care
+  // to avoid. The book is paused through the page's own pause, so the fade,
+  // the media session and the position report all see it happen.
+  const page = await playing(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries([entry()]);
+  await search(page, "treasure");
+  await offerVoices(page, 120);
+  assert.equal(page.audio.paused, false);
+  page.click("voice-120-bm_george");
+  assert.equal(page.audio.paused, true);
+  assert.deepEqual(page.samples, ["voice/bm_george.m4a"]);
+  // And it is said, because a book that stopped without being asked to is a
+  // thing somebody will otherwise go looking for a fault in.
+  assert.equal(
+    words(page.el("voices-120"), "voices-note"),
+    "the book is paused while you listen.",
+  );
+  // Not started again afterwards: resuming a book over somebody who is still
+  // choosing is worse than leaving the play button where they can find it.
+  assert.equal(page.audio.paused, true);
+});
+
+test("the voice is remembered, so the second book is two presses", async (t) => {
+  const page = await found(t);
+  await addWith(page, 120, "bm_george");
+  page.catalogEntries([entry({ gid: 271, title: "Black Beauty" })]);
+  await search(page, "black");
+  await offerVoices(page, 271);
+  assert.deepEqual(
+    voices(page, 271).map((pill) => [pill.name, pill.chosen]),
+    [
+      ["heart", false],
+      ["george", true],
+    ],
+  );
+});
+
+test("the roster is asked for once and not once per press", async (t) => {
+  const page = await found(t);
+  await offerVoices(page, 120);
+  await offerVoices(page, 120);
+  await offerVoices(page, 120);
+  assert.equal(page.voiceAsks.length, 1);
+});
+
+test("a voice that has left the roster is not sent to be refused", async (t) => {
+  // A page left open across a deploy that dropped a voice. Falling back to the
+  // first of the roster rather than sending the old name, because the refusal
+  // would arrive as the answer to a press about a book, which is a confusing
+  // place to be told about a voice.
+  //
+  // Seeded before boot, because the page reads the remembered voice once on the
+  // way up: written afterwards it reaches storage and nothing else, and the
+  // test passes on the empty-string fallback without ever dropping a voice.
+  const page = await found(t, { stored: { "somnia-voice": "af_gone" } });
+  await addWith(page, 120);
+  assert.deepEqual(page.submits, [{ gid: 120, voice: "af_heart" }]);
+});
+
+test("no roster is no reason not to add a book", async (t) => {
+  const page = await found(t);
+  page.unreachable({ voices: true });
+  // One press and it is in the queue, with no voice named — which is exactly
+  // what this page did before there was a choice, and leaves the render to use
+  // whatever the renderer is set to.
+  page.click("queue-add-120");
+  await page.settle();
+  await page.settle();
+  await page.settle();
+  assert.equal(pickerUp(page), false);
+  assert.deepEqual(page.submits, [{ gid: 120 }]);
+});
+
+test("a part-rendered book is picked up in the voice it started in", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries([entry({ have: "pending" })]);
+  await search(page, "treasure");
+  // No picker at all on `finish this one`: half of this book has been read
+  // already, every timestamp in it was measured in that voice, and offering a
+  // different one would be offering to finish it in a second narrator.
+  page.click("queue-add-120");
+  await page.settle();
+  await page.settle();
+  await page.settle();
+  assert.equal(pickerUp(page), false);
+  assert.deepEqual(page.submits, [{ gid: 120 }]);
+});
+
+test("the row it made says which voice, while it can still be undone", async (t) => {
+  const page = await found(t);
+  page.queueView([waiting({ voice: "bm_george" })]);
+  await addWith(page, 120, "bm_george");
+  assert.deepEqual(
+    jobs(page).map((row) => row.state),
+    ["1st in line · george"],
   );
 });

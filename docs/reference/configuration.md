@@ -18,7 +18,7 @@ expansion**, so write paths out in full: `/home/you/library` and not
 | `ANTHROPIC_API_KEY` | — | The agent's model calls. Required by `ask` and `serve`, and by nothing else |
 | `SOMNIA_DATA_DIR` | `$XDG_DATA_HOME/somnia`, else `~/.local/share/somnia` | Holds `somnia.db`, and `streams/<gid>/<n>.m4a` — a book's chapters joined into the one file the page plays, `n` being how many chapters it covers. A rebuildable cache and the largest thing in here: about the library again, more if a book opened mid-render left shorter joins behind, since none are reaped. Created on startup if it is not there |
 | `SOMNIA_LIBRARY_DIR` | `~/library/audiobooks` | Where rendered chapters are written, and the boundary outside which the server refuses to serve one |
-| `SOMNIA_VOICE` | `af_heart` | The Kokoro voice new renders use |
+| `SOMNIA_VOICE` | `af_heart` | The Kokoro voice a render uses **when the request did not name one**. See [the voices](#the-voices) below |
 | `SOMNIA_AGENT_MODEL` | `claude-sonnet-5` | The model behind the conversation |
 | `SOMNIA_AGENT_EFFORT` | `medium` | How hard that model may think before answering: `low`, `medium`, `high`, `xhigh` or `max`. The main dial on how long a question waits. Anything else is ignored with a warning in the journal |
 | `SOMNIA_EMBED_MODEL` | `intfloat/e5-small-v2` | The sentence embedding model. Must be 384-dimensional |
@@ -50,6 +50,43 @@ better than the alternative, which is what happens with a *different*
 384-dimensional model: it loads, it indexes, and every distance it produces is
 measured against embeddings from the old model. Searching then quietly returns
 the wrong passages. Changing it means re-rendering every book.
+
+(the-voices)=
+## The voices
+
+A book is read in one voice and cannot be re-read in another — every timestamp
+somnia holds was measured against the audio that was actually produced. So the
+voice is chosen **per book, when the book is asked for**, and written on the
+queue row: the page offers a picker on the add press, `somnia add --voice` names
+one, and `SOMNIA_VOICE` is what a request that named nothing falls back to. The
+agent never names one, because nobody chooses a narrator out loud at 2am.
+
+Six are on offer, and the page will accept no others:
+
+| Voice | Sounds like |
+|---|---|
+| `af_heart` | American, warm and unhurried — the default, and Kokoro's own highest-graded voice |
+| `af_bella` | American, lower and slower |
+| `am_michael` | American, a man, even and plain |
+| `am_puck` | American, a man, brighter and quicker |
+| `bf_emma` | British, measured |
+| `bm_george` | British, a man, low |
+
+`SOMNIA_VOICE` and `--voice` will take **any** name Kokoro knows, not only these
+six — a terminal is a deliberate act and trying `af_nicole` for a night should
+not need a release. A name Kokoro does not know fails when the model loads, with
+Kokoro's own list in the message.
+
+The language is derived from the first letter of the name and must not be set
+beside it: `b` is British English and `a` is American, and they select different
+phonemisers. Until this was fixed every voice was read with an American
+phonemiser, which made the two British ones sound like an American impression of
+them.
+
+Samples of each live in `src/somnia/web/voice/` and are what the picker plays.
+They are committed rather than generated at runtime, because the box that serves
+the page has no Kokoro on it; `scripts/somnia-voices.py`, run on the render
+host, is what makes them.
 
 ## Not settable from the environment
 

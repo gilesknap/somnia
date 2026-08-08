@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, cast, get_args
 
+from .voices import DEFAULT_VOICE
+
 __all__ = ["AgentEffort", "Config", "load_config"]
 
 logger = logging.getLogger(__name__)
@@ -37,7 +39,11 @@ class Config:
     abs_url: str = "http://127.0.0.1:13378"
     abs_token: str = ""
     abs_library_id: str = ""
-    voice: str = "af_heart"
+    # What a render uses when the request did not say. Every submission from the
+    # page names a voice; the agent's never does, and neither does a bare
+    # `somnia add`. See :mod:`somnia.voices` for the roster and for why the
+    # language code is derived from the name rather than set beside it.
+    voice: str = DEFAULT_VOICE
     embed_model: str = "intfloat/e5-small-v2"
     # Haiku was the first choice, on cost: cents per conversation, and enough
     # to turn a mumbled description into a timestamp. It went back on that by

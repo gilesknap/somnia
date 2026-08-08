@@ -1421,6 +1421,7 @@ def test_the_queue_says_what_is_rendering_and_what_is_waiting(
         "gid",
         "title",
         "authors",
+        "voice",
         "state",
         "place",
         "chapters_done",
@@ -1636,3 +1637,54 @@ def test_starting_the_server_starts_nothing_of_its_own(
     asyncio.run(start_and_stop())
     assert (threads, processes) == ([], [])
     assert "torch" not in sys.modules
+
+
+# ------------------------------------------------------------ choosing a voice
+
+
+def test_the_page_is_told_which_voices_it_may_ask_for(tone_client: TestClient) -> None:
+    """Served rather than written into app.js, so the two cannot come apart.
+
+    A picker drawn from a list the route would refuse is a press that does
+    nothing, which is the one failure this page is arranged to make impossible.
+    """
+    response = tone_client.get("/api/voices")
+    assert response.status_code == 200
+    voices = response.json()["voices"]
+    assert {"id", "name", "says"} == set(voices[0])
+    assert "af_heart" in [v["id"] for v in voices]
+
+
+def test_a_book_can_be_asked_for_in_a_particular_voice(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    catalogued(tone_book)
+    response = tone_client.post("/api/queue", json={"gid": 271, "voice": "bm_george"})
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert queue_items(tone_client)[0]["voice"] == "bm_george"
+
+
+def test_a_voice_somnia_does_not_have_is_refused_before_six_hours_are_spent(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The one thing this route checks that the queue does not.
+
+    A name off the roster is a page left open across a release, or somebody
+    with curl. Either way the honest answer is now, in a line, rather than a
+    night of rendering in a voice nobody chose.
+    """
+    catalogued(tone_book)
+    response = tone_client.post("/api/queue", json={"gid": 271, "voice": "af_nobody"})
+    assert response.status_code == 400
+    assert "af_nobody" in response.json()["error"]
+    assert queue_items(tone_client) == []
+
+
+def test_asking_for_no_voice_at_all_is_not_asking_for_a_wrong_one(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """What the agent submits, and what every row written before this held."""
+    catalogued(tone_book)
+    assert add(tone_client, 271)[1]["ok"] is True
+    assert queue_items(tone_client)[0]["voice"] == ""

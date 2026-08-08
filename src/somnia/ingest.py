@@ -15,6 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from .abs import AbsClient
+from .announce import announcement
 from .audio import ChapterAudio
 from .catalog import text_url
 from .config import Config
@@ -53,10 +54,30 @@ def _render_chapter(
     offset_ms: int,
     out_path: Path,
     should_stop: Callable[[], bool] | None = None,
+    total: int = 0,
 ) -> tuple[int, list[TimedSentence]]:
     """Render one chapter to ``out_path``.
 
     Returns (duration_ms, timed sentences with global timestamps).
+
+    The chapter says its own name first — see :mod:`somnia.announce` for what
+    that sentence is made of and why it is not the heading verbatim. Three
+    things about where it goes.
+
+    It is rendered **before** the first sentence's ``start`` is taken, so every
+    timestamp in the book still comes out of ``audio.position_ms`` and is exact
+    by construction. Nothing needed adjusting for this; that is the property
+    the per-sentence design was for.
+
+    It becomes the first thing at ``chapters.start_ms``, which is what the
+    agent moves somebody to and what Audiobookshelf marks. Landing on the words
+    "Chapter twelve" is the correct answer to "take me to chapter twelve" — a
+    mark that lands a beat *after* the announcement would be the odd one.
+
+    It is deliberately **not** appended to ``timed``, so it never reaches the
+    windows or the index. It is not the book's text: indexing it would put the
+    same three words at the top of every chapter into a semantic search, and
+    hand the spoiler guard sentences no author wrote.
 
     ``should_stop`` is asked between sentences and nowhere else. A sentence is
     the smallest thing Kokoro will render and takes a second or so, which is why
@@ -73,6 +94,13 @@ def _render_chapter(
     """
     audio = ChapterAudio(engine.sample_rate)
     timed: list[TimedSentence] = []
+    said = announcement(chapter.title, total)
+    if said:
+        audio.append(engine.render(said))
+        # A paragraph's worth of quiet after it, which is the longest silence
+        # this book has anywhere else, so the announcement is heard as a thing
+        # apart from the first sentence rather than as its opening clause.
+        audio.append_silence(cfg.paragraph_silence_ms)
     for paragraph in chapter.paragraphs:
         for sent in sentences(paragraph):
             if should_stop is not None and should_stop():
@@ -263,6 +291,12 @@ def ingest_book(
     # book has and that it is running; it knows nothing about where anybody has
     # got to, so it writes nothing else.
     #
+    # The voice comes off the engine and not out of the configuration, because
+    # the request may have named one and the configuration is what a submission
+    # that named none falls back to. This column is the record of what actually
+    # read the book — the one thing a re-render must not disagree with, since
+    # every timestamp somnia holds was measured in it.
+    #
     # The chapter count goes in here, before a word is rendered, because parsing
     # is minutes and rendering is hours and the number is wanted for all of them:
     # it is the only denominator there is, and without it nothing can tell the
@@ -274,7 +308,7 @@ def ingest_book(
             " ON CONFLICT(gid) DO UPDATE SET title = excluded.title,"
             " authors = excluded.authors, voice = excluded.voice,"
             " chapters_total = excluded.chapters_total, status = 'rendering'",
-            (gid, title, authors, cfg.voice, total),
+            (gid, title, authors, engine.voice, total),
         )
 
     book_dir = (
@@ -295,7 +329,7 @@ def ingest_book(
                 book_dir / f"{idx + 1:03d} - {_safe_name(chapter.title, 'chapter')}.m4a"
             )
             duration_ms, timed = _render_chapter(
-                cfg, engine, chapter, offset_ms, out_path, should_stop
+                cfg, engine, chapter, offset_ms, out_path, should_stop, total
             )
 
             chunk_windows = windows(

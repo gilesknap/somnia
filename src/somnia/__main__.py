@@ -162,15 +162,21 @@ def main(args: Sequence[str] | None = None) -> None:
         from .queue import submit  # noqa: PLC0415
         from .worker import asked_to_stop, render_one  # noqa: PLC0415
 
-        if ns.voice:
-            cfg.voice = ns.voice
+        # On the row rather than on this process's configuration. Setting
+        # cfg.voice here only worked when this process went on to win the claim
+        # a line later, and it does not have to: the worker unit is running and
+        # may take the book first, in which case `--voice bm_george` rendered
+        # six hours in af_heart and said nothing about it. Written down where
+        # the render will look for it, whichever process does the rendering.
+        # Not checked against the roster: a terminal is allowed any name Kokoro
+        # knows, and a wrong one fails in the model's loader with the real list.
         # Submit, then render under the same claim every other renderer takes.
         # This used to go straight at ingest_book, which made it a second
         # renderer with no lease and nothing to stop two of them running at
         # once — and two Kokoro processes on two cores render slower than
         # somebody listens. There is now exactly one function in somnia that
         # renders a book, and it always holds a lease.
-        asked = submit(conn, ns.gid)
+        asked = submit(conn, ns.gid, ns.voice or "")
         print(asked.said)
         if not asked.ok:
             # Somnia already has it, or it is already coming. Draining the line
