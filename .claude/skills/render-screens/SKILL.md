@@ -108,33 +108,45 @@ If you need a height threshold that follows the type, ask about **shape**
 (`max-aspect-ratio`), or measure it in app.js and write a class as #23 did for
 the keyboard. Do not reach for `rem`.
 
-## Two screens, not one — and the size no longer picks which
+## Three screens, not one — and the size picks none of them
 
 The keyboard shrinks the viewport rather than covering it — the page asks for
 `interactive-widget=resizes-content` — so the page with a keyboard up is a
 different layout and not a crop.
 
 **Which screen it is on is a class on `<body>`, not a height.** app.js measures
-the keyboard against the unobscured viewport and writes `player-screen` or
-`chat-screen` (and `keyboard-up`, which is what the two overlays shrink for);
-the sheet reads the class. A snapshot has no app.js, so `--screen` is how you
-say it. `--height 470` on its own now photographs a short *player*, which is a
-real state worth looking at and is not the chat screen.
+the keyboard against the unobscured viewport and writes `player-screen`,
+`chat-screen` or `wake-screen` (and `keyboard-up`, which is what the two overlays
+shrink for); the sheet reads the class. A snapshot has no app.js, so `--screen`
+is how you say it. `--height 470` on its own now photographs a short *player*,
+which is a real state worth looking at and is not the chat screen.
 
 | | size | say | what it is |
 |---|---|---|---|
 | player | `360x780` | — | the book, the chapter, the transport |
 | chat | `360x470` | `--screen chat` | what the keyboard leaves: the conversation and the composer |
+| wake | `360x780` | `--screen wake` | the morning after a sleep-timer fade: one sentence, three choices, no header |
 | short window | `360x470` | — | a window dragged short, or a big text scale: the reading gives way, the transport and the dock stay |
 | panel typing | `360x470` | `--keyboard` | an overlay with its search box up over the player |
 
-Render both of the first two. A change that tidies one can break the other, and
+Render the first two together. A change that tidies one can break the other, and
 the composer is supposed to be identical across the flip.
 
-## Two CSS traps this page has already sprung
+**Wake is not measured and not pressed.** app.js reads the record the fade left
+in `somnia-fade` and opens on it, so no window size and no keyboard can produce
+it — which is why it needs saying to the renderer explicitly and why it cannot
+appear by accident in the other two pictures. It is the one screen with **no
+header**, and the one whose first choice is drawn only sometimes: `#wake-places`
+appears when the last query left places for the open book, and the fixture
+unhides it, so the picture you get is the taller of its two states. To see the
+other one — which is most mornings — copy the snapshot and add
+`#wake-places{display:none}`.
 
-Both cost a round of work, and neither is visible in a test suite — the page
-renders, nothing throws, and the size is simply wrong on one of the two screens.
+## Three CSS traps this page has already sprung
+
+Each cost a round of work, and none is visible in a test suite — the page
+renders, nothing throws, and it is simply wrong on a screen you were not looking
+at. All three are the same shape: a rule that loses silently.
 
 **A media query does not win on being the matching one.** The player size and
 the chat size for `.said` were written at the **same specificity** in different
@@ -158,6 +170,22 @@ every time the type scale changed. `margin-top: 0` is explicit for that reason.
 Any rule that hides all but one of a set is worth re-measuring afterwards: the
 survivor inherits edges it never had while it had neighbours.
 
+**An id in a group selector outranks the id of the thing itself.** Writing the
+shared rule for a set of buttons as `#wake-choices button` gives it an id *and* a
+type — (1,0,1) — which beats the plain `#wake-places` at (1,0,0). So the group's
+`border: 0; background: none` won, and the morning's amber slab photographed as
+bare text floating where a slab should be: right type, right position, not one
+edge, fill or radius on the screen.
+
+The page already had the right shape and it is worth copying rather than
+rediscovering: `.transport button` is a class and a type, so `#playpause` beats
+it and the centre slab can be the warm one. **Give the container a class, not an
+id, whenever its children are ids that have to override it.**
+
+This one is invisible to `measure.py` — every box was exactly where it belonged
+and the gaps all passed. Only the picture showed it, which is the case for
+opening the PNG rather than trusting the numbers.
+
 `measure.py` reads only turns with a client rect, so a hidden turn is no longer
 mistaken for the top of the conversation — it once reported `-48` against a
 layout that was right.
@@ -175,6 +203,7 @@ python3 $S/snapshot.py --out /tmp/somnia/page.html
 python3 $S/snapshot.py --out /tmp/somnia/places.html --panel places
 python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/player.png
 python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/chat.png --screen chat --height 470
+python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/wake.png --screen wake
 python3 $S/measure.py /tmp/somnia/page.html 867
 ```
 
