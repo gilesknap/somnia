@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.6.dev69+g7eba4323d documentation</title>
+    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.6.dev73+g3bb24aa52 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=b2027598"></script>
+    <script src="../../_static/documentation_options.js?v=d66bea2f"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -429,6 +429,7 @@
 <li class="toctree-l2"><a class="reference internal" href="0003-play-the-book-in-the-page.html">3. Play the book in the page, not in Audiobookshelf</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">4. Choose a place from a list, rather than talk about it</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../design.html">Design decisions</a></li>
@@ -524,6 +525,16 @@ opens; and a low reach for the words now lands on that row’s own <code class="
 before the reading was beside the pill and nothing was under it. The miss that
 matters — onto the <em>next</em> row’s <code class="docutils literal notranslate"><span class="pre">goto</span></code>, which moves the book somewhere nobody
 asked for — is still held off by the row’s padding.</p>
+<p>Amended once more by
+<a class="reference internal" href="0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR 6</span></a>, in one particular. The
+rejected alternative below rests part of its case on <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> being both
+how the model seeks and how it answers — its docstring named “who Ginger is” as
+a use — and that is no longer so: a question about the book is <code class="docutils literal notranslate"><span class="pre">recall</span></code>’s, and
+<code class="docutils literal notranslate"><span class="pre">find_passage</span></code> finds places to be taken to. The conclusion is unchanged and
+rather stronger for it. The <em>server</em> still cannot tell a question from a request
+to be moved, so there is still no rule watching search results and raising a
+list; what is new is that the model says which kind of turn it is by which tool
+it calls, and the tools refuse a move or a list in a turn that answered.</p>
 <p>What was <strong>not</strong> taken from that revision is the per-row <code class="docutils literal notranslate"><span class="pre">strong</span> <span class="pre">match</span></code> /
 <code class="docutils literal notranslate"><span class="pre">possible</span> <span class="pre">match</span></code> / <code class="docutils literal notranslate"><span class="pre">faint</span> <span class="pre">match</span></code> line. It needs a distance threshold, which
 “A confidence threshold to decide when to offer” below rejects for reasons that
@@ -566,9 +577,10 @@ page is right there, it is already the player, and it can draw a list.</p>
 <section id="the-alternatives-we-rejected">
 <h2>The alternatives we rejected<a class="headerlink" href="#the-alternatives-we-rejected" title="Link to this heading">#</a></h2>
 <p><strong>A server-side rule: when a search comes back ambiguous, show the list.</strong> The
-obvious version, and it cannot be built, because <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> is not only how
-the model seeks — its own docstring names “who Ginger is” as a use, and
-questions about the book go through exactly the same call. A rule that
+obvious version, and it cannot be built, because <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> was not only how
+the model seeks — its own docstring named “who Ginger is” as a use, and
+questions about the book went through exactly the same call (which is what ADR 6
+came back and undid). A rule that
 intercepted close-together hits would put a list of places to jump to in front
 of somebody who asked a question, and would blind the model on that turn so it
 could neither answer nor say it could not find it, which the prompt explicitly

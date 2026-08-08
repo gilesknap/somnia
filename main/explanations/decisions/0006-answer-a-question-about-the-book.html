@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>1. Record architecture decisions &#8212; somnia 0.6.dev73+g3bb24aa52 documentation</title>
+    <title>6. Answer a question about the book, out of what you know, as far as they have listened &#8212; somnia 0.6.dev73+g3bb24aa52 documentation</title>
   
   
   
@@ -47,7 +47,7 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=30646c52"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'explanations/decisions/0001-record-architecture-decisions';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'explanations/decisions/0006-answer-a-question-about-the-book';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://gilesknap.github.io/somnia/switcher.json';
@@ -59,8 +59,8 @@
     <link rel="icon" href="../../_static/dls-logo.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="2. Adopt python-copier-template for project structure" href="0002-switched-to-python-copier-template.html" />
-    <link rel="prev" title="Architectural Decision Records" href="../decisions.html" />
+    <link rel="next" title="Design decisions" href="../design.html" />
+    <link rel="prev" title="5. Render one book at a time, in its own unit, and let the page watch" href="0005-render-one-book-at-a-time.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -424,12 +424,12 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../decisions.html">Architectural Decision Records</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">1. Record architecture decisions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0001-record-architecture-decisions.html">1. Record architecture decisions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0002-switched-to-python-copier-template.html">2. Adopt python-copier-template for project structure</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0003-play-the-book-in-the-page.html">3. Play the book in the page, not in Audiobookshelf</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
-<li class="toctree-l2"><a class="reference internal" href="0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../design.html">Design decisions</a></li>
@@ -479,7 +479,7 @@
     
     <li class="breadcrumb-item"><a href="../decisions.html" class="nav-link">Architectural Decision Records</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">1. Record architecture decisions</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">6. Answer a question about the book, out of what you know, as far as they have listened</span></li>
   </ul>
 </nav>
 </div>
@@ -496,24 +496,214 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="record-architecture-decisions">
-<h1>1. Record architecture decisions<a class="headerlink" href="#record-architecture-decisions" title="Link to this heading">#</a></h1>
+  <section id="answer-a-question-about-the-book-out-of-what-you-know-as-far-as-they-have-listened">
+<h1>6. Answer a question about the book, out of what you know, as far as they have listened<a class="headerlink" href="#answer-a-question-about-the-book-out-of-what-you-know-as-far-as-they-have-listened" title="Link to this heading">#</a></h1>
 <section id="status">
 <h2>Status<a class="headerlink" href="#status" title="Link to this heading">#</a></h2>
-<p>Accepted</p>
+<p>Accepted. It reverses the strongest sentence in the system prompt — <em>Everything
+you say about a book must come from a tool result in this conversation</em> — which
+had been there since the agent was written, and replaces the bound it drew with
+a different one that is drawn in the same place the spoiler guard is.</p>
+<p>It amends <a class="reference internal" href="0004-choose-a-place-from-a-list.html"><span class="std std-doc">ADR 4</span></a> in one particular. That
+record rests part of its argument on <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> being both how the model
+seeks and how it answers — “its own docstring names ‘who Ginger is’ as a use,
+and questions about the book go through exactly the same call”. They no longer
+do. The conclusion ADR 4 drew from it stands and is if anything stronger: the
+<em>server</em> still cannot tell a question from a request to be moved, so there is
+still no rule that watches search results and raises a list. What has changed
+is that the model now says which kind of turn it is by which tool it picks, and
+the tools hold it to that.</p>
 </section>
 <section id="context">
 <h2>Context<a class="headerlink" href="#context" title="Link to this heading">#</a></h2>
-<p>We need to record the architectural decisions made on this project.</p>
+<p>Ask somnia “remind me who Rob Roy is” and it does not answer. It searches,
+decides the passages that came back are places you might want to be, and either
+puts them on the screen as a list — replying with the one sentence it is allowed
+to say beside a list, “There are a few places that could be it.” — or picks the
+best one and moves the book there. Either way the question is never answered,
+and in the second case asking it costs the listener their place in the night.</p>
+<p>Every question was read as <em>take me somewhere</em>, because there was no <em>tell me
+something</em>. The pressure ran one way and a question about a character rode it
+the whole distance:</p>
+<ul class="simple">
+<li><p><strong>Nothing decided what kind of question had been asked</strong>, because the prompt
+only ever described one kind. It said when to move, when to offer instead,
+what to do when the closest match lies past the mark, and what sentence to say
+beside a list. It never once said what to do with a question whose answer is a
+sentence, and it closed with “Otherwise just act” over a toolbox whose only
+acts were <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code>.</p></li>
+<li><p><strong>The search was the same search.</strong> <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> was the only way into the
+book, and its own docstring offered “who Ginger is” as an example of what it
+was for. A character question and a place request produced the same call and
+the same result lines — passages carrying <code class="docutils literal notranslate"><span class="pre">id=</span></code> and <code class="docutils literal notranslate"><span class="pre">position_ms=</span></code>, which are
+precisely the two things the two locative tools consume.</p></li>
+<li><p><strong>A character name matches everywhere.</strong> “Where the horse dies” has one true
+answer; “who is Rob Roy” matches every passage he appears in, which is exactly
+the condition the prompt names as the moment to offer a list. The more central
+the character, the more certainly the question became a list — and once it
+offers, it is gagged: the reply to a question about a character is a sentence
+that is not about the character.</p></li>
+<li><p><strong>If it did not offer, it moved.</strong> One plausible passage and the prompt said
+find it and move the book there. That is the worst outcome available here, and
+it is the one a confident search produces.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">better_ahead</span></code> added a third push.</strong> When the best match lies further on the
+tool result says “Offer it with <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code>” — sound advice for “take me
+there”, wrong for “who is he”, where the answer should be that he has not come
+up yet in what they have heard.</p></li>
+</ul>
+<p>The tool layer could not save it. It enforced exactly one exclusivity —
+move-or-offer, never both — and both sides of that are locative. Nothing in the
+code could tell that a turn should have produced neither.</p>
+<p>Underneath all of it sat the grounding rule, and the rule was doing two jobs at
+once. It was the spoiler guard’s last line of defence, and it was also a
+hallucination guard, and it enforced both by saying that only a passage returned
+tonight may be spoken about. That is a tighter fence than the guard needs — a
+book’s first hour does not stop being safe to discuss because nothing searched
+for it this turn — and it is the fence that made answering impossible.</p>
+</section>
+<section id="the-alternatives-we-rejected">
+<h2>The alternatives we rejected<a class="headerlink" href="#the-alternatives-we-rejected" title="Link to this heading">#</a></h2>
+<p><strong>Prompt wording alone: a paragraph saying “some questions want a sentence”.</strong>
+The cheap version, and it will drift, because the pull described above is
+structural and not tonal. Every tool the model can reach on a question turn
+hands back positions, and a position is a thing to move to. This codebase has
+made this call before: <code class="docutils literal notranslate"><span class="pre">acted</span></code> exists because “never offer and move in the same
+turn” was a prompt rule that the tools now refuse rather than one the model has
+to remember. A paragraph is also the version no test can hold, which is most of
+the argument by itself.</p>
+<p><strong>A required intent argument on <code class="docutils literal notranslate"><span class="pre">find_passage</span></code></strong> — <code class="docutils literal notranslate"><span class="pre">find_passage(gid,</span> <span class="pre">what,</span> <span class="pre">intent=&quot;answer&quot;)</span></code>. Rejected because the result would then have to change shape
+with the flag: a locative result must carry <code class="docutils literal notranslate"><span class="pre">id=</span></code> and <code class="docutils literal notranslate"><span class="pre">position_ms=</span></code> on every
+line, and an answering result must carry neither, or the thing that turns a
+question into a jump is still sitting in the model’s context. A tool whose
+result is two different shapes is two tools sharing a name, and the tool list is
+the part of the prompt a small model reads hardest. Two names with two
+docstrings say it where a boolean has to be remembered.</p>
+<p><strong>Keeping the grounding rule and answering only out of returned passages.</strong> This
+was the open question in <a class="reference external" href="https://github.com/gilesknap/somnia/issues/24">#24</a>
+and it was decided the other way, deliberately. The passages come back as
+three-sentence windows picked by nearest neighbour: good evidence for <em>where</em>
+something is, thin evidence for <em>who</em> somebody is. “Rob Roy is the horse Beauty
+knew, shot at the hunt” is not a sentence in any one window, so a strictly
+grounded answer would very often have to be “I can’t tell you from what I can
+see” — which is the same non-answer this record exists to remove, wearing a
+politer coat. The model has read these books. The thing that must never leak is
+what happens <em>past where they have got to</em>, and that has never been the same
+thing as what a tool happened to return.</p>
+<p><strong>Letting <code class="docutils literal notranslate"><span class="pre">recall</span></code> take <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code>, the way <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> does.</strong> A move
+past the mark cannot be done spoiler-free — going there is hearing it — so
+consent is the only way to serve “take me to the end”, and <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> takes
+it. An answer has no equivalent necessity: whatever they are asking about,
+listening on tells them. And a yes given at 2am by somebody half asleep is the
+least deliberate consent in the system, which ADR 4 already says about this
+exact word. So this tool has no way through, and a question about what has not
+happened yet is answered with the truth that it has not happened yet.</p>
+<p><strong>Reporting <code class="docutils literal notranslate"><span class="pre">better_ahead</span></code> on an answering search and letting the model ignore
+it.</strong> Rejected twice over. It is a nudge to put a list of places in front of
+somebody whose whole reason for asking was that they wanted to keep listening;
+and it is a spoiler in its own right, because “he hasn’t come up yet in what
+you’ve heard” and “he comes up an hour and a half from here” are different
+sentences, and the second one gives away that he arrives at all.</p>
 </section>
 <section id="decision">
 <h2>Decision<a class="headerlink" href="#decision" title="Link to this heading">#</a></h2>
-<p>We will use Architecture Decision Records, as <a class="reference external" href="http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions">described by Michael Nygard</a>.</p>
+<p><strong>A turn is either locative or a question, and the tools decide what may follow
+each.</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">recall(gid,</span> <span class="pre">question)</span></code> is the tool for a question whose answer is a sentence.
+It runs the same bounded search — there is one index, and a question and a
+request to be moved genuinely do look for the same passages — and then takes two
+things away on the way out. It carries no <code class="docutils literal notranslate"><span class="pre">better_ahead</span></code> at all, and its result
+lines carry the chapter and the book’s words but no <code class="docutils literal notranslate"><span class="pre">id=</span></code> and no <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>:
+a chapter is something an answer can say out loud (“that was back in the hunt”),
+where an id and a position are handles for moving.</p>
+<p>Calling it sets <code class="docutils literal notranslate"><span class="pre">acted[&quot;recalled&quot;]</span></code>, which is <code class="docutils literal notranslate"><span class="pre">acted</span></code> doing the job it was built
+for. <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> both refuse afterwards, in the same voice
+as the refusals already there — <em>“They asked a question, not to be moved; the
+book stays where it is.”</em> Refused in the tool, before <code class="docutils literal notranslate"><span class="pre">library.move_to</span></code> writes
+anything, because a written move reaches the page fifteen seconds later as the
+refusal of its next report whatever the reply said, and there is nowhere further
+down to stop it. The flag is set even when the recall found nothing and even on
+a book that is not there, because calling it is the model saying what kind of
+turn this is — and a question that found nothing is the case the refusal matters
+most in.</p>
+<p><strong>What may be said is bounded by how far they have listened, not by what a tool
+returned tonight.</strong> The prompt’s grounding paragraph is replaced by one that
+draws the line in the same place the guard draws it: everything behind it may be
+talked about freely, whether it came back from a tool or the model simply knows
+it; nothing in front of it may be said at all — not a name, not a death, not
+that somebody turns up later, not that a question they are asking is one the
+book answers. Someone who has not appeared yet gets “he hasn’t come up yet in
+what you’ve heard” and nothing after it.</p>
+<p><strong>What may be read and what may be said are now two different distances</strong>, and
+saying so out loud is part of the decision rather than a side effect. It was
+always true — <code class="docutils literal notranslate"><span class="pre">find_passage(allow_spoilers=True)</span></code> exists so the model can read
+past the mark to pick the right place, and the prompt has always said that
+reading a passage does not oblige it to describe one — but under the old rule it
+was true by accident, since the fence was drawn around the tool result. It is
+now the sentence the whole paragraph turns on.</p>
+<p><strong>The tool layer carries what it can of that, so the prompt is not alone.</strong> The
+search is bounded exactly as before; <code class="docutils literal notranslate"><span class="pre">better_ahead</span></code> is gone rather than ignored;
+and every recall result opens by naming the line in words the model can act on —
+<em>“Answer from the first 0:06:00 of the book, which is as far as they have
+listened, and say nothing that happens after it”</em> — and closes with the sentence
+to say when nothing it found was about the question, which stops at “not yet”
+and explicitly not at “it comes up later”. That is the same pattern as the one
+sentence handed back after a list goes up: where a sentence is the answer, the
+tool gives it rather than leaving the model to compose one.</p>
+<p>The page needs nothing. <code class="docutils literal notranslate"><span class="pre">/api/ask</span></code> already returns a bare <code class="docutils literal notranslate"><span class="pre">reply</span></code> when a turn
+carries no move and no candidates, and the page draws it as a sentence.</p>
 </section>
 <section id="consequences">
 <h2>Consequences<a class="headerlink" href="#consequences" title="Link to this heading">#</a></h2>
-<p>See Michael Nygard’s article, linked above. To create new ADRs we will copy and
-paste from existing ones.</p>
+<p><strong>The model can now be wrong about the part of the book they have already
+heard</strong>, which is a failure the old rule made impossible, and it is accepted
+with its eyes open. The worst case is a confidently wrong sentence about
+something they listened to an hour ago — annoying, visible to them immediately,
+because they heard it, and gone by morning. The old rule’s failure was not
+answering the question at all, or answering it by moving the book. The guard’s
+own failure mode is untouched: everything past the mark is still unsayable, and
+that is the failure that cannot be undone.</p>
+<p><strong>The guard is now only reached if the model looks first.</strong> This is the sharper
+edge of the same trade and it is worth stating on its own. The old rule enforced
+itself: with nothing sayable that a tool had not returned, an answer nobody had
+searched for was structurally impossible, so a spoiler needed a tool call to
+carry it. The new bound is a number — the mark — and the model does not know
+that number until a tool tells it, which means an answer given straight out of
+the model’s own knowledge, with no <code class="docutils literal notranslate"><span class="pre">recall</span></code> in the turn at all, is bounded by
+nothing whatever. “How does it end” is the shape of question most likely to
+arrive that way, and it is the worst one to get wrong. Nothing in the tool layer
+can stop it, because the failure is a turn in which no tool was called, so the
+prompt carries it: it says that the line is somewhere different every night,
+that only <code class="docutils literal notranslate"><span class="pre">recall</span></code> or <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> can say where it is, and that nothing about
+what happens in a book may be said until one of them has — least of all on the
+question the model is certain it already knows the answer to. That is prompt
+work holding a guard, which this record otherwise argues against, and it is
+here because there is nowhere else to put it. It belongs on the list of things
+to try on a real book: ask a question about a book with nothing open, and one
+whose answer is the ending.</p>
+<p><strong>The routing itself cannot be tested from a desk.</strong> <code class="docutils literal notranslate"><span class="pre">FakeRunner</span></code> scripts the
+model’s turns, so the suite can prove that the tools refuse a move after a
+recall, that a recall hands out no place to send anybody to, and that the flag
+is cleared for the next question — but nothing here proves the model picks
+<code class="docutils literal notranslate"><span class="pre">recall</span></code> when it is asked who somebody is. That is the same limit ADR 4 records
+about <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> and it is answered the same way: a handful of real
+questions against a real book, checked for three things — the reply answers,
+<code class="docutils literal notranslate"><span class="pre">move</span></code> is absent, <code class="docutils literal notranslate"><span class="pre">candidates</span></code> is absent.</p>
+<p><strong>A compound question is served in halves.</strong> “Who is Rob Roy, and take me to
+where he’s shot” recalls, answers, and then finds the move refused; they have to
+ask again. That is the deliberate side of the trade — the tie is broken towards
+answering, because an answer costs them nothing and a wrong move costs them the
+hour — and it is the case to watch on the live box, since somebody half asleep
+does ask compound questions.</p>
+<p><strong>Asking about somebody and then asking where they are costs two searches.</strong> A
+recall adds nothing to the record of passages an offer may name, so the model
+has to go and look with <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> before it can put places on the screen.
+That is right — the ids it never received cannot be smuggled in from a
+conversation turn where nothing was offerable — and a second search is
+milliseconds.</p>
+<p><strong>Nothing about answering touches the night.</strong> <code class="docutils literal notranslate"><span class="pre">recall</span></code> issues SELECTs only, by
+way of <code class="docutils literal notranslate"><span class="pre">find_passage</span></code>, so <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>, <code class="docutils literal notranslate"><span class="pre">position_seq</span></code> and above all
+<code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> are exactly as they were. Reading the book back to answer a
+question is not listening to it.</p>
 </section>
 </section>
 
@@ -528,20 +718,20 @@ paste from existing ones.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../decisions.html"
+       href="0005-render-one-book-at-a-time.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Architectural Decision Records</p>
+        <p class="prev-next-title">5. Render one book at a time, in its own unit, and let the page watch</p>
       </div>
     </a>
     <a class="right-next"
-       href="0002-switched-to-python-copier-template.html"
+       href="../design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">2. Adopt python-copier-template for project structure</p>
+        <p class="prev-next-title">Design decisions</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -566,6 +756,7 @@ paste from existing ones.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#status">Status</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#context">Context</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-alternatives-we-rejected">The alternatives we rejected</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#decision">Decision</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#consequences">Consequences</a></li>
 </ul>
@@ -575,7 +766,7 @@ paste from existing ones.</p>
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/gilesknap/somnia/edit/main/docs/explanations/decisions/0001-record-architecture-decisions.md">
+    <a href="https://github.com/gilesknap/somnia/edit/main/docs/explanations/decisions/0006-answer-a-question-about-the-book.md">
       <i class="fa-solid fa-pencil"></i>
       
       
@@ -590,7 +781,7 @@ paste from existing ones.</p>
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../_sources/explanations/decisions/0001-record-architecture-decisions.md.txt">
+    <a href="../../_sources/explanations/decisions/0006-answer-a-question-about-the-book.md.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

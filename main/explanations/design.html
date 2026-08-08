@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design decisions &#8212; somnia 0.6.dev69+g7eba4323d documentation</title>
+    <title>Design decisions &#8212; somnia 0.6.dev73+g3bb24aa52 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=b2027598"></script>
+    <script src="../_static/documentation_options.js?v=d66bea2f"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -60,7 +60,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Reference" href="../reference.html" />
-    <link rel="prev" title="5. Render one book at a time, in its own unit, and let the page watch" href="decisions/0005-render-one-book-at-a-time.html" />
+    <link rel="prev" title="6. Answer a question about the book, out of what you know, as far as they have listened" href="decisions/0006-answer-a-question-about-the-book.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -429,6 +429,7 @@
 <li class="toctree-l2"><a class="reference internal" href="decisions/0003-play-the-book-in-the-page.html">3. Play the book in the page, not in Audiobookshelf</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Design decisions</a></li>
@@ -728,6 +729,29 @@ way costs them the book.</p>
 says whether a closer match lies past the mark — never what it is — which is
 what lets the agent offer rather than shrug, and <code class="docutils literal notranslate"><span class="pre">find_passage(allow_spoilers)</span></code>
 is the way through, asked for by them and by nobody else.</p>
+<p><strong>The mark is also how far the agent may speak</strong>, which used to be a different
+rule entirely. The prompt’s strongest line was that everything said about a book
+had to come from a tool result in this conversation, and it was doing two jobs
+at once — the guard, and a fence against the model’s own knowledge — by drawing
+one fence around the retrieval. <a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR
+6</span></a> takes them apart. The
+agent may now answer a question about a book out of what it already knows, and
+the line it may not cross is the mark: everything behind it may be talked about
+freely, nothing in front of it may be said at all, and a character who has not
+appeared yet gets “he hasn’t come up yet in what you’ve heard” and nothing after
+that sentence. What may be <em>read</em> and what may be <em>said</em> are two different
+distances — <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code> moves the first and never the second, which was
+always true and is now the sentence the paragraph turns on. The tool that
+answers, <code class="docutils literal notranslate"><span class="pre">recall</span></code>, is bounded exactly as a search is, hands back no <code class="docutils literal notranslate"><span class="pre">id=</span></code> and no
+<code class="docutils literal notranslate"><span class="pre">position_ms</span></code>, drops <code class="docutils literal notranslate"><span class="pre">better_ahead</span></code> rather than reporting it, and marks the turn
+so that <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> both refuse: asking who somebody is used
+to drag the audio to a passage about them, and it is the tools that stop it
+rather than a paragraph asking them not to. What the tools cannot hold is the
+turn where nothing was called at all — the mark is a number the model only
+learns by asking for it, so an answer given without looking is bounded by
+nothing, where under the old rule it was impossible. That one the prompt has to
+carry, and it does: look before you speak, and hardest on the question you are
+sure you already know the answer to.</p>
 <p><strong>What it offers is a list of places, not a question.</strong> That passage becomes a
 row on screen with its time and its chapter number, and its words and its
 chapter title covered up until the row is pressed — <em>tap to reveal · may spoil</em>;
@@ -817,13 +841,17 @@ process to deploy must not kill a render that is four hours in.</p>
 waiting to be rendered as well as what exists, since a book asked for
 tonight has no <code class="docutils literal notranslate"><span class="pre">books</span></code> row for hours), <code class="docutils literal notranslate"><span class="pre">search_catalog</span></code>, <code class="docutils literal notranslate"><span class="pre">add_book</span></code> (which
 writes a queue row and starts nothing, so what it can honestly say is where
-in the line the book landed), <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> (bounded by the guard unless
-they say otherwise), <code class="docutils literal notranslate"><span class="pre">get_position</span></code> (reads somnia’s own record of where they
-are), <code class="docutils literal notranslate"><span class="pre">move_to</span></code> (writes it, and counts the move so the page follows), and
-<code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> (writes nothing, and puts several places on the screen for
-them to choose between). The model is never told to tell them to press play,
-because there is nothing to press. Which <em>book</em> they meant is still one short
-spoken question; which <em>passage</em> they meant never is.</p></li>
+in the line the book landed), <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> (places to be taken to, bounded
+by the guard unless they say otherwise), <code class="docutils literal notranslate"><span class="pre">recall</span></code> (the same search framed to
+be answered from, with no place in it and no way past the guard),
+<code class="docutils literal notranslate"><span class="pre">get_position</span></code> (reads somnia’s own record of where they are), <code class="docutils literal notranslate"><span class="pre">move_to</span></code>
+(writes it, and counts the move so the page follows), and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code>
+(writes nothing, and puts several places on the screen for them to choose
+between). The model is never told to tell them to press play, because there is
+nothing to press. Which <em>book</em> they meant is still one short spoken question;
+which <em>passage</em> they meant never is; and whether they wanted moving or telling
+is the model’s to judge, which it declares by which of the two searches it
+calls.</p></li>
 <li><p>2am surface: a small <strong>PWA chat page</strong> served from the VPS. The server runs
 the agent loop (Anthropic Python SDK tool runner) with an API key held
 server-side — no OAuth. Voice input via the browser’s Web Speech API
@@ -920,12 +948,12 @@ query (“there are three horses that die in this — which one?”).</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="decisions/0005-render-one-book-at-a-time.html"
+       href="decisions/0006-answer-a-question-about-the-book.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">5. Render one book at a time, in its own unit, and let the page watch</p>
+        <p class="prev-next-title">6. Answer a question about the book, out of what you know, as far as they have listened</p>
       </div>
     </a>
     <a class="right-next"
