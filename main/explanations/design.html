@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design decisions &#8212; somnia 0.7.dev58+g9a716df05 documentation</title>
+    <title>Design decisions &#8212; somnia 0.7.dev63+gc45067656 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=da1ca4c5"></script>
+    <script src="../_static/documentation_options.js?v=5378240b"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -896,25 +896,41 @@ calls.</p></li>
 the agent loop (Anthropic Python SDK tool runner) with an API key held
 server-side — no OAuth. Voice input via the browser’s Web Speech API
 (push-to-talk button); Android keyboard dictation as fallback.</p></li>
-<li><p>Model: <strong>Sonnet 5</strong> default, <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code> to change it. Haiku 4.5 was
-the original choice on cost, and mostly held up, but it read a character’s
-name as the title of a book somnia does not have and said so — a spoken
-half-sentence at 2am is exactly the disambiguation this is here to do. The
-difference is a few cents a night. Measured again on nuc2 (2026-08-08), with
-a prompt that has been hardened a great deal since, Haiku 4.5 answers in
-about a third of the time and no longer fails that case; it is worth a night
-before ruling on, and the change is one environment variable.</p></li>
-<li><p><strong>How long a turn takes is mostly the model deciding how hard to think.</strong>
-Retrieval is around a tenth of a second — the two searches, the sqlite-vec
-lookup and the embedding of the question all together — and the rest of a
-five-to-eight second answer is round trips to Anthropic. So the levers are
-all on that side: <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code> (default <code class="docutils literal notranslate"><span class="pre">medium</span></code>, down from the
-API’s <code class="docutils literal notranslate"><span class="pre">high</span></code>, worth about two seconds a turn), the constant half of the
-system prompt cached across hops, and loading the embedding model at startup
-rather than inside whichever question needs it first. Turning thinking off
-altogether is faster again and is not done: a Sonnet 5 turn with no thinking
-can write its tool call into the reply as prose instead of calling the tool,
-which does not read as a failure — it reads as an answer.</p></li>
+<li><p>Model: <strong>Haiku 4.5</strong> default, <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code> to change it. It was the
+original choice on cost, lost the job for reading a character’s name as the
+title of a book somnia does not have and saying so — a spoken half-sentence
+at 2am is exactly the disambiguation this is here to do — and Sonnet 5 held
+it for two months. <strong>It has the job back, on measurement.</strong> Over 85 turns per
+model on nuc2 (2026-08-08), against the real book and this prompt rather than
+the much softer one it was judged against then, Haiku routed 85/85 against
+Sonnet’s 84/85, was judged spoiler-safe on 83/85 against Sonnet’s 82/85, and
+answered in a median 2.46s against 4.89s — half the time, a fifth of the
+cost, on a screen where every second of the wait is felt. It did not
+reproduce the Rob Roy failure in five tries, which is not proof the failure
+is gone: if a name is ever read as a book title again, Sonnet is one
+environment variable away. See <code class="docutils literal notranslate"><span class="pre">somnia/config.py</span></code> for the table.</p></li>
+<li><p><strong>The spoiler guard is two things and only one of them is sound.</strong> In that
+same run, retrieval never once crossed the line — checked mechanically, every
+passage handed to the model began before the mark. What leaked, on both
+models, at two to four turns in a hundred, was the model’s own knowledge of
+the book. That is precisely the surface ADR 6 opened when it let the agent
+answer out of what it already knows: everything behind the line is a prompt
+instruction, not a mechanism, and prompt instructions are followed most of
+the time. Worth knowing before trusting the guard absolutely, and not a
+reason to prefer either model.</p></li>
+<li><p><strong>How long a turn takes is almost entirely the model.</strong> Retrieval is around a
+tenth of a second — the two searches, the sqlite-vec lookup and the embedding
+of the question all together — and the rest is round trips to Anthropic. So
+the levers are all on that side, in the order they are worth: the model
+itself (above), the constant half of the system prompt cached across hops,
+loading the embedding model at startup rather than inside whichever question
+needs it first, and <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code> for the models that have such a
+dial. Haiku has not got one, so on the default that setting is not sent and
+changes nothing; on Sonnet it defaults to <code class="docutils literal notranslate"><span class="pre">medium</span></code> against the API’s <code class="docutils literal notranslate"><span class="pre">high</span></code>
+and is worth about two seconds a turn. Turning thinking off altogether is
+faster again and is not done: a Sonnet 5 turn with no thinking can write its
+tool call into the reply as prose instead of calling the tool, which does not
+read as a failure — it reads as an answer.</p></li>
 <li><p>MCP server: designed for, never built, and nothing needs it. A FastMCP
 wrapper over the tool layer would be a dev-time convenience only — the 2am
 surface is the page, and the tools are a library any test can call directly.

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.7.dev58+g9a716df05 documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.7.dev63+gc45067656 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=da1ca4c5"></script>
+    <script src="../_static/documentation_options.js?v=5378240b"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -526,10 +526,10 @@ the ones a served night depends on:</p>
 <td><p>optional: keeping Audiobookshelf roughly in step, and the one-off below</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code></p></td>
-<td><p>another model; the default is Sonnet 5</p></td>
+<td><p>another model; the default is Haiku 4.5</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code></p></td>
-<td><p>how hard it may think before answering; the default is <code class="docutils literal notranslate"><span class="pre">medium</span></code></p></td>
+<td><p>how hard it may think before answering, on the models that have such a dial; Haiku has not</p></td>
 </tr>
 </tbody>
 </table>
@@ -554,18 +554,23 @@ somnia’s own database, so the page opens the book you were actually in rather
 than the one added most recently, at the beginning. It says what it did for
 every book, it never moves a position backwards, and running it again changes
 nothing — so if you are unsure whether it worked, run it again.</p>
-<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code> overrides Sonnet 5. Haiku was the first choice, on cost,
-and mostly held up; set <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL=claude-haiku-4-5</span></code> to go back to it.
-Measured on nuc2 it answers in about a third of the time, so it is worth a
-night if the wait is what is bothering you.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code> overrides Haiku 4.5. Haiku is the default because over 85
+trial questions on nuc2 it matched Sonnet 5 on every routing case, answered in
+half the time and cost a fifth as much. It lost the job once, for reading a
+character’s name as the title of a book somnia does not have — it did not do
+that once in five tries at the same question, but five tries is not proof, and
+<code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL=claude-sonnet-5</span></code> is the way back if it ever does it again.</p>
 <section id="if-a-question-takes-too-long-to-come-back">
 <h3>If a question takes too long to come back<a class="headerlink" href="#if-a-question-takes-too-long-to-come-back" title="Link to this heading">#</a></h3>
-<p>Almost none of the wait is somnia: a search of the book is a tenth of a second,
-and the rest is the model. Two things to try, in this order.</p>
-<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT=low</span></code> tells it to think less before answering. The default
-is <code class="docutils literal notranslate"><span class="pre">medium</span></code>, which is already below what the API would do on its own, and <code class="docutils literal notranslate"><span class="pre">low</span></code>
-takes off perhaps another second. Then <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL=claude-haiku-4-5</span></code>,
-which is the bigger difference by far. Restart <code class="docutils literal notranslate"><span class="pre">somnia-serve</span></code> after either.</p>
+<p>Almost none of the wait is somnia: a search of the book is a tenth of a second
+and the rest is the model, so this is the one setting that really moves it. If
+you are on Sonnet, going back to the default Haiku roughly halves the wait.</p>
+<p>On Sonnet there is a second, smaller dial: <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT=low</span></code> tells it
+to think less before answering, against a default of <code class="docutils literal notranslate"><span class="pre">medium</span></code> that is already
+below what the API would do on its own, and is worth perhaps another second.
+It does nothing on Haiku, which has no such dial — somnia asks the API which
+models take one and simply does not send it where it would be refused.</p>
+<p>Restart <code class="docutils literal notranslate"><span class="pre">somnia-serve</span></code> after either.</p>
 <p>One wait is not the model and does not respond to any of that: the <strong>first</strong>
 question of the night that searches a book used to sit for twelve seconds while
 the embedding model loaded. That now happens as the server starts, so the cost
