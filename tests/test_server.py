@@ -563,6 +563,74 @@ def test_the_manifest_gives_the_page_a_url_for_every_chapter(
         assert tone_client.get(f"/{chapter['url']}").status_code == 200
 
 
+def test_the_manifest_also_names_the_whole_book_as_one_url(
+    tone_client: TestClient,
+) -> None:
+    """The url the element loads once, and how much book it covers.
+
+    Named by the number of chapters, so that a book which grows while somebody
+    is listening is offered a *different* url rather than the same one holding
+    different audio. ``stream_ms`` is what tells the end of the book from the
+    end of what has been read of it: they are the same number here because this
+    book is finished.
+    """
+    body = tone_client.get(f"/api/book/{GID}").json()
+    assert body["stream_url"] == f"api/stream/{GID}/3"
+    assert not body["stream_url"].startswith("/")
+    assert body["stream_ms"] == 24_000
+    # And the per-chapter urls are still there beside it. They are what a page
+    # falls back to when there is no stream to be had, and keeping them costs
+    # nothing but the string.
+    assert len(body["chapters"]) == 3
+
+
+def test_a_book_with_no_audio_yet_is_offered_a_chapter_at_a_time(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """No chapters is nothing to join, and saying so is not an error.
+
+    A book added at eleven has rows before it has audio. Advertising a stream
+    for one would be a url that answers 404 at the moment somebody is trying to
+    open the book, which is worse than a page that knows to wait.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute("DELETE FROM chapters WHERE book_gid = ?", (GID,))
+    body = tone_client.get(f"/api/book/{GID}").json()
+    assert body["stream_url"] is None
+    assert body["stream_ms"] == 0
+
+
+def test_a_book_that_grew_is_offered_a_stream_it_did_not_have_before(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The version moves with the book, and the old one is still a url.
+
+    This is the whole of how a page listening to a book that is still being read
+    finds out there is more: the manifest it polls names a longer stream. The
+    file the phone has open is never the file that changed.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "DELETE FROM chapters WHERE book_gid = ? AND idx = 2", (GID,)
+        )
+    partway = tone_client.get(f"/api/book/{GID}").json()
+    assert (partway["stream_url"], partway["stream_ms"]) == (
+        f"api/stream/{GID}/2",
+        16_000,
+    )
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO chapters (book_gid, idx, title, start_ms, end_ms,"
+            " audio_file) VALUES (?, 2, 'The Third Tone', 16000, 24000, ?)",
+            (GID, str(tone_book.book_dir / CHAPTERS[2].file_name)),
+        )
+    grown = tone_client.get(f"/api/book/{GID}").json()
+    assert (grown["stream_url"], grown["stream_ms"]) == (
+        f"api/stream/{GID}/3",
+        24_000,
+    )
+
+
 # ------------------------------------------- the book as one file
 #
 # Everything below joins real audio, so it needs ffmpeg, and the suite has
@@ -604,6 +672,21 @@ def test_the_whole_book_is_served_as_one_file_the_phone_will_play(
     assert "content-disposition" not in response.headers
     assert response.content == stream_file(tone_book).read_bytes()
     assert TOTAL_MS <= duration_ms(stream_file(tone_book)) < TOTAL_MS + 100
+
+
+@ffmpeg_only
+def test_the_url_the_manifest_names_for_the_whole_book_really_serves_it(
+    tone_client: TestClient,
+) -> None:
+    """The one road the page takes at boot, walked from the manifest end.
+
+    The two halves are written a file apart — ``player.manifest`` builds the
+    url out of a chapter count, the route takes one back apart — so nothing but
+    following it proves they agree. A page given a url that 404s at 2am has a
+    book it cannot open.
+    """
+    body = tone_client.get(f"/api/book/{GID}").json()
+    assert tone_client.get(f"/{body['stream_url']}").status_code == 200
 
 
 @ffmpeg_only

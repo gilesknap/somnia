@@ -113,7 +113,7 @@ function entry(overrides = {}) {
 // poll" an assertion rather than a hope.
 async function opened(t, options) {
   const page = await boot(t, { lastGid: HALF_HEARD.gid, ...options });
-  page.audio.ready(1800);
+  page.audio.ready();
   return page;
 }
 
@@ -517,7 +517,7 @@ function reading(page) {
 
 test("Books names the book playing under it, by its title alone", async (t) => {
   const page = await boot(t, { lastGid: GROWING_BOOK.gid });
-  page.audio.ready(600);
+  page.audio.ready();
   page.queueView([]);
   await books(page);
   assert.deepEqual(reading(page), {
@@ -544,7 +544,7 @@ test("Books names the book playing under it, by its title alone", async (t) => {
 
 test("a book nobody counted says which chapter it is in and stops there", async (t) => {
   const page = await boot(t, { lastGid: UNCOUNTED_BOOK.gid });
-  page.audio.ready(8);
+  page.audio.ready();
   page.queueView([]);
   await books(page);
   // The same guard the player's own count carries, and for the same reason: 0
@@ -560,7 +560,7 @@ test("a book nobody counted says which chapter it is in and stops there", async 
 
 test("a book still arriving gets no hairline rather than one that over-reads", async (t) => {
   const growing = await boot(t, { lastGid: GROWING_BOOK.gid });
-  growing.audio.ready(600);
+  growing.audio.ready();
   await books(growing);
   assert.equal(reading(growing).bar, null);
 
@@ -569,7 +569,7 @@ test("a book still arriving gets no hairline rather than one that over-reads", a
   // of the book and a bar drawn from it would reach the end at a third of the
   // way through.
   const stopped = await boot(t, { lastGid: PART_READ.gid });
-  stopped.audio.ready(8);
+  stopped.audio.ready();
   await books(stopped);
   assert.equal(reading(stopped).bar, null);
 
@@ -1583,7 +1583,7 @@ test("running out of audio part way through a book does not call it the end", as
   // manifest is the whole truth about it, and before chapters_total existed
   // there was nothing in that truth to tell this from a finished book.
   const page = await boot(t, { lastGid: PART_READ.gid });
-  page.audio.ready(8);
+  page.audio.ready();
   page.click("playpause");
   await page.settle();
   page.audio.advance(8);
@@ -1596,15 +1596,14 @@ test("running out of audio part way through a book does not call it the end", as
 
 test("running out of audio at the end of a finished book still says so", async (t) => {
   const page = await boot(t, { lastGid: TONE_BOOK.gid });
-  page.audio.ready(8);
+  page.audio.ready();
   page.click("playpause");
   await page.settle();
-  for (let chapter = 0; chapter < 3; chapter++) {
-    page.audio.advance(8);
-    await page.settle();
-    page.audio.ready(8);
-    await page.settle();
-  }
+  // The whole book, played through, in one file: two boundaries crossed on the
+  // way with nothing loaded at either, and the end of the third chapter is the
+  // only place the element is allowed to run out.
+  page.audio.advance(24);
+  await page.settle();
   assert.equal(page.probe().status, "that is the end of the book");
   assert.equal(page.probe().wantsSound, false);
 });

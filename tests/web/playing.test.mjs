@@ -1,13 +1,20 @@
-// The book as one timeline. somnia renders a file per chapter, but nobody
-// listens to a chapter, so everything the page does counts in global
-// milliseconds and which file that lands in is meant to be invisible. These
-// are the tests that it stays invisible: the arithmetic that maps one to the
-// other, the swap at a boundary, and the transport that is not on the screen.
+// The book as one timeline. somnia renders a file per chapter and the server
+// joins them back into one, because nobody listens to a chapter: everything the
+// page does counts in global milliseconds, and which file that lands in is
+// meant to be invisible. These are the tests that it stays invisible — the
+// arithmetic that maps one to the other, the boundary that loads nothing, and
+// the transport that is not on the screen.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boot, SHRUNK_BOOK, TONE_BOOK, UNMEASURED_BOOK } from "./harness.mjs";
+import {
+  boot,
+  SHRUNK_BOOK,
+  TONE_BOOK,
+  UNJOINED_BOOK,
+  UNMEASURED_BOOK,
+} from "./harness.mjs";
 
 // Get to sound coming out of chapter one, which is where most of these start.
 async function playing(t) {
@@ -20,7 +27,8 @@ async function playing(t) {
 test("opening the app holds the book but does not start it", async (t) => {
   const page = await boot(t);
   assert.deepEqual(page.fetches, ["api/books", "api/book/900001"]);
-  assert.deepEqual(page.audio.srcWrites, ["api/audio/900001/0"]);
+  // One source for the whole book, and this is the only time it is given.
+  assert.deepEqual(page.audio.srcWrites, ["api/stream/900001/3"]);
   assert.equal(page.audio.playCalls, 0);
   page.audio.ready();
   // Opening the app at 2am to ask a question is not listening, and a book they
@@ -47,12 +55,11 @@ test("the book is named above the chapter, and stays named across a boundary", a
   assert.equal(page.probe().book, "Three Tones");
   assert.equal(page.probe().chapter, "The First Tone");
 
-  page.audio.currentTime = 7.7;
+  page.audio.currentTime = 8.2;
   page.audio.fire("timeupdate");
-  page.audio.ready();
   // The chapter under it changed and the headline did not. It is drawn every
   // pass off the manifest rather than written once when the book opened, so
-  // there is no path by which a swap can leave it holding the last book.
+  // there is no path by which a boundary can leave it holding the last book.
   assert.equal(page.probe().chapter, "The Second Tone");
   assert.equal(page.probe().book, "Three Tones");
 });
@@ -144,6 +151,23 @@ test("a decoder running past the end of a chapter is still in that chapter", asy
   assert.equal(math.toGlobalMs(second, -0.2), 8000);
 });
 
+test("a decoder running past the end of the book is still in the book", async (t) => {
+  const { math } = await boot(t);
+  // The whole book down one URL runs on the book's own clock, so the reading is
+  // the answer — measured on the real forty-nine-chapter book as within 0.12s
+  // over five hours, and not accumulating.
+  assert.equal(math.toBookMs(0), 0);
+  assert.equal(math.toBookMs(12.5), 12_500);
+  // Joining the chapters with -c copy drops the edit list that trims AAC
+  // encoder priming, so the file runs one frame of silence longer than the book
+  // — 42.667ms, once, however many chapters were joined. Unclamped, the last
+  // moment of the last chapter would be a position past the end of the book,
+  // which every clock and every fraction on the page would then have to defend
+  // itself against separately.
+  assert.equal(math.toBookMs(24.05), 24_000);
+  assert.equal(math.toBookMs(-0.2), 0);
+});
+
 test("the clock is the same shape the agent speaks", async (t) => {
   const { math } = await boot(t);
   assert.equal(math.timestamp(0), "0:00:00");
@@ -152,56 +176,95 @@ test("the clock is the same shape the agent speaks", async (t) => {
   assert.equal(math.timestamp(-500), "0:00:00");
 });
 
-// ------------------------------------------------------------ the chapter swap
+// -------------------------------------------------------- the chapter boundary
 
-test("a boundary names the new chapter before it starts it", async (t) => {
+test("a boundary renames the chapter and does nothing else at all", async (t) => {
   const page = await boot(t);
   page.audio.ready();
   page.click("playpause");
-  page.audio.currentTime = 7.7; // inside the swap lead
+  page.audio.currentTime = 7.9;
+  page.audio.fire("timeupdate");
   page.order.length = 0;
-  page.audio.fire("timeupdate");
-  // Metadata first: the metadata current at the moment playback starts is the
-  // one the notification adopts, so setting it afterwards labels the new
-  // chapter with the old one's title. And nothing pauses in between — handing
-  // audio focus back even for an instant is what tears the notification down.
-  assert.deepEqual(page.order, [
-    "metadata:The Second Tone",
-    "src:api/audio/900001/1",
-    "play",
-    "state:playing",
-  ]);
+  // Four times a second is the rate timeupdate comes off the media pipeline at,
+  // so this is the first sample past the boundary.
+  page.audio.advance(0.25);
+  // This is issue 31, stated as an assertion. A new title on the notification
+  // and NOTHING else: no source assigned, so no load algorithm, so no element
+  // emptied, so nothing for Android to take the media session down with — and
+  // no pause and no playbackState either, because handing audio focus back even
+  // for an instant is what tears the panel down. Over Bluetooth that teardown
+  // is slow enough to see and sometimes never finishes, which is a night that
+  // goes quiet at 2am and is not found out about until morning.
+  assert.deepEqual(page.order, ["metadata:The Second Tone"]);
+  assert.equal(page.audio.srcWrites.length, 1);
   assert.equal(page.session.playbackState, "playing");
+  assert.equal(page.audio.paused, false);
 });
 
-test("a tick during a swap does not swap again", async (t) => {
+test("every tick after a boundary leaves the notification alone", async (t) => {
   const page = await playing(t);
-  page.audio.currentTime = 7.7;
+  page.audio.currentTime = 8.2;
   page.audio.fire("timeupdate");
-  assert.equal(page.audio.srcWrites.length, 2);
-  page.audio.fire("timeupdate");
-  assert.equal(page.audio.srcWrites.length, 2);
-  // Nor is the position dragged back to whatever the element is reading while
-  // it holds two chapters at once.
-  assert.equal(page.probe().positionMs, 7700);
+  page.order.length = 0;
+  // The crossing runs on the busiest handler in the page, four times a second
+  // for eight hours. If it were not idempotent this would be the page shouting
+  // a new MediaMetadata at the platform all night, twenty-eight thousand times
+  // a book, for a chapter it is already showing.
+  for (let tick = 0; tick < 8; tick++) {
+    page.audio.currentTime += 0.25;
+    page.audio.fire("timeupdate");
+  }
+  assert.deepEqual(page.order, []);
+  assert.equal(page.session.metadata.title, "The Second Tone");
+  // And the position is the element's own reading, not the start of whatever
+  // chapter was last entered.
+  assert.equal(page.probe().positionMs, 10_200);
 });
 
-test("a swap lands at the start of the file and keeps playing", async (t) => {
+test("a boundary lands nowhere: the sound goes straight on", async (t) => {
   const page = await playing(t);
-  page.audio.currentTime = 7.7;
+  page.audio.currentTime = 7.9;
   page.audio.fire("timeupdate");
-  page.audio.ready();
-  assert.equal(page.audio.currentTime, 0);
+  page.audio.advance(0.25);
+  // Nothing was loaded, so there is nothing to wait for and no offset to apply:
+  // the element's clock runs across the boundary as if it were not there, which
+  // is what it is now — a number in the manifest.
+  assert.equal(page.audio.currentTime, 8.15);
   assert.equal(page.audio.paused, false);
   assert.equal(page.probe().swapping, false);
   assert.equal(page.probe().chapter, "The Second Tone");
   assert.equal(page.session.metadata.title, "The Second Tone");
 });
 
+test("the boundary of a book played a chapter at a time still loads one", async (t) => {
+  // ?chapters on the address plays the book the old way, one file per chapter,
+  // so that the same phone can be made to do both on the same night — the panel
+  // surviving is a property of the handset, and the only way to find out is to
+  // listen to a boundary each way. It is also what a book with no stream gets:
+  // one still being rendered, or a join that could not be made.
+  const page = await boot(t, { query: "?chapters" });
+  page.audio.ready();
+  assert.deepEqual(page.audio.srcWrites, ["api/audio/900001/0"]);
+  assert.equal(page.probe().perChapter, true);
+  page.click("playpause");
+  page.order.length = 0;
+  // A chapter file ends where its chapter does, so `ended` is the boundary
+  // there — and everything the fix exists to prevent happens, in order.
+  page.audio.advance(8);
+  assert.deepEqual(page.order, [
+    "metadata:The Second Tone",
+    "src:api/audio/900001/1",
+    "play",
+    "state:playing",
+  ]);
+  page.audio.ready();
+  assert.equal(page.probe().positionMs, 8000);
+  assert.equal(page.audio.currentTime, 0);
+});
+
 test("the readout is global and the scrubber is not", async (t) => {
   const page = await playing(t);
   page.seek(8500, { play: true });
-  page.audio.ready();
   page.tick(1000);
   page.audio.fire("timeupdate");
   assert.equal(page.probe().clock, "0:00:08 of 0:00:24");
@@ -230,7 +293,7 @@ test("the lock screen is not told the time more than once a second", async (t) =
 
 // --------------------------------------------------------------------- seeking
 
-test("a seek inside the file already loaded does not fetch it again", async (t) => {
+test("a seek inside the book already loaded does not fetch anything", async (t) => {
   const page = await playing(t);
   page.seek(5000);
   // The branch that keeps the autoplay policy out of the common case: a seek
@@ -240,13 +303,18 @@ test("a seek inside the file already loaded does not fetch it again", async (t) 
   assert.equal(page.audio.paused, false);
 });
 
-test("a seek into another chapter loads the chapter it lands in", async (t) => {
+test("a seek into another chapter is the same seek, and names it", async (t) => {
   const page = await playing(t);
   page.seek(15_900);
-  assert.equal(page.audio.srcWrites.at(-1), "api/audio/900001/1");
-  page.audio.ready();
-  assert.equal(page.audio.currentTime, 7.9);
+  // The whole book is loaded, so "another chapter" is a place in it like any
+  // other. What still has to happen is the naming: the notification and the
+  // screen are told before the clock moves, so that whatever the platform is
+  // holding when the sound resumes is the chapter the sound is in.
+  assert.equal(page.audio.srcWrites.length, 1);
+  assert.equal(page.audio.currentTime, 15.9);
   assert.equal(page.audio.paused, false);
+  assert.equal(page.probe().chapter, "The Second Tone");
+  assert.equal(page.session.metadata.title, "The Second Tone");
   assert.equal(page.probe().clock, "0:00:15 of 0:00:24");
 });
 
@@ -254,33 +322,34 @@ test("an element holding an error is reloaded rather than seeked", async (t) => 
   const page = await playing(t);
   page.audio.fail();
   // It will not fetch again until it is loaded afresh, so setting currentTime
-  // on it would be a press of play that was never going to make a sound.
+  // on it would be a press of play that was never going to make a sound. This
+  // is the one thing the collapsed seek must keep: the whole book being loaded
+  // does not make a dead element live.
   page.seek(3000, { play: true });
   assert.equal(page.audio.srcWrites.length, 2);
-  assert.equal(page.audio.srcWrites.at(-1), "api/audio/900001/0");
+  assert.equal(page.audio.srcWrites.at(-1), "api/stream/900001/3");
 });
 
 test("thirty seconds forward from the last chapter stops at the end", async (t) => {
   const page = await playing(t);
   page.seek(20_000, { play: true });
-  page.audio.ready();
   page.click("fwd30");
   assert.equal(page.probe().positionMs, 24_000);
-  page.audio.ready();
-  // Clamped short of the duration, or the element would end the chapter the
-  // instant it was told where to be.
-  assert.equal(page.audio.currentTime, 7.95);
+  // Clamped short of the duration, or the element would end the book the
+  // instant it was told where to be — and `ended` is what takes the player out
+  // of the platform's session.
+  assert.equal(page.audio.currentTime, 23.95);
 });
 
 test("thirty seconds back from the top of a chapter lands in the one before", async (t) => {
   const page = await playing(t);
   page.seek(16_500, { play: true });
-  page.audio.ready();
   page.click("back30");
   // Which is what "back a bit" means to somebody listening to a book rather
-  // than to a pile of files.
+  // than to a pile of files — and now it is what the element does too.
   assert.equal(page.probe().positionMs, 0);
-  assert.equal(page.audio.srcWrites.at(-1), "api/audio/900001/0");
+  assert.equal(page.probe().chapter, "The First Tone");
+  assert.equal(page.audio.srcWrites.length, 1);
 });
 
 // -------------------------------------------------- the buttons on the pillow
@@ -288,7 +357,6 @@ test("thirty seconds back from the top of a chapter lands in the one before", as
 test("a remote skip moves by exactly what the platform asked for", async (t) => {
   const page = await playing(t);
   page.seek(17_000, { play: true });
-  page.audio.ready();
   page.press("seekforward", { seekOffset: 3 });
   assert.equal(page.probe().positionMs, 20_000);
   page.press("seekbackward", { seekOffset: 3 });
@@ -302,7 +370,6 @@ test("a remote skip moves by exactly what the platform asked for", async (t) => 
 test("a scrub is read back on the scale it was published", async (t) => {
   const page = await playing(t);
   page.seek(9000, { play: true });
-  page.audio.ready();
   page.press("seekto", { seekTime: 3 });
   assert.equal(page.probe().positionMs, 11_000);
   page.press("seekto", {});
@@ -312,21 +379,17 @@ test("a scrub is read back on the scale it was published", async (t) => {
 test("next and previous walk the chapters and stop at the ends", async (t) => {
   const page = await playing(t);
   page.press("nexttrack");
-  page.audio.ready();
   assert.equal(page.probe().positionMs, 8000);
   page.press("nexttrack");
-  page.audio.ready();
   assert.equal(page.probe().positionMs, 16_000);
   page.press("nexttrack");
   assert.equal(page.probe().positionMs, 16_000);
   page.seek(22_000, { play: true });
-  page.audio.ready();
   // Five seconds in, "previous" means the start of this chapter — what it
   // means on every music player anyone has used.
   page.press("previoustrack");
   assert.equal(page.probe().positionMs, 16_000);
   page.press("previoustrack");
-  page.audio.ready();
   assert.equal(page.probe().positionMs, 8000);
 });
 
@@ -337,15 +400,35 @@ test("stop stops the sound and never lets go of the notification", async (t) => 
   // Emptying the element is the documented way to dismiss the media
   // notification, and dismissing it face down in a pocket is the one state
   // this page cannot recover from.
-  assert.equal(page.audio.src, "api/audio/900001/0");
+  assert.equal(page.audio.src, "api/stream/900001/3");
   assert.equal(page.session.metadata.title, "The First Tone");
 });
 
 // ----------------------------------------------------------- the end of a file
 
-test("a chapter that ends without a duration still advances", async (t) => {
-  const page = await boot(t);
-  page.audio.ready(NaN); // no duration, so the swap lead can never fire
+test("a book with no stream is played a chapter at a time", async (t) => {
+  // Nothing forced it: the manifest simply carries no url for the whole book,
+  // which is what a join that could not be made looks like from here, and what
+  // every somnia older than that field says. The page takes the per-chapter
+  // urls and the night goes on — blinking at every boundary, which is a worse
+  // night and not a lost one.
+  const page = await boot(t, { lastGid: UNJOINED_BOOK.gid });
+  assert.equal(page.probe().perChapter, true);
+  assert.deepEqual(page.audio.srcWrites, ["api/audio/900011/0"]);
+  page.audio.ready();
+  page.click("playpause");
+  page.audio.advance(8);
+  assert.equal(page.audio.srcWrites.at(-1), "api/audio/900011/1");
+  assert.equal(page.probe().chapter, "And Another");
+});
+
+test("a chapter file that ends without a duration still advances", async (t) => {
+  // A chapter at a time, because that is the only path where a file ending is
+  // a chapter ending: under one URL per book a source that stops short of the
+  // book is the render frontier, which is a different question and has its own
+  // answer. Here it is a truncated encode, and the promise is the old one.
+  const page = await boot(t, { query: "?chapters" });
+  page.audio.ready(NaN); // no duration, so nothing can be predicted from one
   page.click("playpause");
   page.audio.ended = true;
   page.audio.paused = true;
@@ -360,12 +443,13 @@ test("a chapter that ends without a duration still advances", async (t) => {
 test("the end of the last chapter is the end of the book", async (t) => {
   const page = await playing(t);
   page.seek(16_000, { play: true });
-  page.audio.ready();
   page.audio.advance(7.9);
   assert.equal(page.probe().status, "");
   page.audio.advance(0.2);
   await page.settle();
-  assert.equal(page.audio.srcWrites.length, 2);
+  // The book ran out where the book ends, and that is the only place all night
+  // the element is allowed to reach `ended` at.
+  assert.equal(page.audio.srcWrites.length, 1);
   assert.equal(page.probe().status, "that is the end of the book");
   assert.equal(page.probe().playing, false);
   // The pause before `ended` was swallowed as spurious, quite rightly, so this
@@ -388,7 +472,6 @@ test("the end of the last chapter is the end of the book", async (t) => {
 test("start over throws the conversation away on the first press", async (t) => {
   const page = await playing(t);
   page.seek(12_000, { play: true });
-  page.audio.ready();
   await page.ask("the bit where the horse dies");
   assert.equal(page.el("transcript").children.length, 2);
 
@@ -446,7 +529,6 @@ test("no position is ever published that the platform would refuse", async (t) =
   // playing a book end to end through every kind of move is the assertion.
   for (const ms of [0, 7999, 8000, 15_999, 16_000, 23_999]) {
     page.seek(ms, { play: true });
-    page.audio.ready();
     page.tick(1000);
     page.audio.advance(0.5);
   }
@@ -456,7 +538,31 @@ test("no position is ever published that the platform would refuse", async (t) =
     ),
     true,
   );
-  assert.equal(page.session.positions.length > 10, true);
+  assert.equal(page.session.positions.length > 8, true);
+});
+
+test("the scrubber is the chapter's, on an element holding the whole book", async (t) => {
+  const page = await playing(t);
+  // Straight through a boundary, playing, which is the one move that used to
+  // reload the element and now does not. Every state published on either side
+  // of it is the chapter's own eight seconds and never the book's twenty-four.
+  for (let tick = 0; tick < 40; tick++) {
+    page.tick(1000);
+    page.audio.advance(0.5);
+  }
+  assert.equal(page.probe().chapter, "The Third Tone");
+  assert.equal(
+    page.session.positions.every((p) => p.duration === 8),
+    true,
+  );
+  // Which is the whole reason the guards around setPositionState matter more
+  // now than they did. A throw there publishes nothing, and a panel that is
+  // never given a position falls back to the element's own timeline — which is
+  // no longer a chapter but the entire book, three minutes to the pixel on a
+  // twelve-hour novel, one sleepy thumb from the ending. The fake reproduces
+  // the platform's validation and throws exactly where it would, so a run that
+  // reaches this line is a run in which it never had to.
+  assert.equal(page.session.positions.length > 30, true);
 });
 
 // The book as a line, which the design asked for twice: two clocks to subtract

@@ -25,6 +25,7 @@ would tell you.
 | `/api/books` | GET | Every book, most recently listened to first |
 | `/api/book/{gid}` | GET | One book, whole — or 404 |
 | `/api/audio/{gid}/{idx}` | GET | The chapter's audio — or 404 |
+| `/api/stream/{gid}/{n}` | GET | The first `n` chapters as one file — or 404 |
 | `/api/sentence/{gid}/{ms}` | GET | Where the sentence being spoken at `ms` began |
 | `/api/catalog?q=…` | GET | Books to add, from the local Gutenberg catalog |
 | `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
@@ -75,7 +76,8 @@ left with a player showing nothing.
   "chapters": [
     {"idx": 0, "title": "01. My Early Home", "start_ms": 0,
      "end_ms": 455000, "url": "api/audio/271/0"}
-  ]
+  ],
+  "stream_url": "api/stream/271/49", "stream_ms": 22320000
 }
 ```
 
@@ -84,6 +86,13 @@ growing from a render that died. `heard_to_ms` is the high-water mark the
 spoiler guard uses, which is not `position_ms`: the agent can move someone
 backwards, and doing so must not shrink what may be searched. Chapter `url` is
 relative, because the app may be mounted under a path.
+
+`stream_url` is the whole of what has been read of this book down one URL, and
+`stream_ms` is how much book that is. The page loads it once and crosses every
+chapter inside it without touching the media element — see `GET
+/api/stream/{gid}/{n}`. It is `null` when there is nothing to join, which is a
+book with no audio yet; the per-chapter `url`s are always there beside it, and a
+page that finds no stream plays the book a file at a time.
 
 `chapters_total` is how many chapters the book **has**, against `chapters`,
 which is how many can be played. While a render is going those differ, and the
@@ -139,6 +148,24 @@ The media type is pinned rather than guessed. Python does not know `.m4a` and
 the container image has no mime table, so guessing yields
 `application/octet-stream` and Safari refuses to play the book — a bug that
 cannot reproduce on a development machine.
+
+## `GET /api/stream/{gid}/{n}`
+
+The book's first `n` chapters joined into one `audio/mp4`, with the same Range,
+If-Range and 416 handling as a chapter, and the same pinned media type for the
+same reason.
+
+`n` is a version rather than a length: it names the chapters the file holds, so
+a book that grew while somebody was listening is offered a *new* url and the
+file their phone has open is never rewritten under an in-flight range request.
+Versions are built on the first ask — a second or two of ffmpeg, `-c copy`, so
+not a byte of audio is re-encoded — and kept under `SOMNIA_DATA_DIR/streams`,
+never in the library, because the library is Audiobookshelf's own layout.
+
+404 if the book has fewer than `n` chapters, if any of their audio has gone, or
+if the join could not honestly be made. The reason is in the journal. The page
+still has a url for every chapter, so a book with no stream is one that rebuilds
+the lock screen at every boundary — a worse night, not a lost one.
 
 ## `GET /api/sentence/{gid}/{ms}`
 

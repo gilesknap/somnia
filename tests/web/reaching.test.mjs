@@ -11,14 +11,21 @@
 // that went quiet rather than as a red test here.
 //
 // The first section is a record of what this design costs, not a statement of
-// what it ought to do. Every rung of the ladder puts the chapter's URL back on
-// the element, and assigning src runs the load algorithm, which empties it —
-// so every attempt to get the book back first throws away the notification
-// that is the only thing on a locked screen saying anything about the book at
-// all. Whether it comes back is up to a network that has just proved it cannot
-// be relied on. When a chapter boundary stops being a load, these tests are to
-// be rewritten to say a boundary makes no attempt at all; they are not to be
-// deleted, because a real error will still take this path.
+// what it ought to do. Every rung of the ladder puts a URL back on the element,
+// and assigning src runs the load algorithm, which empties it — so every
+// attempt to get the book back first throws away the notification that is the
+// only thing on a locked screen saying anything about the book at all. Whether
+// it comes back is up to a network that has just proved it cannot be relied on.
+//
+// What has changed is what brings the page here. When these were written a
+// chapter boundary was a load, so the same four steps ran at every boundary all
+// night — around a hundred and fifteen of them on a nine-hour book — and the
+// odds were the only difference between an ordinary boundary and a network
+// failure. The book arrives down one URL now and a boundary loads nothing
+// (playing.test.mjs, "a boundary renames the chapter and does nothing else at
+// all"), so what is left below is a network that really went. The mechanism is
+// unchanged and so are these tests; only its frequency is, and that was the
+// whole of the fix.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -45,20 +52,24 @@ async function playing(t, options) {
 
 // ------------------------------------------------------ what a retry costs
 
-test("a retry is the whole chapter loaded again", async (t) => {
+test("a retry is the whole book loaded again", async (t) => {
   const page = await playing(t);
   page.audio.fail();
   assert.deepEqual(page.waits(), [FIRST_MS]);
   page.order.length = 0;
   assert.equal(page.wake(FIRST_MS), true);
-  // The same four steps, in the same order, as the chapter boundary in
-  // playing.test.mjs — and they mean the same thing to the platform, which is
-  // that the element was emptied and whatever was hanging on it went with it.
-  // The difference is only in the odds: a boundary does this when the next
-  // file is there to be had, and this does it because it is not.
+  // Four steps, and to the platform they mean the element was emptied and
+  // whatever was hanging on it went with it. A chapter boundary used to do
+  // exactly this — the same four, in the same order — a hundred and fifteen
+  // times a night; it does none of it now. This is what is left, and it is the
+  // case the ladder was written for: the book stopped arriving.
+  //
+  // It costs more than it did. What comes back down the wire is the whole
+  // book's header before a single frame decodes, and then a range request back
+  // to where they were. That is the price of a boundary costing nothing.
   assert.deepEqual(page.order, [
     "metadata:The First Tone",
-    "src:api/audio/900001/0",
+    "src:api/stream/900001/3",
     "play",
     "state:playing",
   ]);
@@ -66,7 +77,7 @@ test("a retry is the whole chapter loaded again", async (t) => {
   assert.equal(page.probe().status, "still trying to reach the book");
 });
 
-test("every rung of the ladder is another chapter loaded again", async (t) => {
+test("every rung of the ladder is the whole book loaded again", async (t) => {
   const page = await playing(t);
   const rungs = [];
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -79,7 +90,8 @@ test("every rung of the ladder is another chapter loaded again", async (t) => {
   // a minute is as patient as it ever gets, so an outage that lasts an hour is
   // something like a hundred and twenty of these, each one an element emptied
   // and a notification asked to come back — beside somebody asleep, with no
-  // screen on to say what is going on.
+  // screen on to say what is going on. Nothing about that is fixed by the book
+  // arriving down one URL, and it is the next thing to fix.
   assert.deepEqual(rungs, [
     FIRST_MS,
     4000,
@@ -93,18 +105,21 @@ test("every rung of the ladder is another chapter loaded again", async (t) => {
 
 test("a retry puts them back where they had got to", async (t) => {
   const page = await playing(t, { lastGid: 900004 });
-  page.audio.ready(1800);
-  page.seek(600_000, { play: true });
-  page.audio.fire("seeked");
+  // Ten minutes into the second half-hour chapter, so that where they are in
+  // the chapter and where they are in the book are different numbers — the
+  // element holds the book, and landing at the chapter's offset would put them
+  // twenty minutes short of where the tailnet left them.
+  page.seek(2_400_000, { play: true });
+  page.audio.arrived();
   page.audio.fail();
   page.wake(FIRST_MS);
-  page.audio.ready(1800);
-  // Reloading is the whole of the way back, and reloading from the top of the
-  // file would answer five seconds of lost tailnet by making them hear the
-  // last ten minutes again. The offset survives the reload and is applied when
-  // there is a duration to clamp it against.
-  assert.equal(page.audio.currentTime, 600);
-  assert.equal(page.probe().positionMs, 600_000);
+  page.audio.ready();
+  // Reloading is the whole of the way back, and reloading from the top would
+  // answer five seconds of lost tailnet by making them hear the last forty
+  // minutes again. The offset survives the reload and is applied when there is
+  // a duration to clamp it against.
+  assert.equal(page.audio.currentTime, 2400);
+  assert.equal(page.probe().positionMs, 2_400_000);
 });
 
 // ------------------------------------------------------------- the grace

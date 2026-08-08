@@ -153,6 +153,19 @@ class Manifest:
     end of the book — from reaching the end of one. It is 0 for every book
     rendered before that column existed, and 0 means nobody wrote it down, so a
     page that finds one has to say nothing rather than say "3 of 0".
+
+    ``stream_url`` is the whole of what has been read of this book, down one
+    URL, so that crossing a chapter need not touch the media element — see
+    :mod:`somnia.stream` for why that matters at 2am. ``stream_ms`` is how much
+    book it covers, on the render clock, which is the number that tells the end
+    of the book from the end of what has been read of it so far. Both are per
+    fetch: a book that grew has a longer stream at a different URL, and the one
+    a phone already has open is never rewritten.
+
+    None means play it a chapter at a time. That is not an error case to be
+    swept up — it is a book with no audio yet, and it is every somnia serving a
+    manifest older than this field. The per-chapter ``url`` on every
+    :class:`Chapter` stays for exactly that, and costs nothing to keep.
     """
 
     gid: int
@@ -164,6 +177,8 @@ class Manifest:
     position_ms: int | None
     seq: int
     heard_to_ms: int
+    stream_url: str | None
+    stream_ms: int
     chapters: list[Chapter]
 
 
@@ -331,6 +346,20 @@ class Player:
             position_ms=book["position_ms"],
             seq=book["position_seq"],
             heard_to_ms=book["heard_to_ms"],
+            # Advertised on the strength of the rows and not of the file: the
+            # join happens on the first ask, in the request that wants it, so
+            # there is nothing here for a manifest to look at. A book with no
+            # chapters has nothing to join and says so; a book whose join then
+            # turns out to be impossible answers 404 to a page that still has a
+            # url for every chapter to fall back on. Building it here to find
+            # out would put a second or two of ffmpeg in front of every poll of
+            # a book that is still being read, which is one every five seconds.
+            stream_url=f"api/stream/{gid}/{len(chapters)}" if chapters else None,
+            # What the stream holds, measured from the beginning of the book,
+            # because that is what the page maps element seconds onto. It is
+            # short of total_ms only while a render is running — the difference
+            # is audio that exists in the manifest and not yet in any stream.
+            stream_ms=chapters[-1]["end_ms"] if chapters else 0,
             chapters=[
                 Chapter(
                     idx=row["idx"],

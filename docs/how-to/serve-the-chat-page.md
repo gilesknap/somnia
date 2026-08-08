@@ -476,3 +476,22 @@ It is a spike and it is meant to read like one. It is served rather than kept
 out of the way because a diagnostic nobody can open from the handset is a
 diagnostic nobody runs, and these are the two questions the whole pivot rests
 on.
+
+### Asking the same question of the real player
+
+The player itself now loads the whole book from one URL, so the spike is no
+longer the only place the question can be asked. To compare the two ways on the
+same night, over the same speaker, open the app with `?chapters` on the address:
+
+```
+https://<node>.<tailnet>.ts.net:8443/?chapters
+```
+
+That plays the book a file at a time, the way it played before — a load at every
+boundary, which is the bug — while the app opened normally plays it from one
+file. Nothing else about the page differs, and nothing is remembered: it is a
+property of the address, so closing the tab is the whole of undoing it.
+
+Listen across a boundary each way, locked, over Bluetooth. The answer is what
+the notification does, and there is nothing on any screen or in any log that can
+stand in for it.

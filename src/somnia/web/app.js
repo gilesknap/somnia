@@ -4,11 +4,13 @@
 // a bedroom is full of speech that was not meant for somnia, and holding a
 // button is the one gesture that survives being half asleep.
 //
-// The book plays here as well. somnia rendered it one file per chapter, but
+// The book plays here as well. somnia renders it one file per chapter, but
 // nobody listens to a chapter — they listen to a book — so everything below
 // counts in global milliseconds, the same clock the search results and the
 // agent speak, and which file that lands in is an implementation detail kept
-// to three functions.
+// to a handful of functions. The server joins the chapters back into one file
+// for exactly that reason: given the whole book down one URL, crossing a
+// chapter is arithmetic and the media element is never touched at all.
 //
 // Most of the controls are not on this page at all. With the screen off the
 // book is driven from the lock screen and from whatever is paired over
@@ -464,12 +466,24 @@ function startOver() {
 
 // ------------------------------------------------------------------- playing
 
-// How early to start the next chapter. Ingest leaves 500ms of rendered silence
-// at the end of every one, so a swap that begins 400ms out is spent inside a
-// pause the book already had: the gap between chapters comes out shorter than
-// it was written to be rather than longer. Raise this only if the silence
-// ingest appends rises with it.
-const SWAP_LEAD_S = 0.4;
+// Play the book a file at a time, the way it was played before the whole of it
+// came down one URL — `?chapters` on the address the app was opened at.
+//
+// It is here so that one man with one phone can compare the two on the same
+// night, over the same Bluetooth speaker, without a second deploy: install the
+// app, open the shortcut, then open the same page again with ?chapters on it
+// and listen across a boundary each way. The difference the whole change is
+// about — whether the lock screen panel survives — is a property of the
+// handset and of nothing in this repo, so it can only be settled by hearing it,
+// and an answer from two different nights is an answer about two different
+// nights.
+//
+// The page has to be able to do this anyway. `stream_url` is absent from the
+// manifest of a book with no audio yet, and from every somnia serving a
+// manifest older than that field, so playing a chapter at a time is not a
+// fallback bolted on for the experiment — it is the other ordinary case, and
+// this only forces it.
+const PER_CHAPTER = new URLSearchParams(location.search).has("chapters");
 
 // What "back a bit" means is `jumpStep`, further up: it is a setting now rather
 // than a constant, so the constant that used to be here is gone rather than
@@ -543,7 +557,10 @@ const ARTWORK = [
 
 let manifest = null;
 let gid = null; // which book, once the manifest has said
-let current = null; // {idx, chapter} — which file the element is holding
+// {idx, chapter} — which chapter the sound is in. Not which file the element
+// is holding: with the whole book down one URL those are different questions,
+// and this is the one every clock, title and scrubber on the page asks.
+let current = null;
 let positionMs = 0;
 // How many times the agent has moved this book, as of the last thing we heard
 // from the server. Our own reports never raise it, so a higher number coming
@@ -564,8 +581,9 @@ let lastSentAt = 0;
 // a chapter that buffered for ten seconds moves the wall clock and not this.
 let playedMs = 0;
 // Where that clock was last sampled, or null when the next sample is only a
-// baseline. A seek and a chapter swap both move the position with nothing
-// played, so the distance either of them moved is never counted as a step.
+// baseline. A seek and a source loaded afresh both move the position with
+// nothing played, so the distance either of them moved is never counted as a
+// step. A chapter boundary is neither, and costs the count nothing.
 let playedFrom = null;
 // How much of it the server has taken. Only an accepted report spends any:
 // a refusal did not raise the mark, and a reply that never arrived may as well
@@ -578,7 +596,7 @@ let playedTaken = 0;
 // after the tailnet came back — still lands in the right place instead of
 // starting the chapter from nothing.
 let pendingOffsetMs = null;
-let swapping = false; // a chapter change is in flight
+let swapping = false; // a source is being loaded
 let weArePausing = false; // tell our own pause from the platform's
 let lastPublishedAt = 0; // when the lock screen was last told the time
 // When the sound stopped, so that pressing play again can tell a moment's
@@ -633,19 +651,57 @@ function toElementSeconds(offset_ms, duration) {
   const s = Math.max(0, offset_ms / 1000);
   if (!Number.isFinite(duration) || duration <= 0) return s;
   // 50ms of headroom: assigning currentTime >= duration lands at the end and
-  // fires `ended` at once, which silently skips a whole chapter. The render
-  // clock can legitimately exceed the container clock, so this is not
-  // hypothetical.
+  // fires `ended` at once, which skips a whole chapter when a chapter is what
+  // is loaded, and ends the night when the whole book is. The render clock can
+  // legitimately exceed the container clock, so this is not hypothetical.
   return Math.min(s, duration - 0.05);
 }
 
-// Where the element is, on the book's clock. Clamped to this chapter's own
-// span: a decoder that ignores the edit list runs up to one AAC frame past what
-// was rendered, and a position reported from inside that padding would claim to
-// be in the next chapter.
+// Where the element is, on the book's clock, when it is holding one chapter.
+// Clamped to that chapter's own span: a decoder that ignores the edit list runs
+// up to one AAC frame past what was rendered, and a position reported from
+// inside that padding would claim to be in the next chapter.
 function toGlobalMs(chapter, currentTime) {
   const t = chapter.start_ms + Math.round(currentTime * 1000);
   return Math.max(chapter.start_ms, Math.min(t, chapter.end_ms));
+}
+
+// The same question of an element holding the whole book, where the answer is
+// the reading itself: the stream is the chapters laid end to end in order, so
+// it runs on the book's own clock and the conversion is identity. Measured
+// rather than assumed — against the real forty-nine-chapter book the audio
+// lands within 0.12s of where the render clock says, and the error does not
+// accumulate.
+//
+// There is no per-chapter clamp to make here, and no edit list to overshoot:
+// one file, one edit list, and a position inside the frame of silence at a join
+// is a position in the next chapter, which is exactly where the sound is.
+function toBookMs(currentTime) {
+  const t = Math.round(currentTime * 1000);
+  return Math.max(0, Math.min(t, manifest.total_ms));
+}
+
+// Whether the next thing loaded would be a file at a time. True when the server
+// offered no stream for this book — a join that could not be made, a book with
+// no audio yet, a somnia older than the field — and when the address said to.
+function chapterAtATime() {
+  return PER_CHAPTER || !manifest?.stream_url;
+}
+
+// Whether the element is holding one chapter or the whole book. A fact about
+// what was loaded and not about what the manifest says now, because those are
+// different questions and the answer is used to read the element's clock: a
+// book can gain a stream between one poll and the next, and a page that changed
+// its mind about what it was holding would read half an hour into a chapter
+// file as half an hour into the book, and put the listener four chapters back.
+let holdingOneChapter = false;
+
+// Where the sound is, on the book's clock, whichever of the two the element is
+// holding. Every reading of the media clock in the page goes through here.
+function whereTheSoundIs() {
+  return holdingOneChapter
+    ? toGlobalMs(current.chapter, player.currentTime)
+    : toBookMs(player.currentTime);
 }
 
 // h:mm:ss, the same shape format_timestamp gives the agent, so what is on the
@@ -672,8 +728,9 @@ function chapterTime(ms) {
 function drawPlayer() {
   if (!manifest || !current) return;
   // Which book, above which chapter of it. Drawn every pass rather than once
-  // when the book opened, so there is no path — a swap, a refreshed manifest, a
-  // move to another book — by which the headline can be left naming the last
+  // when the book opened, so there is no path — a boundary, a refreshed
+  // manifest, a move to another book — by which the headline can be left naming
+  // the last
   // one. The fallback is the queue panel's, from bookName: a book that has been
   // through nothing but the local catalog may have no name at all, and "book
   // 1342" is a good deal better than an empty line where the title goes.
@@ -697,8 +754,9 @@ function drawPlayer() {
     : 0;
   wholePlayed.style.width = `${through}%`;
   // Off the chapter row and the book's own clock, never off the element's
-  // currentTime: that number restarts at zero on every swap, and during one it
-  // belongs to whichever of the two chapters the element happens to be holding.
+  // currentTime: that number is the whole book's when the whole book is loaded,
+  // and while a source is arriving it belongs to whichever of two things the
+  // element happens to be holding.
   const into = positionMs - current.chapter.start_ms;
   const length = current.chapter.end_ms - current.chapter.start_ms;
   chapterClock.textContent = `${chapterTime(into)} of ${chapterTime(length)}`;
@@ -764,8 +822,16 @@ function reportPlaybackState(state) {
 // Both numbers are derived from the chapter row and positionMs — the render
 // clock, the one the search results and the saved position speak — and not
 // from the element. That keeps the arithmetic on `duration` where it belongs,
-// in the three conversion functions above, and it means the pair can never be
-// the NaN-and-stale-currentTime that setPositionState throws on.
+// in the conversion functions above, and it means the pair can never be the
+// NaN-and-stale-currentTime that setPositionState throws on.
+//
+// Which matters more now than it did, and this is the place to say why. The
+// element holds the whole book, so a position state that is never published —
+// because this returned early, or because setPositionState threw — leaves the
+// platform to draw the scrubber from the element itself, and that is now twelve
+// hours long rather than twelve minutes. What used to degrade to roughly the
+// right size degrades to exactly the wrong one. Nothing below may be loosened
+// without a test that walks a boundary and reads back what the panel was told.
 function publishPosition() {
   if (!session?.setPositionState || !current) return;
   const span = (current.chapter.end_ms - current.chapter.start_ms) / 1000;
@@ -783,21 +849,48 @@ function publishPosition() {
   });
 }
 
-// A chapter boundary and a seek into another chapter are the same thing, so
-// they are the same code path.
-function showChapter({ idx, chapter, offset_ms }, { play }) {
-  swapping = true;
+// The book has reached another chapter, and that is the whole of what happens.
+//
+// It touches the element at nothing. That is the fix for issue 31: crossing a
+// chapter is a new title on the notification and a new name on the screen, and
+// with the whole book down one URL there is no source to assign, no load
+// algorithm to run, no element to empty and therefore nothing for the platform
+// to take the media session down with. Over Bluetooth that teardown is slow
+// enough to see and sometimes never finishes, and the night ends there.
+//
+// `current` is set before the metadata rather than after: everything the
+// notification is told is drawn from it, and a page that announced a chapter it
+// had not yet entered would name the wrong one for the rest of the book.
+function enterChapter({ idx, chapter }) {
   current = { idx, chapter };
-  // Before the source, and so before play(): the metadata current at the
-  // moment playback starts is the one the notification adopts, so setting it
-  // afterwards labels the new chapter with the old one's title. Nothing else
-  // here is allowed to touch the session during a swap — no pause, no
-  // playbackState, no second element — because handing audio focus back even
-  // for an instant is what tears the notification down, and once it is gone
-  // nothing in this page can get it back.
   announceChapter(chapter);
-  pendingOffsetMs = offset_ms; // applied at loadedmetadata, when there is
-  player.src = chapter.url; // a duration to clamp against
+  drawPlayer();
+}
+
+// The one place in this page a URL reaches the media element.
+//
+// Reached at boot, and afterwards only by a reload — a source that failed, or a
+// book that has grown past the stream it was given. It is not on the path of an
+// ordinary chapter boundary and must never be put back on it.
+//
+// The metadata goes on before the source, and so before play(): the metadata
+// current at the moment playback starts is the one the notification adopts, so
+// setting it afterwards labels what is playing with the last chapter's title.
+// Nothing else here is allowed to touch the session while a source is arriving
+// — no pause, no playbackState, no second element — because handing audio focus
+// back even for an instant is what tears the notification down, and once it is
+// gone nothing in this page can get it back.
+function loadSource({ idx, chapter, offset_ms }, { play }) {
+  swapping = true;
+  enterChapter({ idx, chapter });
+  // Which of the two this is, decided once, here, and remembered — see
+  // holdingOneChapter.
+  holdingOneChapter = chapterAtATime();
+  // Where to land, said in the loaded thing's own milliseconds: a chapter file
+  // starts at the chapter, the whole book starts at the beginning of the book.
+  // Applied at loadedmetadata, when there is a duration to clamp it against.
+  pendingOffsetMs = holdingOneChapter ? offset_ms : chapter.start_ms + offset_ms;
+  player.src = holdingOneChapter ? chapter.url : manifest.stream_url;
   if (play) player.play().catch(onPlayRejected);
   drawPlayer();
 }
@@ -843,23 +936,32 @@ function seekGlobal(ms, { play = null } = {}) {
   playedTaken = playedMs;
   if (
     current &&
-    at.idx === current.idx &&
     player.readyState > 0 &&
-    !player.error
+    !player.error &&
+    (!holdingOneChapter || at.idx === current.idx)
   ) {
-    // Within the file already loaded. This branch is what keeps autoplay policy
-    // out of the common case: a seek on a live element needs no permission at
-    // all, so it does not ask for any.
+    // Within what the element is already holding, which under one URL per book
+    // is everywhere in it. This branch is what keeps autoplay policy out of the
+    // common case: a seek on a live element needs no permission at all, so it
+    // does not ask for any.
     //
     // An element holding an error is not a live one however much of the file it
     // still has: it will not fetch again until it is loaded afresh, so a press
     // of play after the tailnet went would set currentTime on something that
     // was never going to make a sound. Sending it down the other branch is what
     // makes the transport a way back as well.
-    player.currentTime = toElementSeconds(at.offset_ms, player.duration);
+    //
+    // The chapter is named before the clock is moved, for the same reason the
+    // load path names it before assigning a source: whatever the notification
+    // is holding at the moment the sound resumes is what it shows.
+    if (at.idx !== current.idx) enterChapter(at);
+    player.currentTime = toElementSeconds(
+      holdingOneChapter ? at.offset_ms : positionMs,
+      player.duration,
+    );
     if (play === true && player.paused) player.play().catch(onPlayRejected);
   } else {
-    showChapter(at, { play: play ?? !player.paused });
+    loadSource(at, { play: play ?? !player.paused });
   }
   drawPlayer();
 }
@@ -1247,15 +1349,21 @@ function outOfTrouble() {
   troubled = false;
 }
 
-// Put the chapter back under them, from where they had got to rather than from
-// the top of it. Reloading is the whole of the way back — assigning src is what
-// makes an element try the network again — and going through locate(positionMs)
-// is what makes a five-second drop cost five seconds instead of making them
-// hear the last ten minutes again.
-function reloadTheChapter() {
+// Put the book back under them, from where they had got to rather than from the
+// top of what was loaded. Reloading is the whole of the way back — assigning
+// src is what makes an element try the network again — and going through
+// locate(positionMs) is what makes a five-second drop cost five seconds instead
+// of making them hear the last ten minutes again.
+//
+// This is a teardown like any other: the element is emptied and the lock screen
+// panel goes with it. Route 2 does not remove that, it removes the reasons for
+// it — a chapter boundary no longer comes down here, so what is left is a
+// network that really went, which is rarer and is the case the ladder above was
+// written for.
+function reloadTheSource() {
   if (!manifest || !current) return;
   inTrouble("still trying to reach the book");
-  showChapter(locate(positionMs), { play: wantsSound });
+  loadSource(locate(positionMs), { play: wantsSound });
 }
 
 // Wait, then try again, waiting longer each time. Bounded at both ends for the
@@ -1273,7 +1381,7 @@ function retryLater() {
   stallTimer = 0;
   retryTimer = setTimeout(() => {
     retryTimer = 0;
-    reloadTheChapter();
+    reloadTheSource();
   }, retryDelay);
   retryDelay = Math.min(retryDelay * 2, RETRY_MAX_MS);
 }
@@ -1285,8 +1393,9 @@ function retryLater() {
 // through the live region — for something that is already over.
 //
 // `suspend` and `abort` are deliberately not wired here however much they look
-// like they belong: suspend is a full buffer and abort is a swap, which between
-// them happen at every chapter boundary all night.
+// like they belong: suspend is a full buffer, which a five-hour file reaches
+// whenever the network is doing well, and abort is a source being replaced,
+// which is the one thing this ladder is allowed to do.
 function stalling() {
   if (!wantsSound || stallTimer || retryTimer) return;
   // The grace is for a buffer that is going to refill, and there is nothing
@@ -1301,7 +1410,7 @@ function stalling() {
   }
   stallTimer = setTimeout(() => {
     stallTimer = 0;
-    reloadTheChapter();
+    reloadTheSource();
     // That reload was an attempt like any other, so the next one waits longer.
     // A server that takes the connection and never answers — a proxy black
     // hole, a re-key caught mid-handshake — fires no `error` at all, so
@@ -1330,7 +1439,7 @@ function tryAgainNow() {
   if (retryTimer) {
     clearTimeout(retryTimer);
     retryTimer = 0;
-    reloadTheChapter();
+    reloadTheSource();
   }
   if (awaiting) {
     awaiting.delay = RENDER_ASK_MS;
@@ -1352,59 +1461,61 @@ player.addEventListener("playing", outOfTrouble);
 window.addEventListener("online", tryAgainNow);
 
 player.addEventListener("loadedmetadata", () => {
-  // The server answered with a chapter, which is as much as this page ever
-  // knows about the network being back.
+  // The server answered with audio, which is as much as this page ever knows
+  // about the network being back.
   outOfTrouble();
   if (pendingOffsetMs !== null) {
     player.currentTime = toElementSeconds(pendingOffsetMs, player.duration);
     pendingOffsetMs = null;
   }
   swapping = false;
-  // A new file, so the last sample belongs to a chapter that is no longer
-  // loaded. The four hundred milliseconds a swap steps over are rendered
-  // silence and were never listened to; counting them would be the only thing
-  // a chapter boundary ever handed the guard.
+  // A new source, so the last sample was taken off a clock that is no longer
+  // running. Whatever the load stepped over was not listened to, and counting
+  // it would be the only listening a page ever got for free.
   playedFrom = null;
   drawPlayer();
   publishPosition();
-  // A boundary is a good place to be interrupted at, and the position either
-  // side of one differs by a whole chapter. At boot this says nothing, because
-  // opening the app has not moved anything.
+  // A source landing is a good place to be interrupted at: it is the boot, or
+  // the far side of a reload the network forced, and either way the position
+  // either side of it can differ by a whole chapter. At boot this says nothing,
+  // because opening the app has not moved anything. It is no longer once a
+  // chapter — nothing is loaded at a boundary any more — so the fifteen-second
+  // heartbeat is what carries the position across one.
   sendPosition("chapter");
 });
 
 player.addEventListener("timeupdate", () => {
-  // While a swap is in flight currentTime can still be reading from the
-  // chapter being left, which would report a position they are no longer at.
+  // While a source is arriving currentTime can still be reading from the one
+  // being left, which would report a position they are no longer at.
   if (swapping || !current) return;
-  positionMs = toGlobalMs(current.chapter, player.currentTime);
+  positionMs = whereTheSoundIs();
   // Sound came out between the last sample and this one, and this is the only
   // place in the page where that is true: the media clock moves by itself here
   // and is moved by hand everywhere else. Forwards only, and only from a
-  // sample left behind by the file still loaded — a rewind is not negative
-  // listening, and a baseline that was set aside by a seek or a swap is not a
+  // sample left behind by the source still loaded — a rewind is not negative
+  // listening, and a baseline that was set aside by a seek or a load is not a
   // distance anybody heard.
   if (playedFrom !== null && positionMs > playedFrom) {
     playedMs += positionMs - playedFrom;
   }
   playedFrom = positionMs;
   // Both of these are here rather than above the guard so that neither can
-  // land in the middle of a chapter change: a fade that finished mid-swap
-  // would pause an element that is between two sources, and the pause it
-  // caused would be swallowed as the spurious one a src assignment fires.
-  // A swap costs a few hundred milliseconds of a twenty-second fade.
+  // land in the middle of a source arriving: a fade that finished then would
+  // pause an element that is between two sources, and the pause it caused would
+  // be swallowed as the spurious one a src assignment fires.
   stepFade();
   countDownToSleep();
-  // The other way the timer ends a night, and the only one with a time to
-  // arrive at: they asked for the end of this chapter, and the book's own clock
-  // has reached it. What ends the night is that time and not the file
-  // underneath happening to run out. The two are the same instant for as long
-  // as a chapter is a file of its own, and they stop being the same instant the
-  // moment a whole book arrives down one URL — there a chapter ends in the
-  // middle of a file with hours left in it, and nothing but this marks the
-  // place. Founding it on the clock now, while the file still ends here too,
-  // is what makes that change a change to how a chapter is loaded and not a
-  // change to when the night ends.
+  // The way the timer ends a night with a time to arrive at: they asked for the
+  // end of this chapter, and the book's own clock has reached it. What ends the
+  // night is that time and not the file underneath happening to run out — with
+  // the whole book down one URL a chapter ends in the middle of a file with
+  // hours left in it, and nothing but this marks the place.
+  //
+  // Above the crossing below, and that ordering is the whole of it: once the
+  // page has entered the next chapter, `current` names a chapter whose end is
+  // an hour away and this can never fire. A night asked to end here would end
+  // at the end of the next one instead, which is the sleep timer doing the
+  // opposite of what it was set for.
   //
   // Stopped rather than faded, for the reason `ended` gives further down: ingest
   // leaves half a second of silence at the end of every chapter, and the last
@@ -1414,6 +1525,27 @@ player.addEventListener("timeupdate", () => {
     clearSleep();
     fallAsleep();
     return;
+  }
+  // The chapter boundary, and all it is now.
+  //
+  // Idempotent by the index, because this runs four times a second for the
+  // whole night: a boundary is the one sample where the answer changes, and
+  // every other sample must leave the notification alone. Reassigning
+  // `session.metadata` at 4 Hz would be the page shouting at the platform all
+  // night for nothing.
+  //
+  // Nothing here touches the element. That is the point — see enterChapter.
+  //
+  // Only where the element holds more than one chapter. Played a file at a
+  // time it is what was loaded that says which chapter this is, and the last
+  // sample of such a file reads as the first millisecond of the next one —
+  // toGlobalMs clamps to the chapter's own end, and locate calls that end the
+  // chapter after. So this would enter the next chapter a quarter of a second
+  // before `ended` loaded it, and `ended` would then step over it into the one
+  // after: a chapter skipped, silently, at every boundary of the fallback path.
+  if (!holdingOneChapter) {
+    const at = locate(positionMs);
+    if (at.idx !== current.idx) enterChapter(at);
   }
   drawPlayer();
 
@@ -1426,19 +1558,11 @@ player.addEventListener("timeupdate", () => {
     publishPosition();
   }
   if (!player.paused && now - lastSentAt >= HEARTBEAT_MS) sendPosition("tick");
-
-  // Not while the night is set to end here: the whole of what "end of chapter"
-  // asks for is that this boundary is not crossed.
-  const next = sleepsAtChapterEnd() ? null : manifest.chapters[current.idx + 1];
-  const left = player.duration - player.currentTime;
-  if (next && !player.paused && Number.isFinite(left) && left <= SWAP_LEAD_S) {
-    showChapter(locate(next.start_ms), { play: true });
-  }
 });
 
 player.addEventListener("seeked", () => {
   if (swapping || !current) return;
-  positionMs = toGlobalMs(current.chapter, player.currentTime);
+  positionMs = whereTheSoundIs();
   drawPlayer();
   publishPosition();
   // A jump is the one thing the fifteen-second heartbeat cannot approximate:
@@ -1463,9 +1587,9 @@ player.addEventListener("play", () => {
   // Where the sound came back on, which is the beginning of a stretch of
   // listening. The spoiler guard advances on time that really elapsed with the
   // sound on, so a stretch with no beginning gives it nothing to measure the
-  // first heartbeat against and it stops for the rest of the book. Not during a
-  // chapter swap: the position is between two files there, and the report at
-  // the far side of the swap says the same thing a moment later.
+  // first heartbeat against and it stops for the rest of the book. Not while a
+  // source is arriving: the position is between two things there, and the report
+  // at the far side of the load says the same thing a moment later.
   if (!swapping) sendPosition("play");
 });
 
@@ -1477,16 +1601,18 @@ player.addEventListener("ratechange", publishPosition);
 player.addEventListener("pause", () => {
   // A pause means four different things and only one of them is theirs.
   // Assigning src runs the media element load algorithm, which fires one;
-  // reaching the end of a chapter fires one before `ended`, per spec; and a
-  // chapter that fails to load fires `error` and then a pause after it.
+  // reaching the end of what is loaded fires one before `ended`, per spec; and
+  // a source that fails to load fires `error` and then a pause after it.
   // Treating any of those as the listener stopping announces that something
-  // took the sound at every chapter boundary, and writes that over the true
-  // reason in the one case where there is a true reason to give.
+  // took the sound, and writes that over the true reason in the one case where
+  // there is a true reason to give.
   //
-  // The guard is also what keeps the notification whole across a boundary:
-  // reporting "paused" mid-swap is the platform's cue that the book stopped,
-  // and it redraws the button, or worse decides the page is finished with the
-  // sound. The state only ever changes here for a pause that really happened.
+  // Three of those four used to happen at every chapter boundary all night.
+  // They do not any more — a boundary loads nothing and ends nothing — which
+  // makes this guard rare rather than unnecessary: a reload the network forced
+  // is still a real load with a real spurious pause, and reporting "paused" for
+  // it is the platform's cue that the book stopped, after which it redraws the
+  // button or decides the page is finished with the sound.
   if (swapping || player.ended || player.error) return;
   // A pause that got this far is one somebody made — a thumb, the lock screen,
   // the sleep timer, or an alarm taking the sound. None of them is a network to
@@ -1517,11 +1643,14 @@ player.addEventListener("pause", () => {
 });
 
 player.addEventListener("ended", () => {
-  // The backstop. The lead above normally takes the boundary first; this is
-  // for a chapter whose duration never became a number, or a file that runs
-  // out sooner than the database says it should. `ended` decides that a
-  // chapter is over, never the clock: a truncated encode becomes a skip rather
-  // than a book that hangs at 2am.
+  // The source ran out. What that means depends on what the source was, and
+  // there are exactly two answers: a chapter file ended, which is a boundary
+  // and is how boundaries are crossed when the book is played a file at a time;
+  // or the whole book ran out, which is either the end of it or the end of what
+  // has been read of it so far.
+  //
+  // `ended` decides that a file is over, never the clock: a truncated encode
+  // becomes a skip rather than a book that hangs at 2am.
   //
   // Unless the sound was already meant to be off, in which case there is
   // nothing left here to decide: whatever stopped it has said what happens
@@ -1535,7 +1664,12 @@ player.addEventListener("ended", () => {
   const next = manifest.chapters[current.idx + 1];
   const goodnight = sleepsAtChapterEnd();
   if (next && !goodnight) {
-    showChapter(locate(next.start_ms), { play: true });
+    // A chapter at a time: the next file, which is the ordinary boundary there.
+    // Under one URL per book it means the stream stopped short of a book that
+    // has grown since it was built — the render frontier — and the way on is
+    // the longer stream the manifest is now naming. Both are the same call
+    // because both are "load whatever holds the place we are going to".
+    loadSource(locate(next.start_ms), { play: true });
     return;
   }
   // The sound has stopped, whichever of the three reasons it was. A chapter
@@ -1585,8 +1719,8 @@ player.addEventListener("ended", () => {
 });
 
 player.addEventListener("error", () => {
-  // Whatever went wrong, the state machine must not be left mid-swap: with
-  // `swapping` stuck on, every later boundary would be ignored.
+  // Whatever went wrong, the state machine must not be left mid-load: with
+  // `swapping` stuck on, every later tick of the media clock would be ignored.
   swapping = false;
   pendingOffsetMs = null;
   // Same reason as at the end of the book: the pause that follows an error is
@@ -1770,7 +1904,7 @@ function sendPosition(reason) {
 }
 
 // The last word on a book the page is about to stop being on, sent while gid
-// is still that book's. Nothing else would ever say it: the pause a swap fires
+// is still that book's. Nothing else would ever say it: the pause a load fires
 // is swallowed as spurious, quite rightly, so a book left behind would keep
 // whatever position its last heartbeat happened to catch — up to fifteen
 // seconds of a book they were listening to a moment ago.
@@ -2369,7 +2503,7 @@ async function chooseCandidate(place) {
     console.error(error);
     return;
   }
-  // Hung off the swap having happened, for the same reason as above, and it
+  // Hung off the book having really opened, for the same reason as above, and it
   // really can not happen: a book whose first chapter has not been rendered yet
   // comes back from openBook having changed nothing but the status line, and
   // the page is still on the book it was on. "moved · playing" over a book that
@@ -2443,10 +2577,10 @@ document.addEventListener("visibilitychange", () => {
 // server has already written it — follow() gets away with opening a book and
 // applying nothing for precisely that reason. A chosen row has had nothing
 // written anywhere, so without this it would land wherever that book was last
-// left. It is applied before the chapter is shown rather than seeked to
+// left. It is applied before the source is loaded rather than seeked to
 // afterwards: a seek onto an element whose src was assigned a moment ago finds
-// readyState 0 and swaps the chapter a second time, which is two source
-// assignments and the media notification built twice for one press.
+// readyState 0 and loads it a second time, which is two source assignments and
+// the media notification built twice for one press.
 async function openBook(id, { play = false, at = null } = {}) {
   const response = await fetch(`api/book/${id}`);
   if (!response.ok) throw new Error(`no book ${id}`);
@@ -2508,7 +2642,7 @@ async function openBook(id, { play = false, at = null } = {}) {
   // this stays where it is rather than moving up to the top of the function.
   if (at !== null) untouched = false;
   playerBar.hidden = false;
-  showChapter(locate(positionMs), { play });
+  loadSource(locate(positionMs), { play });
 }
 
 async function openTheBook() {
@@ -3660,7 +3794,7 @@ async function askForMore() {
         // them into the new chapter by itself.
         if (player.ended && current?.idx === waiting.at) {
           const next = manifest.chapters[waiting.at + 1];
-          if (next) showChapter(locate(next.start_ms), { play: waiting.play });
+          if (next) loadSource(locate(next.start_ms), { play: waiting.play });
         }
         return;
       }
