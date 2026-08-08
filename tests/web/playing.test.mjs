@@ -629,3 +629,33 @@ test("a mark past the end of a re-rendered book lands at the end of it", async (
   // holding here.
   assert.equal(page.probe().through, "99.6875%");
 });
+
+// `weArePausing` is how the page tells its own pause from the platform's, and
+// it was raised by a pause that never happened. `pause()` on an element that is
+// already paused fires no event, so the flag stood — and the next pause the
+// platform really did make, which is a call arriving or audio focus going
+// elsewhere, was read as this page's own doing and explained to nobody.
+test("a pause of an already paused book does not swallow the next real one", async (t) => {
+  const page = await playing(t);
+  await page.settle();
+  assert.equal(page.audio.paused, false);
+
+  // Stopped, by this page, and the flag it raised is spent on this event.
+  page.click("playpause");
+  await page.settle();
+  assert.equal(page.audio.paused, true);
+  assert.equal(page.probe().status, "");
+
+  // Pressed again on a book that is already stopped. The lock screen sends
+  // `pause` whatever the element is doing — a headset button, a second thumb on
+  // a panel drawn a moment ago — and the page's own control cannot do this,
+  // because it toggles.
+  page.press("pause");
+  await page.settle();
+
+  // Now something else takes the sound. It has to be heard as the platform's,
+  // because it is.
+  page.audio.fire("pause");
+  await page.settle();
+  assert.equal(page.probe().status, "something else took the sound");
+});
