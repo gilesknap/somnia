@@ -390,7 +390,21 @@ process to deploy must not kill a render that is four hours in.
   the original choice on cost, and mostly held up, but it read a character's
   name as the title of a book somnia does not have and said so — a spoken
   half-sentence at 2am is exactly the disambiguation this is here to do. The
-  difference is a few cents a night.
+  difference is a few cents a night. Measured again on nuc2 (2026-08-08), with
+  a prompt that has been hardened a great deal since, Haiku 4.5 answers in
+  about a third of the time and no longer fails that case; it is worth a night
+  before ruling on, and the change is one environment variable.
+- **How long a turn takes is mostly the model deciding how hard to think.**
+  Retrieval is around a tenth of a second — the two searches, the sqlite-vec
+  lookup and the embedding of the question all together — and the rest of a
+  five-to-eight second answer is round trips to Anthropic. So the levers are
+  all on that side: `SOMNIA_AGENT_EFFORT` (default `medium`, down from the
+  API's `high`, worth about two seconds a turn), the constant half of the
+  system prompt cached across hops, and loading the embedding model at startup
+  rather than inside whichever question needs it first. Turning thinking off
+  altogether is faster again and is not done: a Sonnet 5 turn with no thinking
+  can write its tool call into the reply as prose instead of calling the tool,
+  which does not read as a failure — it reads as an answer.
 - MCP server: designed for, never built, and nothing needs it. A FastMCP
   wrapper over the tool layer would be a dev-time convenience only — the 2am
   surface is the page, and the tools are a library any test can call directly.

@@ -21,6 +21,7 @@ that is all: the renderer lives in its own systemd unit, so restarting this one
 never enter the process that answers the page. See ADR 5.
 """
 
+import asyncio
 import logging
 import sqlite3
 import threading
@@ -31,6 +32,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from anthropic import Anthropic
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
@@ -128,12 +130,42 @@ class Conversations:
         self._library = library
         self._lock = threading.Lock()
         self._by_token: OrderedDict[str, Conversation] = OrderedDict()
+        # One client for every conversation there will ever be, built once at
+        # startup. Each conversation used to make its own, and a client is a
+        # connection pool: the first question asked under a new token paid for
+        # a TLS handshake to Anthropic before it could pay for anything else.
+        # Starting over — which is one press, on the screen being typed into —
+        # made a new token, so the cost landed exactly where somebody had just
+        # said they were in a hurry.
+        self._client = Anthropic(api_key=cfg.anthropic_api_key or None)
+
+    def warm(self) -> None:
+        """Load the embedding model before anybody waits on it.
+
+        It is torch and a sentence-transformer, and it takes twelve seconds on
+        nuc2. Loaded lazily, that wait lands on the first question of the night
+        that searches anything — every time the unit restarts, which is every
+        deploy — and it lands *inside* the turn, so what it looks like is the
+        agent thinking for twenty seconds about "who is Ginger".
+
+        Called off the event loop at startup, so the page is served and the
+        book plays throughout: the only thing that waits on this is the first
+        search, which is the thing it exists to stop waiting.
+
+        Under the same lock every turn takes, because ``Library.embedder``
+        builds on first read and two threads reading it at once would build it
+        twice. A question that arrives mid-warm therefore waits for the load —
+        which is exactly what it did before this existed, and the last time it
+        will have to.
+        """
+        with self._lock:
+            _ = self._library.embedder
 
     def ask(self, token: str, question: str, gid: int | None = None) -> Turn:
         with self._lock:
             conversation = self._by_token.pop(token, None)
             if conversation is None:
-                conversation = Conversation(self._cfg, self._library)
+                conversation = Conversation(self._cfg, self._library, self._client)
             self._by_token[token] = conversation
             while len(self._by_token) > MAX_CONVERSATIONS:
                 self._by_token.popitem(last=False)
@@ -591,13 +623,23 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
 
     @asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncGenerator[None, None]:
-        """Hand the connections back when the server stops.
+        """Warm the embedder on the way up, hand the connections back on the way down.
 
-        Nothing is started here. No thread, no child process, no renderer: the
-        queue is drained by the ``somnia-worker`` unit, so this app is the same
-        cheap thing to start and stop that it was before the queue existed.
+        Still no renderer and no child process — the queue is drained by the
+        ``somnia-worker`` unit, and this app is the same cheap thing to start
+        and stop that it was before the queue existed. The one thing it now
+        starts is a thread that loads the embedding model, and it is a thread
+        rather than an await so that starting is still instant: the page, the
+        audio and the position reports are all being served while it loads, and
+        the only caller that meets it is a search, which would have paid the
+        whole cost itself.
         """
+        warming = asyncio.create_task(run_in_threadpool(conversations.warm))
         yield
+        # Cancelling rather than awaiting: a restart during those twelve
+        # seconds is somebody deploying, and they should not have to wait for a
+        # model to finish loading so that it can be thrown away.
+        warming.cancel()
         player.close()
         renders.close()
 
