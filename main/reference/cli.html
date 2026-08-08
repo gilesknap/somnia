@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Command line &#8212; somnia 0.7.dev8+g8f711e62e documentation</title>
+    <title>Command line &#8212; somnia 0.7.dev10+gfa40cccba documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=838345cf"></script>
+    <script src="../_static/documentation_options.js?v=8395aec1"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -505,11 +505,11 @@ therefore leaves a database behind whatever else happens.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="reference internal" href="#cli-catalog-update"><code class="docutils literal notranslate"><span class="pre">catalog-update</span></code></a></p></td>
-<td><p>Download the Gutenberg catalog</p></td>
+<td><p>Download both Gutenberg catalogs</p></td>
 <td><p>the network</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#cli-search"><code class="docutils literal notranslate"><span class="pre">search</span></code></a></p></td>
-<td><p>Find a book id in that catalog</p></td>
+<td><p>Find a book id in those catalogs</p></td>
 <td><p>a catalog</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#cli-add"><code class="docutils literal notranslate"><span class="pre">add</span></code></a></p></td>
@@ -555,16 +555,34 @@ file and no flag that overrides one. They are listed in
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>catalog-update
 </pre></div>
 </div>
-<p>Downloads the official Gutenberg CSV dump (~20MB) and replaces the local
-catalog table with it. Only rows of type <code class="docutils literal notranslate"><span class="pre">Text</span></code> with a title are kept.</p>
+<p>Downloads two lists and replaces the local catalog table with both of them:
+the official Gutenberg CSV dump (~20MB, only rows of type <code class="docutils literal notranslate"><span class="pre">Text</span></code> with a title),
+and <a class="reference external" href="http://gutenberg.net.au">Project Gutenberg Australia</a>’s plain-text index
+(~700KB, only books with an HTML edition).</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>catalog-update
-<span class="go">catalog updated: 76421 books</span>
+<span class="go">catalog updated: 80494 books (76421 from Project Gutenberg, 4073 from Project Gutenberg Australia)</span>
 </pre></div>
 </div>
+<p>The second library is worth the extra request because it barely overlaps the
+first: it clears books against Australian law rather than American, so about
+four fifths of it is not in the Gutenberg catalog at all. Orwell’s novels are
+there, and Fitzgerald’s uncollected stories, and several thousand pulp titles.
+Its ids start at 900,000,000 so that they cannot collide with Gutenberg’s own —
+see <a class="reference internal" href="#cli-search"><code class="docutils literal notranslate"><span class="pre">search</span></code></a> for what that looks like.</p>
 <p>It <strong>replaces</strong>, rather than merges: the table is emptied first, so a run that
 fails part way leaves you with what you started with, and a book that Gutenberg
-has withdrawn disappears from your catalog too. Nothing else needs the network,
-so after this the browsing is entirely offline.</p>
+has withdrawn disappears from your catalog too. Both downloads finish before
+anything is written, so a library that is unreachable costs you the whole
+update rather than half of one. Nothing else needs the network, so after this
+the browsing is entirely offline.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Project Gutenberg Australia clears its books against <strong>Australian</strong> copyright
+law, and says so: “it is possible that some eBooks which are public domain in
+Australia are still under copyright protection in other countries.” somnia does
+not filter on that, and cannot — the index carries no author death dates. If
+you are not in Australia, the check is yours to make.</p>
+</div>
 </section>
 <section id="search">
 <span id="cli-search"></span><h2><code class="docutils literal notranslate"><span class="pre">search</span></code><a class="headerlink" href="#search" title="Link to this heading">#</a></h2>
@@ -575,9 +593,15 @@ so after this the browsing is entirely offline.</p>
 most ten</strong> rows ordered by FTS rank. The <code class="docutils literal notranslate"><span class="pre">gid</span></code> in the first column is the only
 handle the rest of somnia uses.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>somnia<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;black beauty&quot;</span>
-<span class="go">   271  Black Beauty — Sewell, Anna</span>
+<span class="go">       271  Black Beauty — Sewell, Anna</span>
+<span class="gp">$ </span>somnia<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;nineteen eighty-four&quot;</span>
+<span class="go"> 910100021  Nineteen eighty-four — George Orwell  [PG Australia]</span>
 </pre></div>
 </div>
+<p>Both libraries answer one search, because the question is “what can I listen to
+tonight” and that has one answer. The library is named only when it is the
+Australian one: every line saying “Project Gutenberg” would be a column of
+noise, and a nine-digit id is the other tell.</p>
 <p>Words are ANDed: every term has to appear somewhere in the row. Punctuation is
 dropped rather than interpreted, so an apostrophe cannot produce a syntax error,
 and single-character fragments — the <code class="docutils literal notranslate"><span class="pre">s</span></code> left by a possessive — are thrown away

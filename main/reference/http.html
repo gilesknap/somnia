@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.7.dev8+g8f711e62e documentation</title>
+    <title>HTTP surface &#8212; somnia 0.7.dev10+gfa40cccba documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=838345cf"></script>
+    <script src="../_static/documentation_options.js?v=8395aec1"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -539,7 +539,7 @@ would tell you.</p>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
 <td><p>GET</p></td>
-<td><p>Books to add, from the local Gutenberg catalog</p></td>
+<td><p>Books to add, from the local catalog (both libraries)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>GET</p></td>
@@ -703,7 +703,7 @@ answer quickly.</p>
 <span class="w">  </span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;black beauty&quot;</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">&quot;entries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
-<span class="w">     </span><span class="nt">&quot;have&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">}</span>
+<span class="w">     </span><span class="nt">&quot;have&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gutenberg&quot;</span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
@@ -722,6 +722,12 @@ and <code class="docutils literal notranslate"><span class="pre">null</span></co
 <code class="docutils literal notranslate"><span class="pre">pending</span></code> book that has just been asked for again is coming. It travels with the
 row so a book that is already on its way is <em>marked</em> rather than offered and
 then refused.</p>
+<p><code class="docutils literal notranslate"><span class="pre">source</span></code> is which library the book came from — <code class="docutils literal notranslate"><span class="pre">gutenberg</span></code>, or <code class="docutils literal notranslate"><span class="pre">australia</span></code> for
+<a class="reference external" href="http://gutenberg.net.au">Project Gutenberg Australia</a>, whose ids start at
+900,000,000. The page names the second one on the row and says nothing for the
+first. It travels for the same reason <code class="docutils literal notranslate"><span class="pre">have</span></code> does: the two libraries clear
+their books against different countries’ copyright law, and that is worth
+knowing before the press rather than after it.</p>
 </section>
 <section id="get-api-queue">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code><a class="headerlink" href="#get-api-queue" title="Link to this heading">#</a></h2>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; somnia 0.7.dev8+g8f711e62e documentation</title>
+    <title>Architecture &#8212; somnia 0.7.dev10+gfa40cccba documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=838345cf"></script>
+    <script src="../_static/documentation_options.js?v=8395aec1"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -786,6 +786,7 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0007-a-second-library-under-the-same-ids.html">7. A second library, under the same ids</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 </ul>
 </details></li>
@@ -994,14 +995,18 @@ went to sleep at — is invalidated.</p>
 </section>
 <section id="what-is-stored">
 <h2>What is stored<a class="headerlink" href="#what-is-stored" title="Link to this heading">#</a></h2>
-<p>One sqlite file holds all of it: the Gutenberg catalog for browsing, the books
-and their chapter timelines, the indexed text windows, and the vectors.</p>
+<p>One sqlite file holds all of it: the catalog for browsing, the books and their
+chapter timelines, the indexed text windows, and the vectors.</p>
 <pre  class="mermaid">
         erDiagram
   catalog {
-    text gid &quot;FTS5, ~75k rows&quot;
+    text gid &quot;FTS5, ~80k rows&quot;
     text title
     text authors
+  }
+  catalog_urls {
+    int gid PK &quot;only where the address is not computable&quot;
+    text url &quot;Project Gutenberg Australia&quot;
   }
   books {
     int gid PK
@@ -1207,54 +1212,57 @@ fling them past the spoiler guard into the ending.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">catalog</span></code></p></td>
-<td><p>Gutenberg’s official CSV dump in FTS5 — browsing is offline, with no third-party API</p></td>
+<td><p>Both libraries’ published lists in one FTS5 table — browsing is offline, with no third-party API</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gutenberg</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pgau</span></code></p></td>
+<td><p>Project Gutenberg Australia’s plain-text index, and the offset ids that keep it out of Gutenberg’s way</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gutenberg</span></code></p></td>
 <td><p>Fetch the HTML edition, parse it into chapters of paragraphs</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">segment</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">segment</span></code></p></td>
 <td><p>Sentences (pysbd), and the overlapping windows the index is built from</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tts</span></code></p></td>
 <td><p>The <code class="docutils literal notranslate"><span class="pre">TTSEngine</span></code> protocol, and Kokoro-82M behind it</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">audio</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">audio</span></code></p></td>
 <td><p>Accumulate a chapter’s samples, track the clock, encode via ffmpeg</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">embed</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">embed</span></code></p></td>
 <td><p>e5-small-v2, with the asymmetric <code class="docutils literal notranslate"><span class="pre">query:</span></code> / <code class="docutils literal notranslate"><span class="pre">passage:</span></code> prefixes</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">index</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">index</span></code></p></td>
 <td><p>Store chunk embeddings; search one book, optionally bounded</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ingest</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ingest</span></code></p></td>
 <td><p>The streaming pipeline that joins all of the above — resumable, stoppable</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">queue</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">queue</span></code></p></td>
 <td><p>The ingest queue as pure functions: submit, claim, beat, stop, reconcile</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">worker</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">worker</span></code></p></td>
 <td><p>The supervisor and the one-book child that holds the lease</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">db</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">db</span></code></p></td>
 <td><p>The schema, the migrations, WAL, and loading sqlite-vec</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tools</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tools</span></code></p></td>
 <td><p>Everything the agent can do, as a plain library with no Anthropic import</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">agent</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">agent</span></code></p></td>
 <td><p>The system prompt and the tool-runner loop</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">player</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">player</span></code></p></td>
 <td><p>The fast lane: manifest, audio files, position reports</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
 <td><p>Starlette routes, conversation storage, the mounted page</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">abs</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">abs</span></code></p></td>
 <td><p>The Audiobookshelf client — a courtesy write and one seed-time read</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">web/</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">web/</span></code></p></td>
 <td><p>The PWA: <code class="docutils literal notranslate"><span class="pre">index.html</span></code>, <code class="docutils literal notranslate"><span class="pre">app.js</span></code>, <code class="docutils literal notranslate"><span class="pre">sw.js</span></code>, the manifest and icons</p></td>
 </tr>
 </tbody>
