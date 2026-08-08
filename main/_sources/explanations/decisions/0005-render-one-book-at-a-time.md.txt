@@ -147,8 +147,12 @@ grown to eight blocks and could not be read in the dark, and what fixed it was
 cutting on *when* each block is used: `Books` is the night half — the book
 playing and the shelf — at the player's own type size, and `Workshop` is the
 daytime half — the catalog search, the queue, the ended rows and the server
-note — smaller and denser than anything else in the app, behind a quiet row at
-the foot of `Books`. The two settings that were filed one to each screen are on
+note — smaller and denser than anything else in the app, behind a quiet
+`workshop ›` pill in `Books`' own top-right corner. That pill was a row at the
+foot of `Books`' scroller until 2026-08-08: quiet was right and still is, but a
+row under the shelf put the one control on that screen which is not about books
+behind every book that is, and a header is at the same reach whatever the shelf
+is doing. The two settings that were filed one to each screen are on
 a third, `Settings`, reached from the player's own top-right corner: both are
 set in the dark with the book playing, which is a fact about when they are used
 and not about what they are. The poll went with the queue, so
