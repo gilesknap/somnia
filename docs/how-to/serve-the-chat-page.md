@@ -271,9 +271,9 @@ again at once, so there is nothing to press.
 *books*, in the top left corner, opens a panel over the page. The book keeps
 playing underneath it, and *‹ controls* puts it away having changed nothing at
 all. What does change something is tapping a book — the one at the top, which
-starts the book already open, or one on the shelf, which opens that one. There
-are no buttons on this screen at all: every entry is opened by tapping the book
-itself.
+starts the book already open, or one on the shelf, which opens that one. No book
+on this screen carries a button of its own: opening one is the same gesture
+wherever it is in the list.
 
 It is a night screen, and everything on it is set at the player's own type size
 for that reason: it is read in the same dark, at the same arm's length, by
