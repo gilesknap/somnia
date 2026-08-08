@@ -3203,17 +3203,78 @@ body.keyboard-up .job-stop {
   color: var(--accent);
   font-size: 0.9rem;
   padding: 0.8rem 0.9rem;
-  /* Nothing to press, and for 2.8 seconds it is lying across the box and part
-     of the microphone. A reader who set the sleep timer and then reached for
-     the mic must reach the mic, not a sentence about what they just did — so
-     the press goes through it, the same way it goes through the dim layer and
-     for the same reason. */
+  /* The sentence on the left and the way back on the right, which is the only
+     arrangement that keeps the second one findable without looking: it is at
+     the same end of the box every time, and on the nights it is not there the
+     sentence does not move to fill the space it would have had. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  /* Nothing to press, and for its few seconds it is lying across the box and
+     part of the microphone. A reader who set the sleep timer and then reached
+     for the mic must reach the mic, not a sentence about what they just did —
+     so the press goes through it, the same way it goes through the dim layer
+     and for the same reason.
+
+     #toast-undo turns this back on for itself, and it is the only thing that
+     ever has. See below for why that is worth the hole it puts in the rule. */
   pointer-events: none;
   /* It arrives from below, in the direction of the press that caused it, and
      it is the only thing on the page that moves to arrive. 240ms: long enough
      to be seen starting, short enough that a sentence which stands for under
      three seconds is not still arriving. */
   animation: toast-rise 240ms ease-out;
+}
+
+/* The same trap as #toast above, and the same rule first: an author id rule
+   beats the browser's own [hidden] { display: none }, and forgetting it here is
+   a way back offered after every press that has none. */
+#toast-undo[hidden] {
+  display: none;
+}
+
+/* The one press inside the box, and the one hole in the rule above it.
+
+   For the six seconds it is up it is over part of the microphone, which is a
+   real cost and is why nothing else in here is ever pressable. It is worth it
+   because of what it undoes: `goto` is the only press in the app that throws
+   away a position, and the alternative route back is another semantic search.
+   Six seconds of a smaller mic against a night spent finding the place again.
+
+   Cream and not amber, and no box around it. Amber is what the page uses for
+   the thing it is asking you to do, and this is not that: the subject of the
+   sentence is where the book went, and this is only there in case it went
+   wrong. A hairline under the word is the whole of its decoration — enough to
+   read as a control at arm's length in the dark, quiet enough not to compete
+   with the amber beside it. */
+#toast-undo {
+  pointer-events: auto;
+  /* The design's 48dp, met by the box rather than by the word, and taken out
+     of the toast's own padding rather than added to it. Without the negative
+     margin the target sits *inside* the padding and the box comes out 80dp
+     tall — half again the height of every other sentence the page says, and
+     tall enough to reach the transport row it is lying over. With it, the box
+     keeps the height it has always had and the target grows into the padding
+     that was there anyway, which is space no other press wants.
+
+     `flex: none` so a long sentence takes the squeeze and the target never
+     does. */
+  flex: none;
+  min-height: 2.4rem;
+  margin: -0.8rem 0;
+  padding: 0 0.3rem;
+  display: flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  /* Against the box's own amber, which `button` inherits from #toast above and
+     which this one must not keep. */
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25rem;
 }
 
 @keyframes toast-rise {

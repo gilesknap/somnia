@@ -85,6 +85,11 @@ test("a sentence that goes away cannot erase one that has to stand", async (t) =
   page.click("sleep");
   assert.equal(page.probe().toast, "fading out in 15 min");
   assert.equal(page.probe().status, standing);
+  // And no way back beside it. The undo is on the one sentence that has
+  // something to undo — see choosing.test.mjs — and every other press the page
+  // reports is already undone by pressing the opposite thing. A sleep timer
+  // offering an undo would be a control for what the control beside it does.
+  assert.equal(page.probe().undo, false);
 
   page.wake(TOAST_MS);
   assert.equal(page.probe().toast, "");
@@ -94,10 +99,16 @@ test("a sentence that goes away cannot erase one that has to stand", async (t) =
 
   // And the press the instruction was asking for still lands. The layer is
   // over everything on the page, the toast is under it, and neither is allowed
-  // to be the thing a thumb hits instead of the book. For 2.8 seconds the
+  // to be the thing a thumb hits instead of the book. For its few seconds the
   // sentence lies across the box and part of the microphone, so nothing is
   // hung on it either — `pointer-events: none` in the sheet is the other half,
   // and that half is a render's to check.
+  //
+  // The box, not what is in it: #toast-undo is a real press and turns pointer
+  // events back on for itself, which is the one hole in the rule and is bought
+  // with the one thing on this page that cannot be undone. It is hidden here,
+  // as it is on every sentence but that one, so this box is a sentence and
+  // nothing else.
   assert.deepEqual(Object.keys(page.el("toast").handlers), []);
   page.audio.refuse = null;
   page.document.fire("pointerdown");
