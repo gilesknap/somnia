@@ -567,8 +567,11 @@ const BORN_HIDDEN = new Set([
   "candidates-book",
   "queue",
   // Workshop, which ships hidden like the two overlays above it and is the one
-  // of the three that can only be reached through another.
+  // of the four that can only be reached through another.
   "workshop",
+  // Settings, which ships hidden like the rest of them and is the one reached
+  // from the right-hand corner of the header rather than the left.
+  "settings",
   // The card the live rows sit in and the label over the rows that are over.
   // Both are in the document with nothing in them and both ship hidden, so a
   // page whose script has not run yet does not show a heading over an empty
@@ -988,6 +991,11 @@ globalThis.__page = {
     queueUp: !queuePanel.hidden,
     workshopUp: !workshop.hidden,
     queuePolling: queuePoll !== 0,
+    // And whether Settings is over the page. It is here for the same reason as
+    // the three above and for one of its own: it is the one overlay that asks
+    // the server nothing at all, so what a test has to be able to see is that
+    // opening and closing it left every other field in this object alone.
+    settingsUp: !settingsPanel.hidden,
     // Which of the two screens the page is on, and whether there is a keyboard
     // over whatever is showing. Two facts and not one: a keyboard over the books
     // panel is a keyboard with the player still behind it, and an overlay that

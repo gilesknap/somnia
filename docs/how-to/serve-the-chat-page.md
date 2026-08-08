@@ -197,15 +197,16 @@ the foot of *Books*, is where a book is *added*, and its search goes to
 Gutenberg's catalog rather than to your shelf.
 
 Those two are one screen each on purpose. **Books** is the night screen — which
-book, and how dark — and it is set at the same type size as the player, because
-it is read in the same dark without glasses. **Workshop** is the daytime one —
-find a book, have it read, watch it being made, and set how far a skip goes —
-and it is smaller and denser than anything else in the app, because it is read
-sitting up with the lights on.
+book — and it is set at the same type size as the player, because it is read in
+the same dark without glasses. **Workshop** is the daytime one — find a book,
+have it read, watch it being made — and it is smaller and denser than anything
+else in the app, because it is read sitting up with the lights on. The two
+things you can change about how the app behaves are on a third, **Settings**,
+which is a night screen and is reached from the player's top-right corner.
 
 On the page there are three buttons: back thirty seconds, play/pause, forward
-thirty seconds — or fifteen, or sixty, if you have said so in *Workshop* under
-*skip button size*; the labels say which. Most nights you will use none of them,
+thirty seconds — or fifteen, or sixty, if you have said so in *Settings* under
+*how far the skip buttons move*; the labels say which. Most nights you will use none of them,
 because the screen is off. With the phone locked the book is driven from the
 notification, the lock
 screen and whatever is paired over Bluetooth: play, pause, back and forward,
@@ -310,19 +311,16 @@ phone, and it is metadata about a book you already own and chose. The title is
 what you recognise a book you own by. Who wrote it appears in *Workshop*, where
 you are choosing among seventy thousand you do not.
 
-Under the shelf is *how dark*, which is the one setting that lives on a screen
-rather than in a list, and it lives here because the layer it moves is over this
-screen too: press *–* or *+* and the page you are looking at gets lighter or
-darker as you watch. It goes from nothing to rather dark in ten presses, and it
-cannot go dark enough to hide itself.
-
 Last, above a hairline and deliberately quiet, is the row to *Workshop*. Nothing
 behind it is a job for 2am.
 
+*how dark* used to sit under the shelf. It is on *Settings* now, which is a
+night screen too, so nothing it needed is lost — and this screen is back to
+answering one question.
+
 ## Adding a book, and watching it made: *Workshop*
 
-*Workshop — add books, settings*, at the foot of *Books*, and reachable no other
-way. *‹ books* comes back, and *Books* is exactly where you left it.
+*Workshop — add books*, at the foot of *Books*, and reachable no other way. *‹ books* comes back, and *Books* is exactly where you left it.
 
 This is the daytime screen and it is denser than anything else in the app,
 because it is read sitting up with the lights on — denser, and brighter. It is
@@ -379,22 +377,40 @@ which is what keeps every chapter that was finished playable and stops the
 index filling up with half a chapter. The row stays as the record of a render
 somebody stopped.
 
-At the foot is *skip button size* — fifteen, thirty or sixty seconds — which is
-what the two buttons either side of play on the player mean, and what they say.
-Set once, probably never again, which is exactly why it is here and not on a
-screen read at night.
-
 *Workshop* asks the server how things are going every five seconds while it is
 open, and stops the moment it is closed or the phone goes in a pocket. Nothing
 about the queue is polled otherwise — and since this is the only screen the
 queue is on, and it is two presses from the player behind a row that says
 *daytime*, no night has a five-second wake in it.
 
-There is no settings screen and there is not going to be one. The two things
-that wanted one are *how dark*, which is a night control and lives on *Books*
-where it can be judged against the dark page it is changing, and *skip button
-size*, which is configuration and lives here. Two controls that share nothing
-but being adjustable are not a screen.
+*Workshop* holds no settings. Both of them are on *Settings*, below.
+
+## Changing how it behaves at night: *Settings*
+
+*settings ›* in the top-right corner of the player — the corner that had been
+empty since *start over* moved to the chat screen. *‹ controls* comes back.
+
+It is a night screen in the night palette, which is the point of it rather than
+a default: both controls on it are reached for in the dark with the book
+playing, and one of them cannot be set anywhere else at all.
+
+*how dark the room* takes the page darker than the phone's own minimum
+brightness, by laying black over everything. Press *–* or *+* and the screen you
+are looking at gets lighter or darker as you watch — the layer is over this
+screen too, which is why it has to be set on a screen read in the dark. It goes
+from nothing to rather dark in ten presses, and it cannot go dark enough to hide
+itself.
+
+*how far the skip buttons move* — fifteen, thirty or sixty seconds — is what the
+two buttons either side of play mean, and what they say. It was in *Workshop*,
+on the argument that a thing set once is daytime configuration. That is wrong
+about when it is discovered: nobody decides thirty seconds is the wrong distance
+sitting up in daylight, they decide it lying in the dark with a narrator who
+leaves long gaps, having missed the same sentence twice.
+
+Both are written down and outlive the page. The sleep timer is the one setting
+that is not: it expires after six hours, because a timer is an intent about one
+night.
 
 ## Check screen-off playback before you trust a night to it
 

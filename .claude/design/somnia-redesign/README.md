@@ -49,7 +49,10 @@ bezel used to present the mock — discard it.
 **Player** (largest, deliberately): 38 book title / 31 transport numerals / 29 chapter title / 22 dock
 placeholder / 24 chapter count / 23 position · sleep timer / 21 chapter position / 19 chapter label /
 18 places count.
-**Other screens**: 34 page title / 30 mark time / 28 wake headline / 25 agent turn / 22 chat input ·
+**Places (a night screen — carries the player's weight)**: 34 title / 32 mark time / 24 revealed snippet /
+22 goto / 21 subhead · chapter · match strength · reveal prompt / 19 dividers and footnotes /
+13 mono fit tag.
+**Other screens**: 34 page title / 28 wake headline / 25 agent turn / 22 chat input ·
 revealed snippet · shelf title / 21 goto · secondary actions / 19 subhead · match strength · chapter /
 17 footnotes / 16.5–16 meta / 11–12 mono uppercase `.18em` section labels.
 **Nothing below 15dp**, and on the player nothing below 18dp.
@@ -57,7 +60,11 @@ revealed snippet · shelf title / 21 goto · secondary actions / 19 subhead · m
 The player runs a size or two larger than the list screens on purpose: it is the screen you read with one
 eye open. If a player value looks large next to a web app, it is correct — the first build came in too
 small across the board.
-Italic means exactly two things: narration text (revealed snippets), and prompts for text not yet revealed.
+Italic means exactly one thing: **short prompts and asides** — "tap to reveal", "every match below this line
+…", "set it here, where you can see it working". Never a block of narration. Italic serif at low light costs
+real legibility over more than a few words, and the revealed snippets on Places are the longest thing
+anybody reads on a night screen. They are **upright**; their quote marks already mark them as the book's
+words rather than somnia's.
 
 **Spacing** — 20dp screen gutters; 34dp between sections; 20dp between chat turns; 12dp between sibling
 controls; 16–18dp row padding.
@@ -72,6 +79,33 @@ No spring, no bounce, nothing over 300ms.
 **Dim overlay (new, global)** — a full-screen black layer above all content, `pointer-events` off, opacity
 from a user setting (default 0.12, range 0–0.6, 300ms transition). This lets the app go darker than the OS
 minimum brightness. Implement as an overlay layer, not by touching screen brightness.
+
+**Row versus button — when a list row is the target and when it needs a button.** Three screens do this
+differently and it is one rule, not three decisions:
+
+> A row is tappable as a whole when it has **exactly one** action. It needs an explicit button when it has
+> **two**, or when the action is **not "open this"**.
+
+- **Books shelf / reading now** — one action (play this book). The whole row is the press, no button.
+- **Places** — two actions (reveal the text, go there). They must be separate targets: revealing must never
+  move playback. The `goto` button is what keeps them apart.
+- **Workshop results** — the row is not something you can open; it is a candidate, and the action spends
+  server time turning it into audio and is not undoable in one press. That earns an explicit button.
+
+Apply the rule to any new list rather than copying whichever screen was looked at last.
+
+**Undo on `goto`.** `goto` is the last destructive press in the app: it discards the position, and the only
+route back is another semantic search — the expensive thing this whole app exists to avoid. So the toast that
+confirms it carries an **`undo`** for **6 seconds** (longer than the standard 2.8s), which restores the
+previous position exactly. Toast copy becomes `moved to 1:20:20` — naming where it went, so the toast is
+also a receipt — and `undo` sits at the right of it as a 48dp target, cream with a hairline underline rather
+than amber, because it is a way back and not the subject of the sentence. Undoing says `back where you were`.
+The same treatment is worth having on a mis-tapped shelf row, which is cheaper (positions are per book) but
+not free.
+
+**Sleep timer counts down.** The pill shows **remaining** time, live — `sleep timer · 24 min left`, dropping
+to `· 45s left` under a minute — not the interval it was set to. "30 min" is ambiguous at 1am: total, or
+left? Only remaining answers the question anybody is actually asking.
 
 **Toast (new or restyled)** — bottom-anchored, 20dp side insets, 26dp from bottom, 1px
 `rgba(200,135,60,.35)`, background `#150f06`, 14dp radius, 18dp `#c8873c`, rises 240ms, auto-dismisses at
@@ -112,11 +146,17 @@ your call.
      `rgba(230,220,200,.16)`, 16.5dp `rgba(230,220,200,.6)`, preceded by a 6dp right-pointing caret.
      Selected: border `rgba(200,135,60,.5)`, bg `rgba(200,135,60,.07)`, text `#c8873c`. In a 48dp target.
      (It was previously indistinguishable from the wordmark, so nobody found it.)
-   - Center: wordmark `somnia`, 18dp, `letter-spacing:.3em`, `rgba(230,220,200,.4)`, **not tappable**.
+   - Center: wordmark `somnia`, 18dp, `letter-spacing:.3em`, `rgba(230,220,200,.4)`, **not tappable** — and
+     **only on the screens that have no title of their own**, which is the player and chat. Books, Places and
+     Workshop each open with their own 30–34dp heading one line below the header, so the wordmark there is
+     the one item on the row doing no job — and on Books, where the header carries two pills, three items at
+     this type scale do not fit 344dp (101 + 85 + 114 = 300 with the wordmark overlapping the right pill).
+     Same failure as the Places rows and the reading-now buttons: at this scale, two items per row.
      Absolutely centered — and because the letter-spacing adds a trailing gap the browser counts in the
      box, offset by **+.15em** so the glyph run is optically centred. (Layout-centring it looks wrong.)
-   - Right: **empty on the player**; on chat, a matching 36dp `start over` pill (same pill spec as the left
-     one) that clears the thread. Header is present on **every** screen.
+   - Right: **empty on the player** — and it stays empty; on chat, a matching 36dp `start over` pill (same
+     pill spec as the left one) that clears the thread and the agent's context; on Books, a `workshop ›`
+     pill. Header is present on **every** screen.
 5. **Replace the post-fade banner with the Wake screen** (below). Do not show a prompt inline on the
    player — it compresses everything under it.
 6. **Nothing sits above the book title.** No last placement line, no agent reply, no status text — the space
@@ -282,9 +322,14 @@ no replies.
    it works alongside the header pill (a tap and a scroll drag are distinguishable, so scrollback is
    unaffected). Keep the thread pinned to its newest turn on open and on every reply. Foot of thread carries a faint italic 15.5dp
    `rgba(230,220,200,.22)`: "tap anywhere here to go back to the controls".
-3. **Route ambiguity to the Places page instead of showing candidate cards in the thread.** Chapter totals
-   everywhere (player and Books) must come from **one** value — the prototype had them disagree (37 vs 54)
-   and it is exactly the kind of thing that gets ported twice.
+3. **Route ambiguity to the Places page instead of showing candidate cards in the thread.**
+
+   **Counts and totals must each come from ONE source.** Two have already gone wrong twice: the chapter
+   total (the prototype once said 37 in one place and 54 in another) and the **places count** — the chat
+   pill said "see all 7 places" while the player's line said "4 places found" and Places itself showed 4,
+   because the cap and the label were computed separately. Derive every places count from the same capped
+   value (`min(results, 4)`) and every chapter total from the same field. A literal number in a label is
+   the bug.
    - Confident (one good answer): agent replies in words ("Chapter two, about nine minutes in. Moving there
      now."), then ~900ms later seeks, returns to the player, plays, toasts "moved · playing".
    - Ambiguous: agent replies "I can't narrow that to one place. Three of your marks fit — I'll show you
@@ -304,14 +349,14 @@ tags simply don't render — the page still works.
 The disambiguation surface, and also reachable any time from the player's position line. Header shown, with
 its left pill reading `‹ controls`.
 
-- Title `Places you might be` 34dp — `Places that match` when answering a query. Subhead **19dp** `rgba(230,220,200,.4)`:
+- Title `Places you might be` 34dp — `Places that match` when answering a query. Subhead **21dp** `rgba(230,220,200,.45)`:
   default "Everywhere in this book that sounds like what you remembered. Text stays hidden until you ask for
   it."; after a query, "“…” sounds like any of these. Text stays hidden until you ask for it." Do not quote a
   result count — the list is capped and windowed, so a count would misdescribe it.
 - **Chronological, always.** Never sort by confidence — the ordering is what makes the spoiler rule legible.
 - **"You are here" divider**, inserted before the mark containing the current position: 11dp mono,
   uppercase, `.18em`, `#c8873c` — `you are here · 1:12:08` — then a 1px `rgba(200,135,60,.35)` rule, then
-  italic **17dp** `rgba(230,220,200,.3)`: "every match below this line you may not have heard yet".
+  italic **19dp** `rgba(230,220,200,.35)`: "every match below this line you may not have heard yet".
 - **Lead-rule fallback**: if no shown result falls at or before the current position, render that same rule
   **above the list** instead of between rows. The spoiler boundary must exist on every rendering of this
   screen — it is the reason the list is chronological.
@@ -325,22 +370,24 @@ its left pill reading `‹ controls`.
   at 360dp wide, time + chapter + a `goto` pill on one line forces the chapter label to truncate
   ("Ch 2 · 02 The Hu…") and squeezes the snippet into a narrow column that clips mid-sentence. The row is a
   full-width stack instead, with **two independent targets**:
-  - **Reveal** — the whole text stack, full width, one tap target. Optional amber fit tag (12dp mono
+  - **Reveal** — the whole text stack, full width, one tap target. Optional amber fit tag (**13dp** mono
     uppercase, e.g. `most likely · fits what you said`), then:
-    - time **30dp**, own line, `white-space: nowrap` (`#c8873c` if current, else `rgba(230,220,200,.85)`)
-    - chapter **19dp** `rgba(230,220,200,.4)` on its own line — full width, so it never truncates
-    - **match strength** **19dp** — `strong match` in `rgba(200,135,60,.8)`, `possible match` / `faint match`
+    - time **32dp**, own line, `white-space: nowrap` (`#c8873c` if current, else `rgba(230,220,200,.85)`)
+    - chapter **21dp** `rgba(230,220,200,.45)` on its own line — full width, so it never truncates
+    - **match strength** **21dp** — `strong match` in `rgba(200,135,60,.8)`, `possible match` / `faint match`
       in `rgba(230,220,200,.38)`. Every row on this screen is a **semantic search hit**; there are no
       pause/fade/audio-stopped marks, so do not label rows by provenance
-    - hidden, before your position: `tap to reveal`, italic 19dp `rgba(230,220,200,.3)`
-    - hidden, **after** your position: `tap to reveal · may spoil`, italic 19dp `rgba(200,135,60,.5)`
-    - revealed: the narration text, italic **22dp**, line-height 1.5, `rgba(230,220,200,.62)`, 200ms fade,
-      **full width and not truncated** — show the whole sentence or do not show the mark
+    - hidden, before your position: `tap to reveal`, italic 21dp `rgba(230,220,200,.3)`
+    - hidden, **after** your position: `tap to reveal · may spoil`, italic 21dp `rgba(200,135,60,.5)`
+    - revealed: the narration text, **upright — not italic** — at **24dp**, line-height 1.5,
+      `rgba(230,220,200,.72)`, 200ms fade, **full width and not truncated**: show the whole sentence or do
+      not show the mark. This is the longest text on any night screen and the one somebody is actually
+      reading; it was italic at 22dp/.62 and could not be read in a dark room.
   - **`goto`** — on its own line beneath, right-aligned: 132dp min width, **64dp** tall, 99 radius, 1px
-    `rgba(230,220,200,.16)`, 21dp `rgba(230,220,200,.6)`, active bg `rgba(200,135,60,.1)`. Current row
+    `rgba(230,220,200,.16)`, 22dp `rgba(230,220,200,.6)`, active bg `rgba(200,135,60,.1)`. Current row
     reads `here` in amber. Separate from the reveal target **on purpose**: revealing must never move
     playback. (The word is "goto", not "jump" — "jump" reads like ±30s.)
-- Foot note, 17dp: "tap a place to reveal what is said there · tap goto to move".
+- Foot note, 19dp at `.3`: "tap a place to reveal what is said there · tap goto to move".
 - **No bottom close button.** Leave via the header's `‹ controls` pill — the same gesture in the same place
   on every screen. End the scroller with ~28dp bottom padding so the last row is not against the frame.
 - `goto` seeks, returns to the player, plays, clears the fit tags, toasts.
@@ -383,7 +430,9 @@ Night. Reached from the player's left pill (which now reads `books ›`). Header
    - Title 29dp in **`#c8873c`** — amber is what marks it as the current book, and it is the only amber
      title in the app. The shelf below is ink.
    - Meta 21dp `rgba(230,220,200,.42)`: `chapter 4 of 54 · picks up at 1:12:08`, or `chapter 4 of 54 ·
-     playing`.
+     playing`. Use **`in`** rather than `listened` if you show elapsed time (`1h12m in`) — nothing stores
+     how long anybody has listened, so `listened` would be a claim about a night nobody recorded. Where no
+     chapter total exists, say `chapter 4` and stop rather than `4 of 0`.
    - 2dp progress hairline with an amber fill.
    - The whole block is one target (12dp top / 20dp bottom padding) → opens the book on the player.
    **There is no `pick it up` button, and no `put it down` either — the block has no controls at all.**
@@ -398,17 +447,34 @@ Night. Reached from the player's left pill (which now reads `books ›`). Header
    control whose only outcome is an empty `reading now` heading is a control that exists to undo itself.
    (Keep the empty state in the code — italic 23dp "nothing on the go — pick something below" — for a fresh
    install or a library whose current book was deleted. It is a state, not a destination.)
-3. **on the shelf** — rows of title **26dp**, meta **19dp**, 2dp progress hairline, 20dp vertical padding;
-   tap opens that book on the player. **No cover art** — bright rectangles in a dark room, and four lines of
+4. **on the shelf** — rows of title **26dp**, meta **19dp**, 2dp progress hairline, 20dp vertical padding;
+   tap opens that book on the player. A book with no audio yet (still rendering, or a render that died) is a
+   row with **no press**, marked the way search results mark a book already present — a press that was never
+   available cannot be a press that did nothing. Omit the progress bar while a book is still arriving:
+   `total_ms` is how much audio exists, so a bar drawn from it reaches the end at chapter 5 of 37 and then
+   walks backwards. **No cover art** — bright rectangles in a dark room, and four lines of
    text scan faster half-asleep.
-4. **how dark** — the dim control, and it lives *here* rather than in settings. It is the one setting
-   changed at night, and it can only be judged against the dark UI you are actually looking at; a slider on
-   another screen is a slider set blind. Two 64dp circles (`–` / `+`, 26dp glyphs, 0.06 steps, range
-   0–0.6) either side of a 2dp amber-filled track, with italic 17dp beneath: "set it here, where you can see
-   it working". The dim overlay updates live as it changes.
-5. **Workshop row** — a single 64dp row above a hairline: `Workshop — add books, settings` 21dp
-   `rgba(230,220,200,.5)` with a right caret. The only route to Screen 6. Deliberately at the very bottom
-   and deliberately quiet: nothing behind it is a night job.
+3. **how dark the room** — the dim control, **between `reading now` and the shelf**, above a hairline. Two
+   64dp circles (`–` / `+`, 26dp glyphs, 0.06 steps, range 0–0.6) either side of a 2dp amber-filled track.
+   The overlay updates live as it changes, which is the whole reason it is on a night screen: it can only be
+   judged against the dark UI you are actually looking at, and a slider anywhere else is a slider set blind.
+
+   **Above the shelf, not below it.** It was at the foot of the scroller, which on a twenty-book library put
+   the only light control in the app behind twenty rows of scrolling — the same mistake as the Workshop row.
+   Its place in the order is also an argument: `reading now` and `how dark the room` are both *the state of
+   tonight*, and the shelf is a list of other nights.
+5. **`workshop ›` in Books' own header**, right corner — the same 36dp pill spec as `‹ controls` opposite
+   it, with the caret pointing forward. That corner is empty on Books (`start over` is chat-only), and this
+   is what it is for.
+
+   It was a row at the foot of the scroller, below the shelf. That was wrong for a reason that is not
+   discoverability: it meant scrolling past every book to reach the one thing on the screen that is not about
+   books. A header pill is reachable without scrolling, sits where every other cross-screen move in this app
+   sits, and is still one screen further from the thumb than the player.
+
+   **Not in the player's empty corner.** That was asked for and refused: Workshop is the daylight screen, and
+   a mis-tap at 3am puts a full-brightness daytime palette in a dark-adapted eye — which costs a minute of
+   night vision, the one thing this whole app is arranged around protecting. The corner stays empty.
 
 **Not on this screen**: search, ingest, the render queue, the server note, jump size. All of it moved.
 
@@ -425,6 +491,10 @@ a dark room and dilated pupils; carried into daylight on a phone at partial brig
 is not dim, it is invisible — and because the whole screen was drawn from the quiet end of the scale, there
 was no hierarchy either: everything faint, nothing leading.
 
+Implement it as a **token override scoped to the Workshop element** — redeclare the palette custom
+properties on `#workshop` so everything inside inherits daylight values and nothing outside it can. That is
+better than per-element day colours: the components keep one set of rules and the screen supplies the light.
+
 Daytime ink, on the same `#0b0a09` ground:
 
 | Role | Night value | **Workshop value** |
@@ -434,7 +504,12 @@ Daytime ink, on the same `#0b0a09` ground:
 | Section labels | .3 | **.55** |
 | Hairlines / dividers | .07 | **.12–.18** |
 | Accent | `#c8873c` | **`#e8a45c`** (lifted; the night amber goes muddy in daylight) |
-| Control surfaces | `#16151b` | **`#211f28`**, with a `rgba(244,236,224,.14)` edge |
+| Control surfaces | `#16151b` | **`#211f28`** (active `#2b2934`), with a `rgba(244,236,224,.14)` edge |
+| Accent surface | `#241a08` | **`#3a2a15`** |
+| Accent edge / tint | `.4` / `.07` | **`.75`** / **`.16`** |
+
+The control edge is the one addition rather than a substitution: on near-black a filled slab is already a
+control, and in daylight the fill alone stops saying so.
 
 - **The dim overlay is 0 on this screen.** Dimming a daytime screen is actively wrong, and with the overlay
   at a user-chosen 0.4 the screen was unreadable no matter what the ink did.
@@ -457,11 +532,45 @@ Daytime ink, on the same `#0b0a09` ground:
    *ended in the last day* list and the server note belong here too, under the same heading group.
 4. **skip button size** — three segmented options (`15s` / `30s` / `60s`), 52dp tall with **18dp** labels,
    selected one `#e8a45c` with a `rgba(232,164,92,.16)` fill and a `.75` edge; the footnote beneath is
-   **16dp** italic at `.5`. Drives the player's `−30`/`+30` labels. Set once, maybe never — which
+   **16dp** italic at `.5` and reads "how far the −/+ buttons move on the player." — it does not cross-refer
+   to the dim control, for the reason below. Drives the player's `−30`/`+30` labels. Set once, maybe never — which
    is exactly why it is here and not at night.
 
-Settings is **not a screen**. It is two controls that do not belong together: dim is a night control and
-lives on Books; jump size is configuration and lives here. Do not build a settings surface to hold them.
+Workshop holds **no settings**. Both controls are on Screen 7.
+
+---
+
+## Screen 7 — Settings · *"change how it behaves at night"*
+
+**A night screen**, in the night palette, reached from the **player's top-right corner** — the corner that
+had been empty since `start over` moved to chat. Left pill `‹ controls`. Its own 34dp `Settings` title, so
+no wordmark.
+
+1. **how dark the room** — two 64dp circles (`–` / `+`, 26dp glyphs, 0.06 steps, range 0–0.6) either side of a
+   2dp amber-filled track. Note beneath, italic 19dp: "darker than the phone will go on its own. It changes
+   as you press, so you can see it." The overlay updates **live** — that is what makes this control belong on
+   a night screen at all.
+2. **how far the skip buttons move** — three options (`15s` / `30s` / `60s`), **64dp** tall with 22dp labels,
+   selected one amber with a `rgba(200,135,60,.07)` fill. Note beneath names the buttons it changes: "the
+   −30 and +30 buttons either side of play."
+
+### Why this exists, having twice been argued against
+
+Earlier drafts refused a settings screen twice: first because two controls did not seem to justify one, then
+because dim and jump size seemed to belong to different times of day — dim at night where it can be judged,
+jump size in daylight as configuration. Both arguments were wrong, and the second was the load-bearing one:
+
+- **Jump size is a night control.** You discover 30s is wrong for a particular narrator while lying there
+  listening to them, not sitting up in daylight. Splitting it away from dim on a day/night axis put it on the
+  wrong side of a line it does not cross.
+- **A settings page is where the third control goes without an argument.** With no such page, a new control
+  has to be argued onto whichever screen is nearest — which is exactly how the old Library panel grew to
+  eight blocks. A place that scales is worth more than a screen saved.
+- **It is the pattern people already know.** "Where are the settings?" is a question this app was making
+  unanswerable on purpose, which is a poor trade for one fewer screen.
+
+What survives from those arguments is the *palette*: this is a night screen, not a daylight one like
+Workshop. It is used in the dark, and dim in particular can only be judged against a dark UI.
 
 ## Implementation status (synced from gilesknap/somnia, 2026-08-08)
 
@@ -478,9 +587,22 @@ Not implemented, deliberately or otherwise:
 - **Wake screen** — the post-fade prompt has no implementation. See Screen 2b; it is still the design.
 - **Books / Workshop split** — the single Library panel is still one screen doing eight jobs, at a type size
   that could not be read in the dark in real use. Screens 5 and 6 replace it.
-- **Settings** — dim level and jump size have no home, so `#dim` is fixed at 0.12 for everyone. They do not
-  get a settings screen: dim goes on Books, jump size goes in Workshop. See Screens 5 and 6.
-- **Chat still carries play/pause and ±30** — remove them; see Screen 3.
+- **Settings (Screen 7)** — not implemented. `#dim` is fixed at 0.12 for everyone and jump size has no
+  control. Both belong on a new **night** Settings screen reached from the player's top-right corner; earlier
+  drafts of this doc said otherwise and were wrong (the reasoning is recorded under Screen 7).
+- **OS font scale is pinned and does not reach the app.** Verified on device: changing Android's font-size
+  setting has no effect on somnia's type. The cause is the 20px root — a root set in **px** fixes what
+  `1rem` means, so every rem-sized element stops tracking the user's setting, which is the one accessibility
+  control that matters most to this app's own reader. Express the root as a **percentage or a rem** instead
+  (`html { font-size: 125% }` gives the same 20px baseline while staying relative to whatever the user
+  chose), then re-check the player at the largest setting: the three-spacer floors (12/14/14) and the
+  two-line clamps on both titles are what absorb the growth, and the 84dp transport slabs are the thing that
+  will not shrink. This is the one claim in the conformance table that nothing currently verifies.
+- **`start over` (chat)** — keep it, and **confirmed implemented**: the press clears the agent's context as
+  well as the visible thread. That, not the tidying, is what earns it a place — the agent carries previous
+  turns, and this is the only way to tell it to stop following a line of questioning that has gone wrong.
+  Worth keeping in mind for the copy: "start over" is doing more than it says, and it is the one control in
+  the app whose effect is invisible.
 - **Sleep-timer default** — correctly dropped. It contradicted the six-hour expiry on a stored timer, which
   is the better behaviour: a timer is an intent about tonight, and persisting it would end a later night
   early. Do not reintroduce it.

@@ -173,6 +173,20 @@ PANELS = {
                 None,
             ],
         ],
+    },
+    # Settings, the third night screen, and the one overlay with no list on it
+    # at all: two controls and the sentences under them. It is raised over the
+    # player rather than over Books — the pill that opens it is in the player's
+    # own top-right corner — so nothing under it is unhidden here.
+    #
+    # The dim layer stays exactly where the fixture put it. This screen is read
+    # through it like every other night screen, and a render with the layer off
+    # would be a picture of the one thing the control cannot do.
+    "settings": {
+        "unhide": ["settings"],
+        # A fifth of the way up the range, so the track is neither empty nor
+        # full and can be seen to be a readout.
+        "styles": {"dim-fill": {"width": "20%"}},
         # 30 is the shipped default, and the render has to show which of the
         # three is lit or the control photographs as three identical pills.
         "chosen": "jump-30",

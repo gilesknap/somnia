@@ -105,16 +105,25 @@ const shelf = document.getElementById("shelf");
 // Whether that shelf is what somnia has or the last thing it said before the
 // tailnet went. Its own line, on its own screen — see askForTheShelf.
 const shelfNote = document.getElementById("shelf-note");
+// Settings, the third night screen, and the pill in the player's other corner
+// that is the only way to it. It holds the two controls that had nowhere to be —
+// how dark the room is, and how far `−30` and `+30` move — and it is a night
+// screen rather than part of Workshop because both of them are reached for in
+// the dark with the book already playing.
+const settingsPanel = document.getElementById("settings");
+const settingsClose = document.getElementById("settings-close");
+const toSettings = document.getElementById("to-settings");
 // The page's second voice, and the sheet of black over the whole of it.
 const toastLine = document.getElementById("toast");
 const dimLayer = document.getElementById("dim");
-// The two presses that move that sheet, and the readout between them. On Books
-// rather than on a settings screen, because the layer is over Books too: this is
-// the one setting that is judged by looking at what it is doing.
+// The two presses that move that sheet, and the readout between them. On a
+// night screen, which is the whole of what makes a settings surface safe to set
+// this from: the layer is over Settings exactly as it is over the player, so
+// every press dims the page the press is on.
 const dimDown = document.getElementById("dim-down");
 const dimUp = document.getElementById("dim-up");
 const dimFill = document.getElementById("dim-fill");
-// What `−30` and `+30` mean, set in Workshop and read on the player. Kept by
+// What `−30` and `+30` mean, set on Settings and read on the player. Kept by
 // their value rather than in an array of elements, because what the rest of this
 // file asks is "which one is 30?" and never "which one is second?".
 const jumpButtons = new Map([
@@ -195,10 +204,11 @@ function forgetToast() {
 // was in a pocket. Unlike the timer it never goes stale — a room that was dark
 // last night is dark tonight.
 //
-// What writes it is `how dark` on Books, which is on that screen rather than on
-// a settings surface because the layer is over that screen too. Every press
-// dims the page it is being set on, so the right level is the one it looks
-// right at, and there is nothing to picture from a number.
+// What writes it is `how dark the room` on Settings, and the only thing that
+// screen had to be for this to be safe is a night screen: the layer is over it
+// exactly as it is over the player, so every press dims the page it is being set
+// on, the right level is the one it looks right at, and there is nothing to
+// picture from a number.
 const DIM_KEY = "somnia-dim";
 const DIM_DEFAULT = 0.12;
 // Past this the page stops being readable, and the control that would turn it
@@ -282,7 +292,14 @@ dimUp.addEventListener("click", () => setDim(dimLevel + DIM_STEP));
 
 // ---------------------------------------------------------- how far a skip is
 //
-// What `−30` and `+30` mean, chosen once in Workshop and read on the player.
+// What `−30` and `+30` mean, chosen on Settings and read on the player.
+//
+// It was chosen in Workshop, on the argument that a thing set once is
+// configuration and configuration is daytime work. What that got wrong is when
+// it is discovered: nobody decides thirty seconds is the wrong distance sitting
+// up in daylight — they decide it lying in the dark, having missed the same
+// sentence twice with a narrator who leaves long gaps. A control found at 2am
+// and settable only by daylight is one nobody gets round to.
 //
 // Beside the dim level in localStorage and for the same reason: it is a fact
 // about how this person uses the app, not about tonight. The sleep timer is the
@@ -298,8 +315,8 @@ const JUMP_DEFAULT = 30;
 
 let jumpStep = JUMP_DEFAULT;
 
-// The two labels on the most-pressed row in the app, and the three pills in
-// Workshop that set them.
+// The two labels on the most-pressed row in the app, and the three pills on
+// Settings that set them.
 //
 // Built as one string each rather than a sign beside a number: the design asks
 // for that everywhere on this page, and the reason is that two flex children
@@ -2805,6 +2822,12 @@ let picking = 0;
 // press is itself the touch the platform was waiting for, so what close would
 // hand back is a listener over a book that is already sounding.
 let rearmOnQueueClose = false;
+// And the same borrowing for Settings, which is its own flag rather than a
+// share of that one because the two screens can be opened from different
+// corners of different screens and a single flag would have one of them handing
+// back a listener the other had already spent. Nothing on Settings starts the
+// book, so unlike the panel's this is only ever spent by the way out.
+let rearmOnSettingsClose = false;
 
 function ordinal(n) {
   const tens = n % 100;
@@ -3652,10 +3675,41 @@ function hideWorkshop() {
   queueQuery.value = "";
 }
 
+// Settings, from the player's other corner. The quietest open and close on the
+// page: nothing is fetched, nothing is polled, nothing is forgotten on the way
+// out — both controls on it write straight through to localStorage, so there is
+// no state here that a close could drop or a re-open could bring back stale.
+//
+// The dim layer stays exactly where it is. This is a night screen and is read
+// through it like everything else but Workshop, which is the whole reason the
+// dim control can live here: a press moves the darkness of the screen doing the
+// pressing.
+function showSettings() {
+  if (!settingsPanel.hidden) return;
+  settingsPanel.hidden = false;
+  // The same borrowing Books does. A page that could not start its sound is
+  // waiting for a touch anywhere, and every control on this screen is a touch —
+  // so the first press on `+` would start the book as well as darken the room,
+  // which is a thing nobody asked for at the moment they are trying to make the
+  // screen quieter. It goes back on the way out, where it is true again.
+  rearmOnSettingsClose = tapToResume !== null;
+  disarmTapToResume();
+}
+
+function hideSettings() {
+  if (settingsPanel.hidden) return;
+  settingsPanel.hidden = true;
+  const rearm = rearmOnSettingsClose;
+  rearmOnSettingsClose = false;
+  if (rearm) armTapToResume();
+}
+
 booksButton.addEventListener("click", showQueue);
 queueClose.addEventListener("click", hideQueue);
 toWorkshop.addEventListener("click", showWorkshop);
 workshopClose.addEventListener("click", hideWorkshop);
+toSettings.addEventListener("click", showSettings);
+settingsClose.addEventListener("click", hideSettings);
 
 // The press that starts the book already open, and one of the two ways out of
 // this panel that are not `close`. It is the whole `reading now` block — title,

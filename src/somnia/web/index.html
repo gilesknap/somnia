@@ -86,7 +86,16 @@
          denser, and brighter, which is the half that took a second pass to get
          right. It is reached only from the quietest row at the foot of Books,
          and its way out says `‹ books` rather than `‹ controls`, because that
-         is where it goes. -->
+         is where it goes.
+
+         And a fourth — #settings, before Books in the file — which is the only
+         one of them opened from the right-hand corner of the header rather than
+         the left. It holds the two controls that had nowhere to be: how dark
+         the layer over the whole app is, and how far `−30` and `+30` move.
+         Both are set in the dark with the book playing, so it is a night screen
+         in the night palette, and both of them used to be filed by an argument
+         about which existing screen they least spoiled. -->
+
 
     <!-- Two corners and the name between them. The row is the same row on both
          screens — 48dp, the wordmark across the middle of it — and which pill
@@ -126,14 +135,24 @@
          corner where the wrong press opens a panel over a playing book instead
          of putting a keyboard away.
 
-         The right corner is `start over`, and it is on chat and nowhere else.
-         It is still the one control on the page that throws something away, and
-         what it throws away is still the conversation and never the book's
-         position. On the player it is not quiet, it is absent — a press that
-         destroys anything has no business in the top corner of the screen
-         somebody taps half asleep — and one press is enough now precisely
-         because the only screen it is on is the one where nothing is lost but
-         questions that can be asked again. -->
+         The right corner is `start over` on chat and `settings ›` on the
+         player, and the two of them are the same argument from opposite ends.
+         `start over` is still the one control on the page that throws something
+         away, and what it throws away is still the conversation and never the
+         book's position — so it is on the one screen where nothing is lost but
+         questions that can be asked again, and it is absent rather than quiet
+         everywhere else. A press that destroys anything has no business in the
+         top corner of the screen somebody taps half asleep.
+
+         Which is exactly what makes that corner right for settings. This corner
+         was empty for as long as the only thing anybody proposed for it was
+         destructive or daylight — `start over` was here and left, and Workshop
+         was asked for and refused, because a mis-tap at 3am that puts a
+         full-brightness screen in a dark-adapted eye costs a minute of night
+         vision, which is the thing the whole app is arranged around keeping.
+         Settings is neither. It is a night screen in the night palette, it
+         changes nothing by being looked at, and the worst a sleepy thumb can do
+         here is arrive somewhere quiet with one press back. -->
     <header>
       <button id="books" type="button">
         <span class="pill">
@@ -172,6 +191,20 @@
       <h1>somnia</h1>
       <button id="restart" type="button">
         <span class="pill">start over</span>
+      </button>
+      <!-- The player's half of that corner. The caret is after the word here
+           and before it on `books`, which is the one difference between the
+           three pills and not an oversight: a caret points the way the screen
+           is, and the way out of the left corner is back the way this one is
+           forward. Drawn rather than typed, for the reason every other glyph on
+           this page is. -->
+      <button id="to-settings" type="button">
+        <span class="pill">
+          settings
+          <svg class="caret" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+            <path d="M0 0 6 5 0 10Z" fill="currentColor" />
+          </svg>
+        </span>
       </button>
     </header>
 
@@ -633,6 +666,106 @@
       </div>
     </section>
 
+    <!-- Settings, and the third night screen. Built like the two overlays
+         around it and for the same reasons — fixed over the page, the book
+         still playing underneath, not a <dialog>, no role and no aria-modal —
+         and reached from the player's own top-right corner rather than from
+         another screen, because both controls on it are things somebody reaches
+         for in the middle of the night with the book already playing.
+
+         The night palette, unchanged and not overridden: this is the one thing
+         it has in common with Books and the list of places and not with
+         Workshop. Dim in particular cannot be set anywhere else. The layer is
+         over this screen exactly as it is over the player, so every press moves
+         the darkness of the screen the press is on, which is the whole of why
+         a settings surface can hold this control at all without it becoming a
+         number nobody can picture.
+
+         Two controls, and the case for a screen was never the two. It is that
+         the third one — whatever it turns out to be — now has somewhere to go
+         without an argument about which existing screen it least spoils. That
+         is the failure this app has already had once: the panel that became
+         Books and Workshop grew to eight blocks one defensible addition at a
+         time, and every one of them was argued onto the nearest screen because
+         there was no other. -->
+    <section id="settings" hidden aria-labelledby="settings-title">
+      <!-- The same pill, the same corner, the same word as every other way out
+           on this page. -->
+      <div id="settings-head">
+        <button id="settings-close" type="button">
+          <span class="pill">
+            <svg class="caret back" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+              <path d="M6 0 0 5 6 10Z" fill="currentColor" />
+            </svg>
+            controls
+          </span>
+        </button>
+      </div>
+      <div id="settings-scroll">
+        <!-- Inside the scroller, as on both the other overlays: what is pinned
+             to a screen here is the way out and nothing else. -->
+        <h2 id="settings-title">Settings</h2>
+
+        <!-- How dark the page takes the room.
+
+             Two circles rather than a slider, at the size of the chapter
+             circles on the player. A slider handle 2px wide is a thumb's width
+             of nothing to grab in the dark, and a drag that overshoots takes the
+             room to black — where the only control that can bring it back is the
+             one that has just been covered. Steps of 0.06 walk the whole range
+             in ten presses and no press can lose the page.
+
+             The track between them is a readout of the same kind as the whole
+             progress line on the player: a fill, no target, nothing to drag.
+
+             The note under it says what the control is for rather than where it
+             is, which is what changed when it moved here: on Books it had to
+             explain its own address. Italic, which on this page means words
+             that are not somnia reporting on itself. -->
+        <p id="dim-label" class="section-label">how dark the room</p>
+        <div id="dim-row">
+          <button id="dim-down" type="button" aria-label="Less dark">–</button>
+          <span id="dim-track" aria-hidden="true">
+            <span id="dim-fill"></span>
+          </span>
+          <button id="dim-up" type="button" aria-label="More dark">+</button>
+        </div>
+        <p id="dim-note" class="setting-note">
+          darker than the phone will go on its own. It changes as you press, so
+          you can see it.
+        </p>
+
+        <!-- What `−30` and `+30` mean.
+
+             It was in Workshop, on the argument that a thing set once and then
+             possibly never again is configuration and configuration is daytime
+             work. That is wrong about when it is discovered: nobody decides
+             thirty seconds is too far while sitting up in daylight, they decide
+             it lying in the dark listening to a narrator who leaves long gaps,
+             having just missed the same sentence twice. A control found at 2am
+             and settable only in daylight is one nobody will ever get round to.
+
+             Three options and no more. Fifteen seconds is a sentence, thirty is
+             a paragraph, a minute is a page — past that the chapter arrows are
+             the better instrument and the whole book scrubber is deliberately
+             not one at all. The labels on the player change with it, so what the
+             button says is what the button does, which is not a thing this page
+             can afford to be approximate about in the dark.
+
+             The note names the two buttons rather than the setting, because
+             `−30` and `+30` are what somebody came here having pressed. -->
+        <p class="section-label">how far the skip buttons move</p>
+        <div id="jump-row" role="group" aria-label="Skip button size">
+          <button id="jump-15" type="button" class="jump">15s</button>
+          <button id="jump-30" type="button" class="jump">30s</button>
+          <button id="jump-60" type="button" class="jump">60s</button>
+        </div>
+        <p id="jump-note" class="setting-note">
+          the −30 and +30 buttons either side of play.
+        </p>
+      </div>
+    </section>
+
     <!-- Books, and it is the night half of what used to be one panel. Sibling
          of #candidates and after it, built to the same rules and for the same
          reasons: over the page rather than away from it, the book still playing
@@ -660,11 +793,20 @@
          The order down it is the order the questions are asked in. Which book
          am I already in — `reading now`, at the top where the eye lands. What
          else have I got — `on the shelf` under it, which is the same question
-         asked about the other books and is answered by pressing one. How dark
-         is this — the dim control, which is here rather than in a settings
-         screen because it is the one setting that can only be judged against
-         the dark page it is changing. And then the way out to the daytime work,
-         last and quietest, because nothing behind it is a night job.
+         asked about the other books and is answered by pressing one. And then
+         the way out to the daytime work, last and quietest, because nothing
+         behind it is a night job.
+
+         `how dark` used to be on this screen, between the two, and the argument
+         for it was sound as far as it went: it is a setting judged by looking at
+         what it is doing, and this is a dark screen it does something to. What
+         that argument could not answer is why it was on this screen and not on
+         any of the other dark ones — every screen in this app but Workshop is
+         read through the same layer — and the honest answer was that it was here
+         because there was nowhere else. There is now, and the new place is a
+         night screen too, so nothing the argument was protecting is lost. What
+         it buys is a screen whose sentence is true again: this one answers *what
+         shall I listen to*, and how dark the room is is not an answer to it.
 
          #queue-head is outside the scrolling part, so the way out is in the
          same place however many rows there are and whatever the keyboard is
@@ -850,35 +992,6 @@
              different screens, written by different requests. -->
         <p id="shelf-note"></p>
 
-        <!-- How dark the page takes the room, and it is on this screen rather
-             than in a settings surface for a reason that is not filing.
-
-             It is the one setting that is changed at night, and it cannot be
-             judged except against the dark page it is changing: a slider on
-             another screen is a slider set blind, and a number in a settings
-             list is a number nobody can picture. Here the layer it moves is
-             over this panel too, so every press dims the thing being read while
-             it is being read, and the right level is the one it looks right at.
-
-             Two circles rather than a slider, at the size of the chapter
-             circles behind the panel. A slider handle 2px wide is a thumb's
-             width of nothing to grab in the dark, and a drag that overshoots
-             takes the room to black — where the only control that can bring it
-             back is the one that has just been covered. Steps of 0.06 walk the
-             whole range in ten presses and no press can lose the page.
-
-             The track between them is a readout of the same kind as the whole
-             progress line on the player: a fill, no target, nothing to drag. -->
-        <p id="dim-label" class="section-label">how dark</p>
-        <div id="dim-row">
-          <button id="dim-down" type="button" aria-label="Less dark">–</button>
-          <span id="dim-track" aria-hidden="true">
-            <span id="dim-fill"></span>
-          </span>
-          <button id="dim-up" type="button" aria-label="More dark">+</button>
-        </div>
-        <p id="dim-note">set it here, where you can see it working</p>
-
         <!-- The way to the daytime half, and everything about how it is drawn
              is an argument that it is not a night control.
 
@@ -895,7 +1008,7 @@
              from the player, because a second door is a second thing a sleepy
              thumb can find. -->
         <button id="to-workshop" type="button">
-          Workshop — add books, settings
+          Workshop — add books
           <svg class="caret" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
             <path d="M0 0 6 5 0 10Z" fill="currentColor" />
           </svg>
@@ -1020,25 +1133,6 @@
              said before the tailnet went. An empty queue and an unreachable
              server look identical and mean opposite things. -->
         <p id="queue-note"></p>
-
-        <!-- What `−30` and `+30` mean, and it is here rather than beside them
-             because it is set once and then possibly never again. A control
-             that is configured once belongs on the screen for configuring
-             things; putting it near the buttons it renames would be putting a
-             fourth press in the row that is pressed without looking.
-
-             Three options and no more. Fifteen seconds is a sentence, thirty is
-             a paragraph, a minute is a page — past that the chapter arrows are
-             the better instrument and the whole book scrubber is deliberately
-             not one at all. The labels below change with it, so what the button
-             says is what the button does, which is not a thing this page can
-             afford to be approximate about in the dark. -->
-        <p class="section-label">skip button size</p>
-        <div id="jump-row" role="group" aria-label="Skip button size">
-          <button id="jump-15" type="button" class="jump">15s</button>
-          <button id="jump-30" type="button" class="jump">30s</button>
-          <button id="jump-60" type="button" class="jump">60s</button>
-        </div>
       </div>
     </section>
 
@@ -1073,19 +1167,21 @@
          keeps that true, and nothing in app.js listens here.
 
          It ships at 0.12 and is read back from storage, and what writes it is
-         `how dark` on Books — two circles on the screen the layer is over, so
-         the level is chosen by looking at it rather than by reading a number.
+         `how dark the room` on Settings — two circles on a screen the layer is
+         over, so the level is chosen by looking at it rather than by reading a
+         number.
 
          The one screen it is not over is Workshop, where it goes to zero for as
          long as that screen is up. Everywhere else the layer is taking the last
          of the light off a dark room; there it would be taking light off a
          screen being read in daylight, and at a level somebody chose for 3am it
          made the whole thing unreadable whatever the ink did.
-         It is not on a settings screen because there is no settings screen: dim
-         is a night control and lives where night things are, and the only other
-         thing that wanted one is the jump size, which is daytime configuration
-         and lives in Workshop. Two controls that share nothing but being
-         adjustable are not a screen. -->
+
+         Which is why the screen that sets it is a night screen. There is a
+         settings screen now — #settings, above — and the thing that made one
+         safe to have was not the count of controls but the palette: dim set on
+         a daylight screen would be a number chosen against a page the layer is
+         not over, which is the one way this control can be got wrong. -->
     <p id="toast" hidden aria-live="polite"></p>
     <div id="dim" aria-hidden="true"></div>
 

@@ -145,10 +145,13 @@ is still *adding*, and still a different act from picking up a book you have.)
 (**Amended 2026-08-08**: that distinction is two screens now. The panel had
 grown to eight blocks and could not be read in the dark, and what fixed it was
 cutting on *when* each block is used: `Books` is the night half — the book
-playing, the shelf, how dark — at the player's own type size, and `Workshop` is
-the daytime half — the catalog search, the queue, the ended rows, the server
-note, and how far a skip goes — smaller and denser than anything else in the
-app, behind a quiet row at the foot of `Books`. The poll went with the queue, so
+playing and the shelf — at the player's own type size, and `Workshop` is the
+daytime half — the catalog search, the queue, the ended rows and the server
+note — smaller and denser than anything else in the app, behind a quiet row at
+the foot of `Books`. The two settings that were filed one to each screen are on
+a third, `Settings`, reached from the player's own top-right corner: both are
+set in the dark with the book playing, which is a fact about when they are used
+and not about what they are. The poll went with the queue, so
 the five-second wake is now on a screen two presses from the player that nobody
 opens at 3am. The header pill says `books` and the panel says `Books` back.)
 The way out is a `‹ controls` pill in the top left — the same corner and word as

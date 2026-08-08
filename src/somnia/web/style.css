@@ -269,7 +269,8 @@ h1 {
    of drawing them alike. */
 #books,
 #to-controls,
-#restart {
+#restart,
+#to-settings {
   flex: none;
   display: flex;
   align-items: center;
@@ -315,7 +316,8 @@ h1 {
    that is what this is. */
 #books:active .pill,
 #to-controls:active .pill,
-#restart:active .pill {
+#restart:active .pill,
+#to-settings:active .pill {
   border-color: var(--accent-line);
   background: var(--accent-tint);
   color: var(--accent);
@@ -349,6 +351,25 @@ body.chat-screen #books {
 
 body.chat-screen #to-controls,
 body.chat-screen #restart {
+  display: flex;
+}
+
+/* And the other half of that corner, drawn the same way round and for the same
+   reason: off unless a screen asks for it, so the failure mode of a class that
+   never got written is a corner with nothing in it.
+
+   `settings ›` is on the player and nowhere else. It is safe there in a way
+   `start over` never was — nothing on the screen it opens destroys anything,
+   and what it opens is a night screen in the night palette, so the worst a
+   sleepy thumb gets is somewhere quiet with one press back. That is the whole
+   difference between this and the two things this corner has refused: a press
+   that throws the conversation away, and a press that puts daylight in a
+   dark-adapted eye. */
+#to-settings {
+  display: none;
+}
+
+body.player-screen #to-settings {
   display: flex;
 }
 
@@ -1846,10 +1867,11 @@ button.candidate-show:active {
    down there to miss onto any more. */
 #candidates-head,
 #queue-head,
-#workshop-head {
+#workshop-head,
+#settings-head {
   flex: none;
   /* The header's own 48dp target on the player, so the pill sits at the same
-     height off the top of the screen whichever of the three screens is up —
+     height off the top of the screen whichever of the four screens is up —
      which is the entire argument for moving it here. */
   display: flex;
   align-items: center;
@@ -1863,7 +1885,8 @@ button.candidate-show:active {
    what is set here is only the target around it. */
 #candidates-cancel,
 #queue-close,
-#workshop-close {
+#workshop-close,
+#settings-close {
   display: flex;
   align-items: center;
   min-height: 2.4rem;
@@ -1875,7 +1898,8 @@ button.candidate-show:active {
 
 #candidates-cancel:active .pill,
 #queue-close:active .pill,
-#workshop-close:active .pill {
+#workshop-close:active .pill,
+#settings-close:active .pill {
   border-color: var(--accent-line);
   background: var(--accent-tint);
   color: var(--accent);
@@ -1962,6 +1986,194 @@ body.keyboard-up #candidates-note {
   body.player-screen #now-playing {
     display: none;
   }
+}
+
+/* ---------------------------------------------------------------- settings
+
+   The third night screen, and the fourth overlay. Built out of the same parts
+   as the two either side of it — the same fixed inset, the same opaque
+   background, the same safe-area padding, the same scrolling middle under a way
+   out that is pinned above it — because being the same is what makes a way out
+   learnable in the dark.
+
+   What it does not take from Workshop is the ink. The night palette is
+   inherited untouched here, and that is the load-bearing fact about this
+   screen rather than a default nobody thought about: the dim control below can
+   only be set by looking at what it does, and what it does is take the light
+   off a dark page. Set against a daylight screen it would be a number chosen
+   against a page the layer is not over. */
+#settings[hidden] {
+  display: none;
+}
+
+/* Over the player and nothing else, so it can share Books' z-index without ever
+   meeting it: the pill that opens this is in the header, and the header is
+   under all four of these overlays. */
+#settings {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: calc(env(safe-area-inset-top) + 1rem)
+    calc(env(safe-area-inset-right) + 1rem)
+    calc(env(safe-area-inset-bottom) + 1.1rem)
+    calc(env(safe-area-inset-left) + 1rem);
+}
+
+/* The same page title at the same size as the other two overlays', and the
+   reason this screen has one at all: with a title of its own there is no
+   wordmark up top, which is the rule every screen but the player and the chat
+   follows. */
+#settings-title {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--mid);
+}
+
+/* It scrolls for the same reason Books does and not because there is anything
+   like enough here to fill a phone: a third control added to this screen must
+   not be the thing that discovers the screen cannot hold it, and an OS text
+   scale two sizes up is the same problem arriving without anybody adding
+   anything. */
+#settings-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* A label belongs to what is under it: a section's gap above, a sibling's
+   below. The same arithmetic as Books' scroller, written again rather than
+   shared because the two scrollers are not the same box and a selector that
+   claimed they were would be one edit away from being wrong. */
+#settings-scroll .section-label {
+  margin-top: 0.7rem;
+  margin-bottom: -0.4rem;
+}
+
+/* What each control is for, under it, in the one voice this page keeps for
+   words that are not somnia reporting on itself. 19dp, which is up from the
+   17dp these notes were at when they were footnotes on somebody else's screen:
+   here they are the sentence that says what a press does, on a screen read at
+   the same arm's length in the same dark as the player. */
+.setting-note {
+  margin: 0.2rem 0 0;
+  font-size: 0.95rem;
+  font-style: italic;
+  line-height: 1.35;
+  color: var(--faint);
+}
+
+/* Two 64dp circles and a readout between them, which is the chapter strip's
+   shape one screen over — two targets with the thing they change in the middle.
+   Learning it twice is learning it once. */
+#dim-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* The same 64dp circles as the chapter arrows, and the same reason for the
+   size: a round target is aimed at by its centre, and in the dark the centre is
+   all anybody has. The glyphs are typed rather than drawn, which the carets and
+   the transport are not — but `–` and `+` are one stroke and two, at any weight
+   a symbol font might pick, and there is nothing in either shape for a font to
+   get wrong. */
+#dim-down,
+#dim-up {
+  flex: none;
+  width: 3.2rem;
+  height: 3.2rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  color: var(--mid);
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0;
+}
+
+#dim-down:active,
+#dim-up:active {
+  border-color: var(--accent-line);
+  background: var(--surface-active);
+  color: var(--ink);
+}
+
+/* A press at either end of the range does nothing, and it says so rather than
+   doing nothing quietly — the same rule the position readout follows when a
+   book has no places. A control that looks pressable and is not is the thing
+   the comments on this page argue against most often. */
+#dim-down:disabled,
+#dim-up:disabled {
+  opacity: 0.3;
+}
+
+/* Where the level is, drawn rather than stated, and with no target on it at
+   all: the same kind of readout as the whole-book progress line on the player,
+   for the same reason. A 2px track is a thumb's width of nothing to grab, and a
+   drag that overshot on this one would take the room to black with the only
+   control that can undo it underneath the layer that just went up. */
+#dim-track {
+  flex: 1;
+  height: 2px;
+  background: var(--hairline);
+}
+
+#dim-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 180ms ease-out;
+}
+
+/* Three options, segmented, and what they change is the pair of labels on the
+   most-pressed row in the app.
+
+   64dp and 22dp, which is the size everything on a night screen is and twice
+   the size these were in Workshop. That is not a re-measure: it is what moving
+   the control from daylight to the dark costs, and the reason it moved is that
+   the night is when anybody discovers thirty seconds is the wrong distance.
+
+   The chosen one is amber and the other two are not, which is the same
+   vocabulary the sleep pill uses one screen over — warm means this is the state
+   you are in, not this is the thing to press. */
+#jump-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.jump {
+  flex: 1;
+  min-height: 3.2rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  color: var(--mid);
+  font: inherit;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0.4rem 0.6rem;
+}
+
+.jump:active {
+  background: var(--surface-active);
+  color: var(--ink);
+}
+
+.jump.chosen {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
 }
 
 /* ------------------------------------------------------------------- books
@@ -2266,88 +2478,6 @@ body.keyboard-up #candidates-note {
   display: block;
   height: 100%;
   background: var(--accent);
-}
-
-/* ------------------------------------------------------------- how dark
-
-   The dim control, on Books because it is the one setting judged by looking at
-   what it changes. The layer it moves is over this panel as well as over the
-   player, so every press dims the screen it is being set on.
-
-   Two 64dp circles and a readout between them, which is the chapter strip's
-   shape one screen over — two targets with the thing they change in the middle.
-   Learning it twice is learning it once. */
-#dim-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-/* The same 64dp circles as the chapter arrows, and the same reason for the
-   size: a round target is aimed at by its centre, and in the dark the centre is
-   all anybody has. The glyphs are typed rather than drawn, which the carets and
-   the transport are not — but `–` and `+` are one stroke and two, at any weight
-   a symbol font might pick, and there is nothing in either shape for a font to
-   get wrong. */
-#dim-down,
-#dim-up {
-  flex: none;
-  width: 3.2rem;
-  height: 3.2rem;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  background: none;
-  color: var(--mid);
-  font-size: 1.3rem;
-  line-height: 1;
-  padding: 0;
-}
-
-#dim-down:active,
-#dim-up:active {
-  border-color: var(--accent-line);
-  background: var(--surface-active);
-  color: var(--ink);
-}
-
-/* A press at either end of the range does nothing, and it says so rather than
-   doing nothing quietly — the same rule the position readout follows when a
-   book has no places. A control that looks pressable and is not is the thing
-   the comments on this page argue against most often. */
-#dim-down:disabled,
-#dim-up:disabled {
-  opacity: 0.3;
-}
-
-/* Where the level is, drawn rather than stated, and with no target on it at
-   all: the same kind of readout as the whole-book progress line on the player,
-   for the same reason. A 2px track is a thumb's width of nothing to grab, and a
-   drag that overshot on this one would take the room to black with the only
-   control that can undo it underneath the layer that just went up. */
-#dim-track {
-  flex: 1;
-  height: 2px;
-  background: var(--hairline);
-}
-
-#dim-fill {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width 180ms ease-out;
-}
-
-/* Why the control is here rather than on a settings screen, said in one line to
-   the person who has just found it. Italic, which on this page means words that
-   are not somnia reporting on itself — this is an aside, not a readout. 17dp:
-   read once on the first night and never again. */
-#dim-note {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
-  font-style: italic;
-  color: var(--faint);
 }
 
 /* ------------------------------------------------------- the way to daylight
@@ -2854,45 +2984,6 @@ body.keyboard-up #candidates-note {
 #workshop-scroll .section-label {
   margin-top: 0.6rem;
   margin-bottom: -0.35rem;
-}
-
-/* ------------------------------------------------------- skip button size
-
-   Three options, segmented, and what they change is the pair of labels on the
-   most-pressed row in the app. 52dp, which is over the 44 floor and under
-   everything on the night screens: it is set once, in daylight, possibly never
-   again.
-
-   The chosen one is amber and the other two are not, which is the same
-   vocabulary the sleep pill uses one screen over — warm means this is the state
-   you are in, not this is the thing to press. */
-#jump-row {
-  display: flex;
-  gap: 0.6rem;
-}
-
-.jump {
-  flex: 1;
-  min-height: 2.6rem;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  background: none;
-  color: var(--mid);
-  font: inherit;
-  font-size: 0.9rem;
-  font-variant-numeric: tabular-nums;
-  padding: 0.4rem 0.6rem;
-}
-
-.jump:active {
-  background: var(--surface-active);
-  color: var(--ink);
-}
-
-.jump.chosen {
-  border-color: var(--accent-line);
-  background: var(--accent-tint);
-  color: var(--accent);
 }
 
 /* A keyboard over half the screen, which on this screen is not the exception —

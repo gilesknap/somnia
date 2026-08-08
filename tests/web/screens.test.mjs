@@ -516,6 +516,26 @@ test("start over is drawn on the chat screen and nowhere else", async (t) => {
   }
 });
 
+// And the other thing that corner holds, drawn the same way round: off unless a
+// screen asks for it, so a class that never got written leaves an empty corner
+// rather than a full one. `settings ›` is on the player and nowhere else — on
+// chat that corner is `start over`, and the two must never be drawn at once.
+//
+// It is safe in the corner `start over` had to leave for the same reason
+// Workshop was refused it: what a mis-tap costs. This one costs nothing. It
+// opens a night screen in the night palette that destroys nothing by being
+// looked at, which is what the two refusals were about and not the corner.
+test("settings is drawn on the player and nowhere else", async (t) => {
+  assert.ok(RULES.includes("#to-settings { display: none; }"));
+  assert.ok(RULES.includes("body.player-screen #to-settings { display: flex; }"));
+  for (const block of mediaBlocks(RULES)) {
+    assert.ok(
+      !block.includes("#to-settings"),
+      `a media query is drawing the way to settings: ${block.slice(0, 120)}`,
+    );
+  }
+});
+
 // The conversation is the whole of the chat screen, and the player's rhythm is
 // not on it. The three spacers are `flex: 1 1 0` siblings of #transcript in the
 // body's one column — which is what pools the slack into one gap on the player
