@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS queue (
     beat_at TEXT,
     chapter_at TEXT,
     attempts INTEGER NOT NULL DEFAULT 0,
+    voice TEXT NOT NULL DEFAULT '',
     error TEXT NOT NULL DEFAULT '',
     submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
     started_at TEXT,
@@ -152,6 +153,16 @@ _ADDED_COLUMNS = (
     # that was rendered before this column existed — not a book of no chapters,
     # which is not a thing. Anything reading it has to treat 0 as "don't know".
     ("books", "chapters_total", "INTEGER NOT NULL DEFAULT 0"),
+    # Which voice this book was asked for in, held on the request rather than
+    # taken from whatever the renderer's environment happened to say hours
+    # later. The choice is made in front of the person making it and has to
+    # survive the wait: the worker that eventually picks the book up is a
+    # different process, started by systemd, that has never seen the page.
+    #
+    # Empty means "whatever the renderer is set to", which is every row
+    # submitted before this column existed and every one the agent adds by
+    # voice at 2am — not a real conversation to have half asleep.
+    ("queue", "voice", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

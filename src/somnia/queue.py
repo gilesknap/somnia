@@ -129,10 +129,18 @@ class Stopped:
 
 @dataclass
 class Claim:
-    """The one job this process may now render, and the book it is."""
+    """The one job this process may now render, the book it is, and its voice.
+
+    ``voice`` is empty for a job that named none, and the renderer reads that as
+    "use whatever I am configured with" rather than substituting a default here.
+    The two are the same string today; they are not the same statement, and the
+    one place entitled to decide what an unspecified voice means is the process
+    that holds the configuration.
+    """
 
     id: int
     gid: int
+    voice: str = ""
 
 
 @dataclass
@@ -173,12 +181,18 @@ class QueueRow:
     the rank among the books that are waiting, and 0 for anything that is not
     waiting — the one being rendered has left the line rather than being at the
     head of it.
+
+    ``voice`` is here so that a choice made in one screen can be checked from
+    another before it costs six hours. It is empty for a row that named none,
+    and the readout says nothing at all in that case rather than guessing at the
+    renderer's configuration, which this process cannot see.
     """
 
     id: int
     gid: int
     title: str
     authors: str
+    voice: str
     state: str
     place: int
     chapters_done: int
@@ -202,8 +216,22 @@ def _name(title: str, gid: int) -> str:
     return title or f"book {gid}"
 
 
-def submit(conn: sqlite3.Connection, gid: int) -> Submission:
+def submit(conn: sqlite3.Connection, gid: int, voice: str = "") -> Submission:
     """Ask for a book to be rendered, and say where it lands in the line.
+
+    ``voice`` is written down here, on the request, because this is the only
+    moment anybody chooses it. Hours may pass before a worker picks the book up,
+    and that worker is a different process with its own environment: a voice
+    that lived in the renderer's configuration was therefore not a choice about
+    a book at all, it was a choice about whatever happened to be rendering at
+    the time. Empty means "the renderer's own", which is what the agent submits
+    — nobody is picking a voice out loud at 2am — and what every row written
+    before the column existed holds.
+
+    Nothing here checks the name. The roster in :mod:`somnia.voices` is the
+    page's constraint and is enforced where the press lands; a terminal is
+    allowed the whole of Kokoro's list, and a name that is in neither fails in
+    the model's own loader with the real list in the message.
 
     No network. Whether Gutenberg has this book, and whether it has it as HTML,
     costs a round trip and a parse, and a control that sits there for three
@@ -260,8 +288,9 @@ def submit(conn: sqlite3.Connection, gid: int) -> Submission:
     try:
         with conn:
             row = conn.execute(
-                "INSERT INTO queue (gid, title, authors) VALUES (?, ?, ?) RETURNING id",
-                (gid, title, authors),
+                "INSERT INTO queue (gid, title, authors, voice)"
+                " VALUES (?, ?, ?, ?) RETURNING id",
+                (gid, title, authors, voice),
             ).fetchone()
     except sqlite3.IntegrityError:
         # The partial unique index, catching what the read above could not: two
@@ -386,10 +415,12 @@ def claim(
             "             ORDER BY id LIMIT 1)"
             " AND NOT EXISTS (SELECT 1 FROM queue WHERE state = 'rendering'"
             "                 AND beat_at > datetime('now', :steal))"
-            " RETURNING id, gid",
+            " RETURNING id, gid, voice",
             {"lease": lease, "pid": pid, "steal": f"-{steal_s} seconds"},
         ).fetchone()
-    return Claim(id=int(row["id"]), gid=int(row["gid"])) if row is not None else None
+    if row is None:
+        return None
+    return Claim(id=int(row["id"]), gid=int(row["gid"]), voice=str(row["voice"]))
 
 
 def beat(conn: sqlite3.Connection, job_id: int, *, lease: str) -> Beat | None:
@@ -558,7 +589,7 @@ def view(conn: sqlite3.Connection, *, stale_s: int = STALE_S) -> list[QueueRow]:
     that comes from there has to survive being absent.
     """
     rows = conn.execute(
-        "SELECT q.id, q.gid, q.title, q.authors, q.state, q.cancel, q.error,"
+        "SELECT q.id, q.gid, q.title, q.authors, q.voice, q.state, q.cancel, q.error,"
         " q.submitted_at, q.started_at,"
         " (SELECT COUNT(*) FROM chapters c WHERE c.book_gid = q.gid) AS chapters_done,"
         " COALESCE(b.chapters_total, 0) AS chapters_total,"
@@ -589,6 +620,7 @@ def view(conn: sqlite3.Connection, *, stale_s: int = STALE_S) -> list[QueueRow]:
                 gid=int(r["gid"]),
                 title=str(r["title"]),
                 authors=str(r["authors"]),
+                voice=str(r["voice"]),
                 state=state,
                 place=place if state == "queued" else 0,
                 chapters_done=int(r["chapters_done"]),

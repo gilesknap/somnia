@@ -48,6 +48,7 @@ from .player import Player
 from .queue import LIVE, QueueRow, Stopped, Submission, stop, submit, view
 from .stream import build_stream, stream_path
 from .tools import CANDIDATE_TEXT_CHARS, Library, shorten
+from .voices import VOICES, known
 
 __all__ = ["Conversations", "Found", "Queue", "create_app", "serve"]
 
@@ -210,9 +211,9 @@ class Queue:
         with self._lock:
             return view(self._conn)
 
-    def submit(self, gid: int) -> Submission:
+    def submit(self, gid: int, voice: str = "") -> Submission:
         with self._lock:
-            return submit(self._conn, gid)
+            return submit(self._conn, gid, voice)
 
     def stop(self, job_id: int) -> Stopped:
         with self._lock:
@@ -526,13 +527,34 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         possessive apostrophe is a search rather than a syntax error.
         """
         query = request.query_params.get("q", "")
-        # The language is the page's to say, but there is only ever one voice
-        # installed, so in practice this is English and the parameter exists to
-        # keep the route honest rather than because anything varies it.
+        # The language is the page's to say, but every voice somnia offers
+        # reads English — the roster is American and British and nothing else,
+        # because the other languages need a G2P backend that is not installed.
+        # So in practice this is English and the parameter exists to keep the
+        # route honest rather than because anything varies it.
         language = request.query_params.get("language", "en")
         entries = await run_in_threadpool(renders.search, query, language)
         return JSONResponse(
             {"query": query, "entries": [asdict(entry) for entry in entries]}
+        )
+
+    async def voices(request: Request) -> Response:
+        """The voices a book may be asked for in, in the order they are drawn.
+
+        Served rather than written into app.js, so that the list the page draws
+        and the list this server will accept cannot come apart — a picker
+        offering a voice the route refuses is a press that does nothing, which
+        is the failure this page is arranged to make impossible. It also means
+        the roster is one edit in one file when a voice is added or dropped.
+
+        No database, nothing to lock: a tuple of strings, read once when the
+        page opens Workshop.
+        """
+        return JSONResponse(
+            {"voices": [asdict(voice) for voice in VOICES]},
+            # A day. The roster changes when somnia is deployed and not
+            # otherwise, and the page asks for it every time Workshop opens.
+            headers={"cache-control": "max-age=86400"},
         )
 
     async def queue_view(request: Request) -> Response:
@@ -558,6 +580,14 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         The sentence comes from :func:`somnia.queue.submit`, which is also what
         ``Library.add_book`` returns, so the page and the voice cannot disagree
         about what just happened.
+
+        ``voice`` is optional and is held to the roster, which is the one thing
+        this route checks that the queue does not. The page can only send what
+        it was drawn with, so a name that is not on the list is a page left open
+        across a release or somebody with curl — and a book is six hours, which
+        is too long to find out that a typo was quietly rendered in the default.
+        Absent is not the same as wrong: no voice at all means the renderer's
+        own, which is what the agent submits and what the CLI has always done.
         """
         payload = await _payload(request)
         gid = _number(payload.get("gid"))
@@ -566,7 +596,10 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             # so there is nothing to say 200 about. A gid is a positive integer,
             # which makes 0 as garbled as a word is.
             return JSONResponse({"error": "gid is required"}, 400)
-        result = await run_in_threadpool(renders.submit, gid)
+        voice = str(payload.get("voice") or "")
+        if voice and not known(voice):
+            return JSONResponse({"error": f"no such voice: {voice}"}, 400)
+        result = await run_in_threadpool(renders.submit, gid, voice)
         return JSONResponse(asdict(result))
 
     async def queue_stop(request: Request) -> Response:
@@ -619,6 +652,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/passage/{gid:int}/{ms:int}", passage),
             Route("/api/position", position, methods=["POST"]),
             Route("/api/catalog", catalog),
+            Route("/api/voices", voices),
             # One path, two methods, two handlers. Starlette scans the whole
             # table for a full match before it settles for a partial one, so the
             # GET route's 405 for a POST never wins over the POST route below

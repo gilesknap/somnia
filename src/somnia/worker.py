@@ -367,7 +367,14 @@ def render_one(
     from .tts import KokoroEngine  # noqa: PLC0415
 
     watch = _Watch(conn, job, lease=lease, stopping=stopping, every_s=beat_every_s)
-    engine = engine or KokoroEngine(voice=cfg.voice)
+    # The voice on the row wins, and the configured one is only what an
+    # unanswered request falls back to. That order is the whole of the fix: the
+    # choice belongs to the person who asked for the book, made hours before
+    # this process existed, and reading it from this process's environment
+    # instead made it a property of whichever renderer happened to wake up.
+    voice = job.voice or cfg.voice
+    logger.info("rendering book %d in %s", job.gid, voice)
+    engine = engine or KokoroEngine(voice=voice)
     embedder = embedder or RealEmbedder(cfg.embed_model)
     abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
 

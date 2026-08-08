@@ -523,3 +523,41 @@ def test_view_puts_the_render_first_then_the_line_then_the_dead(
     claim(conn, lease="a", pid=1)
     waiting = submit(conn, 120)
     assert [row.id for row in view(conn)] == [running.id, waiting.id, dead.id]
+
+
+def test_the_voice_is_written_on_the_request_and_handed_to_whoever_renders_it(
+    conn: sqlite3.Connection,
+) -> None:
+    """The choice is made in front of somebody; the render happens hours later.
+
+    Between the two the book may be picked up by a worker in another process
+    with another environment, which is precisely what `somnia add --voice` used
+    to lose the race to. The row is the only thing both ends can see.
+    """
+    submit(conn, 271, "bm_george")
+    taken = claim(conn, lease="a-lease", pid=1234)
+    assert taken is not None
+    assert taken.voice == "bm_george"
+
+
+def test_a_request_that_names_no_voice_says_so_rather_than_guessing(
+    conn: sqlite3.Connection,
+) -> None:
+    """Empty means "the renderer's own", which is what the agent submits.
+
+    Not the default filled in here: this process cannot see the renderer's
+    configuration, and writing af_heart down would make a book rendered on a
+    box set to something else disagree with its own row for ever.
+    """
+    submit(conn, 271)
+    taken = claim(conn, lease="a-lease", pid=1234)
+    assert taken is not None
+    assert taken.voice == ""
+
+
+def test_the_readout_says_which_voice_a_book_is_being_read_in(
+    conn: sqlite3.Connection,
+) -> None:
+    """So a wrong press is visible in the seconds after it, not six hours later."""
+    submit(conn, 271, "bf_emma")
+    assert view(conn)[0].voice == "bf_emma"
