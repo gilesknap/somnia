@@ -31,7 +31,9 @@
 // getting up and going back to sleep.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   boot,
@@ -1022,7 +1024,7 @@ test("nothing daytime is on the night screen, and nothing nightly in daylight", 
   page.queueView([job()]);
   await books(page);
   // Books answers "what shall I listen to": the book playing, the shelf, and
-  // the quiet row to the other screen. Not the search, not the queue, not what
+  // the quiet pill to the other screen. Not the search, not the queue, not what
   // the server last said — and not how dark the room is either, which is a
   // setting rather than an answer to that question and is on Settings now.
   for (const id of ["reading-now", "shelf", "to-workshop"]) {
@@ -1045,6 +1047,47 @@ test("nothing daytime is on the night screen, and nothing nightly in daylight", 
   // once is configuration; it is discovered in the dark, so it went to the
   // night screen that now holds both settings.
   assert.equal(page.el("settings").hidden, true);
+});
+
+// Where that pill is on the screen, which the fake DOM above cannot see: it
+// answers by id and has no idea what is nested in what. So this one reads the
+// markup, and it is the only test here that does.
+//
+// It is worth reading for, because *where* is the whole of what moved. The way
+// to Workshop was the last row on #queue-scroll, and on a twenty-book library
+// that put the one control on the screen that is not about books behind every
+// book that is. A pill in the head is outside the scroller, so it is at the
+// same reach on one book or a hundred — and if it ever drifts back down into
+// the list, everything else about this screen would still pass.
+const MARKUP = readFileSync(
+  fileURLToPath(new URL("../../src/somnia/web/index.html", import.meta.url)),
+  "utf8",
+);
+
+// The one <section> as its own text, with the page's prose taken out — every
+// comment in this file quotes ids and whole elements at itself, and each one
+// would read here as another element.
+function section(id) {
+  const bare = MARKUP.replace(/<!--[\s\S]*?-->/g, "");
+  const from = bare.indexOf(`<section id="${id}"`);
+  assert.ok(from >= 0, `no <section id="${id}">`);
+  const to = bare.indexOf("<section ", from + 1);
+  return bare.slice(from, to < 0 ? bare.length : to);
+}
+
+test("the way to Workshop is in Books' header, above the scroll", async (t) => {
+  const queue = section("queue");
+  const pill = queue.indexOf('id="to-workshop"');
+  const scroll = queue.indexOf('id="queue-scroll"');
+  assert.ok(pill >= 0, "no way to Workshop on Books at all");
+  assert.ok(scroll >= 0, "Books has no scroller");
+  assert.ok(pill < scroll, "the way to Workshop is back inside the scroller");
+
+  // And it is the header's pill and not a row wearing its id. The 36dp outline
+  // is what says "this goes somewhere" on this page; a bare button in that
+  // corner would be the wordmark's kind of thing, which takes no presses.
+  const head = queue.slice(queue.indexOf('id="queue-head"'), scroll);
+  assert.equal(head.match(/class="pill"/g).length, 2, "queue-head lost a pill");
 });
 
 // The other half of "nothing nightly in daylight", and the one that is not a

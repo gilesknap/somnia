@@ -227,8 +227,8 @@ and it is a separate act, which
 
 **Further amended 2026-08-08**: it is a separate act on a separate *screen*
 now. The panel was cut in two — `Books` at night, `Workshop` in daylight — and
-the search went with the daytime half, behind a quiet row at the foot of the
-night one. That is the same argument this amendment makes, made twice: what a
+the search went with the daytime half, behind a quiet `workshop ›` pill in the
+night one's own header. That is the same argument this amendment makes, made twice: what a
 2am screen must not be is a place to go looking for something you do not have,
 and the surest way to keep it from being one is for the looking to be somewhere
 else.
