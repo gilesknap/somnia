@@ -987,6 +987,12 @@ globalThis.__page = {
     chapterClock: chapterClock.textContent,
     canSkipOn: !nextChapter.disabled,
     status: statusLine.textContent,
+    // Whether that sentence is drawn in the failure red rather than the amber.
+    // Beside the words and not instead of them, because the split between the
+    // two is a judgement about each sentence — a wait is amber, something that
+    // needs a person is red — and a test that only reads the text cannot tell
+    // that the frontier has quietly been recoloured.
+    statusFailed: statusLine.classList.contains("failed"),
     // The page's two channels, side by side, because the only interesting
     // thing about either is what the other one is doing at the same moment:
     // the toast is what was said once and the status line is what still

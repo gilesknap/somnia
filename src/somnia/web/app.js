@@ -154,8 +154,26 @@ function say(text, kind) {
 // answer read over the book would be somnia interrupting itself, and the phone
 // is on a bedside table next to someone who may be asleep again by the time it
 // lands.
-function setStatus(text) {
+//
+// Two kinds of sentence come through here and they are not the same news. Most
+// of them are somnia saying what it is doing — listening, waiting, goodnight,
+// and above all "the rest of this book hasn't been read yet", which is the
+// render frontier and is the most common thing that happens in a night. Nothing
+// is wrong in any of those; the book comes back on its own.
+//
+// The rest need a person: a chapter that never arrived, a book that cannot be
+// reached, a book that is not there any more. Those pass `failed` and are drawn
+// in the red rather than the amber — see --failed in style.css for why failure
+// is not allowed to borrow the colour that already means five other things.
+//
+// The flag is deliberately per-call and not sticky. Every one of these
+// sentences replaces the last, so the colour has to be decided by whichever
+// sentence is standing, and a `failed` that outlived the sentence that set it
+// would leave the frontier drawn red — the exact confusion this split exists to
+// prevent. Clearing the line clears it too, because "" passes nothing.
+function setStatus(text, failed) {
   statusLine.textContent = text;
+  statusLine.classList.toggle("failed", Boolean(failed));
 }
 
 // The other voice, and why there are two.
@@ -1638,13 +1656,21 @@ function inTrouble(message) {
 
 // The book is arriving again. Only the network's own message is cleared:
 // "goodnight" and "tap anywhere to carry on" are about something else.
+//
+// A standing failure goes with it, and that is not the same test as `troubled`.
+// "that chapter didn't arrive" is said about a book that had been put down, so
+// nothing was retrying and `troubled` was never set — and until the red it was
+// harmless to leave a stale sentence there, because amber on this line is only
+// somnia talking. A red says a person is needed, and sound coming out of the
+// phone is proof that they are not. The one thing that must not happen is a
+// book playing under a red line nobody can take down.
 function outOfTrouble() {
   clearTimeout(stallTimer);
   clearTimeout(retryTimer);
   stallTimer = 0;
   retryTimer = 0;
   retryDelay = RETRY_MIN_MS;
-  if (troubled) setStatus("");
+  if (troubled || statusLine.classList.contains("failed")) setStatus("");
   troubled = false;
 }
 
@@ -2030,6 +2056,10 @@ player.addEventListener("pause", () => {
   if (!weArePausing) {
     // Audio focus went elsewhere: a call, an alarm, another app. Do not
     // resume. An alarm should stop the book, not be talked over.
+    //
+    // Amber, not red: nothing is broken here. The phone did the right thing and
+    // this line only explains why the book stopped, so that a silence with a
+    // reason is not mistaken for one without.
     setStatus("something else took the sound");
   }
   weArePausing = false;
@@ -2140,9 +2170,14 @@ player.addEventListener("error", () => {
   // meant to be on, and keeps trying. A book they had already put down is left
   // where they put it.
   if (!wantsSound) {
-    setStatus("that chapter didn't arrive");
+    setStatus("that chapter didn't arrive", true);
     return;
   }
+  // Not red, and the difference is the retry. Everything inTrouble says is the
+  // page still working on it — "still trying", "trying again", and this, which
+  // retryLater is about to act on. Nobody is needed while something is being
+  // done, and a red that came on for every tailnet re-key would be red for the
+  // second most common event of the night after the frontier.
   inTrouble("the book stopped arriving");
   retryLater();
 });
@@ -2347,7 +2382,7 @@ function applyReply(body) {
   if (body.reason === "gone") {
     // The book is not in the database any more. Whatever is still in the
     // element can play out, but there is nothing left to write to.
-    setStatus("that book isn't here any more");
+    setStatus("that book isn't here any more", true);
     // And a list of places in it is a list of promises the page can no longer
     // keep: every row would go and fetch a book that has been deleted and come
     // back with "couldn't reach that book". Only when it is that book's list —
@@ -2368,7 +2403,7 @@ function follow(move) {
     // that book's manifest already carries the new position and the new count:
     // opening it *is* following it, and there is nothing else to apply.
     openBook(move.gid, { play: true }).catch((error) => {
-      setStatus("couldn't reach that book");
+      setStatus("couldn't reach that book", true);
       console.error(error);
     });
     return;
