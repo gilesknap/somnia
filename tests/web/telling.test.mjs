@@ -21,7 +21,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boot } from "./harness.mjs";
+import { boot, HALF_HEARD } from "./harness.mjs";
 
 // How long a sentence stands before it forgets itself.
 const TOAST_MS = 2800;
@@ -143,4 +143,107 @@ test("a level of nothing at all is a page with no dim on it", async (t) => {
   // catches an unset key — `Number(null)` is 0, which is the trap.
   const page = await boot(t, { stored: { "somnia-dim": "0" } });
   assert.equal(page.probe().dim, 0);
+});
+
+// ------------------------------------------------------ and the two presses
+//
+// `how dark` on Books, which is where the control lives because the layer it
+// moves is over Books too: it is set by looking at what it is doing, and there
+// is nothing to picture from a number on a settings screen.
+
+test("a press dims the page and writes the level down", async (t) => {
+  const page = await boot(t);
+  page.click("dim-up");
+  assert.equal(page.probe().dim, 0.18);
+  assert.equal(page.storage.getItem("somnia-dim"), "0.18");
+  page.click("dim-down");
+  page.click("dim-down");
+  assert.equal(page.probe().dim, 0.06);
+  assert.equal(page.storage.getItem("somnia-dim"), "0.06");
+});
+
+// Ten presses of `+` may not black the page out, because the control that would
+// undo it is underneath the layer that just went up.
+test("the dark has a floor that no number of presses gets under", async (t) => {
+  const page = await boot(t);
+  for (let i = 0; i < 20; i += 1) page.click("dim-up");
+  assert.equal(page.probe().dim, 0.6);
+  assert.equal(page.el("dim-up").disabled, true);
+  for (let i = 0; i < 20; i += 1) page.click("dim-down");
+  assert.equal(page.probe().dim, 0);
+  assert.equal(page.el("dim-down").disabled, true);
+  // And the readout says where it is, rather than a number nobody can picture.
+  assert.equal(page.el("dim-fill").style.width, "0%");
+});
+
+// 0.06 in binary floating point walks to 0.18000000000000002 in three presses,
+// and that is what would land in storage and come back on the next launch. The
+// page would be the right darkness and the record of it would be a number
+// nobody chose.
+test("what is written down is a level somebody could have meant", async (t) => {
+  const page = await boot(t);
+  for (let i = 0; i < 3; i += 1) page.click("dim-up");
+  assert.equal(page.storage.getItem("somnia-dim"), "0.3");
+});
+
+// What is on disk is what somebody chose. Opening the page does not round it to
+// this version's step and write it back.
+test("opening the page does not edit the level it found", async (t) => {
+  const page = await boot(t, { stored: { "somnia-dim": "0.45" } });
+  assert.equal(page.probe().dim, 0.45);
+  assert.equal(page.storage.getItem("somnia-dim"), "0.45");
+});
+
+// ------------------------------------------------------- how far a skip is
+//
+// `skip button size` in Workshop, which renames the two most-pressed buttons in
+// the app — so what they say and what they do are one setting and not two.
+
+test("the transport says thirty until somebody says otherwise", async (t) => {
+  const page = await boot(t);
+  assert.equal(page.el("back30").textContent, "−30");
+  assert.equal(page.el("fwd30").textContent, "+30");
+  assert.equal(page.el("jump-30").classList.contains("chosen"), true);
+  assert.equal(page.el("jump-15").classList.contains("chosen"), false);
+});
+
+test("choosing a skip size renames the buttons and moves the book by it", async (t) => {
+  const page = await boot(t, { lastGid: HALF_HEARD.gid });
+  page.audio.ready(1800);
+  page.click("playpause");
+  await page.settle();
+  const at = page.audio.currentTime;
+
+  page.click("jump-15");
+  assert.equal(page.el("back30").textContent, "−15");
+  assert.equal(page.el("fwd30").textContent, "+15");
+  assert.equal(page.el("back30").attributes["aria-label"], "Back 15 seconds");
+  assert.equal(page.el("jump-15").classList.contains("chosen"), true);
+  assert.equal(page.el("jump-30").classList.contains("chosen"), false);
+  assert.equal(page.storage.getItem("somnia-jump"), "15");
+
+  // And the press moves the book by what the label says. A setting that renamed
+  // the button and left it skipping thirty would be the worst of both.
+  page.click("fwd30");
+  await page.settle();
+  assert.equal(Math.round(page.audio.currentTime - at), 15);
+});
+
+test("a skip size written down before is the one the page opens at", async (t) => {
+  const page = await boot(t, { stored: { "somnia-jump": "60" } });
+  assert.equal(page.el("back30").textContent, "−60");
+  assert.equal(page.el("jump-60").classList.contains("chosen"), true);
+});
+
+// Only one of the three, and nothing else. A stored 45 would draw a transport
+// whose labels no control on the page could change back.
+test("a skip size that is not on offer is not adopted", async (t) => {
+  for (const junk of ["", "45", "0", "-30", "thirty"]) {
+    const page = await boot(t, { stored: { "somnia-jump": junk } });
+    assert.equal(
+      page.el("back30").textContent,
+      "−30",
+      `stored ${JSON.stringify(junk)}`,
+    );
+  }
 });

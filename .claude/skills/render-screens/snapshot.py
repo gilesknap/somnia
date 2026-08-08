@@ -72,7 +72,6 @@ FIXTURE = {
     # the page draws when there are places.
     "classes": {
         "playpause": ["playing"],
-        "playpause-mini": ["playing"],
         "places-open": ["openable"],
     },
     # Inline style, by id. The dim layer is the only thing that needs it, and it
@@ -89,6 +88,95 @@ FIXTURE = {
     # it says. 12.4% is 1:12:08 of 9:41:33, so the line and the numbers beside
     # it are telling the same story.
     "styles": {"dim": {"opacity": "0.12"}, "whole-played": {"width": "12.4%"}},
+}
+
+# The two overlays, which are the half of this app app.js draws and a snapshot
+# therefore cannot see at all. Without this every render of Books is a screen
+# with a heading and no books under it, and Workshop is a search box over
+# nothing — which is not the page, and is exactly the plausible-and-wrong
+# picture this file exists to prevent.
+#
+# The row shapes are app.js's, class for class, and that duplication is the
+# price of photographing a screen whose contents are built in JavaScript. What
+# keeps it honest is that a class renamed in app.js draws an unstyled row here,
+# which is loud in a render rather than quiet.
+#
+# The book in `reading now` is the fixture's own — same title, same chapter,
+# same position as the player — so a render of Books and a render of the player
+# are two views of one moment.
+PANELS = {
+    "books": {
+        "unhide": ["queue", "reading-now", "reading-track", "shelf-label"],
+        "text": {
+            "reading-title": "The Wind in the Willows",
+            # The time is in this line now — it used to be the label of a pill
+            # under the block, and the pill is gone. Nothing on `reading now`
+            # is a button any more: the block is the press.
+            "reading-meta": "chapter 4 of 37 · picks up at 1:12:08",
+        },
+        "styles": {"reading-fill": {"width": "12.4%"}, "dim-fill": {"width": "20%"}},
+        # Three books, which is the shape of a real shelf on this box, and one
+        # of them long enough to wrap. Titles only: Books gave the author up
+        # when it took the player's type scale — see whoWrote in app.js.
+        #
+        # The third value is whether the row is a press at all, not what a
+        # button on it says: a book with no audio yet is a plain div and every
+        # other row is a button wrapping the whole of itself.
+        "shelf": [
+            ["Black Beauty", "0:41:19 in", True],
+            ["The Adventures of Sherlock Holmes", "not started", True],
+            ["The Moonstone", "2:03:55 in · part rendered", True],
+        ],
+    },
+    "workshop": {
+        "unhide": ["queue", "workshop", "queue-working", "queue-ended"],
+        "text": {"queue-note": "", "queue-said": ""},
+        # The dim layer comes off while this screen is up — app.js does it in
+        # drawDim, and drawDim does not run in a snapshot. Without this every
+        # render of Workshop is the daylight screen photographed through 12% of
+        # black, which is the one thing this screen is not.
+        "styles": {"dim": {"opacity": "0"}},
+        "found": [
+            [
+                "Treasure Island",
+                "Stevenson, Robert Louis, 1850-1894",
+                "",
+                "add this book",
+            ],
+            ["Kidnapped", "Stevenson, Robert Louis, 1850-1894", "already here", None],
+            [
+                "The Black Arrow",
+                "Stevenson, Robert Louis, 1850-1894",
+                "part rendered",
+                "finish this one",
+            ],
+        ],
+        "live": [
+            [
+                "Black Beauty — Sewell, Anna",
+                "narrating",
+                "chapter 4 of 39 · 1h12m read so far",
+                "10.3%",
+            ],
+            [
+                "Treasure Island — Stevenson, Robert Louis",
+                "queued",
+                "1st in line",
+                None,
+            ],
+        ],
+        "gone": [
+            [
+                "The Moonstone — Collins, Wilkie",
+                "stopped",
+                "stopped part way — what was read still plays",
+                None,
+            ],
+        ],
+        # 30 is the shipped default, and the render has to show which of the
+        # three is lit or the control photographs as three identical pills.
+        "chosen": "jump-30",
+    },
 }
 
 FILL = """
@@ -135,6 +223,110 @@ FILL = """
     );
   }
 
+  const PANEL = %s;
+  if (PANEL) {
+    for (const id of PANEL.unhide || []) {
+      const el = need(id);
+      if (el) el.hidden = false;
+    }
+    for (const [id, text] of Object.entries(PANEL.text || {})) {
+      const el = need(id);
+      if (el) el.textContent = text;
+    }
+    for (const [id, style] of Object.entries(PANEL.styles || {})) {
+      const el = need(id);
+      if (el) Object.assign(el.style, style);
+    }
+    if (PANEL.chosen) need(PANEL.chosen)?.classList.add("chosen");
+
+    const put = (id, kids) => {
+      const list = need(id);
+      if (list) list.replaceChildren(...kids);
+    };
+    const p = (cls, text) => {
+      const el = document.createElement("p");
+      el.className = cls;
+      el.textContent = text;
+      return el;
+    };
+    const span = (cls, text) => {
+      const el = document.createElement("span");
+      el.className = cls;
+      el.textContent = text;
+      return el;
+    };
+    const div = (cls, ...kids) => {
+      const el = document.createElement("div");
+      el.className = cls;
+      el.append(...kids);
+      return el;
+    };
+    const pill = (cls, text) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = cls;
+      el.textContent = text;
+      return el;
+    };
+    const bar = (trackCls, fillCls, width) => {
+      const track = document.createElement("div");
+      track.className = trackCls;
+      const fill = document.createElement("div");
+      fill.className = fillCls;
+      fill.style.width = width;
+      track.append(fill);
+      return track;
+    };
+
+    put("shelf", (PANEL.shelf || []).map(([name, meta, press]) => {
+      const li = document.createElement("li");
+      li.className = "shelved";
+      const row = document.createElement(press ? "button" : "div");
+      if (press) row.type = "button";
+      row.className = "shelved-open";
+      // Spans, as app.js builds them: a <button> takes phrasing content, and
+      // the sheet gives each of these a block display back.
+      row.append(span("shelved-name", name), span("shelved-meta", meta));
+      li.append(row);
+      return li;
+    }));
+
+    put("queue-results", (PANEL.found || []).map(([name, by, have, press]) => {
+      const li = document.createElement("li");
+      li.className = "found";
+      const meta = p("found-meta", "");
+      const who = document.createElement("span");
+      who.className = "found-by";
+      who.textContent = by;
+      meta.append(who);
+      if (have) {
+        const mark = document.createElement("span");
+        mark.className = "found-have";
+        mark.textContent = have;
+        meta.append(mark);
+      }
+      li.append(div("found-text", p("found-name", name), meta));
+      if (press) {
+        const warm = press === "finish this one";
+        li.append(pill(warm ? "found-add again" : "found-add", press));
+      }
+      return li;
+    }));
+
+    const jobRow = (gone) => ([name, stage, state, width]) => {
+      const li = document.createElement("li");
+      li.className = gone ? "job gone" : "job";
+      const stageCls = "job-stage" + (gone ? "" : " now");
+      const head = div("job-line", p("job-name", name), p(stageCls, stage));
+      li.append(head, p("job-state", state));
+      if (width) li.append(bar("job-track", "job-fill", width));
+      if (!gone) li.append(pill("job-stop", "stop reading this"));
+      return li;
+    };
+    put("queue-live", (PANEL.live || []).map(jobRow(false)));
+    put("queue-gone", (PANEL.gone || []).map(jobRow(true)));
+  }
+
   // Rendered into the page rather than logged: a headless screenshot is the
   // only output, so a console warning nobody reads is the same as no warning.
   if (missing.length) {
@@ -171,7 +363,7 @@ def inline_fonts(css):
     return re.sub(r'url\("([^"]+\.woff2)"\)', swap, css)
 
 
-def build(out):
+def build(out, panel=None):
     html = (WEB / "index.html").read_text()
     css = inline_fonts((WEB / "style.css").read_text())
 
@@ -183,7 +375,8 @@ def build(out):
             sys.exit(f"snapshot: expected to find {old!r} in index.html and did not")
         html = html.replace(old, new)
 
-    html = html.replace("</body>", FILL % json.dumps(FIXTURE) + "</body>")
+    filled = FILL % (json.dumps(FIXTURE), json.dumps(PANELS.get(panel)))
+    html = html.replace("</body>", filled + "</body>")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html)
     return out
@@ -192,4 +385,12 @@ def build(out):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=pathlib.Path, required=True)
-    print(build(ap.parse_args().out))
+    ap.add_argument(
+        "--panel",
+        choices=sorted(PANELS),
+        help="raise an overlay and fill its lists: books, or workshop over it",
+    )
+    args = ap.parse_args()
+    if args.panel and args.panel not in PANELS:
+        sys.exit(f"snapshot: no fixture for panel {args.panel}")
+    print(build(args.out, args.panel))

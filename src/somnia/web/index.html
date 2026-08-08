@@ -56,19 +56,37 @@
 
          It also used to be true that nothing on it opened a book. That is no
          longer the shape of it: `reading now` at the top starts the book
-         already open — `pick it up at 1:12:08`, which is the play button
-         pressed from up here rather than from behind — and `on the shelf`
-         under it opens any book somnia has, at the place that book was left.
-         ADR 3 said changing books was done by asking; its amendment says what
-         that was really protecting against, which was browsing a library to
-         find something new. Tapping one of the three books you already have is
-         not that, and the search at the foot of this panel, which is that, is
-         still a separate act.
+         already open — the play button pressed from up here rather than from
+         behind — and `on the shelf` under it opens any book somnia has, at the
+         place that book was left. ADR 3 said changing books was done by asking;
+         its amendment says what that was really protecting against, which was
+         browsing a library to find something new. Tapping one of the three
+         books you already have is not that, and the search — which is that — is
+         still a separate act, on a screen of its own now.
+
+         Neither of those presses is a pill on a row — the book itself is the
+         press, top block and shelf row alike. That is the one gesture this list
+         has: a pill under the block at the top would make the book already
+         playing the single entry that worked differently from the rest.
 
          So there are three ways out now — `‹ controls`, which changes nothing at
          all, and the two presses that open a book, which take the panel away
          with them because they have just answered the question it was opened
-         with. -->
+         with.
+
+         And a third overlay — #workshop, last in the file — which is the only
+         one of the three that is not read at night. It is the half of the old
+         panel that was daytime work: finding a book, having it read, and seeing
+         that it worked. The panel had grown to eight blocks and could not be
+         read in the dark, and the cut that fixed it is *when* each block is
+         used rather than what it is about. Books answers "what shall I listen
+         to" at the player's own type scale; Workshop answers "get me a new
+         book, and tell me it worked" sitting up with the lights on, and is
+         allowed to be denser than anything else in the app because of it —
+         denser, and brighter, which is the half that took a second pass to get
+         right. It is reached only from the quietest row at the foot of Books,
+         and its way out says `‹ books` rather than `‹ controls`, because that
+         is where it goes. -->
 
     <!-- Two corners and the name between them. The row is the same row on both
          screens — 48dp, the wordmark across the middle of it — and which pill
@@ -87,18 +105,20 @@
          count: a book finishing at 3am is not news to somebody asleep, and a
          dot that has to be cleared is a second thing to press.
 
-         It says `library` now, and the panel it opens says `Library` back. The
-         comment here used to argue for `books`, and the ground it argued from
-         has not moved an inch — a button and the screen it raises disagreeing
-         about their own name is still a thing to work out in the dark. What
-         moved is which of the two words they agree on, and both of them moved
-         together in one commit. The design asks for `library` in this pill and
-         then says outright that either word will do so long as it is the only
-         one; this is that, taken at its word. The ids underneath are still
-         `books`, and so is `/api/books`, because that is what the server calls
-         the table and an id is not a word anybody reads at 2am.
+         It says `books` now, and the panel it opens says `Books` back. The
+         ground under that has never moved — a button and the screen it raises
+         disagreeing about their own name is a thing to work out in the dark —
+         and only which of the two words they agree on has, twice, both times
+         with both of them moving in one commit. It was `library` while the
+         panel was one screen doing eight jobs and `Library` was as good a name
+         for that as any. The panel is two screens now and each has a sentence:
+         this one is the books, and the daytime half took the jobs that were not
+         about choosing one. `Books` is what that screen is, so it is what the
+         door to it says. The ids underneath are still `books`, and so is
+         `/api/books`, because that is what the server calls the table and an id
+         is not a word anybody reads at 2am.
 
-         The left corner is two buttons rather than one relabelled. `library ›`
+         The left corner is two buttons rather than one relabelled. `books ›`
          goes to the panel and `‹ controls` comes back off the chat screen, and
          the sheet draws whichever of them the screen calls for. One element
          whose word, caret and action all changed under it would be a control
@@ -128,7 +148,7 @@
           >
             <path d="M0 0 6 5 0 10Z" fill="currentColor" />
           </svg>
-          library
+          books
         </span>
       </button>
       <!-- The same pill, the same corner and the same word as the way out of
@@ -158,6 +178,29 @@
     <main id="transcript" aria-live="polite">
       <p class="said agent">Where do you want to be?</p>
     </main>
+
+    <!-- What the thread above is, besides something to read: the largest target
+         on the chat screen, and the way back off it.
+
+         The design has asked for this since the first handoff and it was never
+         built, because until now the transport was at the foot of this screen
+         and a way back was one of four. It is one of three now — the keyboard
+         going down, the pill in the corner, and this — and this is the one that
+         needs no aiming at all, which is what makes taking the slabs away a
+         trade rather than a loss.
+
+         A press and a scroll are different events, so a thumb dragging the
+         scrollback does not land on the player. And it can only fire on the
+         chat screen: the sheet draws #transcript on that screen and nowhere
+         else, so on the player there is nothing here to press.
+
+         The line itself is a sibling of the thread rather than the last thing
+         in it, because `say` and `start over` both replace the thread's
+         children wholesale — a note inside would survive exactly until the next
+         question. It is the smallest readable type on the page and italic,
+         which on this page means words that are not somnia's own: it is an
+         aside about the screen rather than a thing the agent said. -->
+    <p id="thread-note">tap anywhere here to go back to the controls</p>
 
     <p id="status" aria-live="polite"></p>
 
@@ -401,15 +444,23 @@
            without looking and it only stays that way while what is in it never
            moves.
 
-           The design has been applied to how this row looks and to nothing
-           about how big it is. It gave the middle slab a warmer fill, an amber
-           edge and a bigger, plainer glyph — all of which can be taken without
-           anybody's thumb noticing. It also asked for 96dp cells in a
-           `1fr 1.05fr 1fr` grid, and that is the one part refused: 110px is the
-           number this row was measured at, the centre slab is half again as
-           wide as its neighbours so that play is found by reaching for the
-           middle rather than by reading anything, and the design's own rule
-           says to take space from spacing before tap targets. -->
+           The design has been applied to how this row looks and to how big it
+           is, and the second of those was a debt this page paid late. It gave
+           the middle slab a warmer fill, an amber edge and a bigger, plainer
+           glyph. It also asked for 84dp cells in a `1fr 1.05fr 1fr` grid, which
+           this row refused for a while on the ground that 110px was the number
+           it had been measured against a thumb at — and the refusal is gone
+           because 84 is still nearly twice the 44dp floor, and the height it
+           hands back is what buys the type above it. What a thumb aims at now
+           is the colour of the middle slab rather than its width. -->
+      <!-- The two labels are the page's own default written out, and drawJump
+           replaces both the moment the script runs. They are here as text
+           rather than left empty for the reason the sleep pill's `sleep timer ·
+           off` is: a page whose script has not run yet says what it will say
+           once it has, rather than showing two empty slabs where the two most
+           pressed controls are. The ids keep the 30 in them because an id is
+           not a word anybody reads at 2am — what the buttons *say* is whatever
+           Workshop was last told. -->
       <div class="transport">
         <button id="back30" type="button" aria-label="Back thirty seconds">
           −30
@@ -582,39 +633,57 @@
       </div>
     </section>
 
-    <!-- The books panel. Sibling of #candidates and after it, built to the same
-         rules and for the same reasons: over the page rather than away from it,
-         the book still playing underneath, not a <dialog>, showModal() never
-         called, no role and no aria-modal — because aria-modal is a promise
-         that everything behind it is inert, and everything behind it is a book
-         somebody is listening to.
+    <!-- Books, and it is the night half of what used to be one panel. Sibling
+         of #candidates and after it, built to the same rules and for the same
+         reasons: over the page rather than away from it, the book still playing
+         underneath, not a <dialog>, showModal() never called, no role and no
+         aria-modal — because aria-modal is a promise that everything behind it
+         is inert, and everything behind it is a book somebody is listening to.
+
+         One sentence: *what shall I listen to*. Everything on it answers that
+         and nothing else does, which is the whole of why it was cut in two. It
+         had grown to eight blocks — the book playing, the shelf, what is
+         rendering, what ended in the last day, whether the server can be
+         reached at all, a search box, its results, and what the server said
+         about the last press — and every one of them was defensible on its own.
+         Together they were a screen with no answer to what it was for, at a
+         type size that had to be small enough to hold all eight, which is the
+         one thing a page read at 2am without glasses cannot be.
+
+         So the cut is *when* each block is used and not what it is about, and
+         that is what buys the type back: this screen is read in the same dark
+         at the same arm's length as the player, so it is set at the player's
+         own scale, and nothing that is done sitting up in daylight is on it.
+         What went is on #workshop at the foot of this file, behind the quietest
+         row here.
 
          The order down it is the order the questions are asked in. Which book
          am I already in — `reading now`, at the top where the eye lands. What
          else have I got — `on the shelf` under it, which is the same question
-         asked about the other books and is answered by pressing one. Is
-         anything happening — the live rows below those. Did anything go wrong —
-         the rows that ended in the last day, under them, because a failure is
-         worth reading once and is not news twice. And then adding one, which is
-         the reason somebody opened this at all but is also the only part of it
-         that wants a keyboard, so it sits below the reading where the keyboard
-         can cover it without covering anything else.
+         asked about the other books and is answered by pressing one. How dark
+         is this — the dim control, which is here rather than in a settings
+         screen because it is the one setting that can only be judged against
+         the dark page it is changing. And then the way out to the daytime work,
+         last and quietest, because nothing behind it is a night job.
 
          #queue-head is outside the scrolling part, so the way out is in the
          same place however many rows there are and whatever the keyboard is
-         doing. That matters more here than on the list of places: this panel
-         can be open with a keyboard up, and a way out that has been pushed
-         under the keyboard is a way out that does not exist. -->
+         doing. The keyboard no longer rises on this screen — the search box
+         went with the rest of the daytime work — but the rule is the panel's,
+         not this screen's: #workshop is built the same way and its keyboard is
+         up most of the time it is open. -->
     <section id="queue" hidden aria-labelledby="queue-title">
       <!-- The same pill, in the same corner, saying the same word as the list
            of places. That sameness is the whole point of moving it: whichever
            overlay is up, the way back is one gesture in one place.
 
-           At the top rather than the bottom, which also settles the argument
-           the old comment here made for itself. This panel is nearly always
-           read with a keyboard up, and a way out that the keyboard can push
-           off the screen is not one — the top of the screen is the half a
-           keyboard can never reach. -->
+           At the top rather than the bottom, which is where every overlay on
+           this page keeps its way out. The argument that settled it was the
+           keyboard — a way out the letters can push off the screen is not one —
+           and it is #workshop that is now the panel read with a keyboard up.
+           This one keeps the shape because the shape is the panel's, and a way
+           out that moved between two screens built alike would be the one thing
+           worth having: it is in the same place on all three. -->
       <div id="queue-head">
         <button id="queue-close" type="button">
           <span class="pill">
@@ -632,10 +701,10 @@
              screen on every night, and it is the one line here nobody needs
              after the first second.
 
-             `Library`, because that is the word on the button that raises it.
+             `Books`, because that is the word on the button that raises it.
              The two are changed together or not at all: the header's comment
              has the whole of that argument. -->
-        <h2 id="queue-title">Library</h2>
+        <h2 id="queue-title">Books</h2>
 
         <!-- Which book the panel is standing over, said before anything else on
              it. Somebody who queued three books before bed and opened this at
@@ -648,78 +717,98 @@
              the panel is up, and cannot disagree with the player behind it. It
              is drawn again on every pass of drawPlayer for that last reason:
              the agent can move the book while this is open, and a block that
-             was painted once at `library` would then be naming a place the book
-             has left.
+             was painted once at the opening press would then be naming a place
+             the book has left.
 
-             The whole block goes when there is no book — label and all — which
-             is the rule the card below it already follows. A heading over
-             nothing is a claim that something should be there.
+             The whole block goes when there is no book — label and all. A
+             heading over nothing is a claim that something should be there.
 
-             What is deliberately not here is `put it down`, which was dropped
-             rather than faked: it is a shelving action somnia has no notion of
-             — pausing is not shelving, and there is nothing on the server to
-             write "finished with for now" to. The design's other half of this
-             block, the shelf of books under it, was dropped for a reason that
-             no longer stands — that this panel must not open a book — and it
-             is the section below. -->
+             What is deliberately not here is a button. There was one — a 64dp
+             amber pill reading `pick it up at 1:12:08` — and it sat under a
+             block that already named the book it would open. Every row on the
+             shelf below opens its book by being tapped, so a pill here made the
+             book already playing the one entry on the screen that worked
+             differently, and at this screen's type scale it was a second
+             control on a row that could not hold one. The block is the press
+             now; amber is what says which book is current; and the time the
+             pill was carrying moved into the line under the title, where it is
+             a fact about the book rather than the label of a button.
+
+             `put it down` is not here either, and never was. It is a shelving
+             action somnia has no notion of — pausing is not shelving, and there
+             is nothing on the server to write "finished with for now" to — and
+             the design has since dropped it for a reason that stands on its
+             own: what somebody wants is to listen to something else, and the
+             shelf below already does that in one tap. -->
         <section id="reading-now" hidden>
-          <p class="section-label">reading now</p>
+          <!-- `reading now`, or `playing now` while it is actually sounding.
+               The block underneath says the same thing in its own line, and the
+               label is what a glance at the top of the screen reads first. -->
+          <p id="reading-label" class="section-label">reading now</p>
 
-          <!-- `Title — Surname, Forename, dates`, at 25dp, which is the
-               catalog's own author field verbatim beside the book's own name.
-               Two names on one book arrive as one string with a semicolon in
-               it, and app.js sets the page's own separator between them: read
-               raw it is a run of commas and semicolons with nothing to say
-               where one person ends and the next begins.
+          <!-- The whole block, and one target: title, line, hairline. It opens
+               the book on the player, which is the play button made from up
+               here — the only book it can reach is the one already open, so the
+               panel still opens nothing and switches nothing. It takes the
+               panel down with it, because the question this was opened with has
+               just been answered and a panel left standing over a book that has
+               started playing is one more thing to get out of.
 
-               Allowed to wrap, where the player's headline is cut to one line.
-               Nothing pressed without looking is underneath this one — the
-               transport is on the screen behind the panel — so a second line
-               here costs a line of a list somebody is reading, not the position
-               of a button a thumb arrives at in the dark. -->
-          <p id="reading-title"></p>
+               A press and not a div with a listener on it: it is reached by a
+               keyboard and named to a screen reader for the same reason every
+               other press on this page is. -->
+          <button id="reading-open" type="button">
+            <!-- The book's own title at 29dp, and the only amber title in the
+                 app. That is what marks it as the current book — the shelf
+                 under it is ink — and it is why nothing here needs a word to
+                 say which of these books is playing.
 
-          <!-- `chapter 4 of 37 · 1h12m in`, and both halves are as honest as
-               the page can make them.
+                 The title alone. `Title — Surname, Forename, dates` was right
+                 at 21dp on a panel doing eight jobs and is three lines of a
+                 night screen at 29; who wrote it is catalogue metadata about a
+                 book somebody already owns and chose, and where that earns its
+                 room is Workshop's search results.
 
-               The count carries the player's own guard: 0 means nobody wrote
-               the total down, which is every book rendered before the column
-               existed, and it says `chapter 4` and stops rather than `4 of 0`.
+                 Allowed to wrap, where the player's headline is cut to one
+                 line. Nothing pressed without looking is underneath this one —
+                 the transport is on the screen behind the panel — so a second
+                 line here costs a line of a list somebody is reading, not the
+                 position of a button a thumb arrives at in the dark. -->
+            <span id="reading-title"></span>
 
-               `in` and not the design's `listened`. Nothing anywhere stores how
-               long anybody has listened for — ADR 3 dropped the session history
-               on purpose when the pivot left Audiobookshelf behind — so the
-               only number this page can stand behind is how far into the book
-               the mark is. Saying `listened` over it would be a claim about a
-               night nobody recorded. -->
-          <p id="reading-meta"></p>
+            <!-- `chapter 4 of 49 · picks up at 1:12:08`, or `· playing` when
+                 the book is already sounding. Every part of it is as honest as
+                 the page can make it.
 
-          <!-- How far in, drawn rather than stated, and absent entirely while
-               the book is still arriving. total_ms is how much audio exists,
-               which on a finished book is how long the book is and on a book
-               still being read is not: a bar drawn from it would reach the end
-               at chapter five of thirty-seven and then walk backwards as the
-               rest landed. No bar is the truth; the line above already says
-               which chapter of how many. -->
-          <div id="reading-track" hidden><div id="reading-fill"></div></div>
+                 The count carries the player's own guard: 0 means nobody wrote
+                 the total down, which is every book rendered before the column
+                 existed, and it says `chapter 4` and stops rather than `4 of 0`.
 
-          <!-- The one press, and the first press on this panel that changes
-               anything about the book. It says where it will land — `pick it up
-               at 1:12:08` — and `back to it · playing` when the book is already
-               sounding, because then there is nothing to start and the press is
-               only the way back to the controls.
+                 The time is where the press will land, in the book's own clock
+                 — the same string the player's position readout shows, so the
+                 panel and the screen behind it name one place. It used to be
+                 the label of the pill that is gone, and before that this line
+                 said `1h12m in`; the design put the timestamp here, which is
+                 also the more useful of the two readings, because it names the
+                 place rather than the distance. A book already sounding has
+                 nothing to start, so it says so instead of offering a time that
+                 is a moment out of date by the time it is read. -->
+            <span id="reading-meta"></span>
 
-               It is the play button, made from up here. The only book it can
-               reach is the one already open, so the panel still opens nothing
-               and switches nothing. It takes the panel down with it: the
-               question this was opened with has just been answered, and a panel
-               left standing over a book that has started playing is one more
-               thing to get out of. -->
-          <button id="reading-resume" type="button"></button>
+            <!-- How far in, drawn rather than stated, and absent entirely while
+                 the book is still arriving. total_ms is how much audio exists,
+                 which on a finished book is how long the book is and on a book
+                 still being read is not: a bar drawn from it would reach the end
+                 at chapter five of thirty-seven and then walk backwards as the
+                 rest landed. No bar is the truth; the line above already says
+                 which chapter of how many. -->
+            <span id="reading-track" hidden><span id="reading-fill"></span></span>
+          </button>
         </section>
 
-        <!-- The books somnia already has, each one a press that resumes it
-             where it was left. The panel opens a book now, and that is a
+        <!-- The books somnia already has, each row a press that resumes it
+             where it was left — the row itself, not a pill on the end of it.
+             The panel opens a book now, and that is a
              change of mind written down rather than smuggled in: ADR 3 used to
              say changing books was done by asking, and its amendment says what
              it really objected to, which was browsing to find something new.
@@ -734,57 +823,153 @@
              millisecond, so a wrong press costs one press back.
 
              The book playing underneath is not in this list. It is the block
-             above, with a press of its own that says where it will land, and a
-             second row for it here would be two controls doing one thing.
+             above, which is the same shape as one of these rows in amber, and a
+             second row for it here would be two entries for one book.
 
              A book with no audio yet — still being read, or a render that died
-             before its first chapter — is a row with no press, marked the way
-             the search results below mark a book that is already here. A press
-             that was never available cannot be a press that did nothing. -->
+             before its first chapter — is a row that is not a press at all,
+             marked the way the search results below mark a book that is already
+             here. A press that was never available cannot be a press that did
+             nothing. -->
         <p id="shelf-label" class="section-label" hidden>on the shelf</p>
         <ul id="shelf"></ul>
 
-        <!-- What is happening, in a box that says so. It is the only card on
-             the page — a hairline, a radius and a sentence at the top of it —
-             and it earns the chrome by being the one part of this panel that is
-             somebody else's work in progress rather than something to read or
-             press. When nothing is rendering the whole box goes, rather than
-             standing empty with a heading over it: an empty card is a claim
-             that something should be there. -->
-        <div id="queue-working" class="card" hidden>
-          <p class="card-head">the server is working</p>
-          <ul id="queue-live"></ul>
+        <!-- Whether the shelf above is what somnia has, or the last thing it
+             said before the tailnet went. This screen used to have no line of
+             its own and did not need one: the queue was on it, the queue's poll
+             owned the doubt, and the two lists went out to the same box on the
+             same press — so "couldn't reach somnia" under the queue was true of
+             the shelf as well.
+
+             Splitting the panel took that line to the other screen and left
+             this one with the failure and no way to report it, which is the
+             worst of the three states: an empty shelf and an unreachable server
+             look identical and mean opposite things, and only one of them is a
+             reason to go and look at the box. So the doubt follows the list it
+             is about. There is no race with the other line now — they are on
+             different screens, written by different requests. -->
+        <p id="shelf-note"></p>
+
+        <!-- How dark the page takes the room, and it is on this screen rather
+             than in a settings surface for a reason that is not filing.
+
+             It is the one setting that is changed at night, and it cannot be
+             judged except against the dark page it is changing: a slider on
+             another screen is a slider set blind, and a number in a settings
+             list is a number nobody can picture. Here the layer it moves is
+             over this panel too, so every press dims the thing being read while
+             it is being read, and the right level is the one it looks right at.
+
+             Two circles rather than a slider, at the size of the chapter
+             circles behind the panel. A slider handle 2px wide is a thumb's
+             width of nothing to grab in the dark, and a drag that overshoots
+             takes the room to black — where the only control that can bring it
+             back is the one that has just been covered. Steps of 0.06 walk the
+             whole range in ten presses and no press can lose the page.
+
+             The track between them is a readout of the same kind as the whole
+             progress line on the player: a fill, no target, nothing to drag. -->
+        <p id="dim-label" class="section-label">how dark</p>
+        <div id="dim-row">
+          <button id="dim-down" type="button" aria-label="Less dark">–</button>
+          <span id="dim-track" aria-hidden="true">
+            <span id="dim-fill"></span>
+          </span>
+          <button id="dim-up" type="button" aria-label="More dark">+</button>
         </div>
+        <p id="dim-note">set it here, where you can see it working</p>
 
-        <!-- What has stopped happening, under it, and named so that the two
-             lists cannot be read as one. The rows leave by themselves after a
-             day — `view` drops them — so the label is a span of time and not a
-             heading somebody has to clear. -->
-        <p id="queue-ended" class="section-label" hidden>ended in the last day</p>
-        <ul id="queue-gone"></ul>
+        <!-- The way to the daytime half, and everything about how it is drawn
+             is an argument that it is not a night control.
 
-        <!-- Whether what is above is what somnia thinks, or the last thing it
-             said before the tailnet went. An empty queue and an unreachable
-             server look identical and mean opposite things. -->
-        <p id="queue-note"></p>
-        <!-- The one place on the panel where reading turns into doing. Above
-             the line, somnia reporting: what is being read, what stopped,
-             whether it can be reached at all. Below it, somebody adding a book.
-             Each stretch now carries its own label, so which half of the panel
-             the eye has landed in is a thing it is told rather than a thing it
-             works out from the contents of the rows.
+             It is the last thing on the screen, below a rule, in the page's
+             quietest readable type, with no card and no fill — a row, and the
+             only one on this panel whose press opens another screen rather than
+             doing something to a book. Nothing behind it is a job for 2am:
+             finding a book takes a keyboard and reading a queue takes
+             attention, and both of them are things done sitting up with the
+             lights on. Somebody who lands on it half asleep gets a screen that
+             says `Workshop` in daylight type and one press back.
 
-             Mono, uppercase and small enough that it cannot be mistaken for
+             It is also the only route to that screen. There is no second door
+             from the player, because a second door is a second thing a sleepy
+             thumb can find. -->
+        <button id="to-workshop" type="button">
+          Workshop — add books, settings
+          <svg class="caret" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+            <path d="M0 0 6 5 0 10Z" fill="currentColor" />
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Workshop, the daytime half, and the only screen in this app not drawn
+         for a dark room.
+
+         Built exactly like the two overlays above it — fixed over the page, the
+         book still playing underneath, not a <dialog>, showModal() never
+         called, no role and no aria-modal — and different from both in the one
+         way that matters: it is read sitting up with the lights on, so it is
+         allowed to be denser than anything else here. That is the whole point
+         of the split. Books had to hold this as well, and holding both is what
+         made it too small to read at night.
+
+         Denser, and read in daylight, which is why this screen carries its own
+         ink and switches the dim layer off. Every alpha in the night palette
+         was chosen for a dark room and a dilated pupil; on a phone at half
+         brightness in the sun those same values are not quiet, they are gone —
+         and a screen drawn entirely from the quiet end of a scale has no
+         hierarchy left either. The sheet sets a second set of values on this
+         element and everything under it inherits them; #dim goes to zero while
+         it is up, because dimming a daytime screen is the one thing that cannot
+         be fixed by any amount of ink. Nothing here goes below 16dp.
+
+         One sentence: *get me a new book, and tell me it worked*. The order is
+         that sentence. Find one, add it, and then watch the box make it —
+         with the queue directly under the results and on the same screen on
+         purpose, because somebody who has just pressed `add this book` wants to
+         see it being made, and splitting the press from its consequence is how
+         the same book gets added twice.
+
+         Over Books rather than instead of it: `‹ books` puts this away and the
+         screen it came from is still standing, at the row that opened it. -->
+    <section id="workshop" hidden aria-labelledby="workshop-title">
+      <!-- The same pill and the same corner as everywhere else, saying where it
+           goes rather than what it does. `books` and not `controls`, because
+           that is where it goes: this is the one screen on the page that is two
+           presses from the player, and a pill that claimed otherwise would put
+           somebody on the player expecting Books. -->
+      <div id="workshop-head">
+        <button id="workshop-close" type="button">
+          <span class="pill">
+            <svg class="caret back" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+              <path d="M6 0 0 5 6 10Z" fill="currentColor" />
+            </svg>
+            books
+          </span>
+        </button>
+      </div>
+      <div id="workshop-scroll">
+        <h2 id="workshop-title">Workshop</h2>
+        <!-- What this screen is for, said once, in the smallest voice that is
+             still a sentence. It is here and not on Books because it is read in
+             daylight on the first visit and never again — the kind of line that
+             is worth a row on a screen nobody squints at. -->
+        <p id="workshop-note">
+          Daytime work — find a book, have it read, and see that it worked.
+        </p>
+
+        <!-- Mono, uppercase and small enough that it cannot be mistaken for
              something to press or something to read: it is a rule with a word
              on it. It says gutenberg because that is where the books come from
              and it is the only warning that a search here is not a search of
              the shelf. -->
-        <p class="section-label">bring in something new · gutenberg</p>
+        <p class="section-label">project gutenberg</p>
         <!-- A search box, and a button, and one request per press.
 
              Not per keystroke, and not per typed word either, which is what the
              design asked for. Two reasons, and either would be enough. The
-             tailnet is a phone talking to a VPS, so a request per letter of
+             tailnet is a phone talking to a box, so a request per letter of
              "treasure island" is fifteen requests for one answer. And the
              search on the far end is FTS5, which matches whole tokens: half a
              word matches nothing, so a list that refreshed as the letters
@@ -810,6 +995,50 @@
              own sentence, from the same function the agent's add_book returns,
              so the panel and the voice cannot disagree about what happened. -->
         <p id="queue-said"></p>
+
+        <!-- What is happening, in a box that says so, directly under the
+             results that caused it. It is the only card on the page — a
+             hairline, a radius and a sentence at the top of it — and it earns
+             the chrome by being the one part of this screen that is somebody
+             else's work in progress rather than something to read or press.
+             When nothing is rendering the whole box goes, rather than standing
+             empty with a heading over it: an empty card is a claim that
+             something should be there. -->
+        <div id="queue-working" class="card" hidden>
+          <p class="card-head">the server is working</p>
+          <ul id="queue-live"></ul>
+        </div>
+
+        <!-- What has stopped happening, under it, and named so that the two
+             lists cannot be read as one. The rows leave by themselves after a
+             day — `view` drops them — so the label is a span of time and not a
+             heading somebody has to clear. -->
+        <p id="queue-ended" class="section-label" hidden>ended in the last day</p>
+        <ul id="queue-gone"></ul>
+
+        <!-- Whether what is above is what somnia thinks, or the last thing it
+             said before the tailnet went. An empty queue and an unreachable
+             server look identical and mean opposite things. -->
+        <p id="queue-note"></p>
+
+        <!-- What `−30` and `+30` mean, and it is here rather than beside them
+             because it is set once and then possibly never again. A control
+             that is configured once belongs on the screen for configuring
+             things; putting it near the buttons it renames would be putting a
+             fourth press in the row that is pressed without looking.
+
+             Three options and no more. Fifteen seconds is a sentence, thirty is
+             a paragraph, a minute is a page — past that the chapter arrows are
+             the better instrument and the whole book scrubber is deliberately
+             not one at all. The labels below change with it, so what the button
+             says is what the button does, which is not a thing this page can
+             afford to be approximate about in the dark. -->
+        <p class="section-label">skip button size</p>
+        <div id="jump-row" role="group" aria-label="Skip button size">
+          <button id="jump-15" type="button" class="jump">15s</button>
+          <button id="jump-30" type="button" class="jump">30s</button>
+          <button id="jump-60" type="button" class="jump">60s</button>
+        </div>
       </div>
     </section>
 
@@ -843,9 +1072,20 @@
          thing covering the screen. `pointer-events: none` in the sheet is what
          keeps that true, and nothing in app.js listens here.
 
-         There is nothing on the page yet that changes the level: it ships at
-         0.12 and is read back from storage if something wrote one down. The
-         control belongs on a settings surface this page does not have. -->
+         It ships at 0.12 and is read back from storage, and what writes it is
+         `how dark` on Books — two circles on the screen the layer is over, so
+         the level is chosen by looking at it rather than by reading a number.
+
+         The one screen it is not over is Workshop, where it goes to zero for as
+         long as that screen is up. Everywhere else the layer is taking the last
+         of the light off a dark room; there it would be taking light off a
+         screen being read in daylight, and at a level somebody chose for 3am it
+         made the whole thing unreadable whatever the ink did.
+         It is not on a settings screen because there is no settings screen: dim
+         is a night control and lives where night things are, and the only other
+         thing that wanted one is the jump size, which is daytime configuration
+         and lives in Workshop. Two controls that share nothing but being
+         adjustable are not a screen. -->
     <p id="toast" hidden aria-live="polite"></p>
     <div id="dim" aria-hidden="true"></div>
 

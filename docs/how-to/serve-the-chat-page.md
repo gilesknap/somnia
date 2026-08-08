@@ -190,15 +190,24 @@ beginning if you have not started it, and does not start it: opening the app at
 2am to ask a question is not the same as asking for the book. Press play when
 you want it.
 
-To read something else, open *library* and press the book on the shelf — or ask,
+To read something else, open *books* and press the book on the shelf — or ask,
 which still works and is still the shortest way to say it. There is still no
-library of things you do not have to browse: the search at the foot of that
-panel is for *adding* a book, and it goes to Gutenberg's catalog rather than to
-your shelf.
+library of things you do not have to browse: *Workshop*, behind the quiet row at
+the foot of *Books*, is where a book is *added*, and its search goes to
+Gutenberg's catalog rather than to your shelf.
+
+Those two are one screen each on purpose. **Books** is the night screen — which
+book, and how dark — and it is set at the same type size as the player, because
+it is read in the same dark without glasses. **Workshop** is the daytime one —
+find a book, have it read, watch it being made, and set how far a skip goes —
+and it is smaller and denser than anything else in the app, because it is read
+sitting up with the lights on.
 
 On the page there are three buttons: back thirty seconds, play/pause, forward
-thirty seconds. Most nights you will use none of them, because the screen is
-off. With the phone locked the book is driven from the notification, the lock
+thirty seconds — or fifteen, or sixty, if you have said so in *Workshop* under
+*skip button size*; the labels say which. Most nights you will use none of them,
+because the screen is off. With the phone locked the book is driven from the
+notification, the lock
 screen and whatever is paired over Bluetooth: play, pause, back and forward,
 previous and next chapter, and a scrubber. The scrubber covers the chapter, not
 the book — three minutes to the pixel across a whole novel is no use for the
@@ -235,7 +244,8 @@ on when chapter four arrives. A book with nothing rendered at all says *the
 first chapter is still being read*, and the player appears when that chapter
 lands — already playing if the agent took you to that book, waiting to be
 pressed if you only opened the app. A book whose render is not running and has
-no audio at all says *nothing yet — press library to add one*, which is also
+no audio at all says *nothing yet — press books, then Workshop, to add one*,
+which is also
 what a somnia with no books in it says.
 
 When a render stopped part way — you stopped it, or a reboot did — the audio
@@ -244,7 +254,7 @@ yet* rather than *that is the end of the book*. It knows the difference because
 the parse writes down how many chapters the book has, so a book three chapters
 into thirty-nine is tellable from one that is over. Nothing ends: the sleep
 timer keeps counting and the page keeps wanting the sound. Queue the book
-again — from *library*, or by asking — and it picks up at the chapter after the
+again — from *Workshop*, or by asking — and it picks up at the chapter after the
 last finished one.
 
 When the tailnet goes — wifi power save and a tailscale re-key both do it for a
@@ -256,35 +266,79 @@ It stops the moment you pause — nothing reloads chapters under a book somebody
 has put down — and waking the phone, or the wifi coming back, makes it try
 again at once, so there is nothing to press.
 
-## Choosing and adding books from the page
+## Choosing a book: *Books*
 
-*library*, in the top left corner, opens a panel over the page. The book keeps
+*books*, in the top left corner, opens a panel over the page. The book keeps
 playing underneath it, and *‹ controls* puts it away having changed nothing at
-all. Two presses on it do change something, and both are presses on a book:
-*pick it up*, which starts the book already open, and a book on the shelf, which
-opens that one.
+all. What does change something is tapping a book — the one at the top, which
+starts the book already open, or one on the shelf, which opens that one. No book
+on this screen carries a button of its own: opening one is the same gesture
+wherever it is in the list.
+
+It is a night screen, and everything on it is set at the player's own type size
+for that reason: it is read in the same dark, at the same arm's length, by
+somebody who has taken their glasses off. It asks one question — *what shall I
+listen to* — and nothing that is not part of that answer is on it. It asks the
+server for one thing, once, when it opens: which books there are. It schedules
+no wake and polls nothing, so a night spent looking at it is a night with no
+radio traffic in it.
 
 At the top, under *reading now*, is the book that is playing underneath the
-panel — *The Moonstone — Collins, Wilkie, 1824-1889*, and under it *chapter 4
-of 37 · 1h12m in* over a hairline showing how far through it you are. *in*, and
-not *listened*: nothing anywhere records how long you have listened for, so the
-number is how far into the book the mark is. The hairline is not drawn at all
-while the book is still being rendered, because until the render is over the
-book's length is only how much of it exists so far. *pick it up at 1:12:08*
-starts it and puts the panel away — the same press as the play button, made
-from up here. When it is already playing that button reads *back to it ·
-playing* and does nothing but take you back to the controls.
+panel — *The Moonstone* in amber, the only amber title in the app, and under it
+*chapter 4 of 37 · picks up at 1:12:08* over a hairline showing how far through
+it you are. The time is where a tap would land you; while the book is actually
+sounding the heading reads *playing now* and the line ends *· playing*, because
+then there is nothing to start. The hairline is not drawn at all while the book
+is still being rendered, because until the render is over the book's length is
+only how much of it exists so far. Tapping the block starts it and puts the
+panel away — the same press as the play button, made from up here.
 
 Under it, *on the shelf* is every other book somnia has, each with where you
-left it — *0:27:42 in*, or *not started* — and *pick it up*, which opens that
-book at that place and takes the panel away with it. Changing your mind costs
-one press back: nothing is written to the book you left, so it is still exactly
-where it was, and so is the one you looked at. A book still being rendered says
-so and offers no press until its first chapter exists, because until then there
-is nothing to play. A book whose render stopped part way says *part rendered*
-and can still be opened — what was read plays.
+left it — *0:27:42 in*, or *not started*. Tapping a row opens that book at that
+place and takes the panel away with it. Changing your mind costs one press back:
+nothing is written to the book you left, so it is still exactly where it was,
+and so is the one you looked at. A book still being rendered says so and is not
+a press at all until its first chapter exists, because until then there is
+nothing to play. A book whose render stopped part way says *part rendered* and
+can still be opened — what was read plays. If the box cannot be reached, the
+shelf you last saw stays on screen with *couldn't reach somnia* under it: an
+empty shelf and an unreachable server look identical and mean opposite things.
 
-Under that is what is happening, in a box headed *the server is working*: the book being rendered, with *narrating* in the corner of its line
+The rows say the title and nothing else — no author, no dates, no cover. At this
+size the catalogue's *Title — Surname, Forename, dates* is three lines of a
+phone, and it is metadata about a book you already own and chose. The title is
+what you recognise a book you own by. Who wrote it appears in *Workshop*, where
+you are choosing among seventy thousand you do not.
+
+Under the shelf is *how dark*, which is the one setting that lives on a screen
+rather than in a list, and it lives here because the layer it moves is over this
+screen too: press *–* or *+* and the page you are looking at gets lighter or
+darker as you watch. It goes from nothing to rather dark in ten presses, and it
+cannot go dark enough to hide itself.
+
+Last, above a hairline and deliberately quiet, is the row to *Workshop*. Nothing
+behind it is a job for 2am.
+
+## Adding a book, and watching it made: *Workshop*
+
+*Workshop — add books, settings*, at the foot of *Books*, and reachable no other
+way. *‹ books* comes back, and *Books* is exactly where you left it.
+
+This is the daytime screen and it is denser than anything else in the app,
+because it is read sitting up with the lights on — denser, and brighter. It is
+drawn in its own ink rather than the night palette: fuller cream, stronger
+hairlines, a lifted amber, and the sheet of black the rest of the app is read
+through comes off entirely while it is up. Every alpha in the night scale was
+chosen for a dark room, and in daylight those same values are not quiet, they
+are gone. Nothing on it goes below 16dp. It asks one question too: *get me a new
+book, and tell me it worked*. The order down it is that sentence.
+
+At the top, under *project gutenberg*, is the search. Under the results is what
+is happening, in a box headed *the server is working* — on the same screen and
+directly beneath them on purpose, because somebody who has just pressed *add
+this book* wants to see it being made, and splitting the press from its
+consequence is how the same book gets added twice. The box holds the book being
+rendered, with *narrating* in the corner of its line
 and, under the name, which chapter it is on and how much of it can be played
 now — *chapter 4 of 39 · 1h12m read so far* — over a hairline that fills as the
 chapters land. Under it is whatever is waiting, marked *queued*, saying how far
@@ -306,10 +360,11 @@ box did, or nobody ever started `somnia-worker`. Check
 Under those are the renders that ended in the last day, and a failed one says
 why in a sentence — *Gutenberg has book 4321 but no HTML edition, so somnia
 cannot read it*. They go away by themselves after a day. There is nothing to
-dismiss and no badge or count anywhere on the panel: a book finishing at 3am is
-not news to somebody asleep.
+dismiss and no badge or count anywhere: a book finishing at 3am is
+not news to somebody asleep, and it is on a screen nobody opens at 3am.
 
-To add one, type part of a title or an author and press *find*. That searches
+Searching is the top of this screen, and it is what you came here for: type part
+of a title or an author and press *find*. That searches
 the copy of the Gutenberg catalog on this machine, so it answers in the time a
 tap takes and works with the internet down — run `somnia catalog-update` if a
 book you know exists is not in it. A book somnia already has, or already has
@@ -324,9 +379,22 @@ which is what keeps every chapter that was finished playable and stops the
 index filling up with half a chapter. The row stays as the record of a render
 somebody stopped.
 
-The panel asks the server how things are going every five seconds while it is
+At the foot is *skip button size* — fifteen, thirty or sixty seconds — which is
+what the two buttons either side of play on the player mean, and what they say.
+Set once, probably never again, which is exactly why it is here and not on a
+screen read at night.
+
+*Workshop* asks the server how things are going every five seconds while it is
 open, and stops the moment it is closed or the phone goes in a pocket. Nothing
-about the queue is polled otherwise.
+about the queue is polled otherwise — and since this is the only screen the
+queue is on, and it is two presses from the player behind a row that says
+*daytime*, no night has a five-second wake in it.
+
+There is no settings screen and there is not going to be one. The two things
+that wanted one are *how dark*, which is a night control and lives on *Books*
+where it can be judged against the dark page it is changing, and *skip button
+size*, which is configuration and lives here. Two controls that share nothing
+but being adjustable are not a screen.
 
 ## Check screen-off playback before you trust a night to it
 
