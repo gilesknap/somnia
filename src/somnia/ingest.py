@@ -16,10 +16,12 @@ from pathlib import Path
 
 from .abs import AbsClient
 from .audio import ChapterAudio
+from .catalog import text_url
 from .config import Config
 from .embed import Embedder
 from .gutenberg import Chapter, fetch_book
 from .index import add_chunks
+from .pgau import is_australian
 from .segment import TimedSentence, sentences, windows
 from .tts import TTSEngine
 
@@ -198,7 +200,18 @@ def ingest_book(
     the only moment anything outside this process can know a chapter is real.
     Both are optional, and with neither of them this behaves as it always did.
     """
-    book = fetch_book(gid)
+    # A Project Gutenberg Australia book keeps its address in the catalog rather
+    # than in its id, so this lookup is what makes it fetchable at all. None is
+    # the answer for every Gutenberg book and means "you already know where it
+    # is"; if the id says Australia and the catalog has forgotten it, say so
+    # here rather than fetching a URL nobody has.
+    url = text_url(conn, gid)
+    if url is None and is_australian(gid):
+        raise RuntimeError(
+            f"book {gid} is from Project Gutenberg Australia and the local"
+            " catalog has no address for it — run `somnia catalog-update`"
+        )
+    book = fetch_book(gid, url)
     total = len(book.chapters)
     row = conn.execute(
         "SELECT authors FROM catalog WHERE gid = ?", (str(gid),)

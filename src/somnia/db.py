@@ -22,6 +22,19 @@ CREATE VIRTUAL TABLE IF NOT EXISTS catalog USING fts5(
     gid UNINDEXED, title, authors, subjects, bookshelves, language UNINDEXED
 );
 
+-- Where to fetch a catalogued book's text, for the books whose address cannot
+-- be worked out from their id. Project Gutenberg's own can: every one of them
+-- is at cache/epub/<gid>/pg<gid>.html, which is why somnia has never needed
+-- this table before. Project Gutenberg Australia's cannot — its files are named
+-- after the month they were posted — so the address is written down at import.
+--
+-- A missing row therefore means Gutenberg proper, which is exactly what every
+-- database that existed before this table did say, and no backfill is needed.
+CREATE TABLE IF NOT EXISTS catalog_urls (
+    gid INTEGER PRIMARY KEY,
+    url TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS books (
     gid INTEGER PRIMARY KEY,
     title TEXT NOT NULL,

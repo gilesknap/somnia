@@ -2749,6 +2749,15 @@ const HAVE_WORDS = {
 };
 const HAVE_ALREADY = ["done", "rendering", "queued"];
 
+// Which library a result came from, named only when it is the second one.
+// Every row saying "Project Gutenberg" would be a column of noise on a list
+// where all four lines have to earn their place; an Australian book is the
+// exception and reads as one. It matters enough to say because the two
+// libraries clear their books against different countries' law — Australia's,
+// which is not the law here — and because that is the whole reason a title
+// missing from the other catalog can be found in this one.
+const SOURCE_WORDS = { australia: "PG Australia" };
+
 // Which stage a row is at, in one word, in the corner of the row. It is the
 // design's status column, and there is one entry here for each state the queue
 // actually has and not one more. In particular there is no "fetching text":
@@ -3363,6 +3372,13 @@ function foundRow(entry) {
   // and this is the list where that shape actually turns up.
   by.textContent = whoWrote(entry.authors);
   meta.append(by);
+  const where = SOURCE_WORDS[entry.source];
+  if (where) {
+    const library = document.createElement("span");
+    library.className = "found-where";
+    library.textContent = where;
+    meta.append(library);
+  }
   const already = HAVE_WORDS[entry.have];
   if (already) {
     // Why there is no press to make, in the line that already exists rather

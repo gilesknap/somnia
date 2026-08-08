@@ -142,13 +142,22 @@ def main(args: Sequence[str] | None = None) -> None:
     if ns.command == "catalog-update":
         from .catalog import update_catalog  # noqa: PLC0415
 
-        n = update_catalog(conn)
-        print(f"catalog updated: {n} books")
+        counts = update_catalog(conn)
+        print(
+            f"catalog updated: {counts.total} books"
+            f" ({counts.gutenberg} from Project Gutenberg,"
+            f" {counts.australia} from Project Gutenberg Australia)"
+        )
     elif ns.command == "search":
         from .catalog import search_catalog  # noqa: PLC0415
 
+        # The library is named only when it is the unexpected one. Every line
+        # saying "Project Gutenberg" would be a column of noise; the whole
+        # reason to print it at all is that an Australian book is somewhere
+        # else, under an id that looks nothing like the others.
         for entry in search_catalog(conn, ns.query, language=ns.language):
-            print(f"{entry.gid:>6}  {entry.title} — {entry.authors}")
+            where = "  [PG Australia]" if entry.source == "australia" else ""
+            print(f"{entry.gid:>10}  {entry.title} — {entry.authors}{where}")
     elif ns.command == "add":
         from .queue import submit  # noqa: PLC0415
         from .worker import asked_to_stop, render_one  # noqa: PLC0415

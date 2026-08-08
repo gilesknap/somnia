@@ -182,7 +182,7 @@ def unrendered(monkeypatch: pytest.MonkeyPatch) -> Fetched:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.touch()
 
-    def fetch_book(gid: int) -> Book:
+    def fetch_book(gid: int, url: str | None = None) -> Book:
         return fetched.book
 
     monkeypatch.setattr(ChapterAudio, "encode", encode)
@@ -521,5 +521,58 @@ def test_a_book_whose_text_changed_underneath_us_is_rendered_again_from_zero(
         assert indexed_chapters(conn) == [1, 1]
         row = book_row(conn)
         assert (row["chapters_total"], row["total_ms"]) == (2, timeline[1][2])
+    finally:
+        conn.close()
+
+
+def test_an_australian_book_is_fetched_from_the_address_the_catalog_kept(
+    unrendered: Fetched, tmp_path: Path
+) -> None:
+    """Nothing can compute it, so the catalog hands it to fetch_book."""
+    conn = connect(tmp_path / "au.db")
+    asked: list[str | None] = []
+
+    def fetch_book(gid: int, url: str | None = None) -> Book:
+        asked.append(url)
+        return unrendered.book
+
+    try:
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(ingest, "fetch_book", fetch_book)
+            with conn:
+                conn.execute(
+                    "INSERT INTO catalog_urls (gid, url) VALUES (?, ?)",
+                    (910100011, "http://gutenberg.net.au/ebooks01/0100011h.html"),
+                )
+            ingest_book(
+                _cfg(tmp_path),
+                conn,
+                cast(TTSEngine, SilentEngine()),
+                cast(Embedder, FakeEmbedder()),
+                910100011,
+            )
+        assert asked == ["http://gutenberg.net.au/ebooks01/0100011h.html"]
+    finally:
+        conn.close()
+
+
+def test_an_australian_book_with_no_address_says_so_before_fetching_anything(
+    unrendered: Fetched, tmp_path: Path
+) -> None:
+    """A stale queue row outliving a catalog rebuild is the way this happens.
+
+    The alternative is a request to a URL nobody has, which fails as a 404 and
+    reads as "Gutenberg does not have this book" — the one wrong diagnosis.
+    """
+    conn = connect(tmp_path / "lost.db")
+    try:
+        with pytest.raises(RuntimeError, match="catalog-update"):
+            ingest_book(
+                _cfg(tmp_path),
+                conn,
+                cast(TTSEngine, SilentEngine()),
+                cast(Embedder, FakeEmbedder()),
+                910100011,
+            )
     finally:
         conn.close()

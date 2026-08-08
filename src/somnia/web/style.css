@@ -2694,7 +2694,12 @@ body.keyboard-up #candidates-note {
   display: none;
 }
 
-.found-by:not(:empty) + .found-have::before {
+/* One dot between whichever of the three spans are actually on the line. The
+   author is the one that can be empty — and is then display:none — so it gets
+   the :not(:empty) guard that stops a row starting with a separator. */
+.found-by:not(:empty) + .found-have::before,
+.found-by:not(:empty) + .found-where::before,
+.found-where + .found-have::before {
   content: " · ";
 }
 
