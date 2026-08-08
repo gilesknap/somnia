@@ -2,13 +2,18 @@
 
 ## Status
 
-Accepted. One sentence below is out of date: this panel *does* open books now —
-`on the shelf`, added 2026-08-07 — and the paragraph headed **The page watches,
-and adds, and never opens** is annotated where that matters. Nothing about the
-queue, the worker unit, the lease or the heartbeat is affected: what was added
-is a list of books somnia has already rendered and one write of `position_at`.
-The argument for the reversal is in
-[ADR 3](0003-play-the-book-in-the-page.md)'s amendment.
+Accepted. Two things below are out of date and both are about the screen rather
+than the mechanism. This panel *does* open books now — `on the shelf`, added
+2026-08-07 — and it is no longer one panel: it was cut in two on 2026-08-08,
+`Books` at night and `Workshop` in daylight, with the catalog search, the queue
+and the ended rows all on the daytime half. The paragraph headed **The page
+watches, and adds, and never opens** is annotated where both matter.
+
+Nothing about the queue itself, the worker unit, the lease or the heartbeat is
+affected by either. What was added in the first was a list of books somnia has
+already rendered and one write of `position_at`; the second moved elements
+between two overlays and moved the poll with them. The argument for the first
+reversal is in [ADR 3](0003-play-the-book-in-the-page.md)'s amendment.
 
 ## Context
 
@@ -137,9 +142,19 @@ literally true: a catalog search for *adding* is not a library browser.
 somnia already has, and ADR 3's clause was withdrawn to allow it. What that
 amendment kept is the distinction this paragraph turns on — the catalog search
 is still *adding*, and still a different act from picking up a book you have.)
+(**Amended 2026-08-08**: that distinction is two screens now. The panel had
+grown to eight blocks and could not be read in the dark, and what fixed it was
+cutting on *when* each block is used: `Books` is the night half — the book
+playing, the shelf, how dark — at the player's own type size, and `Workshop` is
+the daytime half — the catalog search, the queue, the ended rows, the server
+note, and how far a skip goes — smaller and denser than anything else in the
+app, behind a quiet row at the foot of `Books`. The poll went with the queue, so
+the five-second wake is now on a screen two presses from the player that nobody
+opens at 3am. The header pill says `books` and the panel says `Books` back.)
 The way out is a `‹ controls` pill in the top left — the same corner and word as
-the way out of `#candidates`, and the same shape as the `library` pill that
-opened this — and it is inert in the full sense
+the way out of `#candidates`, and the same shape as the `books` pill that opened
+this; `Workshop`'s says `‹ books`, because that is where it goes — and it is
+inert in the full sense
 [ADR 4](0004-choose-a-place-from-a-list.md) gave that word; the destructive
 control is `stop reading this`, two presses, quiet and dashed and nowhere near
 the transport.

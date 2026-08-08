@@ -212,10 +212,18 @@ own. It was one line of a paragraph about what the pivot cost, listed beside the
 chapter list and Android Auto, and what it was really refusing was **a library
 browser**: a screen you go to in order to find something you do not have, which
 is a second place to get lost in at 2am and a screen full of books you have
-never heard of. That objection has not moved an inch. The panel does have such a
+never heard of. That objection has not moved an inch. The page does have such a
 search now — the Gutenberg catalog, seventy-five thousand books nobody owns —
-and it is a separate act at the far end of the same panel, which
+and it is a separate act, which
 [ADR 5](0005-render-one-book-at-a-time.md) argued into existence as *adding*.
+
+**Further amended 2026-08-08**: it is a separate act on a separate *screen*
+now. The panel was cut in two — `Books` at night, `Workshop` in daylight — and
+the search went with the daytime half, behind a quiet row at the foot of the
+night one. That is the same argument this amendment makes, made twice: what a
+2am screen must not be is a place to go looking for something you do not have,
+and the surest way to keep it from being one is for the looking to be somewhere
+else.
 
 A shelf of three books you already have, each one a place you left, is not that
 search wearing a hat. It is the cold launch's own question — which book — asked
