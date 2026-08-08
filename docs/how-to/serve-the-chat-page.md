@@ -184,9 +184,11 @@ all of them.
 
 ## Playing the book
 
-The page opens the book you were last listening to, at the place you left it,
-and does not start it — opening the app at 2am to ask a question is not the
-same as asking for the book. Press play when you want it.
+The page opens the book you last had open — the one you were listening to, or
+the one you last pressed on the shelf — at the place you left it, or at its
+beginning if you have not started it, and does not start it: opening the app at
+2am to ask a question is not the same as asking for the book. Press play when
+you want it.
 
 To read something else, open *library* and press the book on the shelf — or ask,
 which still works and is still the shortest way to say it. There is still no
