@@ -25,40 +25,49 @@ The tell that you have done it again: in a correct render, **"Where do you want
 to be?" nearly fills its line.** If it sits at about half the width, you are
 looking at the wrong phone.
 
-## The 20px root is half a phone, and `--text-scale` is the other half
+## The root is the page's own now, and `--root` is a real setting
 
-That root is a **model** of the reader's text scale, and it is the forgiving half
-of one. Chrome for Android does not apply the scale as a root font size: it is a
-**multiplier on computed font sizes**, put there by the text autosizer, with the
-root left at 16. So on the phone the type lands at the size the design drew —
-`1.35rem` is 21.6px x 1.25, the same 27dp a 20px root gives — and every **length**
-stays 16-based. A `1rem` gutter is 16px there where the render says 20, and
-gutters, gaps, radii, the transport slabs and the three spacer floors are all a
-fifth tighter than any PNG this skill produces.
-
-Which is why a render can only ever tell you a layout *fits*: it hands the page
-spacing the phone does not have. To ask the question the spacers actually face:
+`style.css` sets `html { font-size: 125% }` — the 20px root, shipped — and **`how
+big the words` on Settings replaces it**, walking five steps from 100% to 150%.
+So `--root` is no longer a fiction this skill injects to imitate a phone. It is
+the control the reader actually has, and every value it takes is a screen
+somebody can be looking at:
 
 ```bash
-python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/big.png --text-scale 1.3
-python3 $S/measure.py /tmp/somnia/page.html 867 --text-scale 1.3
+python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/big.png --root 24
+python3 $S/measure.py /tmp/somnia/page.html 867 --root 24
 ```
 
-`--text-scale` multiplies every rem font size and nothing else, and moves the
-root to 16 on its own — passing it *and* `--root 20` counts the reader twice.
-1.3 is the top of Android's own font-size slider; Chrome's text-scaling slider
-goes to 2.0.
+| `--root` | Settings | what it is |
+|---|---|---|
+| 16 | 100% | the floor — where the page came up before it had a root |
+| 20 | 125% | **the default, and what the design was drawn at** |
+| 24 | 150% | the ceiling, and the last size the player survives |
 
-Measured 2026-08-08, at the commit that stopped the sheet pinning the scale: the
-player does not scroll at any scale up to 2.0, because the three spacers give up
-their slack first — B and C are on their 14px floor by 2.0 and the flexible gap
-is down to 37. **1.5 is the last scale that still looks right.** At 2.0 the
-header pills meet the wordmark, the sleep pill overflows its 320, and the book
-title's second line is clipped mid-glyph by the two-line clamp.
+**Check a layout change at 16 and 24, not only at 20.** The ceiling is measured
+and it is why the range stops there: at 26 the book's title truncates to one line
+and the chapter title clips through its descenders, and by 30 the player scrolls.
+Both are *worse* than scrolling and neither shows up in `SCROLLS`, so look at the
+PNG as well as the numbers.
 
-None of which is the phone. This reproduces what Chrome-Android does to font
-sizes; it does not reproduce Chrome-Android. "somnia is readable at the largest
-setting" is still settled by picking the phone up.
+### `--text-scale`, and the phone that never arrived
+
+`--text-scale` multiplies every rem font size and leaves lengths alone, which is
+what Chrome-Android's text autosizer does when it applies a reader's scale. It
+moves the root to 16 on its own — passing it *and* `--root 20` counts the reader
+twice.
+
+Keep it for testing that the page survives a browser that *does* deliver a
+multiplier, because one may: the sheet no longer pins `text-size-adjust`, so
+anything Chrome sends now rides on top of whatever root Settings has chosen.
+Measured 2026-08-08: the player does not scroll at any scale to 2.0, the spacers
+giving up their slack first, and **1.5 is the last scale that still looks right**.
+
+What it is *not* is the phone somnia is read on. Verified on device, twice, with
+the pin already gone: **no multiplier arrives at all** — not to the page, and not
+to a bare unstyled paragraph either. That measurement is why the Settings control
+exists. Do not re-derive the OS route from this file without picking the phone up
+first; it has already cost two rounds.
 
 ## Two screens, not one — and the size no longer picks which
 

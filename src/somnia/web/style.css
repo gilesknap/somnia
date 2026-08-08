@@ -139,6 +139,27 @@ html {
      Reaching up a dark screen and getting a reload is not a mistake anyone
      should be able to make with a thumb. */
   overscroll-behavior-y: none;
+
+  /* The root every size below is measured against, and the page sets it rather
+     than hoping.
+
+     125% of the browser's default, which is 20px against the usual 16 — the
+     root the design drew every dp in this sheet at, and the one every render in
+     `render-screens` has been checked at. Until this line the shipped page had
+     no root at all and came up at 16, a fifth smaller than the drawing on every
+     screen anybody has ever looked at it on.
+
+     A percentage and not `20px`, and the difference is the whole point: a
+     percentage is still relative, so a reader who has raised their browser's
+     own default text size raises this with it, where `20px` would nail it shut.
+     That is the brief's instruction, followed literally.
+
+     It is a starting point and not a decision. `how big the words` on Settings
+     replaces this value, and any multiplier the browser applies on top — which
+     is what Android's font setting is, where it arrives at all — multiplies
+     whatever this resolves to. Three things compose here on purpose: what the
+     design drew, what the browser was told, and what the reader chose. */
+  font-size: 125%;
 }
 
 /* The scale, and why it is written in rem.
@@ -151,24 +172,26 @@ html {
    not 16 is that the reader turned the OS scale up, and a page in px is a page
    that stops listening the next time they turn it up again.
 
-   The 20px root itself is a fiction of the render harness, and it is worth
-   knowing which half of it the phone actually has. On Chrome for Android the
-   scale the reader chose is NOT a root font size — it is a multiplier applied to
-   computed font sizes by the text autosizer, and the root stays 16. So every
-   number below, at the reader's 1.25, comes out at the size the design drew:
-   1.35rem is 21.6px x 1.25, which is the 27dp the harness gets from a 20px root.
-   The font sizes agree. The LENGTHS do not: the autosizer scales type and
-   nothing else, so a 1rem gutter is 16px on the phone where the render says 20,
-   and everything spatial on the page — gutters, gaps, radii, the transport
-   slabs, the three spacer floors — is a fifth tighter there than in any PNG we
-   check against.
+   The 20px root used to be a fiction of the render harness and is now on `html`
+   above, which is the only reason any of the above is true on a phone. It was
+   worth finding out why the fiction had held for so long: the OS scale this
+   sheet was counting on does not arrive as a root font size. On Chrome for
+   Android it is a multiplier the text autosizer puts on computed font sizes —
+   type only, never lengths — and on the phone this page is read on, it does not
+   arrive at all. Verified on device, twice, with the pin already gone.
 
-   Which is to say the renders are a picture of a page whose type is right and
-   whose spacing is roomier than the reader has. That is the safe direction — the
-   thing being overspent in the render is the thing the phone has less of, so a
-   layout that fits at 360x780 with a 20px root fits with more room to spare, not
-   less. It is still not a substitute for looking at the phone at the largest
-   setting, which is the only place this scale is real.
+   So the root is the page's own now, and the reader moves it from Settings.
+   That is the better mechanism for this sheet and not a consolation prize: a
+   root scales the rem LENGTHS too, so gutters, gaps, radii and the three spacer
+   floors grow with the type and the rhythm below survives the change. An
+   autosizer's multiplier would have grown the type and left the spacing where it
+   was. Where a browser does deliver one, it multiplies this root and the page
+   takes both.
+
+   The range is 100%–150% and the ceiling is measured, not chosen: at 175% the
+   book's title truncates to one line and the chapter title clips mid-glyph.
+   `render.py --root` walks it exactly, which is the one thing about the reader's
+   text size this repo can check without a phone in the room.
 
    Descending, so a size can be checked against the design without arithmetic:
    1.7 a page title · 1.45 a book · 1.35 what somnia says · 1.2 what you said ·
@@ -2266,8 +2289,15 @@ body.keyboard-up #candidates-note {
 
 /* Two 64dp circles and a readout between them, which is the chapter strip's
    shape one screen over — two targets with the thing they change in the middle.
-   Learning it twice is learning it once. */
-#dim-row {
+   Learning it twice is learning it once.
+
+   Which is why the text size is drawn by these same six rules rather than by six
+   more beside them. It is the same control over a different quantity — press an
+   end, watch the page answer — and a second set of numbers for it would be an
+   invitation for the two to drift apart on a screen whose whole argument is that
+   a thumb in the dark should have one shape to learn. */
+#dim-row,
+#text-row {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -2280,7 +2310,9 @@ body.keyboard-up #candidates-note {
    a symbol font might pick, and there is nothing in either shape for a font to
    get wrong. */
 #dim-down,
-#dim-up {
+#dim-up,
+#text-down,
+#text-up {
   flex: none;
   width: 3.2rem;
   height: 3.2rem;
@@ -2296,7 +2328,9 @@ body.keyboard-up #candidates-note {
 }
 
 #dim-down:active,
-#dim-up:active {
+#dim-up:active,
+#text-down:active,
+#text-up:active {
   border-color: var(--accent-line);
   background: var(--surface-active);
   color: var(--ink);
@@ -2307,7 +2341,9 @@ body.keyboard-up #candidates-note {
    book has no places. A control that looks pressable and is not is the thing
    the comments on this page argue against most often. */
 #dim-down:disabled,
-#dim-up:disabled {
+#dim-up:disabled,
+#text-down:disabled,
+#text-up:disabled {
   opacity: 0.3;
 }
 
@@ -2316,13 +2352,15 @@ body.keyboard-up #candidates-note {
    for the same reason. A 2px track is a thumb's width of nothing to grab, and a
    drag that overshot on this one would take the room to black with the only
    control that can undo it underneath the layer that just went up. */
-#dim-track {
+#dim-track,
+#text-track {
   flex: 1;
   height: 2px;
   background: var(--hairline);
 }
 
-#dim-fill {
+#dim-fill,
+#text-fill {
   display: block;
   height: 100%;
   background: var(--accent);
