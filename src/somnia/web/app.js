@@ -3981,17 +3981,29 @@ async function pressAdd(entry, button) {
   const open = voicePicking === entry.gid;
   closeVoices();
   if (open) return;
+  // Claimed before the first await, not after it. The first press of the night
+  // waits on a real fetch of the roster, and a thumb that presses twice inside
+  // that wait used to get two blocks under the one row — the second overwrote
+  // `voiceOpen`, so close could only ever remove one of them, and two buttons
+  // were left answering to `queue-confirm-<gid>`.
+  voicePicking = entry.gid;
   await loadVoices();
+  // A press that landed during the fetch has taken the claim back. That press
+  // was the one that closes this picker, so there is nothing left to open.
+  if (voicePicking !== entry.gid) return;
   if (!voiceRoster?.length) {
     // No roster, so no choice to offer and nothing to wait for. This is the
     // whole of the page's behaviour before voices existed, and it is the right
     // fallback: the book is what somebody came here for.
+    voicePicking = 0;
     await addBook(entry, button, "");
     return;
   }
   const li = document.getElementById(`found-${entry.gid}`);
-  if (!li) return;
-  voicePicking = entry.gid;
+  if (!li) {
+    voicePicking = 0;
+    return;
+  }
   voiceOpen = voiceBlock(entry, button);
   li.append(voiceOpen);
 }

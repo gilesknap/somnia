@@ -1745,8 +1745,8 @@ test("a somnia with no books says which two presses add one", async (t) => {
 // afterwards — every timestamp somnia holds was measured in that voice. So the
 // press that starts a render opens the choice rather than making it.
 
-async function found(t) {
-  const page = await opened(t);
+async function found(t, options) {
+  const page = await opened(t, options);
   page.queueView([]);
   await workshop(page);
   page.catalogEntries([entry()]);
@@ -1852,12 +1852,15 @@ test("the roster is asked for once and not once per press", async (t) => {
 });
 
 test("a voice that has left the roster is not sent to be refused", async (t) => {
-  const page = await found(t);
   // A page left open across a deploy that dropped a voice. Falling back to the
   // first of the roster rather than sending the old name, because the refusal
   // would arrive as the answer to a press about a book, which is a confusing
   // place to be told about a voice.
-  page.storage.setItem("somnia-voice", "af_gone");
+  //
+  // Seeded before boot, because the page reads the remembered voice once on the
+  // way up: written afterwards it reaches storage and nothing else, and the
+  // test passes on the empty-string fallback without ever dropping a voice.
+  const page = await found(t, { stored: { "somnia-voice": "af_gone" } });
   await addWith(page, 120);
   assert.deepEqual(page.submits, [{ gid: 120, voice: "af_heart" }]);
 });
