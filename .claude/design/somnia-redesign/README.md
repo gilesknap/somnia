@@ -262,7 +262,11 @@ no replies.
 0. **Header on chat is symmetric**: `‹ controls` pill left, `start over` pill right (same 36dp pill spec).
    `start over` here means **clear the thread** back to "Where do you want to be?" — single tap, no confirm,
    since nothing is lost but questions. This is the only place `start over` exists.
-1. **Remove play/pause from the dock.** It was crowding the input and forcing the text down. Dock is now:
+1. **Remove play/pause and the ±30 buttons from the chat screen.** The chat dock is the input pill and the
+   mic, and nothing else. Transport controls belong on the player; repeated here they crowd the input, push
+   the thread up, and shrink the type on the one screen that is nothing but text. **Still present in the
+   current build — remove them.** (Originally written as "remove play/pause from the dock"; the ±30 buttons
+   are the same call.) It was crowding the input and forcing the text down. Dock is now:
    input pill flex:1, **80dp**, 99 radius, `#16151b`, 22dp serif, placeholder `the bit where…` at
    `rgba(230,220,200,.32)`; plus an **80×80** mic circle. Enter submits.
 2. **The whole thread pane is a tap target that returns to the player.** Faster than hunting a button, and
@@ -345,37 +349,91 @@ list** so the boundary always exists.
 
 ---
 
-## Screen 5 — Books
+## Screen 5 — Books (night), and Screen 6 — Workshop (day)
 
-Restructures your existing Books page. Header shown, left pill reading `‹ controls`. Section labels
-throughout: 11dp mono, uppercase, `.18em`, `rgba(230,220,200,.3)`.
+**This replaces the single Library panel.** In real use that panel had grown to eight blocks — reading now,
+the shelf, *ended in the last day*, search, results, the working queue, the server note, the last thing the
+server said — and the reader could not read it in the dark. The blocks were each defensible; together they
+had no answer to "what is this screen for".
 
-1. **Keep** the `Books` title at 34dp, and the input + `find` pairing.
-2. **reading now** — title in `Title — Surname, Forename, dates` form at 25dp `rgba(230,220,200,.9)`; meta
-   `chapter 4 of 54 · 1h12m listened` at 17.5dp `rgba(230,220,200,.42)`; 2dp progress hairline. Then two
-   actions:
-   - **`pick it up at 1:12:08`** — flex:1, 64dp, 99 radius, 1px `rgba(200,135,60,.45)`, bg
-     `rgba(200,135,60,.06)`, `#c8873c`; reads `back to it · playing` when already playing. **This is new** —
-     the page previously offered only the destructive action, so there was nothing to press to continue.
-   - **`put it down`** — flex:none, 64dp, 22dp padding, **1px dashed** `rgba(230,220,200,.2)`,
-     `rgba(230,220,200,.4)`. Dashed = recessive/undoable. Stops playback, shelves at the current time, and
-     the block collapses to italic "nothing on the go — pick something below".
-3. **on the shelf** — fills what was empty space: rows of title 22dp, the same meta line 16.5dp, 2dp
-   progress hairline `rgba(200,135,60,.65)`; tap opens that book on the player. **No cover art anywhere** —
-   covers are bright rectangles in a dark room, and four lines of text scan faster half-asleep.
-4. **bring in something new · gutenberg** — input pill flex:1, 68dp, `#16151b`, 20dp serif, placeholder
-   `a title, or an author`; `find` slab 96×68, 18 radius, `#16151b`. Filter live on **every typed word**
-   (single-word matching made the page open nearly empty). Results: title 21dp, meta
-   `Author · year · formats` 16dp, action pill 104×56 cycling `ingest` → `working` → `in library`, amber
-   once queued.
-5. **Queue panel** while anything is ingesting: 1px `rgba(230,220,200,.1)`, 14 radius, "the server is
-   working", then per item title + right-aligned status (`queued`, `fetching text`, `narrating`, `ready`)
-   over a 2dp progress hairline with a 500ms width transition. Wire to whatever progress your ingest job
-   already emits.
-6. **No bottom close button** — leave via the header's `‹ controls` pill. End the scroller with ~28dp
-   bottom padding.
+The cut is **when you use it**, not what it is. That is what fixes the type problem: a night screen and a
+daytime screen cannot share one scale, and only one of them can win.
+
+Each screen gets one sentence. Anything that does not fit its sentence is on the wrong screen.
 
 ---
+
+### Screen 5 — Books · *"what shall I listen to"*
+
+Night. Reached from the player's left pill (which now reads `books ›`). Header shown, left pill
+`‹ controls`. **Set at the player's type scale** — it is read in the same dark, at the same arm's length.
+
+1. Title `Books` 34dp.
+2. **reading now** — section label 11dp mono. Title 29dp `rgba(230,220,200,.9)`; meta
+   `chapter 4 of 54 · 1h12m listened` 21dp; 2dp progress hairline. Then two actions, 64dp tall:
+   - **`pick it up at 1:12:08`** — flex:1, 99 radius, 1px `rgba(200,135,60,.45)`, bg
+     `rgba(200,135,60,.06)`, 22dp `#c8873c`; reads `back to it · playing` when already playing.
+   - **`put it down`** — flex:none, 22dp padding, 1px **dashed** `rgba(230,220,200,.2)`, 19dp. Dashed =
+     recessive. Collapses the block to italic 23dp "nothing on the go — pick something below".
+3. **on the shelf** — rows of title **26dp**, meta **19dp**, 2dp progress hairline, 20dp vertical padding;
+   tap opens that book on the player. **No cover art** — bright rectangles in a dark room, and four lines of
+   text scan faster half-asleep.
+4. **how dark** — the dim control, and it lives *here* rather than in settings. It is the one setting
+   changed at night, and it can only be judged against the dark UI you are actually looking at; a slider on
+   another screen is a slider set blind. Two 64dp circles (`–` / `+`, 26dp glyphs, 0.06 steps, range
+   0–0.6) either side of a 2dp amber-filled track, with italic 17dp beneath: "set it here, where you can see
+   it working". The dim overlay updates live as it changes.
+5. **Workshop row** — a single 64dp row above a hairline: `Workshop — add books, settings` 21dp
+   `rgba(230,220,200,.5)` with a right caret. The only route to Screen 6. Deliberately at the very bottom
+   and deliberately quiet: nothing behind it is a night job.
+
+**Not on this screen**: search, ingest, the render queue, the server note, jump size. All of it moved.
+
+---
+
+### Screen 6 — Workshop · *"get me a new book, and tell me it worked"*
+
+Daytime, sitting up, lights on — so it may be **denser and smaller** than any other screen in the app.
+Reached only from Books; its left pill reads `‹ books`.
+
+1. Title `Workshop` 30dp, with a 16dp subhead: "Daytime work — find a book, have it read, and see that it
+   worked."
+2. **project gutenberg** — input pill flex:1, 56dp, 17dp serif, placeholder `a title, or an author`;
+   `find` slab 82×56. Filter on **every typed word**. Results: title 17dp, meta `Author · year · formats`
+   14dp, action pill 92×48 cycling `ingest` → `working` → `in library`, amber once queued.
+3. **the server is working** — the render queue, directly beneath the results and on the same screen **on
+   purpose**: you add a book and immediately want to know it is being made. Splitting ingest from its queue
+   is how somebody adds the same book twice. Per item, title + right-aligned status (`queued`,
+   `fetching text`, `narrating`, `ready`) over a 2dp hairline with a 500ms width transition. The existing
+   *ended in the last day* list and the server note belong here too, under the same heading group.
+4. **skip button size** — three segmented options (`15s` / `30s` / `60s`), 52dp tall, selected one amber
+   with `rgba(200,135,60,.07)` fill. Drives the player's `−30`/`+30` labels. Set once, maybe never — which
+   is exactly why it is here and not at night.
+
+Settings is **not a screen**. It is two controls that do not belong together: dim is a night control and
+lives on Books; jump size is configuration and lives here. Do not build a settings surface to hold them.
+
+## Implementation status (synced from gilesknap/somnia, 2026-08-08)
+
+Read from `src/somnia/web/` at the current `main`. Ported and correct: the three-spacer rhythm with its
+floors and ceilings; the player type scale (38 / 31 / 29 / 24 / 23 / 21 / 19 / 18); 84dp transport slabs;
+68dp dock and mic; the scrub line as a readout with no tap target; the stacked position + places count with
+its dotted rule; the two-line clamp on both titles; `‹ controls` as the single way out of every overlay;
+`start over` on chat only. Two screens named differently from earlier drafts: the panel is **Library**, and
+**chat is not a route** — the same element becomes the chat screen when the keyboard rises, with Places and
+Library as overlays over a still-playing book. Both are better than what this doc originally specified.
+
+Not implemented, deliberately or otherwise:
+
+- **Wake screen** — the post-fade prompt has no implementation. See Screen 2b; it is still the design.
+- **Books / Workshop split** — the single Library panel is still one screen doing eight jobs, at a type size
+  that could not be read in the dark in real use. Screens 5 and 6 replace it.
+- **Settings** — dim level and jump size have no home, so `#dim` is fixed at 0.12 for everyone. They do not
+  get a settings screen: dim goes on Books, jump size goes in Workshop. See Screens 5 and 6.
+- **Chat still carries play/pause and ±30** — remove them; see Screen 3.
+- **Sleep-timer default** — correctly dropped. It contradicted the six-hour expiry on a stored timer, which
+  is the better behaviour: a timer is an intent about tonight, and persisting it would end a later night
+  early. Do not reintroduce it.
 
 ## Not designed — leave your existing UI alone
 
@@ -394,8 +452,8 @@ Compare against the prototype before calling the player done:
 1. **The chapter counter renders as one line, `chapter 3`.** It is two lines — `chapter` over `3 of 54` —
    and dropping the total loses the only "how much is left" signal on the screen.
 2. **The scrub line is missing.** It belongs directly under the position readout, above the sleep pill —
-   2dp track, amber fill, 8dp knob, in a 44dp tap area. Without it there is no visual sense of how far
-   through the book you are, which is half the reason the position group exists.
+   2dp track, amber fill, 8dp knob, in a 22dp band, **not interactive**. Without it there is no visual sense
+   of how far through the book you are, which is half the reason the position group exists.
 3. **`4 places found` is missing** from the position line, and the position text has no dotted underline —
    so the route into Places is invisible from the player. Position line = dotted-underlined time + count,
    one 44dp target.
