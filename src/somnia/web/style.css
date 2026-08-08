@@ -3059,6 +3059,11 @@ body.keyboard-up #candidates-note {
   gap: 0.8rem;
   padding: 0.8rem 0;
   border-bottom: 1px solid var(--hairline);
+  /* So the voice picker can be a third child that takes the whole width and
+     drops under the two above it, rather than a fourth column squeezed between
+     the title and the press. It belongs to this row and to no other, and being
+     inside it is what says so. */
+  flex-wrap: wrap;
 }
 
 .found-text {
@@ -3134,6 +3139,90 @@ body.keyboard-up #candidates-note {
 .found-add.again:active {
   background: var(--accent-surface);
   color: var(--accent);
+}
+
+/* Choosing how the book will sound, under the row it is about.
+
+   It opens on the add press and closes on the same press, so the way out is the
+   control the hand is already on and there is no cancel to draw. Under the row
+   rather than over the screen because it belongs to one book: a modal would
+   have to say which book it was about, and being inside the row says it without
+   a word.
+
+   The whole block takes the full width of the row — .found wraps for exactly
+   this — and is set back from the left so it reads as belonging to the title
+   above it rather than as the next thing in the list. */
+.voices {
+  flex-basis: 100%;
+  padding: 0.2rem 0 0.4rem;
+}
+
+/* The same small label as `how dark the room` on Settings, and for the same
+   reason: it names what the row of pills under it is for, once, in the size
+   this app gives to captions rather than to controls. */
+.voices-label {
+  margin: 0 0 0.5rem;
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+
+/* Wrapping, unlike #jump-row, which has three pills and can promise they fit.
+   Six voice names cannot make that promise on a narrow phone, and a row that
+   scrolls sideways would hide a voice behind the edge of the screen with
+   nothing to say it was there. */
+.voice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Built like .jump and smaller: this is daylight, read sitting up, and it is a
+   press made while looking at it. Not flex: 1 — the pills carry names of very
+   different lengths, and equal thirds would leave `heart` swimming in a pill
+   the width of `michael`. */
+.voice {
+  min-height: 2.4rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  color: var(--mid);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.9rem;
+}
+
+.voice:active {
+  background: var(--surface-active);
+  color: var(--ink);
+}
+
+/* Which one is in force, in the same amber as the chosen skip size — and said
+   again in aria-pressed, because amber is not available to everybody. */
+.voice.chosen {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+/* What the chosen voice sounds like, for anybody who cannot play the sample —
+   a phone on silent, a reader, a clip that did not arrive. Italic, which on
+   this page means words that are not somnia reporting on itself. */
+.voices-note {
+  margin: 0.5rem 0 0;
+  color: var(--dim);
+  font-size: 0.75rem;
+  font-style: italic;
+  min-height: 1rem;
+}
+
+/* The press that spends six hours of the box. Full width and warm, because by
+   now both choices have been made and this is the only thing left to do — and
+   because the plain pill it sits under is the one that opened this block, so
+   two identical pills would be two presses with no way to tell them apart. */
+.voices-add {
+  display: block;
+  width: 100%;
+  margin-top: 0.6rem;
 }
 
 /* #queue-foot and #queue-close's own rules are gone: the way out of this panel

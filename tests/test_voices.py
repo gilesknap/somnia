@@ -11,9 +11,15 @@ import pytest
 from somnia.voices import DEFAULT_VOICE, VOICES, known, lang_code_for
 
 
-def test_the_default_is_one_of_the_voices_on_offer() -> None:
-    """Or the picker would open with nothing chosen and no way to get back."""
+def test_the_default_is_the_first_voice_on_offer() -> None:
+    """The page reads the order, and the first of them is what it opens on.
+
+    So the two have to agree: a roster whose first entry is not the renderer's
+    default would draw one voice in amber and render the book in another, on a
+    page that has never been pressed.
+    """
     assert known(DEFAULT_VOICE)
+    assert VOICES[0].id == DEFAULT_VOICE
 
 
 def test_every_voice_is_named_once_and_says_something_about_itself() -> None:
