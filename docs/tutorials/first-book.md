@@ -17,9 +17,10 @@ $ somnia search "black beauty"
    271  Black Beauty — Sewell, Anna
 ```
 
-The page can do this too, once you have one: *books* in the corner searches the
-same local catalog and queues what you press, and so does asking out loud. This
-is the same act by three routes, and all three end up in the same queue.
+The page can do this too, once you have one: *library* in the top left corner
+searches the same local catalog and queues what you press, and so does asking
+out loud. This is the same act by three routes, and all three end up in the
+same queue.
 
 ## Render it
 
@@ -36,7 +37,8 @@ conservative end of [the benchmark](../explanations/design.md), so a six-hour
 book is roughly a five-hour render — but **you do not wait for it**. Each
 chapter is written to the library folder and indexed the moment it finishes, so
 chapter one is listenable within a few minutes and the rest arrives while you
-sleep. The page will show you how far it has got: *books*, in the corner.
+sleep. The page will show you how far it has got: *library*, in the top left
+corner.
 
 Leave it running in a `tmux` session. Better, run the worker as a unit and
 never type this again: books are rendered one at a time from a queue, so

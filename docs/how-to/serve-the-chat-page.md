@@ -146,12 +146,14 @@ them, so you recognise the moment rather than take somnia's word for it, and
 never the words of a place you have not reached yet, which is the paragraph
 after this one. There is a *you are here* marker sitting
 between them in book order so you can see which are behind you and which are
-ahead. Press *goto* on a row and the book goes there and plays. Press *close* at
-the bottom and nothing whatever happens: the book carries on exactly as it was, in
-the same place, with the same sleep timer running. Nothing has moved while the
-list is up, so there is nothing to undo. The book keeps playing underneath it
-the whole time, which also means a sleep timer left to run out under a list
-still ends the night — the list is not a reason to keep the book going.
+ahead. Press *goto* on a row and the book goes there and plays. Press
+*‹ controls* in the top left — the same corner and the same word as the way out
+of everything else — and nothing whatever happens: the book carries on exactly
+as it was, in the same place, with the same sleep timer running. Nothing has
+moved while the list is up, so there is nothing to undo. The book keeps playing
+underneath it the whole time, which also means a sleep timer left to run out
+under a list still ends the night — the list is not a reason to keep the book
+going.
 
 It will not answer about a part of the book you have not heard. An answer can
 come out of somnia's own reading of the book rather than only out of the passage
@@ -186,9 +188,10 @@ The page opens the book you were last listening to, at the place you left it,
 and does not start it — opening the app at 2am to ask a question is not the
 same as asking for the book. Press play when you want it. There is still no
 library to browse: *another book* is something you ask for, the same way you
-ask for a passage. The *books* control in the corner adds books and watches
+ask for a passage. The *library* control in the corner adds books and watches
 them being rendered; it never opens one, and nothing on it changes what is
-playing.
+playing — the word is the design's, and what is behind it is a catalog search
+for adding rather than a shelf to pick from.
 
 On the page there are three buttons: back thirty seconds, play/pause, forward
 thirty seconds. Most nights you will use none of them, because the screen is
@@ -229,8 +232,8 @@ on when chapter four arrives. A book with nothing rendered at all says *the
 first chapter is still being read*, and the player appears when that chapter
 lands — already playing if the agent took you to that book, waiting to be
 pressed if you only opened the app. A book whose render is not running and has
-no audio at all says *nothing yet — press books to add one*, which is also what
-a somnia with no books in it says.
+no audio at all says *nothing yet — press library to add one*, which is also
+what a somnia with no books in it says.
 
 When a render stopped part way — you stopped it, or a reboot did — the audio
 runs out mid-book, and the page says *the rest of this book hasn't been read
@@ -238,7 +241,7 @@ yet* rather than *that is the end of the book*. It knows the difference because
 the parse writes down how many chapters the book has, so a book three chapters
 into thirty-nine is tellable from one that is over. Nothing ends: the sleep
 timer keeps counting and the page keeps wanting the sound. Queue the book
-again — from *books*, or by asking — and it picks up at the chapter after the
+again — from *library*, or by asking — and it picks up at the chapter after the
 last finished one.
 
 When the tailnet goes — wifi power save and a tailscale re-key both do it for a
@@ -252,10 +255,9 @@ again at once, so there is nothing to press.
 
 ## Adding a book from the page
 
-*books*, in the corner beside *start over*, opens a panel over the page. The
-book keeps playing underneath it, nothing on it opens a book or switches which
-one you are listening to, and *close* puts it away having changed nothing at
-all.
+*library*, in the top left corner, opens a panel over the page. The book keeps
+playing underneath it, nothing on it opens a book or switches which one you are
+listening to, and *‹ controls* puts it away having changed nothing at all.
 
 At the top, under *reading now*, is the book that is playing underneath the
 panel — *The Moonstone — Collins, Wilkie, 1824-1889*, and under it *chapter 4

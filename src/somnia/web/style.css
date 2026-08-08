@@ -137,8 +137,13 @@ html {
    and a time on a list · 1.1 what you are typing, and a chapter · 1.05 the way
    out, and a search result · 0.95 a chapter count, and the book's own words ·
    0.9 a second-rank control, and where you are in the book · 0.825 what a row
-   is, under its name · 0.775 a footnote · 0.75 the corner that throws things
-   away.
+   is, under its name, and either pill in the header · 0.775 a footnote.
+
+   The corner that throws things away used to be a step below all of it, at
+   0.75, on the grounds that a destructive press should be the quietest thing
+   on the screen it is on. It is not on that screen any more — see the header —
+   and where it is now it is a pill like the one opposite, so the step is gone
+   and nothing is drawn at 0.75.
 
    Nothing meant to be read goes below 0.75rem — 15dp — and the one thing under
    that, .section-label at 0.55rem, is not read: it is mono, uppercase and
@@ -181,11 +186,17 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* One row, 48dp tall, holding an action, the name, and a quiet action. It is
+/* One row, 48dp tall, holding a corner, the name, and a corner. It is
    `position: relative` only so that the name can be centred against the screen
    rather than against whatever is left between the two buttons — the two are
    not the same width and never will be, and a wordmark that sits a few pixels
-   off centre reads as a page that was not finished. */
+   off centre reads as a page that was not finished.
+
+   `space-between` with the wordmark taken out of the flow by `position:
+   absolute`, which is what makes the player's empty right-hand corner cost
+   nothing: with one button left in the row it goes to the start, and with two
+   they go to the ends. Nothing here has to be told how many pills the screen it
+   is on has. */
 header {
   position: relative;
   flex: none;
@@ -239,16 +250,26 @@ h1 {
   color: var(--faint);
 }
 
-/* The way to the books, drawn as something to press. A 48dp target with a 36dp
-   pill inside it: the pill is what is seen and the space around it is what is
-   hit, which is how a control can be small enough not to shout across a dark
-   room and still big enough to land on without aiming.
+/* The three things that can be in a corner of this row, all built the same way:
+   a 48dp target with a 36dp pill inside it. The pill is what is seen and the
+   space around it is what is hit, which is how a control can be small enough
+   not to shout across a dark room and still big enough to land on without
+   aiming.
 
-   It is the only outlined thing in the header. Everything else up here is bare
-   type, so an outline is the whole of the difference between "this is a name"
-   and "this is a door" — and this door was invisible for as long as it looked
-   like the name beside it. */
-#books {
+   They are the only outlined things in the header. Everything else up here is
+   bare type, so an outline is the whole of the difference between "this is a
+   name" and "this is a door" — and the left-hand door was invisible for as long
+   as it looked like the name beside it.
+
+   One rule for all three because a corner of this row is one thing in the
+   reader's hands: the same shape at the same size at the same height off the
+   top of the screen on both screens, with only the word inside it changing.
+   Three rules that agreed by coincidence would drift the first time one of them
+   was touched, and what would be lost is the sameness that is the entire point
+   of drawing them alike. */
+#books,
+#to-controls,
+#restart {
   flex: none;
   display: flex;
   align-items: center;
@@ -260,9 +281,10 @@ h1 {
 }
 
 /* Not scoped to #books any more. It is the shape of "this goes somewhere" on
-   this page, and there are three of them now: `books` on the player, and
-   `‹ controls` on each of the two overlays. Written once so the three cannot
-   drift apart, which is the only reason they read as one control. */
+   this page, and there are five of them now: `library ›` on the controls
+   screen, `‹ controls` and `start over` on chat, and `‹ controls` again on each
+   of the two overlays. Written once so the five cannot drift apart, which is
+   the only reason they read as one control. */
 .pill {
   display: flex;
   align-items: center;
@@ -285,42 +307,49 @@ h1 {
 }
 
 /* The press, in the amber the design gives a selected pill — and the press is
-   the only moment it can ever be seen. The panel this opens is opaque and
+   the only moment it can ever be seen. What `library` opens is opaque and
    covers the screen, so there is no "while it is open" for the button
    underneath to be lit for; a class that stayed on behind a full-screen panel
-   would be state nobody could look at. What is worth showing is that the press
-   landed, and that is what this is. */
-#books:active .pill {
+   would be state nobody could look at. The other two leave the screen they are
+   on just as completely. What is worth showing is that the press landed, and
+   that is what this is. */
+#books:active .pill,
+#to-controls:active .pill,
+#restart:active .pill {
   border-color: var(--accent-line);
   background: var(--accent-tint);
   color: var(--accent);
 }
 
-/* The other corner, and the one control on this page that throws something
-   away. Quieter than it used to be, and quieter than the pill opposite it, on
-   purpose: it is now the only thing in the header that is not meant to be
-   found, and it can afford to be because a first press no longer does anything
-   — it asks, and says so where the label was. The target is the full height of
-   the header, so pressing it deliberately still needs no aim. */
-.quiet {
-  background: none;
-  border: 0;
-  color: var(--faint);
-  font-size: 0.75rem;
-  min-height: 2.4rem;
-  padding: 0 0.5rem;
+/* Which pill is in which corner, which is the only thing about this row that
+   the screen decides.
+
+   Off by default and turned on by the class, rather than the other way round,
+   and that direction is the whole safety of it: a `chat-screen` that somehow
+   never got written leaves the player with one pill and an empty corner, which
+   is a header, while the same failure the other way round would put a press
+   that throws the conversation away in the top corner of the screen somebody
+   taps half asleep. The design says that corner is empty on the player and
+   means it — that is issue #22 — and a default cannot break a promise it does
+   not make.
+
+   Written here, beside the two pills it is about, rather than down in the chat
+   screen's own block: everything else in that block is the reading giving way
+   to a keyboard, and this is not about height at all. It is the same class, and
+   it is drawn from the same measurement, and there is nothing in this row that
+   any window size can reach. */
+#to-controls,
+#restart {
+  display: none;
 }
 
-.quiet:active {
-  color: var(--ink);
+body.chat-screen #books {
+  display: none;
 }
 
-/* Asked, and about to be answered. Amber because that is what this page says
-   "this is live" in, and it has to be a different colour and not only different
-   words: the whole point of the two presses is that the second one cannot
-   happen without the first having been noticed. */
-#restart.armed {
-  color: var(--accent);
+body.chat-screen #to-controls,
+body.chat-screen #restart {
+  display: flex;
 }
 
 #transcript {
@@ -1264,8 +1293,8 @@ button:disabled {
    is built around, was put on the chat screen permanently with the player gone
    and no gesture that brought it back. That half is a class on <body> now, below.
    Losing the reading and being taken to another screen are not the same loss:
-   here the book plays on, the transport is under the same thumb, `books` is in
-   the same corner, and the conversation is still one tap on the dock away. */
+   here the book plays on, the transport is under the same thumb, `library` is
+   in the same corner, and the conversation is still one tap on the dock away. */
 @media (max-height: 34rem) {
   #now-playing {
     display: none;
@@ -1769,10 +1798,10 @@ button.candidate-show:active {
   margin-bottom: 0.6rem;
 }
 
-/* The same pill as `books` in the header, because it is the same kind of thing
-   — the one control on the screen that goes somewhere — and a listener should
-   not have to learn it twice. Everything that shapes it is inherited from
-   `#books .pill` below; what is set here is only the target around it. */
+/* The same pill as the header's, because it is the same kind of thing — the one
+   control on the screen that goes somewhere — and a listener should not have to
+   learn it twice. Everything that shapes it is inherited from `.pill` above;
+   what is set here is only the target around it. */
 #candidates-cancel,
 #queue-close {
   display: flex;
