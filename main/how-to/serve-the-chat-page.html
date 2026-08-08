@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.6.dev73+g3bb24aa52 documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.6.dev79+g93a76f255 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=d66bea2f"></script>
+    <script src="../_static/documentation_options.js?v=bdc22acf"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -635,12 +635,14 @@ them, so you recognise the moment rather than take somnia’s word for it, and
 never the words of a place you have not reached yet, which is the paragraph
 after this one. There is a <em>you are here</em> marker sitting
 between them in book order so you can see which are behind you and which are
-ahead. Press <em>goto</em> on a row and the book goes there and plays. Press <em>close</em> at
-the bottom and nothing whatever happens: the book carries on exactly as it was, in
-the same place, with the same sleep timer running. Nothing has moved while the
-list is up, so there is nothing to undo. The book keeps playing underneath it
-the whole time, which also means a sleep timer left to run out under a list
-still ends the night — the list is not a reason to keep the book going.</p>
+ahead. Press <em>goto</em> on a row and the book goes there and plays. Press
+<em>‹ controls</em> in the top left — the same corner and the same word as the way out
+of everything else — and nothing whatever happens: the book carries on exactly
+as it was, in the same place, with the same sleep timer running. Nothing has
+moved while the list is up, so there is nothing to undo. The book keeps playing
+underneath it the whole time, which also means a sleep timer left to run out
+under a list still ends the night — the list is not a reason to keep the book
+going.</p>
 <p>It will not answer about a part of the book you have not heard. An answer can
 come out of somnia’s own reading of the book rather than only out of the passage
 it just looked up, and that line is the whole of what bounds it: somebody who
@@ -673,9 +675,10 @@ all of them.</p>
 and does not start it — opening the app at 2am to ask a question is not the
 same as asking for the book. Press play when you want it. There is still no
 library to browse: <em>another book</em> is something you ask for, the same way you
-ask for a passage. The <em>books</em> control in the corner adds books and watches
+ask for a passage. The <em>library</em> control in the corner adds books and watches
 them being rendered; it never opens one, and nothing on it changes what is
-playing.</p>
+playing — the word is the design’s, and what is behind it is a catalog search
+for adding rather than a shelf to pick from.</p>
 <p>On the page there are three buttons: back thirty seconds, play/pause, forward
 thirty seconds. Most nights you will use none of them, because the screen is
 off. With the phone locked the book is driven from the notification, the lock
@@ -711,15 +714,15 @@ on when chapter four arrives. A book with nothing rendered at all says <em>the
 first chapter is still being read</em>, and the player appears when that chapter
 lands — already playing if the agent took you to that book, waiting to be
 pressed if you only opened the app. A book whose render is not running and has
-no audio at all says <em>nothing yet — press books to add one</em>, which is also what
-a somnia with no books in it says.</p>
+no audio at all says <em>nothing yet — press library to add one</em>, which is also
+what a somnia with no books in it says.</p>
 <p>When a render stopped part way — you stopped it, or a reboot did — the audio
 runs out mid-book, and the page says <em>the rest of this book hasn’t been read
 yet</em> rather than <em>that is the end of the book</em>. It knows the difference because
 the parse writes down how many chapters the book has, so a book three chapters
 into thirty-nine is tellable from one that is over. Nothing ends: the sleep
 timer keeps counting and the page keeps wanting the sound. Queue the book
-again — from <em>books</em>, or by asking — and it picks up at the chapter after the
+again — from <em>library</em>, or by asking — and it picks up at the chapter after the
 last finished one.</p>
 <p>When the tailnet goes — wifi power save and a tailscale re-key both do it for a
 few seconds — the page says <em>the book stopped arriving</em> and keeps trying,
@@ -732,10 +735,9 @@ again at once, so there is nothing to press.</p>
 </section>
 <section id="adding-a-book-from-the-page">
 <h2>Adding a book from the page<a class="headerlink" href="#adding-a-book-from-the-page" title="Link to this heading">#</a></h2>
-<p><em>books</em>, in the corner beside <em>start over</em>, opens a panel over the page. The
-book keeps playing underneath it, nothing on it opens a book or switches which
-one you are listening to, and <em>close</em> puts it away having changed nothing at
-all.</p>
+<p><em>library</em>, in the top left corner, opens a panel over the page. The book keeps
+playing underneath it, nothing on it opens a book or switches which one you are
+listening to, and <em>‹ controls</em> puts it away having changed nothing at all.</p>
 <p>At the top, under <em>reading now</em>, is the book that is playing underneath the
 panel — <em>The Moonstone — Collins, Wilkie, 1824-1889</em>, and under it <em>chapter 4
 of 37 · 1h12m in</em> over a hairline showing how far through it you are. <em>in</em>, and

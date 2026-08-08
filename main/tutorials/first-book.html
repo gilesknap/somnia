@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Add a book and ask it something &#8212; somnia 0.6.dev73+g3bb24aa52 documentation</title>
+    <title>Add a book and ask it something &#8212; somnia 0.6.dev79+g93a76f255 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=d66bea2f"></script>
+    <script src="../_static/documentation_options.js?v=bdc22acf"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -499,9 +499,10 @@ the <code class="docutils literal notranslate"><span class="pre">gid</span></cod
 <span class="go">   271  Black Beauty — Sewell, Anna</span>
 </pre></div>
 </div>
-<p>The page can do this too, once you have one: <em>books</em> in the corner searches the
-same local catalog and queues what you press, and so does asking out loud. This
-is the same act by three routes, and all three end up in the same queue.</p>
+<p>The page can do this too, once you have one: <em>library</em> in the top left corner
+searches the same local catalog and queues what you press, and so does asking
+out loud. This is the same act by three routes, and all three end up in the
+same queue.</p>
 </section>
 <section id="render-it">
 <h2>Render it<a class="headerlink" href="#render-it" title="Link to this heading">#</a></h2>
@@ -517,7 +518,8 @@ conservative end of <a class="reference internal" href="../explanations/design.h
 book is roughly a five-hour render — but <strong>you do not wait for it</strong>. Each
 chapter is written to the library folder and indexed the moment it finishes, so
 chapter one is listenable within a few minutes and the rest arrives while you
-sleep. The page will show you how far it has got: <em>books</em>, in the corner.</p>
+sleep. The page will show you how far it has got: <em>library</em>, in the top left
+corner.</p>
 <p>Leave it running in a <code class="docutils literal notranslate"><span class="pre">tmux</span></code> session. Better, run the worker as a unit and
 never type this again: books are rendered one at a time from a queue, so
 asking for one from a terminal, or by voice later, both come to the same place.
