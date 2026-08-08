@@ -85,3 +85,28 @@ def test_add_refuses_while_something_else_is_rendering(tmp_path: Path) -> None:
     assert "book 120 is next to be rendered" in out
     assert "waits its turn" in out
     assert "somnia queue" in out
+
+
+def test_add_says_which_book_it_actually_rendered(tmp_path: Path) -> None:
+    """`add` renders the head of the line, which is not always the book asked for.
+
+    Everything the command printed afterwards was said about whatever
+    `render_one` claimed, under the id the person typed. Ask for one book while
+    another is already waiting and it rendered the other one for six hours and
+    reported it as theirs.
+
+    The render here does nothing at all — neither kokoro nor
+    sentence-transformers is installed, so a real one could not run — which is
+    why the book ahead fails rather than finishing. What is under test is whose
+    name is on the sentence, and a failure carries one just as a success does.
+    """
+    env = {**os.environ, "SOMNIA_DATA_DIR": str(tmp_path / "data")}
+    somnia("queue", "add", "271", env=env)
+
+    out = somnia("add", "120", env=env)
+
+    # 271 was ahead in the line, so 271 is what the renderer took.
+    assert "book 271, which was ahead of it" in out
+    # And the book actually asked for is still waiting, said plainly, because
+    # somebody who typed 120 and read six hours of 271 has no other way to know.
+    assert "Book 120 is still in the line" in out

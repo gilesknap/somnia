@@ -411,7 +411,14 @@ def claim(
             "UPDATE queue SET state = 'rendering', lease = :lease, pid = :pid,"
             " started_at = datetime('now'), beat_at = datetime('now'),"
             " attempts = attempts + 1"
+            # `cancel = 0` because 'queued' is reached by more than one road.
+            # requeue settles the flag itself, but reconcile puts a render whose
+            # process died back in the line with plain SQL, and a book stopped
+            # in the same minute as a power cut came back as an ordinary queued
+            # row. Asked here instead of chasing every writer: a flagged row is
+            # not claimable, whoever queued it and however it got there.
             " WHERE id = (SELECT id FROM queue WHERE state = 'queued'"
+            "             AND cancel = 0"
             "             ORDER BY id LIMIT 1)"
             " AND NOT EXISTS (SELECT 1 FROM queue WHERE state = 'rendering'"
             "                 AND beat_at > datetime('now', :steal))"
@@ -512,12 +519,23 @@ def requeue(conn: sqlite3.Connection, job_id: int, *, lease: str) -> None:
     The heartbeat is cleared along with the lease. A queued row with a live
     heartbeat would keep :func:`claim` refusing on behalf of a process that has
     already exited, which is the queue wedging itself shut.
+
+    A pending cancel survives all of that and decides where the row lands. The
+    two can happen in the same second — press stop, and the worker is stopped
+    before it reaches the end of the chapter it was told to finish — and going
+    back to 'queued' with ``cancel`` still set meant the next worker claimed the
+    book, rendered until its first heartbeat, and only then noticed it had been
+    stopped. It is the listener's flag and it outranks the deploy: they asked
+    for this book to stop, and nothing about a restart makes that untrue.
     """
     if not lease:
         return
     with conn:
         conn.execute(
-            "UPDATE queue SET state = 'queued', lease = '', pid = 0, beat_at = NULL,"
+            "UPDATE queue SET"
+            " state = CASE WHEN cancel = 1 THEN 'cancelled' ELSE 'queued' END,"
+            " ended_at = CASE WHEN cancel = 1 THEN datetime('now') ELSE NULL END,"
+            " lease = '', pid = 0, beat_at = NULL,"
             " chapter_at = NULL, started_at = NULL WHERE id = ? AND lease = ?",
             (job_id, lease),
         )
