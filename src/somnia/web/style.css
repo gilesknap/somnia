@@ -327,8 +327,8 @@ h1 {
   /* Off the player entirely, and not merely empty. Its contents were already
      hidden, but as a `flex: 1` child of the body it went on competing with
      #player-bar for the leftover height — which is the pool the three spacers
-     divide, so a share taken here is a share the rhythm never sees. The
-     keyboard-up query below puts it back, where it is the whole screen. */
+     divide, so a share taken here is a share the rhythm never sees. The chat
+     screen's block below puts it back, where it is the whole screen. */
   display: none;
   flex: 1;
   /* Without this a flex child refuses to shrink below its content, so the
@@ -339,11 +339,11 @@ h1 {
   padding: 0.6rem 1rem 0;
   overscroll-behavior: contain;
   /* No `display` here. It is set once at the top of this rule — `none`, because
-     the player has no conversation on it — and the keyboard-up query turns it
-     back into the flex column. A second `display` further down this block is
-     how the first one was silently undone once already: same rule, later
-     declaration, and the element went on taking a share of the height the three
-     spacers are supposed to divide. */
+     the player has no conversation on it — and the chat screen turns it back
+     into the flex column. A second `display` further down this block is how the
+     first one was silently undone once already: same rule, later declaration,
+     and the element went on taking a share of the height the three spacers are
+     supposed to divide. */
   flex-direction: column;
 }
 
@@ -360,8 +360,8 @@ h1 {
    against the player — and that put the slack above the conversation instead of
    below it: 137px over the placement line and 40 under it, when the one under
    it is supposed to be the largest gap on the screen. That rule is right for
-   the chat screen and wrong for this one, so it now lives in the keyboard-up
-   query where a short conversation should still sit next to the box it was
+   the chat screen and wrong for this one, so it now lives in the chat screen's
+   own block where a short conversation should still sit next to the box it was
    typed into. An auto margin there rather than `justify-content: flex-end`,
    because the margin collapses the moment the text is long enough to scroll,
    which is the case flex-end quietly cuts the top off instead. */
@@ -369,9 +369,10 @@ h1 {
 /* On the player this is the design's last-placement line, and nothing louder.
    The brief gives the slot above the book's title one job — italic 22dp at .42,
    "— and then where the horse bolts" — while 27dp at .88 is the *chat* screen's
-   agent turn. This page has no routes, so both screens are this same element at
-   two viewport heights, and drawing the chat's type on the player put the
-   loudest text on the page above the book somebody is actually listening to.
+   agent turn. This page has no routes, so both screens are this same element
+   under two different classes on <body>, and drawing the chat's type on the
+   player put the loudest text on the page above the book somebody is actually
+   listening to.
 
    None of it, in the end. The brief is explicit that the player shows no
    replies, and it gives that slot a *placement line* — where somnia last put
@@ -387,18 +388,26 @@ h1 {
    element away instead and the slack has nowhere to be.
 
    It is display and nothing else. The turns are all still in the document, in
-   order, and app.js neither knows nor cares — which is what makes the keyboard
-   coming up the whole of the way back to them, rather than a route with a
-   history to keep. What is not on this screen and never was is #status:
-   "listening…" and "tap anywhere to carry on" are somnia talking about itself,
-   not a conversation, and they stay. */
+   order, and app.js neither knows nor cares which of them is drawn — which is
+   what makes going to the chat screen the whole of the way back to them, rather
+   than a route with a history to keep. What is not on this screen and never was
+   is #status: "listening…" and "tap anywhere to carry on" are somnia talking
+   about itself, not a conversation, and they stay.
 
    Italic is not decoration here. It means what it means everywhere else in this
    sheet: words that are not somnia's own, and words from the book you may not
    have heard yet. A placement line is the first of those.
 
-   The chat sizes come back in the keyboard-up query below, where the
-   conversation is the screen rather than a line above the transport. */
+   The chat sizes come back in the chat screen's block below, where the
+   conversation is the screen rather than a line above the transport.
+
+   (A comment terminator sat in the middle of this comment until this pass, four
+   paragraphs up, and everything after it was being parsed as a selector — which
+   swallowed the whole of the `.said` rule below and dropped its max-width, its
+   leading and its colour on the floor. Note that the terminator cannot be
+   written out even in prose, here or anywhere else in this file: a stray one
+   does not break a stylesheet loudly, it eats the next rule and says nothing,
+   and the tests below this sheet check for exactly that.) */
 .said {
   margin: 0 0 0.75rem;
   max-width: 34rem;
@@ -413,10 +422,11 @@ h1 {
 }
 
 /* 22dp, the design's size for the placement line, and set through #transcript
-   so it outranks the chat size the keyboard-up query gives the same element.
-   Written here rather than on `.said` because the two rules have to be able to
-   beat each other in one direction only, and this is the one that must lose
-   when there is a keyboard up. */
+   so it outranks the chat size the same element gets further down. Written here
+   rather than on `.said` because the two rules have to be able to beat each
+   other in one direction only, and this is the one that must lose on the chat
+   screen — which it now does on specificity rather than on being written first,
+   since the rule that beats it carries a class on <body> as well. */
 #transcript .said {
   font-size: 1.1rem;
   /* Explicit, because the turns above this one are `display: none` and the
@@ -1219,101 +1229,166 @@ button:disabled {
   opacity: 0.4;
 }
 
-/* Not much screen: a keyboard over half of it, or a phone on its side.
-   `interactive-widget=resizes-content` in the viewport meta means the keyboard
-   genuinely shrinks the viewport, so this fires at the moment there is one and
-   not before.
+/* Not enough height to draw the reading in, whatever the reason for that.
+   Everything above the transport goes, and what is left is the header, the
+   transport and the dock.
+
+   This half of the old `@media (max-height: 34rem)` block stays a height query,
+   and stays in rem, because it is the one question here that really is about
+   height: a stack of type either fits in the window or it does not, and asking
+   that in rem is what makes the answer follow the OS text scale instead of
+   ignoring it. Turn the text up and the same stack needs more room, and this
+   fires sooner, which is right.
+
+   34rem is on the measurement, not over it, and it is not a number to shave.
+   Rendered at 360x780 with this query taken out and the root turned up a notch
+   at a time: with a two-line title and a one-line chapter name the player still
+   fits at 32.5rem and the title has run into the clock by 31.2rem; with the
+   chapter name on two lines as well — which is the case a long chapter title
+   gives you and the one the number has to hold — it fits at 35.4rem, is touching
+   by 33.9rem, and overlaps by 32.5rem. Nothing scrolls on the way: the column is
+   `flex: 1` all the way down, so the spacers give until there is nothing left to
+   give and then the type lands on top of the type below it, which is a failure
+   that looks like a font bug rather than like a page out of room.
+
+   So the number is what the page shipped at and it stays there. What it buys, at
+   a large text scale, is worth saying plainly: from about root 23 up this fires
+   on a 780px phone and the reading goes, sleep timer with it. That is a real
+   loss and it is the one the reader who turned their text up still takes. It is
+   also the smaller half of what they used to take — see below.
+
+   What it is NOT is a way of asking whether the keyboard is up. That was the
+   other half of this block, and the whole of the bug: a window dragged short has
+   no keyboard in it, and at root 23 a threshold of 34rem is taller than the
+   phone — so the reader who turned their text up, which is the setting this page
+   is built around, was put on the chat screen permanently with the player gone
+   and no gesture that brought it back. That half is a class on <body> now, below.
+   Losing the reading and being taken to another screen are not the same loss:
+   here the book plays on, the transport is under the same thumb, `books` is in
+   the same corner, and the conversation is still one tap on the dock away. */
+@media (max-height: 34rem) {
+  #now-playing {
+    display: none;
+  }
+}
+
+/* The chat screen, which is this same document with the conversation in front
+   of the book.
+
+   Which screen the page is on is measured rather than guessed at now — app.js
+   holds visualViewport against the height with nothing over it, and a keyboard
+   is the difference — and the answer is a class here. What follows is what that
+   screen looks like, and it looks the same whatever the window happens to be
+   doing.
 
    What does not give way is the transport — a book still playing must still be
    stoppable — so it shrinks to the smallest thing a thumb can still be trusted
    with rather than going away. What gives way is the reading: which chapter it
    is and how far in are not worth a line while someone is typing a question,
-   and the transcript they are typing into is. That is the keyboard's answer,
-   though, not everybody's: see the rule after this one. */
-@media (max-height: 34rem) {
-  #now-playing {
-    display: none;
-  }
+   and the transcript they are typing into is.
 
-  .transport button {
-    min-height: 3.5rem;
-  }
-
-  /* The same fraction of the button it is in as at full height, so the glyph
-     shrinks with the slab rather than swelling inside it. */
-  #playpause svg {
-    width: 1.6rem;
-    height: 1.6rem;
-  }
-
-  /* The dock is not in this rule and has nothing left to give: at 76dp square
-     it is already the smallest the design draws it, and it used to be here only
-     because the microphone was a 100dp circle that could afford to lose a
-     quarter of itself. What is under the keyboard is the same dock as what is
-     over it. */
-
-  #composer {
-    padding-top: 0.55rem;
-    padding-bottom: 0.55rem;
-  }
-
-  /* With the keyboard up this is the design's Chat screen, so the conversation
-     takes the type the brief gives it there: 27dp for what somnia says, 24dp
-     for what was asked, upright rather than italic. On the player the same
-     element is the quiet placement line above the title; here it is the whole
-     reason the screen is open, and it is the largest run of text on it.
-
-     Tighter between turns than on the player, because with a keyboard up there
-     are 470px to hold the question, the answer and the box being typed into. It
-     is the air between turns that gives, not their size: shrinking the type is
-     how a page becomes unreadable at the exact moment somebody is composing a
-     sentence into it. */
-  /* Bottom-anchored here and nowhere else: with a keyboard up a short
-     conversation belongs next to the box it was typed into, not stranded at the
-     top of a screen held at arm's length in the dark. On the player the same
-     element is top-aligned, so the slack below it can be the screen's one
-     flexible gap. */
-  #transcript > :first-child {
-    margin-top: auto;
-  }
-
-  /* And here the whole thread comes back. The player has none of it; a keyboard
-     up is somebody asking something, and this is the screen they asked it on.
-     One rule in each direction is the entire route in and the entire route
-     out.
-
-     Through #transcript, to match the player rule above it. Both have to be
-     written at the same specificity or whichever comes last in the file wins at
-     every height rather than the one whose media query matched. */
-  /* The chat screen: the thread comes back, and the element with it. */
-  #transcript {
-    display: flex;
-  }
-
-  #transcript .said {
-    display: block;
-    margin-bottom: 0.7rem;
-    font-size: 1.35rem;
-    font-style: normal;
-    color: var(--ink);
-  }
-
-  #transcript .said.you {
-    font-size: 1.2rem;
-    color: var(--mid);
-  }
+   The reading is said again here, and not only in the fit query above, because
+   the two are answering different questions and either can be true on its own: a
+   tablet with a keyboard up has room for the reading and is still on the chat
+   screen. */
+body.chat-screen #now-playing {
+  display: none;
 }
 
-/* Short and wide is not a keyboard, it is a phone lying on its side, and the
-   rule above was measured at 390x400 and never at 844x390. In landscape it took
-   away the chapter, the clock, and the only place the sleep timer can be read
-   or set — so the one control that decides when the night ends was reachable
-   only by turning the phone back over.
+body.chat-screen .transport button {
+  min-height: 3.5rem;
+}
+
+/* The same fraction of the button it is in as at full height, so the glyph
+   shrinks with the slab rather than swelling inside it. */
+body.chat-screen #playpause svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+/* The dock is not on this screen's list and has nothing left to give: at 76dp
+   square it is already the smallest the design draws it, and it used to be here
+   only because the microphone was a 100dp circle that could afford to lose a
+   quarter of itself. What is under the keyboard is the same dock as what is over
+   it. */
+
+body.chat-screen #composer {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+/* Bottom-anchored here and nowhere else: with a keyboard up a short
+   conversation belongs next to the box it was typed into, not stranded at the
+   top of a screen held at arm's length in the dark. On the player the same
+   element is top-aligned, so the slack below it can be the screen's one
+   flexible gap. */
+body.chat-screen #transcript > :first-child {
+  margin-top: auto;
+}
+
+/* And here the whole thread comes back. The player has none of it; being on
+   this screen is somebody asking something, and this is the screen they ask it
+   on. One rule in each direction is the entire route in and the entire route
+   out.
+
+   Through #transcript, as the player rule further up is. That one used to have
+   to be written at the same specificity as this, because two rules that only
+   differed by a media query were decided by which came last in the file. They
+   are no longer a pair of equals: the body class puts this one a class higher,
+   so it wins wherever it applies and loses everywhere else, whatever order the
+   file ends up in. */
+body.chat-screen #transcript {
+  display: flex;
+}
+
+/* On the chat screen the conversation takes the type the brief gives it there:
+   27dp for what somnia says, 24dp for what was asked, upright rather than
+   italic. On the player the same element is the quiet placement line above the
+   title; here it is the whole reason the screen is open, and it is the largest
+   run of text on it.
+
+   Tighter between turns than on the player, because with a keyboard up there
+   are 470px to hold the question, the answer and the box being typed into. It
+   is the air between turns that gives, not their size: shrinking the type is
+   how a page becomes unreadable at the exact moment somebody is composing a
+   sentence into it. */
+body.chat-screen #transcript .said {
+  display: block;
+  margin-bottom: 0.7rem;
+  font-size: 1.35rem;
+  font-style: normal;
+  color: var(--ink);
+}
+
+body.chat-screen #transcript .said.you {
+  font-size: 1.2rem;
+  color: var(--mid);
+}
+
+/* Short and wide is not a window with no room in it, it is a phone lying on its
+   side, and the fit query above was measured at 390x400 and never at 844x390. In
+   landscape it took away the chapter, the clock, and the only place the sleep
+   timer can be read or set — so the one control that decides when the night ends
+   was reachable only by turning the phone back over.
 
    Nothing has to go, because nothing is short of room across: the reading moves
    alongside the transport instead of above it, where it costs no height at all.
    The transport keeps the larger share, since it is what gets pressed without
    looking.
+
+   Both selectors are held to the player screen, which is new. It is not there to
+   beat the fit query — a plain `#now-playing` would still do that, being later
+   in the file — but to lose to the chat screen: a grid of two columns with the
+   reading gone is one empty column and a transport squeezed into the other, and
+   that is what a phone on its side with a keyboard up used to get.
+
+   `:not([hidden])` is the price of that class. `#player-bar` is `display:
+   contents`, so `#player-bar[hidden]` has to say `display: none` again by hand
+   — and a class on <body> outranks an attribute, which a bare `#player-bar` did
+   not. Without the exclusion, a short wide window with no book open lays the
+   whole player out for a book that is not there: a blank title, a scrub line
+   under it, a sleep timer, and a transport whose play button has nothing to
+   start.
 
    Asked as a width rather than as `orientation: landscape` because width is
    what actually decides it. A phone held upright with a keyboard up is under
@@ -1323,14 +1398,14 @@ button:disabled {
    app also asks for portrait in the webmanifest, but that binds nothing in a
    browser tab, which is where the page is read before it is ever installed. */
 @media (max-height: 34rem) and (min-width: 34rem) {
-  #player-bar {
+  body.player-screen #player-bar:not([hidden]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
     align-items: center;
     gap: 1.2rem;
   }
 
-  #now-playing {
+  body.player-screen #now-playing {
     display: flex;
     margin: 0;
   }
@@ -1717,65 +1792,84 @@ button.candidate-show:active {
 }
 
 
-/* A keyboard over half the screen, or a phone on its side — and a keyboard is
-   the state this page is in at the moment a question has just been asked, which
-   is exactly when a list arrives. The rows shrink, the list scrolls, and the
-   way out stays where a thumb left it. */
-@media (max-height: 34rem) {
+/* A keyboard over half the screen — and a keyboard is the state this page is in
+   at the moment a question has just been asked, which is exactly when a list
+   arrives. The rows shrink, the list scrolls, and the way out stays where a
+   thumb left it.
+
+   `keyboard-up` and not `chat-screen`, which are two different facts and this
+   is the one this overlay wants. The list comes up over whichever screen was
+   underneath it and leaves that screen exactly as it was; what it needs to know
+   is only whether there is a keyboard eating half of what it has to draw in.
+   app.js measures that; it used to be guessed from `max-height: 34rem`, which
+   also fired on any short window and, because the root is the OS text scale,
+   permanently at a large enough one. */
+body.keyboard-up #candidates-title {
   /* Down two steps of the scale rather than to a size of its own: a page title
      with a keyboard up is still a page title, and it is the only thing on the
      screen saying which of the two overlays this is. */
-  #candidates-title {
-    font-size: 1.2rem;
-  }
-
-  #candidate-list {
-    margin-top: 0.7rem;
-  }
-
-  /* 1rem and not less. This padding is the gap between two `goto` pills, and
-     shrinking it is the one economy on this screen that would be paid for in
-     the dark: with the pill down to 2.6rem the fall from one to the next is
-     10px of overhang plus this twice, which at 1rem is 50px and at the 0.6rem
-     that used to be here was 34px. The list scrolls in this state anyway, so
-     the height saved by cutting it further buys a fraction of a row and sells
-     the only thing keeping a low miss off the next place's `goto`. */
-  .candidate {
-    padding: 1rem 0;
-  }
-
-  .candidate-what {
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-  }
-
-  /* Still over the 44dp floor. Nothing tappable goes under it, and the reveal
-     beside it keeps whatever height its own text needs. */
-  .candidate-go {
-    min-height: 2.6rem;
-  }
-
-  /* The one line here that can go without anything being lost: it says how the
-     screen works, and a keyboard is up because they are in the middle of using
-     it. */
-  #candidates-note {
-    display: none;
-  }
-
-  /* The way out keeps its full 48dp target with a keyboard up. It shrank when
-     it was a slab across the bottom competing for the same pixels as the list;
-     a pill in the corner is not in the list's way, and the one control that
-     leaves the screen is the last one that should get smaller on the screen
-     that is hardest to read. */
+  font-size: 1.2rem;
 }
 
-/* Shorter than this and there is nothing left to arrange: it is a keyboard on
-   a phone already lying down, and the reading has to go after all or it takes
-   the bottom off the box they are typing into. Well under any phone on its
-   side with nothing over it — those are 320px and up — and well over what is
-   left of one with a keyboard up, which is around 220px. */
+body.keyboard-up #candidate-list {
+  margin-top: 0.7rem;
+}
+
+/* 1rem and not less. This padding is the gap between two `goto` pills, and
+   shrinking it is the one economy on this screen that would be paid for in the
+   dark: with the pill down to 2.6rem the fall from one to the next is 10px of
+   overhang plus this twice, which at 1rem is 50px and at the 0.6rem that used
+   to be here was 34px. The list scrolls in this state anyway, so the height
+   saved by cutting it further buys a fraction of a row and sells the only thing
+   keeping a low miss off the next place's `goto`.
+
+   Not the `here` row, which is a rule across the list and not a place: it has
+   its own padding a few rules up, and the exclusion has to be written now that
+   this selector carries a class. As a bare `.candidate` inside a media query it
+   lost to `.candidate.here` on specificity and the mark kept its own spacing
+   without anyone having to say so. */
+body.keyboard-up .candidate:not(.here) {
+  padding: 1rem 0;
+}
+
+body.keyboard-up .candidate-what {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* Still over the 44dp floor. Nothing tappable goes under it, and the reveal
+   beside it keeps whatever height its own text needs. */
+body.keyboard-up .candidate-go {
+  min-height: 2.6rem;
+}
+
+/* The one line here that can go without anything being lost: it says how the
+   screen works, and a keyboard is up because they are in the middle of using
+   it. */
+body.keyboard-up #candidates-note {
+  display: none;
+}
+
+/* The way out keeps its full 48dp target with a keyboard up. It shrank when it
+   was a slab across the bottom competing for the same pixels as the list; a
+   pill in the corner is not in the list's way, and the one control that leaves
+   the screen is the last one that should get smaller on the screen that is
+   hardest to read. */
+
+/* Shorter than this and there is nothing left to arrange, even lying down: the
+   reading has to go after all or it takes the bottom off whatever is under it.
+   Well under any phone on its side with nothing over it — those are 320px and up
+   — and well over what is left of one with a keyboard up, which is around 220px,
+   which is the whole point: it has to fire there and nowhere above it.
+
+   The only thing this says that the fit query further up does not is that it
+   also applies in landscape, where the reading is beside the transport rather
+   than over it: it is written after the landscape rule and it wins. That is what
+   it was for before and it is what it is for now. It carries the same
+   player-screen class as the rule it has to beat, because a class cannot be
+   beaten by a selector that does not have one. */
 @media (max-height: 17rem) {
-  #now-playing {
+  body.player-screen #now-playing {
     display: none;
   }
 }
@@ -2295,42 +2389,46 @@ button.candidate-show:active {
 
 /* A keyboard over half the screen, which on this panel is not the exception —
    searching for a book is what it is for. The rows shrink, the list scrolls,
-   and close stays where a thumb left it. */
-@media (max-height: 34rem) {
+   and close stays where a thumb left it.
+
+   The keyboard here is the panel's own search box rather than the composer, so
+   this is the pair of rules that would have gone wrong if the page had settled
+   for one flag called "the chat screen": there is no chat behind this panel,
+   there is a player, and there is still a keyboard over half of it. app.js
+   reads both facts and the sheet asks for the one it means. */
+body.keyboard-up #queue-title {
   /* The same two steps down #candidates-title takes, and for the same reason:
      with a keyboard up this word is the only thing saying which overlay is
      open. */
-  #queue-title {
-    font-size: 1.2rem;
-  }
+  font-size: 1.2rem;
+}
 
-  #queue-scroll {
-    gap: 0.7rem;
-  }
+body.keyboard-up #queue-scroll {
+  gap: 0.7rem;
+}
 
-  #queue-live,
-  #queue-gone {
-    gap: 0.7rem;
-  }
+body.keyboard-up #queue-live,
+body.keyboard-up #queue-gone {
+  gap: 0.7rem;
+}
 
-  .found {
-    padding: 0.6rem 0;
-  }
+body.keyboard-up .found {
+  padding: 0.6rem 0;
+}
 
-  /* Both still over the 44dp floor. Nothing tappable goes under it, keyboard or
-     no keyboard. */
-  .found-add,
-  .job-stop {
-    min-height: 2.6rem;
-  }
+/* Both still over the 44dp floor. Nothing tappable goes under it, keyboard or
+   no keyboard. */
+body.keyboard-up .found-add,
+body.keyboard-up .job-stop {
+  min-height: 2.6rem;
+}
 
-  /* The one press at the top of the panel, which is the slab a thumb goes to
-     without reading the screen twice. The way out is not in here with it any
-     more: it is a pill in the corner rather than a slab in the list's way, and
-     it keeps its full target at every height. */
-  #reading-resume {
-    min-height: 2.8rem;
-  }
+/* The one press at the top of the panel, which is the slab a thumb goes to
+   without reading the screen twice. The way out is not in here with it any
+   more: it is a pill in the corner rather than a slab in the list's way, and it
+   keeps its full target at every height. */
+body.keyboard-up #reading-resume {
+  min-height: 2.8rem;
 }
 
 /* ------------------------------------------------------ said once, and gone

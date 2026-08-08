@@ -25,27 +25,36 @@ The tell that you have done it again: in a correct render, **"Where do you want
 to be?" nearly fills its line.** If it sits at about half the width, you are
 looking at the wrong phone.
 
-## Two screens, not one
+## Two screens, not one — and the size no longer picks which
 
 The keyboard shrinks the viewport rather than covering it — the page asks for
 `interactive-widget=resizes-content` — so the page with a keyboard up is a
-different layout, not a crop, and its height media queries have fired.
+different layout and not a crop.
 
-| | size | what it is |
-|---|---|---|
-| control | `360x780` | the page with no keyboard: the book, the chapter, the transport |
-| chat | `360x470` | what the keyboard leaves: the conversation and the composer |
+**Which screen it is on is a class on `<body>`, not a height.** app.js measures
+the keyboard against the unobscured viewport and writes `player-screen` or
+`chat-screen` (and `keyboard-up`, which is what the two overlays shrink for);
+the sheet reads the class. A snapshot has no app.js, so `--screen` is how you
+say it. `--height 470` on its own now photographs a short *player*, which is a
+real state worth looking at and is not the chat screen.
 
-Render both. A change that tidies one can break the other, and the composer is
-supposed to be identical across the flip.
+| | size | say | what it is |
+|---|---|---|---|
+| player | `360x780` | — | the book, the chapter, the transport |
+| chat | `360x470` | `--screen chat` | what the keyboard leaves: the conversation and the composer |
+| short window | `360x470` | — | a window dragged short, or a big text scale: the reading gives way, the transport and the dock stay |
+| panel typing | `360x470` | `--keyboard` | an overlay with its search box up over the player |
+
+Render both of the first two. A change that tidies one can break the other, and
+the composer is supposed to be identical across the flip.
 
 ## Doing it
 
 ```bash
 S=.claude/skills/render-screens
 python3 $S/snapshot.py --out /tmp/somnia/page.html
-python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/control.png
-python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/chat.png --height 470
+python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/player.png
+python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/chat.png --screen chat --height 470
 python3 $S/measure.py /tmp/somnia/page.html 867
 ```
 
