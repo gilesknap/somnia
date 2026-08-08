@@ -362,7 +362,12 @@ function mediaBlocks(sheet) {
   let at = sheet.indexOf("@media");
   for (; at >= 0; at = sheet.indexOf("@media", at + 1)) {
     let depth = 0;
-    for (let end = sheet.indexOf("{", at); end < sheet.length; end++) {
+    // An `@media` with nothing after it has no `{` to find, and a scan started
+    // at -1 reads no character, closes no brace and slices out the empty
+    // string — which is a block that passes every assertion made about one.
+    const open = sheet.indexOf("{", at);
+    assert.ok(open >= 0, `an @media with no block near ${where(at)}`);
+    for (let end = open; end < sheet.length; end++) {
       if (sheet[end] === "{") depth++;
       if (sheet[end] === "}") depth--;
       if (depth === 0) {
