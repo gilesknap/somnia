@@ -22,11 +22,14 @@ algorithm, which **empties the element**, and an element holding no media has
 nothing for Chrome to hang a platform media session on. The lock screen card
 comes down, and is rebuilt on the far side out of whatever the page says next.
 
-On the phone's own speaker the rebuild is faster than it is noticeable. Over
-Bluetooth — audio focus taken again, the A2DP route re-established — it is slow
-enough to see, and on some nights it did not finish at all. What that leaves at
-2am is a locked phone with no transport on it and a book that has stopped, and
-the only person who could do anything about it is asleep.
+Over Bluetooth — audio focus taken again, the A2DP route re-established — that
+rebuild is slow enough to see, and on some nights it did not finish at all. What
+that leaves at 2am is a locked phone with no transport on it and a book that has
+stopped, and the only person who could do anything about it is asleep. On the
+phone's own speaker it has not been seen, which issue 31 is careful to say "may
+only mean it is rarer there"; the obvious reading is that the rebuild is over
+before it can be noticed on the forgiving route, but that is an inference from
+one absence and nobody has watched for it.
 
 There is a second failure riding on the same line, and it is the one the handset
 actually reported. A boundary was not merely an element event; it was a *fetch*,
@@ -94,10 +97,16 @@ length: it names how many chapters the file holds, so a book that grows while
 somebody is listening is offered a *new* file and the one their phone has open
 is never rewritten underneath an in-flight range request.
 
-The manifest gains `stream_url` and `stream_ms`. `stream_url` is **omitted**
-rather than advertised when the join could not honestly be made, and the url per
-chapter stays beside it, because a book with no join must be a book that blinks
-rather than a book that will not open.
+The manifest gains `stream_url` and `stream_ms`. `stream_url` is advertised on
+the strength of the chapter rows and not of any file: the join is built by the
+first request that wants it, so at manifest time there is nothing to look at, and
+building one to find out would put a second or two of ffmpeg in front of every
+poll of a book that is still being read. It is omitted only for a book with no
+chapters at all. A join that then turns out to be impossible answers **404**, and
+the url per chapter stays beside it in every manifest, because a book with no
+join must be a book that blinks rather than a book that will not open. What turns
+that 404 into a blinking night rather than a lost one is the page's own rule
+below, and nothing on the server.
 
 In the page, a chapter boundary becomes arithmetic. `enterChapter` sets which
 chapter is current, hands the platform new metadata and redraws the screen, and
@@ -106,20 +115,51 @@ algorithm to run, nothing to empty, and therefore nothing for the platform to
 take the session down with.
 
 **The frontier is a pause, not an end.** A book being listened to while it
-renders is a book whose join stops short of what the manifest already offers.
-The element must not be allowed to reach `ended` there — `ended` removes the
-player from the session and destroys the card for the whole of a render wait,
-which is the same loss by another road. So the page stops the sound a fraction
-before the end of what it holds and waits. A pause *suspends* a session rather
+renders is a book whose element holds a join built before the chapters it is now
+being asked for. The comparison is between what the element was given and what
+the manifest says *now*, and never inside one manifest: the server writes
+`stream_ms` as the last chapter's end and `total_ms` is bumped to the same number
+as each chapter lands, so those two are equal in every manifest it can produce. A
+page that watched for `stream_ms < total_ms` would watch for something that never
+happens, run off the end of the join, and lose the card for the whole wait.
+
+So the source is short of the book when either the manifest names audio this
+source does not hold, or the render is still running and will make some. The
+first of those is loaded through at once and the sound never stops. Only the
+second is the pause: the element must not be allowed to reach `ended` — `ended`
+removes the player from the session and destroys the card for the whole of a
+render wait, which is the same loss by another road — so the page stops the sound
+a fraction before the end of what it holds, asks the server for the rest of the
+book from inside the same handler, and waits. A pause *suspends* a session rather
 than ending it: the card stays up, with a play button on it, for as long as the
 wait lasts, and the book resumes from where the sound stopped once the next
 chapter has landed.
 
+That first ask is immediate rather than on the ladder's first rung because with
+the screen off nothing else refreshes the manifest — `visibilitychange` is the
+only caller a night has, and a phone in a pocket never fires one — and because
+the page has just made itself inaudible by pausing, after which its timers are
+throttled to roughly one wake a minute.
+
 **A join that is not there is abandoned, once, per book.** A url that has been
 loaded even once is a file that exists, so every later failure of it is the wire
 and the answer is to go on trying until morning. A url that has never yielded a
-duration and has now failed twice is a join that is not coming, and the night
-drops back to a file at a time — blinking, but playing.
+duration and goes on not yielding one is a join that is not coming, and the night
+drops back to a file at a time — blinking, but playing — for the rest of that
+book, because a concatenation that could not be made is a fact about the book it
+was made from.
+
+What decides "goes on" is the spacing and not the count, and the frontier is why.
+The join asked for there is new by construction and has never loaded by
+definition, so two failures two seconds apart — one tailscale re-key — would
+condemn a file that was there the whole time and cost the night its card to fix a
+network problem. So two failures count as two answers only when they are
+`RETRY_MAX_MS` apart, which is the point at which the retry ladder itself stops
+waiting any longer for a network it cannot see; and they are counted against the
+url they were about, since what is known of the five-chapter join is not evidence
+about the six-chapter one. A join that is really missing costs half a minute of
+silence before the per-chapter path comes back under the listener, and no outage
+shorter than that can cost a book its join.
 
 ## Consequences
 
@@ -173,11 +213,15 @@ lost. The build is judged against the clock the chapter rows keep rather than
 against ffmpeg's exit code — the concat demuxer prints "Impossible to open",
 exits **zero**, and hands back however much it managed, measured on a
 three-chapter book that came out eight seconds long — so a join that came out
-short is refused, the manifest omits `stream_url`, and the night blinks its way
-through a book instead of ending early. And a join that never loads is
-abandoned after two tries, which puts the per-chapter path and its skip back
-under the listener. What is genuinely gone is granularity: one unreadable
-chapter file now costs the whole book its join.
+short is refused and answers 404 rather than being served as a book with chapters
+missing out of the middle of it. The manifest advertises `stream_url` all the
+same, on the strength of the rows, so the page finds out by loading it; and it is
+the page's give-up rule that turns that into a night which blinks its way through
+a book instead of ending early. That rule is the second thing keeping this
+survivable: a join that never loads is abandoned after two failures half a minute
+apart, which puts the per-chapter path and its skip back under the listener at
+the cost of half a minute of silence. What is genuinely gone is granularity: one
+unreadable chapter file now costs the whole book its join.
 
 **A longer time to first sound, and nobody has measured what it costs.** The
 whole `moov` is fetched before a single frame decodes — about 1.73 MB for a
@@ -246,11 +290,13 @@ throughout.** That is one observation, on one night, of one boundary.
 **The audio route was not recorded.** Whether the phone was on its own speaker
 or on the Bluetooth speaker at the bedside is written down nowhere and cannot
 now be recovered. That is not a footnote about tidiness; it is the standing of
-this whole decision. The speaker is the forgiving route, and the speaker is
-exactly what made ADR 3's check wrong — on the speaker, the teardown this record
-exists to abolish was itself invisible, so a check run there cannot tell this
-design apart from the one it replaces. If that night was on the speaker, it
-proves nothing that 2026-08-06 did not already appear to prove.
+this whole decision, and it is the second time running that the route has gone
+unwritten: 2026-08-06's is not known either, and the amendment to ADR 3 can only
+say that the check passing is itself the whole of the evidence about it. The
+speaker is the forgiving route — the teardown this record exists to abolish has
+never been seen there — so a check run there cannot tell this design apart from
+the one it replaces. If 2026-08-08 was on the speaker, it proves nothing that
+2026-08-06 did not already appear to prove.
 
 So: **the check is not complete until it has been made over Bluetooth**, with
 the phone locked, across several boundaries, and for long enough to include a

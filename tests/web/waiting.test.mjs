@@ -28,13 +28,33 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boot, growingBook, GROWING_BOOK, PART_READ } from "./harness.mjs";
+import {
+  boot,
+  growingBook,
+  GROWING_BOOK,
+  PART_READ,
+  START_MS,
+} from "./harness.mjs";
 
-// The first ask after the audio runs out, as app.js sizes it: RENDER_ASK_MS.
-// Written here as a plain number for the reason reaching.test.mjs gives — the
-// page exports nothing, so a test that read the constant from the source could
+// The wait for a book to grow, as app.js sizes it: RENDER_ASK_MS, and the rung
+// after it. The first ask goes out at once, from inside the timeupdate that
+// found the frontier, so what a wake is ever seen at here is the second question
+// the page has asked — and RENDER_ASK_MS itself is what the two tests about a
+// night that ended look for the absence of.
+//
+// Written here as plain numbers for the reason reaching.test.mjs gives — the
+// page exports nothing, so a test that read the constants from the source could
 // not tell a wait that changed from a wait that was never there.
 const FIRST_ASK_MS = 5000;
+const NEXT_ASK_MS = 10_000;
+
+// A sleep timer an earlier page wrote down, restored at boot: `choice` is an
+// index into SLEEP_CHOICES and 1 is fifteen minutes. It is how a test gets a
+// timer with seconds left on it without listening to a quarter of an hour of
+// book first.
+function armed(choice, leftMs, at = START_MS - 60_000) {
+  return { "somnia-sleep": JSON.stringify({ choice, leftMs, at }) };
+}
 
 // The Moonstone, five chapters of ten minutes read out of thirty-seven, with
 // the sound coming out where the server left them: half an hour in, which is
@@ -115,7 +135,10 @@ test("the sound stops a moment short of the end of what has been read", async (t
   // Waiting, and saying so where somebody who unlocks the phone can read it.
   assert.equal(page.probe().atFrontier, true);
   assert.equal(page.probe().status, "waiting for the next chapter to be read");
-  assert.deepEqual(page.waits(), [FIRST_ASK_MS]);
+  // The ask that went out from inside this timeupdate found nothing, so what is
+  // pending is the rung after it.
+  await page.settle();
+  assert.deepEqual(page.waits(), [NEXT_ASK_MS]);
 
   // And it stays short of the end for as long as the wait lasts. A playhead
   // that is not moving cannot reach anything, so there is no later moment at
@@ -133,7 +156,8 @@ test("the chapter that lands is carried on into from where the sound stopped", a
   assert.equal(page.audio.paused, true);
 
   page.serves(growingBook(6));
-  assert.equal(page.wake(FIRST_ASK_MS), true);
+  await page.settle();
+  assert.equal(page.wake(NEXT_ASK_MS), true);
   await page.settle();
   await page.settle();
 
@@ -160,6 +184,33 @@ test("the chapter that lands is carried on into from where the sound stopped", a
   assert.equal(page.probe().streamMs, 3_600_000);
 });
 
+test("the frontier asks at once for audio that may already be there", async (t) => {
+  const page = await listening(t);
+  // Three more chapters were read while they listened, and the page has no idea:
+  // nothing refreshes the manifest with the screen off. visibilitychange is the
+  // only thing that does, and a phone in a pocket does not fire one, so the
+  // page's picture of the book is the one it booted with — which is why the
+  // branch that loads a longer join at once cannot be what saves this night.
+  page.serves(growingBook(8));
+  upToTheFrontier(page);
+  page.audio.advance(0.5);
+  // Asked from inside the timeupdate that found the frontier, before the wait
+  // is left to a timer. That matters more than the five seconds it saves: the
+  // page has just paused, so it is no longer audible, and a backgrounded page
+  // that is not making a sound has its timers throttled to roughly one wake a
+  // minute. This ask is the one that certainly goes out.
+  assert.deepEqual(page.waits(), []);
+  await page.settle();
+  await page.settle();
+
+  assert.equal(page.audio.srcWrites.at(-1), "api/stream/900008/8");
+  assert.equal(page.probe().atFrontier, false);
+  assert.equal(page.probe().status, "");
+  page.audio.ready();
+  assert.equal(page.audio.paused, false);
+  assert.equal(page.audio.currentTime, 2999.8);
+});
+
 test("a chapter file that runs out is waited for the same way", async (t) => {
   // ?chapters plays the book a file at a time, which is what a book with no
   // join gets and what the same phone can be made to do on the same night. The
@@ -182,7 +233,10 @@ test("a chapter file that runs out is waited for the same way", async (t) => {
   assert.equal(page.probe().status, "waiting for the next chapter to be read");
 
   page.serves(growingBook(6));
-  assert.equal(page.wake(FIRST_ASK_MS), true);
+  await page.settle();
+  // The same immediate ask as the pause route makes, from the same one flag —
+  // so what is pending here is the rung after it.
+  assert.equal(page.wake(NEXT_ASK_MS), true);
   await page.settle();
   await page.settle();
   assert.equal(page.audio.srcWrites.at(-1), "api/audio/900008/5");
@@ -295,6 +349,83 @@ test("a place that arrived after the book was opened is loaded to reach it", asy
   assert.equal(page.probe().chapter, "Chapter 6");
 });
 
+// ------------------------------------------------ and then reaching it again
+
+// A place in the chapter that has only just been read, offered by the agent and
+// tapped. It is the one press on this page that refreshes the manifest without
+// the wait for the render knowing anything about it, which is what makes it the
+// way a night ends up at a second frontier with the first one's wait still live.
+function offerChapterSix() {
+  return {
+    gid: GROWING_BOOK.gid,
+    title: GROWING_BOOK.title,
+    position_ms: 3_000_000,
+    places: [
+      {
+        chunk_id: 61,
+        start_ms: 3_590_000,
+        chapter_idx: 5,
+        chapter_title: "Chapter 6",
+        ahead: true,
+        text: "The diamond, and where it went.",
+      },
+    ],
+  };
+}
+
+test("a second frontier is waited for on the chapter it stopped at", async (t) => {
+  const page = await listening(t);
+  upToTheFrontier(page);
+  page.audio.advance(0.5);
+  await page.settle();
+  await page.settle();
+  assert.equal(page.probe().atFrontier, true);
+
+  // Chapter six is read while they are stopped in front of it, and they are
+  // awake: they ask somnia a question and tap the row it comes back with, which
+  // is a place in the chapter that has just landed. The press refreshes the
+  // manifest and seeks, and the book is playing again ten seconds from the end
+  // of what is now the last chapter.
+  page.serves(growingBook(6));
+  page.answers({ reply: "here it is", candidates: offerChapterSix() });
+  await page.ask("the bit with the diamond");
+  page.click("candidate-go-61");
+  await page.settle();
+  await page.settle();
+  page.audio.ready();
+  assert.equal(page.audio.srcWrites.at(-1), "api/stream/900008/6");
+  assert.equal(page.probe().idx, 5);
+
+  // Ten seconds later they are at the frontier again, one chapter further on
+  // than the wait that is still running was told about.
+  page.audio.currentTime = 3599.3;
+  page.audio.fire("timeupdate");
+  page.audio.advance(0.5);
+  await page.settle();
+  await page.settle();
+  assert.equal(page.audio.paused, true);
+  assert.equal(page.probe().atFrontier, true);
+  assert.equal(page.probe().status, "waiting for the next chapter to be read");
+
+  // And chapter seven lands. A wait still holding the first frontier's chapter
+  // would not recognise this as the chapter it was stopped in front of, would
+  // fall through to "the book got longer, nothing to do", and would take its own
+  // timer down on the way out — leaving a paused book, an empty status line and
+  // nothing anywhere still asking. That is a night that goes quiet with the
+  // audio already on the disk, which is the failure this whole branch exists to
+  // end.
+  page.serves(growingBook(7));
+  assert.equal(page.wake(NEXT_ASK_MS), true);
+  await page.settle();
+  await page.settle();
+  assert.equal(page.audio.srcWrites.at(-1), "api/stream/900008/7");
+  assert.equal(page.probe().atFrontier, false);
+  assert.equal(page.probe().status, "");
+  page.audio.ready();
+  assert.equal(page.audio.paused, false);
+  assert.equal(page.probe().positionMs, 3_599_800);
+});
+
 // ------------------------------------------- when the night was to end here
 
 test("a night that was to end at this chapter ends at the frontier", async (t) => {
@@ -326,6 +457,57 @@ test("a night that was to end at this chapter ends at the frontier", async (t) =
   assert.equal(page.probe().atFrontier, false);
   assert.equal(page.waits().includes(FIRST_ASK_MS), false);
   page.serves(growingBook(6));
+  assert.equal(page.audio.paused, true);
+  assert.equal(page.audio.srcWrites.length, 1);
+});
+
+test("a fade that is already running is not handed back by the frontier", async (t) => {
+  // The other timer, the one with a time on it. Fifteen minutes was asked for
+  // twenty-five seconds ago on a page that has since been discarded, which is
+  // how a night gets a timer with seconds left on it without a quarter of an
+  // hour of listening first.
+  const page = await boot(t, {
+    lastGid: GROWING_BOOK.gid,
+    stored: armed(1, 25_000),
+  });
+  page.audio.ready();
+  page.audio.currentTime = 2400.1;
+  page.audio.fire("timeupdate");
+  page.click("playpause");
+  page.audio.currentTime = 2986.6;
+  page.audio.fire("timeupdate");
+  // A few seconds of book, and the timer is spent: it clears itself and starts
+  // the twenty-second fade that is the last thing it does. Five and a half
+  // rather than five, because the fade in that a press of play brings the sound
+  // back through is nine hundred milliseconds the timer is not charged for. One
+  // step further on so the volume has really started to come down.
+  for (let step = 0; step < 12; step++) page.audio.advance(0.5);
+  assert.equal(page.probe().fading, true);
+  assert.equal(page.probe().sleep, "sleep timer · fading");
+  assert.equal(page.probe().volume < 1, true);
+
+  // And part way through that fade the sound reaches the render frontier, which
+  // is the ordinary collision on a book being listened to while it renders. The
+  // pause the frontier makes puts the volume back and throws the fade away, so
+  // nothing is left to reach the end of it: without this the night neither ends
+  // nor says goodnight, and the chapter that lands twenty minutes later starts
+  // the book again, at full volume, over somebody who had asked for it to stop.
+  page.audio.currentTime = 2999.3;
+  page.audio.fire("timeupdate");
+  page.audio.advance(0.5);
+  assert.equal(page.audio.paused, true);
+  assert.equal(page.probe().status, "goodnight");
+  assert.equal(page.probe().volume, 1);
+  assert.equal(page.probe().sleep, "sleep timer · off");
+  assert.equal(page.probe().atFrontier, false);
+
+  // And nothing is listening for the book to grow. This is the assertion the
+  // night rests on: a wait armed here carries the sound back with it.
+  assert.equal(page.waits().includes(FIRST_ASK_MS), false);
+  assert.equal(page.waits().includes(NEXT_ASK_MS), false);
+  page.serves(growingBook(6));
+  await page.settle();
+  await page.settle();
   assert.equal(page.audio.paused, true);
   assert.equal(page.audio.srcWrites.length, 1);
 });

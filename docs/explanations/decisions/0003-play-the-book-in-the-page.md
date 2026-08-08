@@ -279,24 +279,29 @@ out until morning.
 What actually happens is that a boundary assigned `player.src`, which runs the
 media element load algorithm, which empties the element; and an element holding
 no media has nothing for Chrome to hang a platform media session on, so the
-notification comes down and has to be built again on the far side. Through the
-phone's own speaker that teardown and rebuild takes less time than it takes to
-notice, which is why it looked like nothing at all. Over Bluetooth, where audio
-focus has to be taken again and the A2DP route re-established, it is slow enough
-to see — and sometimes it did not complete, which at 2am means a locked phone
-with no transport on it and a book that has stopped. That is
-[issue 31](https://github.com/gilesknap/somnia/issues/31).
+notification comes down and has to be built again on the far side. Over
+Bluetooth, where audio focus has to be taken again and the A2DP route
+re-established, it is slow enough to see — and sometimes it did not complete,
+which at 2am means a locked phone with no transport on it and a book that has
+stopped. That is [issue 31](https://github.com/gilesknap/somnia/issues/31), which
+reports it as repeatedly seen on Bluetooth and not seen on the phone's own
+speaker, while declining to conclude anything from the second half: "that may
+only mean it is rarer there".
 
 **How a check of a false property passed.** The spike page this ADR points at,
 `spike-background-audio.html`, is what was run on 2026-08-06, and at that date
 `loadChapter()` was `audio.src = …; audio.load()` — the one-element path, the
-very thing that turned out to be the bug. It exercised it on whatever audio
-route the phone happened to be on that evening, and the phone speaker is the
-forgiving route. So the check was not wrong about what it saw. It was run on the
-one route on which this failure is invisible, and its result was written up as a
-property of Android Chrome rather than as a property of that route. **A check
-made on one audio route is a check of one audio route**, and that sentence is
-the whole of what this amendment has to teach.
+very thing that turned out to be the bug. So the check was not wrong about what
+it saw; it saw a real page do a real boundary. What is not known is the audio
+route it saw it on, because nobody wrote it down, and the check passing is the
+only evidence there is about it. Either it was the phone's own speaker, where
+this failure has never been seen and is presumably too quick to notice, or it was
+Bluetooth on a night the failure did not land — issue 31 reports it as
+intermittent even there. Both readings say the same thing, and it is the thing
+this amendment exists for: the result was written up as a property of Android
+Chrome when the most it could ever have been was a property of one route on one
+evening. **A check made on one audio route is a check of one audio route**, and
+a route nobody recorded is a route nobody knows.
 
 **What this ADR got right, and it deserves saying.** Two paragraphs down from
 the sentence being struck: *the failure would arrive as a night that went quiet

@@ -33,16 +33,24 @@
 // there until morning, which is right for a network that went and wrong for
 // a URL that is never going to answer — and that second one is a night that
 // never comes back, which is the half of issue 31 the blink was not. So a
-// join that has never once been loaded is asked for twice and then given up
-// on: the book drops to the file-at-a-time path the manifest has always
-// carried, and blinks at every boundary for the rest of the night. That is a
-// worse night. It is not a lost one, and those were the only two on offer.
+// join that has never once been loaded is given up on: the book drops to the
+// file-at-a-time path the manifest has always carried, and blinks at every
+// boundary for the rest of the night. That is a worse night. It is not a lost
+// one, and those were the only two on offer.
 //
 // The distinction the fallback rests on is the difficult part, and the last
 // section is about nothing else: a join that has once handed the page a
 // duration is a file that exists, so its later failures are the wire and are
 // waited out however many of them there are, while a join that has never
 // answered has nothing to wait for.
+//
+// Which leaves the URL nothing is known about, and there the count is not the
+// evidence — the spacing is. Two failures two seconds apart are one outage seen
+// twice, and the frontier is where that bites: the join asked for there has
+// never loaded by definition, so a four-second re-key could condemn a file that
+// was there all along and cost the night its panel to fix a network problem. So
+// the two failures have to be RETRY_MAX_MS apart, which is where the ladder
+// itself stops waiting longer, and the tests below walk the clock to prove it.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -339,7 +347,20 @@ test("a stall in a book nobody is listening to is not fought", async (t) => {
 
 // ------------------------------------------- when the join is not coming back
 
-test("a join that never answers is given up on after two tries", async (t) => {
+// The ladder walked until the page gives the join up, with the clock moving as
+// it would in a night. Every rung is a real request and a real failure; what
+// makes the last one different is only that half a minute has gone by since the
+// first, which is longer than any of the outages the ladder was written for.
+function failUntilGivenUp(page) {
+  page.audio.fail();
+  for (const rung of [FIRST_MS, 4000, GRACE_MS, 16_000]) {
+    assert.equal(page.wake(rung), true);
+    page.tick(rung);
+    page.audio.fail();
+  }
+}
+
+test("a join that never answers is given up on after half a minute of trying", async (t) => {
   const page = await askingForNothing(t);
   page.audio.fail();
   // Once is not an answer. A re-key catches the first request of the night now
@@ -347,17 +368,38 @@ test("a join that never answers is given up on after two tries", async (t) => {
   // night that only ever needed two seconds of patience.
   assert.equal(page.probe().fellBack, false);
   assert.equal(page.wake(FIRST_MS), true);
+  page.tick(FIRST_MS);
   assert.equal(page.audio.srcWrites.at(-1), JOIN);
 
   page.audio.fail();
-  // Twice, on a URL that has never once handed this page a duration. Whatever
-  // is at the other end of it, it is not a file: a build ffmpeg gave up on, a
-  // version reaped out from under a manifest, a deploy that moved the data
-  // directory. None of those gets better by being asked again at half-minute
-  // intervals until morning, which is what the ladder alone would have done.
+  // Nor is twice, two seconds apart. Two failures that close together are one
+  // outage seen twice — wifi power save, a DHCP renewal, a tailscale re-key —
+  // and the ladder below is built to wait exactly those out. Counting them as
+  // evidence about the URL is how four seconds of tailnet used to cost a book
+  // its join for the whole night, at the frontier above all, where the join
+  // being asked for is new by construction and has never loaded by definition.
+  assert.equal(page.probe().fellBack, false);
+  assert.equal(page.wake(4000), true);
+  page.tick(4000);
+  page.audio.fail();
+  assert.equal(page.probe().fellBack, false);
+  assert.equal(page.wake(GRACE_MS), true);
+  page.tick(GRACE_MS);
+  page.audio.fail();
+  assert.equal(page.probe().fellBack, false);
+
+  assert.equal(page.wake(16_000), true);
+  page.tick(16_000);
+  page.audio.fail();
+  // Half a minute of one URL failing, which is as patient as the ladder ever
+  // gets about a network nobody can see. Whatever is at the other end of it, it
+  // is not a file the box is serving: a build ffmpeg gave up on, a version
+  // reaped out from under a manifest, a deploy that moved the data directory.
+  // None of those gets better by being asked again at half-minute intervals
+  // until morning, which is what the ladder alone would have done.
   assert.equal(page.probe().fellBack, true);
-  // And the next attempt is at the bottom of the ladder rather than four
-  // seconds up it. The wait was earned by a question nobody is asking now.
+  // And the next attempt is at the bottom of the ladder rather than half a
+  // minute up it. The wait was earned by a question nobody is asking now.
   assert.deepEqual(page.waits(), [FIRST_MS]);
   assert.equal(page.wake(FIRST_MS), true);
   assert.equal(page.audio.srcWrites.at(-1), "api/audio/900001/0");
@@ -365,9 +407,7 @@ test("a join that never answers is given up on after two tries", async (t) => {
 
 test("a book given up on plays a file at a time, boundaries and all", async (t) => {
   const page = await askingForNothing(t);
-  page.audio.fail();
-  page.wake(FIRST_MS);
-  page.audio.fail();
+  failUntilGivenUp(page);
   page.wake(FIRST_MS);
   page.audio.ready();
   // The fallback is real, and this is what "real" has to mean: the chapter
@@ -422,9 +462,7 @@ test("a join that is only slow is never given up on", async (t) => {
 
 test("giving up on one book's join is not giving up on another's", async (t) => {
   const page = await askingForNothing(t);
-  page.audio.fail();
-  page.wake(FIRST_MS);
-  page.audio.fail();
+  failUntilGivenUp(page);
   assert.equal(page.probe().fellBack, true);
 
   await page.openBook(OTHER_BOOK.gid);
@@ -454,15 +492,15 @@ test("a longer join that is not there drops the book to a file at a time", async
   assert.equal(page.probe().atFrontier, true);
 
   page.serves(growingBook(6));
-  // The first ask after the audio runs out, as app.js sizes it: RENDER_ASK_MS.
-  assert.equal(page.wake(5000), true);
+  await page.settle();
+  // The rung after the frontier's own ask, which went out from inside the
+  // timeupdate that found it.
+  assert.equal(page.wake(10_000), true);
   await page.settle();
   await page.settle();
   assert.equal(page.audio.srcWrites.at(-1), "api/stream/900008/6");
 
-  page.audio.fail();
-  assert.equal(page.wake(FIRST_MS), true);
-  page.audio.fail();
+  failUntilGivenUp(page);
   // The proof is per URL and not per book. The five-chapter join arrived and is
   // known to exist; the six-chapter one is a different file with a different
   // name, and nothing about the first says anything about the second. A page
@@ -477,4 +515,79 @@ test("a longer join that is not there drops the book to a file at a time", async
   assert.equal(page.audio.srcWrites.at(-1), "api/audio/900008/4");
   assert.equal(page.probe().chapter, "Chapter 5");
   assert.equal(page.audio.paused, false);
+});
+
+test("a failure of one join is not carried across to the next", async (t) => {
+  // The Moonstone again, and this time nothing has ever loaded: the join the
+  // page booted on has never handed it a duration, so it is on trial.
+  const page = await boot(t, { lastGid: GROWING_BOOK.gid });
+  page.click("playpause");
+  page.audio.fail();
+  assert.equal(page.audio.srcWrites.at(-1), "api/stream/900008/5");
+
+  // A chapter lands and the phone comes back in front of somebody, which is the
+  // one moment a night refreshes the manifest of a book it is already playing.
+  // From here the url the page reaches for is a different file with a different
+  // name — and the ladder is what puts it on the element.
+  page.serves(growingBook(6));
+  page.document.fire("visibilitychange");
+  await page.settle();
+  page.audio.fail();
+  assert.equal(page.wake(FIRST_MS), true);
+  assert.equal(page.audio.srcWrites.at(-1), "api/stream/900008/6");
+
+  // Half a minute later the new one fails too — and that is its first failure,
+  // not its second. What was learned about the five-chapter join is not evidence
+  // about the six-chapter one, and a count carried between them would be a count
+  // of neither: the page would read the book a file at a time for the rest of
+  // the night without any single join having been asked for twice.
+  page.tick(LONGEST_MS);
+  page.audio.fail();
+  assert.equal(page.probe().fellBack, false);
+});
+
+test("a few seconds of tailnet at the frontier does not cost the book its join", async (t) => {
+  // The same night as the test above, with the only difference the one that
+  // matters: the six-chapter join is really there and the wire went away for
+  // four seconds. A re-key, a DHCP renewal, a wifi power-save nap — all three
+  // are named in app.js as things that happen nightly, and none of them is
+  // anything to learn about a URL from.
+  const page = await boot(t, { lastGid: GROWING_BOOK.gid });
+  page.audio.ready();
+  page.click("playpause");
+  page.audio.currentTime = 2999.3;
+  page.audio.fire("timeupdate");
+  page.audio.advance(0.5);
+
+  page.serves(growingBook(6));
+  await page.settle();
+  assert.equal(page.wake(10_000), true);
+  await page.settle();
+  await page.settle();
+  assert.equal(page.audio.srcWrites.at(-1), "api/stream/900008/6");
+
+  page.audio.fail();
+  assert.equal(page.wake(FIRST_MS), true);
+  page.tick(FIRST_MS);
+  page.audio.fail();
+  assert.equal(page.wake(4000), true);
+  page.tick(4000);
+  // Six seconds and the wire is back. Nothing here was ever about the file: it
+  // was there the whole time, and a page that had given up by now would play
+  // this book a file at a time until morning — an element emptied and the lock
+  // screen panel asked to come back at every boundary of the night, which is
+  // the failure this whole branch exists to end, arrived at by way of a network
+  // blip the ladder was written to absorb.
+  page.audio.ready();
+  assert.equal(page.probe().fellBack, false);
+  assert.equal(page.probe().perChapter, false);
+  assert.equal(page.audio.paused, false);
+  assert.equal(page.probe().status, "");
+
+  page.order.length = 0;
+  page.audio.currentTime = 3000.1;
+  page.audio.fire("timeupdate");
+  // And the boundary it goes on to cross costs nothing at all, which is the
+  // whole of what was nearly thrown away.
+  assert.deepEqual(page.order, ["metadata:Chapter 6"]);
 });
