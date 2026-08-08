@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.6.dev109+gcf1f805c9 documentation</title>
+    <title>HTTP surface &#8212; somnia 0.6.dev115+gc900044a0 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=dad101ec"></script>
+    <script src="../_static/documentation_options.js?v=d1e6a0fd"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -529,39 +529,43 @@ would tell you.</p>
 <td><p>GET</p></td>
 <td><p>The chapter’s audio — or 404</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/stream/{gid}/{n}</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>The first <code class="docutils literal notranslate"><span class="pre">n</span></code> chapters as one file — or 404</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>Where the sentence being spoken at <code class="docutils literal notranslate"><span class="pre">ms</span></code> began</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>Books to add, from the local Gutenberg catalog</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>What is rendering, what is waiting, what went wrong</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Make this the book a cold launch opens — or 404</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>The agent’s reply, and a move if it made one</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Drops one conversation</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>What became of a report — always 200</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Ask for a book — always 200</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Stop a render, or take a book out of the line</p></td>
 </tr>
@@ -604,7 +608,8 @@ left with a player showing nothing.</p>
 <span class="w">  </span><span class="nt">&quot;chapters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span><span class="nt">&quot;idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;01. My Early Home&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;start_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">     </span><span class="nt">&quot;end_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">455000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;api/audio/271/0&quot;</span><span class="p">}</span>
-<span class="w">  </span><span class="p">]</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;stream_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;api/stream/271/49&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;stream_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">22320000</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -613,6 +618,11 @@ growing from a render that died. <code class="docutils literal notranslate"><spa
 spoiler guard uses, which is not <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>: the agent can move someone
 backwards, and doing so must not shrink what may be searched. Chapter <code class="docutils literal notranslate"><span class="pre">url</span></code> is
 relative, because the app may be mounted under a path.</p>
+<p><code class="docutils literal notranslate"><span class="pre">stream_url</span></code> is the whole of what has been read of this book down one URL, and
+<code class="docutils literal notranslate"><span class="pre">stream_ms</span></code> is how much book that is. The page loads it once and crosses every
+chapter inside it without touching the media element — see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code>. It is <code class="docutils literal notranslate"><span class="pre">null</span></code> when there is nothing to join, which is a
+book with no audio yet; the per-chapter <code class="docutils literal notranslate"><span class="pre">url</span></code>s are always there beside it, and a
+page that finds no stream plays the book a file at a time.</p>
 <p><code class="docutils literal notranslate"><span class="pre">chapters_total</span></code> is how many chapters the book <strong>has</strong>, against <code class="docutils literal notranslate"><span class="pre">chapters</span></code>,
 which is how many can be played. While a render is going those differ, and the
 difference is the only way to tell running out of audio three chapters into
@@ -660,6 +670,22 @@ the journal; on the phone both look like one chapter that didn’t arrive.</p>
 the container image has no mime table, so guessing yields
 <code class="docutils literal notranslate"><span class="pre">application/octet-stream</span></code> and Safari refuses to play the book — a bug that
 cannot reproduce on a development machine.</p>
+</section>
+<section id="get-api-stream-gid-n">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code><a class="headerlink" href="#get-api-stream-gid-n" title="Link to this heading">#</a></h2>
+<p>The book’s first <code class="docutils literal notranslate"><span class="pre">n</span></code> chapters joined into one <code class="docutils literal notranslate"><span class="pre">audio/mp4</span></code>, with the same Range,
+If-Range and 416 handling as a chapter, and the same pinned media type for the
+same reason.</p>
+<p><code class="docutils literal notranslate"><span class="pre">n</span></code> is a version rather than a length: it names the chapters the file holds, so
+a book that grew while somebody was listening is offered a <em>new</em> url and the
+file their phone has open is never rewritten under an in-flight range request.
+Versions are built on the first ask — a second or two of ffmpeg, <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">copy</span></code>, so
+not a byte of audio is re-encoded — and kept under <code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR/streams</span></code>,
+never in the library, because the library is Audiobookshelf’s own layout.</p>
+<p>404 if the book has fewer than <code class="docutils literal notranslate"><span class="pre">n</span></code> chapters, if any of their audio has gone, or
+if the join could not honestly be made. The reason is in the journal. The page
+still has a url for every chapter, so a book with no stream is one that rebuilds
+the lock screen at every boundary — a worse night, not a lost one.</p>
 </section>
 <section id="get-api-sentence-gid-ms">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code><a class="headerlink" href="#get-api-sentence-gid-ms" title="Link to this heading">#</a></h2>
@@ -894,6 +920,7 @@ too.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-book-gid"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-book-gid-open"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-audio-gid-idx"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-stream-gid-n"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-sentence-gid-ms"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-catalog"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-queue"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code></a></li>
