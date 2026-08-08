@@ -596,6 +596,31 @@ test("no screen lays the player out on a page with no book open", async (t) => {
   }
 });
 
+// The reader's font size, and the one line that was throwing it away.
+//
+// On Chrome for Android the size chosen in Android's settings is not a root font
+// size — it is a multiplier the text autosizer puts on every computed font size,
+// and `text-size-adjust` is the switch that lets it through. `auto` is the
+// default and is what listens; any percentage replaces the reader's number with
+// yours, and the sheet shipped `100%` — x1.0, throw it away — for the whole life
+// of a page whose one premise is being read at 62 without glasses.
+//
+// It is a guard against a reset and not against a person. Nobody chose that
+// line; it arrived the way it arrives in every CSS reset on the internet, and
+// the next reset pasted over this sheet will bring it back with the same
+// confidence. This is the test that argues with it.
+test("nothing pins the reader's text size", async (t) => {
+  for (const [selector, body] of rules(SHEET)) {
+    const pin = body.match(/text-size-adjust\s*:\s*([^;]+)/);
+    if (!pin) continue;
+    assert.equal(
+      pin[1].trim(),
+      "auto",
+      `${selector.trim()} is overriding the reader's font size with ${pin[1].trim()}`,
+    );
+  }
+});
+
 // Written while fixing one. The sheet is nine tenths prose and a comment
 // terminator loose in the middle of a paragraph does not break it loudly: the
 // parser reads the rest of the paragraph as a selector, swallows the next rule

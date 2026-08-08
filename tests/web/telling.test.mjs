@@ -194,6 +194,96 @@ test("opening the page does not edit the level it found", async (t) => {
   assert.equal(page.storage.getItem("somnia-dim"), "0.45");
 });
 
+// ----------------------------------------------------------- how big it is
+//
+// `how big the words` on Settings, which is the whole page and not the screen
+// it is on: it sets the root, and every size and every gap in the sheet is a
+// rem measured off that.
+//
+// It exists because the setting it stands in for does not arrive. Android's
+// font size reaches a native app through `sp`; a web page gets it only if
+// Chrome hands a multiplier to its text autosizer, and on the phone this app is
+// read on nothing is handed over — measured on the device, unpinned, with a
+// bare paragraph that did not move. All of this is the page answering for
+// itself instead.
+
+test("the page opens at the size the design was drawn at", async (t) => {
+  const page = await boot(t);
+  // 125% of the browser's default is the 20px root every dp in the sheet was
+  // measured against, and that every render in render-screens is checked at.
+  assert.equal(page.probe().text, "125%");
+  // The readout says where that sits in the range, which is the middle: the
+  // page has to be able to go both ways from what was drawn.
+  assert.equal(page.el("text-fill").style.width, "50%");
+});
+
+test("a size written down before is the one the page opens at", async (t) => {
+  const page = await boot(t, { stored: { "somnia-text": "150" } });
+  // The same reason the dim level outlives the page: a backgrounded tab is
+  // thrown away whenever the phone wants the memory back, and coming back at a
+  // size he cannot read is the whole of what this setting exists to prevent.
+  assert.equal(page.probe().text, "150%");
+});
+
+test("a size that makes no sense is not applied", async (t) => {
+  for (const junk of ["", "big", "-1", "0", "400", "null"]) {
+    const page = await boot(t, { stored: { "somnia-text": junk } });
+    // A half-written record must not be able to leave the page at a size with
+    // no words on it, or at one no thumb can find the way back from.
+    assert.equal(page.probe().text, "125%", `stored ${JSON.stringify(junk)}`);
+  }
+});
+
+test("a press resizes the page and writes the size down", async (t) => {
+  const page = await boot(t);
+  page.click("text-up");
+  assert.equal(page.probe().text, "137.5%");
+  assert.equal(page.storage.getItem("somnia-text"), "137.5");
+  page.click("text-down");
+  page.click("text-down");
+  assert.equal(page.probe().text, "112.5%");
+  assert.equal(page.storage.getItem("somnia-text"), "112.5");
+});
+
+// The ceiling is measured, not chosen: at 175% the book's title truncates to one
+// line and the chapter title clips through its own descenders. The floor is the
+// browser's own default, which is where this page came up before it had a root
+// at all.
+test("the size has both ends, and no number of presses gets past them", async (t) => {
+  const page = await boot(t);
+  for (let i = 0; i < 20; i += 1) page.click("text-up");
+  assert.equal(page.probe().text, "150%");
+  assert.equal(page.el("text-up").disabled, true);
+  assert.equal(page.el("text-fill").style.width, "100%");
+  for (let i = 0; i < 20; i += 1) page.click("text-down");
+  assert.equal(page.probe().text, "100%");
+  assert.equal(page.el("text-down").disabled, true);
+  assert.equal(page.el("text-fill").style.width, "0%");
+});
+
+// 12.5 in binary floating point has the same habit 0.06 does. Stepping along the
+// list rather than doing arithmetic on the value is what keeps a root of
+// 137.50000000000003 out of storage and off the page.
+test("what is written down is a size somebody could have meant", async (t) => {
+  const page = await boot(t);
+  for (let i = 0; i < 2; i += 1) page.click("text-up");
+  assert.equal(page.storage.getItem("somnia-text"), "150");
+  assert.equal(page.probe().text, "150%");
+});
+
+// What is on disk is what somebody chose. Opening the page does not round it to
+// this version's steps and write it back — the rule the dim level keeps.
+test("opening the page does not edit the size it found", async (t) => {
+  const page = await boot(t, { stored: { "somnia-text": "133" } });
+  assert.equal(page.probe().text, "133%");
+  assert.equal(page.storage.getItem("somnia-text"), "133");
+  // It still draws a readout, and a press still moves to the nearer of the two
+  // sizes it sits between rather than to an end of the range.
+  assert.equal(page.el("text-fill").style.width, "75%");
+  page.click("text-up");
+  assert.equal(page.probe().text, "150%");
+});
+
 // ------------------------------------------------------- how far a skip is
 //
 // `how far the skip buttons move` on Settings, which renames the two
