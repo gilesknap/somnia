@@ -19,8 +19,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from anthropic import Anthropic, beta_tool
-from anthropic.types.beta import BetaTextBlockParam
+from anthropic import Anthropic, Omit, beta_tool, omit
+from anthropic.types.beta import BetaOutputConfigParam, BetaTextBlockParam
 
 from .abs import AbsClient
 from .config import Config
@@ -33,10 +33,16 @@ __all__ = [
     "Conversation",
     "Turn",
     "build_tools",
+    "effort_for",
+    "forget_model_capabilities",
     "open_library",
 ]
 
 logger = logging.getLogger(__name__)
+
+# Which models will accept an effort level, asked of the API once each and
+# remembered for the life of the process. See :func:`effort_for`.
+_EFFORT_SUPPORT: dict[str, bool] = {}
 
 # The only sentence that belongs beside a list of places. It names no place, no
 # chapter, no character and no time, because the screen holds all of that and
@@ -562,6 +568,66 @@ def build_tools(
     ]
 
 
+def effort_for(client: Anthropic, cfg: Config) -> BetaOutputConfigParam | Omit:
+    """How hard to think, or ``omit`` where this model has no such dial.
+
+    Not every model has one. Haiku 4.5 rejects ``effort`` outright — *"This
+    model does not support the effort parameter"*, a 400 on every question —
+    and Haiku is exactly the model somebody moves to when they want answers
+    faster, by setting one environment variable, most likely at night. Sending
+    it unconditionally made the documented way to speed somnia up the way to
+    break it, which is the worst shape a performance change can take.
+
+    The level is checked too, not just the dial: ``xhigh`` exists on some models
+    and not others, and a level a model does not have is the same 400 wearing a
+    different hat.
+
+    The API is asked rather than a list of model names being kept here, because
+    a list of model names is wrong the week after it is written and wrong
+    silently. It is asked once per model per process, and
+    :meth:`somnia.server.Conversations.warm` asks before anybody has a question,
+    so no turn waits on it.
+
+    Anything unexpected — an unreachable API, a model it has never heard of, a
+    capability list in a shape this does not know — answers "no dial", which is
+    the safe way round: every model then runs at its own default and every
+    question is answered, two seconds slower. The opposite guess costs the whole
+    night.
+    """
+    model = cfg.agent_model
+    if model not in _EFFORT_SUPPORT:
+        try:
+            capabilities = client.models.retrieve(model).capabilities
+            effort = capabilities.effort if capabilities is not None else None
+            level = getattr(effort, cfg.agent_effort, None)
+            _EFFORT_SUPPORT[model] = bool(
+                effort is not None
+                and effort.supported
+                and level is not None
+                and level.supported
+            )
+        except Exception:
+            logger.warning(
+                "could not ask whether %s takes an effort level; not sending one",
+                model,
+                exc_info=True,
+            )
+            _EFFORT_SUPPORT[model] = False
+    if not _EFFORT_SUPPORT[model]:
+        return omit
+    return {"effort": cfg.agent_effort}
+
+
+def forget_model_capabilities() -> None:
+    """Ask the API again about every model.
+
+    What :func:`effort_for` learns lasts as long as the process, which is right
+    for a night and wrong for a test suite: whichever test asks first would
+    otherwise decide what every later one is told.
+    """
+    _EFFORT_SUPPORT.clear()
+
+
 def _system(open_book: str) -> list[BetaTextBlockParam]:
     """The prompt in two blocks, so the constant half can be cached.
 
@@ -726,10 +792,10 @@ class Conversation:
         runner = self._client.beta.messages.tool_runner(
             model=self._cfg.agent_model,
             max_tokens=self._cfg.agent_max_tokens,
-            output_config={"effort": self._cfg.agent_effort},
             system=_system(self._open_book(gid)),
             tools=self._tools,
             messages=turn,
+            output_config=effort_for(self._client, self._cfg),
         )
 
         reply = ""
