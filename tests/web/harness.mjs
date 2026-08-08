@@ -613,6 +613,11 @@ const BORN_HIDDEN = new Set([
   // are places to open from it, so the document ships the count with nothing in
   // it and out of the way.
   "places-found",
+  // The morning screen's first choice, which is the same list said as a slab.
+  // It ships hidden for the same reason the count does and a stronger one: on
+  // most mornings there is no list, and a 92dp press at the top of that screen
+  // that answers by doing nothing is worse than two choices.
+  "wake-places",
 ]);
 
 // And the one id it gives a `disabled` attribute to, for the same reason: the
@@ -1340,7 +1345,23 @@ export async function boot(t, options = {}) {
     // book the old way on the same night, and a page that read it later than
     // this could be in two minds about a book half way through one.
     location: { search: query },
-    Date: { now: () => clock.now() },
+    // The clock, and one thing more than it used to be. Everything the page
+    // asks the wall for is Date.now(), which is the fake clock — but the
+    // morning screen names the time the fade happened, and naming an hour and a
+    // minute means constructing a date around a millisecond. So the real Date
+    // is handed over with only `now` replaced: `new Date(ms)` behaves exactly
+    // as a browser's does, in the timezone the test run is in, which is why
+    // nothing here asserts a literal `1:47`.
+    //
+    // `new Date()` with no argument is therefore the real present and not the
+    // fake clock. Nothing in app.js does that, and anything that started to
+    // would be reading a second clock — which is worth a failing test rather
+    // than a fake that quietly answered for both.
+    Date: class extends Date {
+      static now() {
+        return clock.now();
+      }
+    },
     navigator: {
       language: "en-GB",
       userActivation: { hasBeenActive: activated },

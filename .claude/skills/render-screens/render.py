@@ -70,7 +70,16 @@ def overrides(root=None, text_size=None):
 # well because that is the only route onto it: the two overlays read that class
 # on its own, so a books panel with the keyboard up over the player is
 # `--screen player --keyboard`.
-SCREENS = {"player": ["player-screen"], "chat": ["chat-screen", "keyboard-up"]}
+#
+# The morning is the third, and the one that is neither measured nor pressed:
+# app.js reads the record the sleep timer's fade left and opens on this screen
+# instead of the player. It carries no keyboard — there is nothing to type into,
+# and the header is off it as well.
+SCREENS = {
+    "player": ["player-screen"],
+    "chat": ["chat-screen", "keyboard-up"],
+    "wake": ["wake-screen"],
+}
 
 
 def render(

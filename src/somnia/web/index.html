@@ -208,6 +208,65 @@
       </button>
     </header>
 
+    <!-- The morning, which is a screen rather than a line over the player.
+
+         It is shown instead of the player, once, the first time the app is
+         opened after the sleep timer faded a night out — which is nearly always
+         a relaunch, because a backgrounded tab is discarded whenever the phone
+         wants the memory back. The whole of what somebody wants at that moment
+         is one question answered — where was I? — and three ways to answer it,
+         and none of what the player draws helps: the position under the title
+         is where the sound stopped, which is precisely the number they do not
+         trust.
+
+         So the header goes as well. There is nothing to leave this screen for
+         and nothing to come back from; every way off it is one of the three
+         presses at the foot of it, and a corner offering a panel of books at
+         7am is a way to lose the one question the screen exists to ask.
+
+         The third screen, on the machinery #25, #28 and #33 built for the first
+         two: a name on <body> and a sheet that reads it. Nothing here is an
+         overlay — the two are different things and the difference is what is
+         underneath. An overlay is over the player, which is still there and
+         still the thing being come back to. This replaces it. -->
+    <section id="wake" aria-labelledby="wake-said">
+      <div id="wake-top">
+        <p class="section-label">good morning</p>
+        <!-- Written by app.js out of the record the fade left: the wall-clock
+             time the sound went, which is the one fact about last night nobody
+             was awake for. -->
+        <h2 id="wake-said"></h2>
+        <!-- The only thing on this screen that is not a fact, and it is hedged
+             in the words themselves. somnia knows when the fade ran and has no
+             idea when they stopped taking the book in; "probably" is the whole
+             of the difference, and it is why the three presses below are
+             offered at all rather than the book simply being rewound. -->
+        <p id="wake-before">You were probably gone before that.</p>
+      </div>
+
+      <!-- Ordered by likely intent, largest first, and each of them is one
+           press with nothing to confirm. -->
+      <div class="wake-choices">
+        <!-- The last query's places, which is the only list somnia has of
+             where somebody might be. It ships hidden for the reason the count
+             on the position line does: on most mornings that list is empty —
+             it is the answer to a question asked in the dark, not a store of
+             marks — and a 92dp slab at the top of the morning that answers a
+             press by doing nothing is worse than three choices being two. -->
+        <button id="wake-places" type="button" hidden>
+          <span>see where you might be</span>
+          <span id="wake-found"></span>
+        </button>
+        <!-- The way the list gets made in the first place, which is why this
+             one is always here. -->
+        <button id="wake-ask" type="button">tell me what you remember</button>
+        <!-- And the way out that changes nothing, with the position it would
+             keep written on it so that keeping it is a decision rather than a
+             shrug. -->
+        <button id="wake-keep" type="button"></button>
+      </div>
+    </section>
+
     <main id="transcript" aria-live="polite">
       <p class="said agent">Where do you want to be?</p>
     </main>

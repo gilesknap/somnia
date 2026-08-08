@@ -53,6 +53,19 @@ FIXTURE = {
         # more than the `45m` this row was last measured against, on a row that
         # was already described as only just fitting.
         "sleep": "sleep timer · 60 min left",
+        # The morning, which app.js writes out of the record the fade left. The
+        # time is the small hours because that is when the timer runs, and it is
+        # the one-digit hour on purpose: it is the narrowest the headline ever
+        # gets, so a render at this time cannot be read as proof that a wider one
+        # fits. The position is the fixture's own, so the morning and the player
+        # are two views of one book.
+        "wake-said": "The timer faded you out at 1:47.",
+        "wake-keep": "keep it where it stopped · 1:12:08",
+        # The same count as the position line above, because it is the same list
+        # said twice — drawPlaces writes one string into both, and a fixture that
+        # held two different numbers here would photograph the bug this screen
+        # was warned about rather than the page.
+        "wake-found": "4 places found",
     },
     # The conversation, oldest first. The last line is the reader's, because
     # that is the state the page is in between asking and being answered.
@@ -64,7 +77,12 @@ FIXTURE = {
     ],
     # Shown as if a book were playing: without this the page renders its
     # opening state, which is not the one anybody is designing.
-    "unhide": ["player-bar", "places-found"],
+    # `wake-places` is the morning's first choice, which drawPlaces shows only on
+    # the mornings there is a list to open. It is the taller of that screen's two
+    # states, so it is the one worth holding — and it costs the other screens
+    # nothing, because the whole of #wake is display:none unless <body> says the
+    # page is on it.
+    "unhide": ["player-bar", "places-found", "wake-places"],
     # Which screen the page is on. app.js measures the keyboard and writes this
     # onto <body>, and the sheet reads it for everything that differs between
     # the player and the chat — so in a snapshot, which has no app.js, a body
