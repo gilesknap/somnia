@@ -141,24 +141,31 @@ PANELS = {
     # nobody saw: every render of Places was a heading over an empty <ol>.
     #
     # The shape is the one the server actually offers — four places at most,
-    # the mark somewhere among them — and it is deliberately the expensive one:
-    # a row behind the position carries its words uncovered, which is the
-    # tallest a row gets, and two of them do here. A list that fits at four
-    # covered rows and overflows at two revealed ones is a list that fits only
-    # in the picture nobody took.
+    # the mark somewhere among them — and every state a row can be in is on it
+    # at once, which is the only way one picture answers the question this
+    # screen now raises: with the words hidden on every row, does an `ahead` row
+    # still look different from a closed row it is safe to open?
+    #
+    # So: one closed row behind the mark, one revealed, two closed ahead. The
+    # revealed one carries a long passage, because the length of a passage is
+    # what this screen's height turns on and a list that fits with everything
+    # covered and overflows the moment somebody reads one of them is a list that
+    # fits only in the picture nobody took. It is no longer the opening state —
+    # the list arrives with all four covered and much shorter than this — and
+    # that is the point: this is the ceiling, not the greeting.
     "places": {
         "unhide": ["candidates"],
         "text": {"candidates-summary": "4 places between 0:58:14 and 2:11:40"},
-        # `ahead` is the server's word for a place they have not reached, and it
-        # is what decides everything about the row: whether the words are there
-        # at all, whether the reading is a button, and which hint it carries.
-        # The two behind the mark hold real sentences, because the length of a
-        # passage is what this screen's height turns on.
+        # `ahead` is the server's word for a place they have not reached. It no
+        # longer decides whether the words are on the page — nothing is, until
+        # the press — so what is left to it is which hint the row carries and
+        # whether the chapter is named. `revealed` is the press having happened.
         "places": [
             [
                 "0:58:14",
                 "Ch 3 · The Wild Wood",
                 "The Rat was sitting on the river bank, singing a little song.",
+                False,
                 False,
             ],
             [
@@ -168,13 +175,15 @@ PANELS = {
                 "only the cold that woke him at last, and the sound of the wind "
                 "in the bare branches over his head.",
                 False,
+                True,
             ],
-            ["1:24:51", "Ch 4", "", True],
-            ["2:11:40", "Ch 6", "", True],
+            ["1:24:51", "Ch 4", "", True, False],
+            ["2:11:40", "Ch 6", "", True, False],
         ],
         # Where the rule goes: after the second row, which is the last one at or
-        # before the position the rest of the fixture is set at.
-        "here": {"at": "1:12:08", "after": 2, "more": True},
+        # before the position the rest of the fixture is set at. It carries the
+        # way back now, so the picture has to hold the pill as well as the line.
+        "here": {"at": "1:12:08", "after": 2, "more": True, "back": True},
     },
     "workshop": {
         "unhide": ["queue", "workshop", "queue-working", "queue-ended"],
@@ -374,22 +383,31 @@ FILL = """
     put("queue-live", (PANEL.live || []).map(jobRow(false)));
     put("queue-gone", (PANEL.gone || []).map(jobRow(true)));
 
-    // candidateRow and hereRow from app.js, class for class. The reading is a
-    // <button> only on a place still covered up: where the words are already
-    // there, there is nothing to ask for and the row is a plain div.
+    // candidateRow and hereRow from app.js, class for class. Every reading is a
+    // <button> now and every row starts covered; `revealed` is a press already
+    // made, which is the only way words get onto this screen.
     if (PANEL.places) {
       const rows = [];
-      PANEL.places.forEach(([when, where, text, ahead], i) => {
+      PANEL.places.forEach(([when, where, text, ahead, revealed], i) => {
         const li = document.createElement("li");
         li.className = ahead ? "candidate ahead" : "candidate";
-        const show = document.createElement(ahead ? "button" : "div");
-        if (ahead) show.type = "button";
+        if (revealed) li.classList.add("revealed");
+        const show = document.createElement("button");
+        show.type = "button";
         show.className = "candidate-show";
         show.append(p("candidate-when", when), p("candidate-where", where));
-        const what = p("candidate-what", ahead ? "" : text);
-        if (ahead) what.hidden = true;
+        const what = p("candidate-what", revealed ? text : "");
+        if (!revealed) what.hidden = true;
         show.append(what);
-        if (ahead) show.append(p("candidate-hint", "tap to reveal · may spoil"));
+        // Gone once the press has been made, and two different sentences in two
+        // different colours before it — which after this change is the whole of
+        // what marks a row somebody has not listened past.
+        const hint = p(
+          "candidate-hint",
+          ahead ? "tap to reveal · may spoil" : "tap to reveal",
+        );
+        hint.hidden = Boolean(revealed);
+        show.append(hint);
         li.append(show, pill("candidate-go", "goto"));
         rows.push(li);
         const here = PANEL.here;
@@ -403,6 +421,9 @@ FILL = """
               p("here-caveat", "anything below this line you may not have heard"),
             );
           }
+          // The way back, on the rule and only where the list is about the book
+          // that is playing.
+          if (here.back) rule.append(pill("candidate-go here-go", "here"));
           rows.push(rule);
         }
       });
