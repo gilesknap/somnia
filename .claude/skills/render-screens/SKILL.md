@@ -11,9 +11,9 @@ at, so the guessing stops.
 
 ## The trap that costs a round of work
 
-**somnia is not read at 412x892 with a 16px root.** It is read on a Pixel 6 Pro
-with Android's text scaling turned up, because it is read in the dark without
-glasses. The real measure is about **360x780 CSS px with a 20px root**.
+**somnia is not read at 412x892.** It is read on a Pixel 6 Pro with the display
+size turned up, because it is read in the dark without glasses. The real measure
+is about **360x780 CSS px**.
 
 Every line is roughly a third wider in practice than a stock render shows. In
 August 2026 a whole round of mockups was drawn at the default and thrown away:
@@ -24,6 +24,89 @@ given. Both looked fine at 412/16.
 The tell that you have done it again: in a correct render, **"Where do you want
 to be?" nearly fills its line.** If it sits at about half the width, you are
 looking at the wrong phone.
+
+## The size of the type: set the width, and stop there
+
+**The root is not yours to choose any more.** `style.css` takes it from the
+screen:
+
+```css
+html { font-size: calc(var(--text-size) * min(100vw, 460px) / 18); }
+```
+
+18 is the design itself — 360 CSS px across at a 20px root is a page **18 rem
+wide** — so dividing the screen by 18 puts every dp where it was drawn on any
+phone at any setting. `render.py` therefore injects **no root**: give it
+`--width` and the page works out the root the phone would have had.
+
+This replaced a root that was never set at all, which is worth knowing because
+it explains a recurring complaint. Before PR #64 the page took the browser's
+16px, so it matched the design only by accident of how the reader had tuned
+their phone — 19.4rem across on Giles's, ~25.7rem for anyone untuned, against a
+design drawn at 18. **"The type is a size or two too small" was that**, not the
+type scale, and raising sizes to compensate would have been chasing it.
+
+| flag | when |
+|---|---|
+| *(nothing)* | the phone. The page sizes itself from `--width` |
+| `--text-size 0.8`…`1.2` | the reader's own control, `how big the words` on Settings. 1 ships |
+| `--root 24` | forcing a what-if. Injects a fixed root and overrides the page |
+
+`--root` and `--text-size` at once counts the reader twice. Prefer
+`--text-size`: it is the control that exists.
+
+## The three controls on the phone, and which ones reach a web page
+
+Established on the device across several rounds, each of which cost one:
+
+| control | reaches somnia? | how |
+|---|---|---|
+| Android **font size** | **no** | never arrives at all |
+| Android **display size** | **yes** | changes CSS px density — the viewport gets narrower *and* shorter in CSS px |
+| Chrome **page zoom** | **yes** | same mechanism |
+
+Neither of the two that work is a *font* multiplier, which is why
+`text-size-adjust` was never the cause of anything here — issue #51's diagnosis,
+the design handoff's note and two rounds of my own were all wrong about that.
+Giles reads at display size +1 with page zoom 133%, giving a **309 CSS px**
+viewport.
+
+Since PR #64 the root is a fraction of the screen, so **display size and page
+zoom no longer change somnia's apparent size at all** — they cancel out. That is
+deliberate, and `how big the words` on Settings is what replaces them.
+
+`designsize.html` on nuc2 prints the viewport and the root that matches the
+design at whatever the phone is currently set to. Use it rather than arithmetic.
+
+## `rem` in a media query does not mean what it means everywhere else
+
+**It resolves against the browser's initial font size, never against
+`html { font-size }`.** So this, in `style.css`:
+
+```css
+@media (max-height: 34rem) { #now-playing { display: none } }
+```
+
+is a hard **544 CSS px**, whatever root the page has set.
+
+Proved by rendering at 309x540 with the root forced to **8px** — acres of empty
+room, type a third of its size, and the reading still hidden. The comment above
+that query argues the opposite ("asking that in rem is what makes the answer
+follow the OS text scale"); it is wrong, it is load-bearing, and it is
+[issue #65](https://github.com/gilesknap/somnia/issues/65).
+
+The consequence in the wild: at display size +3 the player shows the header, the
+transport and the composer with a void where the book is. That is this rule
+firing, not a broken layout. And it will keep creeping closer, because **a
+viewport gets proportionally shorter as display size grows** — the status bar
+and gesture inset are fixed in *dp*, so they eat a constant number of CSS px out
+of a shrinking total:
+
+    width_css = W/S      height_css = H/S − C      (C constant)
+
+If you need a height threshold that follows the type, ask about **shape**
+(`max-aspect-ratio`), or measure it in app.js and write a class as #23 did for
+the keyboard. Do not reach for `rem`.
 
 ## Two screens, not one — and the size no longer picks which
 
@@ -95,6 +178,14 @@ python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/chat.png --screen c
 python3 $S/measure.py /tmp/somnia/page.html 867
 ```
 
+Changing anything about size? Do the ends of the reader's own range as well —
+they are two more commands and they are where it breaks:
+
+```bash
+python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/small.png --text-size 0.8
+python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/big.png   --text-size 1.2
+```
+
 ## Looking is not measuring
 
 `measure.py` prints each vertical gap on the player against the design brief's
@@ -111,8 +202,34 @@ unlike `--screenshot`, so the viewport comes up ~87px short; 867 lands
 `SCROLLS: False` is a hard rule, not a preference, and it is the first thing a
 newly added row breaks.
 
+**But `SCROLLS` is not the detector for type that is too big.** The column is
+`flex: 1` all the way down, so the spacers give until there is nothing left and
+then type lands on type — the book's title truncates to one line, the chapter
+title clips through its own descenders, the header pills meet the wordmark. None
+of that scrolls. Measured at 360 wide: clean to a root of 24, broken by 26, and
+the page does not scroll until 30. **Four of the failures happen before the
+number moves.** So run the script *and* open the picture.
+
 Then **Read the PNGs.** Do not report on a layout you have not opened — the
 whole value here is that the picture disagrees with you sometimes.
+
+### `--dump-dom` and `--screenshot` do not agree about the window
+
+Two separate quirks, both of which have cost time:
+
+- `--dump-dom` opens a real window with real chrome, so the viewport is ~87px
+  short — hence 867 above — and it **will not go below 500px wide** at all. Any
+  width you pass under 500 is ignored.
+- Headless lays out at **500 wide before honouring `--window-size`**, so anything
+  derived from `100vw` — which is now the root — resolves at 500 first and
+  settles afterwards. `window.innerWidth` read at `load` still says 500 while the
+  picture is correctly 360.
+
+The second one silently moved every chat render for a while: the scroll to the
+bottom of the thread ran against the transient layout, so the picture depended on
+what else was in `<head>`. `render.py` scrolls again on `resize` and on
+`fonts.ready` for that reason. If you are comparing two chat renders byte for
+byte and they disagree, suspect the scroll before you suspect the layout.
 
 To try a change without touching the repo, copy the snapshot and edit its
 inlined `<style>` block; it is self-contained and needs no server and no JS.
