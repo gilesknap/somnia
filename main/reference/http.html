@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.7.dev41+gf96dd8ce0 documentation</title>
+    <title>HTTP surface &#8212; somnia 0.7.dev54+g5b6b581c4 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=2584839f"></script>
+    <script src="../_static/documentation_options.js?v=32bdef4c"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -541,31 +541,35 @@ would tell you.</p>
 <td><p>GET</p></td>
 <td><p>Books to add, from the local catalog (both libraries)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/voices</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>The voices a book may be asked for in</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>What is rendering, what is waiting, what went wrong</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Make this the book a cold launch opens — or 404</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>The agent’s reply, and a move if it made one</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Drops one conversation</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>What became of a report — always 200</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Ask for a book — always 200</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Stop a render, or take a book out of the line</p></td>
 </tr>
@@ -729,11 +733,34 @@ first. It travels for the same reason <code class="docutils literal notranslate"
 their books against different countries’ copyright law, and that is worth
 knowing before the press rather than after it.</p>
 </section>
+<section id="get-api-voices">
+<span id="http-voices"></span><h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/voices</span></code><a class="headerlink" href="#get-api-voices" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;voices&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;af_heart&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;heart&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;says&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;American, warm and unhurried&quot;</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bm_george&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;george&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;says&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;British, a man, low&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The six voices a book may be asked for in, in the order the page draws them —
+the first is the default, and the same one <code class="docutils literal notranslate"><span class="pre">SOMNIA_VOICE</span></code> starts at. Served
+rather than written into <code class="docutils literal notranslate"><span class="pre">app.js</span></code> so that the list the page offers and the list
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue</span></code> will accept cannot come apart: a pill offering a voice the
+route would refuse is a press that does nothing.</p>
+<p><code class="docutils literal notranslate"><span class="pre">id</span></code> is Kokoro’s own name and the only form that reaches the model or the
+database. <code class="docutils literal notranslate"><span class="pre">name</span></code> is what to draw. <code class="docutils literal notranslate"><span class="pre">says</span></code> is one line for anybody the sample
+cannot reach — a phone on silent, a screen reader, a clip that did not arrive.</p>
+<p>Cached for a day. It changes when somnia is deployed and not otherwise. The
+samples themselves are static files under <code class="docutils literal notranslate"><span class="pre">/voice/{id}.m4a</span></code>, outside <code class="docutils literal notranslate"><span class="pre">/api/</span></code>,
+and the service worker treats them like the rest of the shell.</p>
+</section>
 <section id="get-api-queue">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code><a class="headerlink" href="#get-api-queue" title="Link to this heading">#</a></h2>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">  </span><span class="nt">&quot;items&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;voice&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bm_george&quot;</span><span class="p">,</span>
 <span class="w">     </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rendering&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;place&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapters_done&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
 <span class="w">     </span><span class="nt">&quot;chapters_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rendered_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1840000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;stopping&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <span class="w">     </span><span class="nt">&quot;responding&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
@@ -761,6 +788,10 @@ nowhere: it is <code class="docutils literal notranslate"><span class="pre">fals
 is the only way a crashed renderer can be told from a slow one. It is honest
 even when the worker unit has been stopped and there is nobody left to write
 anything.</p>
+<p><code class="docutils literal notranslate"><span class="pre">voice</span></code> is what the request asked for, and <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> for one that asked for nothing —
+which is what the agent submits, and what every row written before the column
+existed holds. Empty means <em>the renderer’s own</em>, and this process cannot see
+what that is, so nothing here guesses at it.</p>
 </section>
 <section id="post-api-ask">
 <h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code><a class="headerlink" href="#post-api-ask" title="Link to this heading">#</a></h2>
@@ -826,7 +857,7 @@ about, and <code class="docutils literal notranslate"><span class="pre">&quot;po
 </section>
 <section id="post-api-queue">
 <h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue</span></code><a class="headerlink" href="#post-api-queue" title="Link to this heading">#</a></h2>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;voice&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bm_george&quot;</span><span class="p">}</span>
 </pre></div>
 </div>
 <p><strong>Always 200</strong>, in one of two shapes:</p>
@@ -847,9 +878,16 @@ a deploy is <strong>accepted</strong> — that is the retry that used to be impo
 costs a round trip and a parse, and a control that thinks for three seconds
 reads as broken — so an unknown gid is taken and fails minutes later in the
 worker with a sentence saying which of the two it was.</p>
-<p>400 is reserved for a body with no positive integer <code class="docutils literal notranslate"><span class="pre">gid</span></code>. Nothing starts a
-render in <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>: this writes one row, and the <code class="docutils literal notranslate"><span class="pre">somnia-worker</span></code> unit
-drains it one book at a time — see
+<p><code class="docutils literal notranslate"><span class="pre">voice</span></code> is optional and is held to <a class="reference internal" href="#http-voices">the roster</a> — the one thing
+this route checks that the queue itself does not. Omitted, the render uses
+whatever the renderer is configured with; named, it is written on the row and
+survives the hours between the press and the render, whichever process gets
+there. A name off the roster is <strong>400</strong>, because it can only be a page left open
+across a release or somebody with curl, and a book is six hours — too long to
+find out afterwards that a typo was quietly rendered in the default.</p>
+<p>400 is otherwise reserved for a body with no positive integer <code class="docutils literal notranslate"><span class="pre">gid</span></code>. Nothing
+starts a render in <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>: this writes one row, and the <code class="docutils literal notranslate"><span class="pre">somnia-worker</span></code>
+unit drains it one book at a time — see
 <a class="reference internal" href="../explanations/decisions/0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a>.</p>
 </section>
 <section id="post-api-queue-id-stop">
@@ -929,6 +967,7 @@ too.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-stream-gid-n"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-sentence-gid-ms"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-catalog"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-voices"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/voices</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-queue"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-ask"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-forget"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/forget</span></code></a></li>

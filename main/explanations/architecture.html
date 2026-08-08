@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; somnia 0.7.dev41+gf96dd8ce0 documentation</title>
+    <title>Architecture &#8212; somnia 0.7.dev54+g5b6b581c4 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=2584839f"></script>
+    <script src="../_static/documentation_options.js?v=32bdef4c"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -991,7 +991,17 @@ makes the window between indexing a chapter and writing its row unreachable,
 and therefore what makes cancelling and resuming safe at all.</p>
 <p>Never re-render a book with a different engine or voice. Durations change, and
 every timestamp — every index entry, every chapter mark, and the position they
-went to sleep at — is invalidated.</p>
+went to sleep at — is invalidated. Which voice a book gets is therefore settled
+once, on the queue row, at the moment somebody asks for it; the renderer prefers
+that, then the voice already on the book, then its own configuration, so neither
+a deploy nor a resume can change a narrator half way through.</p>
+<p>Each chapter opens by saying what it is — <em>Chapter 12. The Invisible Man</em> — and
+that line is built from the heading rather than being the heading: roman
+numerals are converted, capitals are taken out, and a heading with no number in
+it is spoken without one, because somnia’s chapter <em>index</em> counts what the
+parser found and is not what the book calls the chapter. It is rendered before
+the first sentence’s clock is read, so it costs the timestamps nothing, and it
+is deliberately not indexed — it is not the book’s text.</p>
 </section>
 <section id="what-is-stored">
 <h2>What is stored<a class="headerlink" href="#what-is-stored" title="Link to this heading">#</a></h2>

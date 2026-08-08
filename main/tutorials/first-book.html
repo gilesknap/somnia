@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Add a book and ask it something &#8212; somnia 0.7.dev41+gf96dd8ce0 documentation</title>
+    <title>Add a book and ask it something &#8212; somnia 0.7.dev54+g5b6b581c4 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=2584839f"></script>
+    <script src="../_static/documentation_options.js?v=32bdef4c"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -520,6 +520,11 @@ chapter is written to the library folder and indexed the moment it finishes, so
 chapter one is listenable within a few minutes and the rest arrives while you
 sleep. The page will show you how far it has got: <em>library</em>, in the top left
 corner.</p>
+<p>Each chapter opens by saying which one it is — <em>Chapter 2. The Hunt</em> — so a
+boundary reached half asleep is a boundary rather than a skip. That line is
+built from the heading, not read off it: a numeral is turned into a number and a
+heading set in capitals is taken out of them, because both are read very badly
+aloud.</p>
 <p>Leave it running in a <code class="docutils literal notranslate"><span class="pre">tmux</span></code> session. Better, run the worker as a unit and
 never type this again: books are rendered one at a time from a queue, so
 asking for one from a terminal, or by voice later, both come to the same place.
@@ -527,7 +532,11 @@ asking for one from a terminal, or by voice later, both come to the same place.
 and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">queue</span></code> shows you the line.</p>
 <p>One rule: never re-render a book with a different voice. Every timestamp in the
 database — chapter marks, index entries, the place you fell asleep — is tied to
-the audio that was actually produced.</p>
+the audio that was actually produced. Which voice a book is read in is chosen
+when you ask for the book and not before: the page opens a picker on the add
+press, with a sample of each, and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span> <span class="pre">--voice</span></code> names one from a
+terminal. There are <a class="reference internal" href="../reference/configuration.html#the-voices"><span class="std std-ref">six</span></a>. A render that died is picked back up in
+the voice it started in, so finishing one needs no decision at all.</p>
 </section>
 <section id="search-what-has-been-rendered">
 <h2>Search what has been rendered<a class="headerlink" href="#search-what-has-been-rendered" title="Link to this heading">#</a></h2>

@@ -40,6 +40,12 @@ chapter one is listenable within a few minutes and the rest arrives while you
 sleep. The page will show you how far it has got: *library*, in the top left
 corner.
 
+Each chapter opens by saying which one it is — *Chapter 2. The Hunt* — so a
+boundary reached half asleep is a boundary rather than a skip. That line is
+built from the heading, not read off it: a numeral is turned into a number and a
+heading set in capitals is taken out of them, because both are read very badly
+aloud.
+
 Leave it running in a `tmux` session. Better, run the worker as a unit and
 never type this again: books are rendered one at a time from a queue, so
 asking for one from a terminal, or by voice later, both come to the same place.
@@ -48,7 +54,11 @@ and `somnia queue` shows you the line.
 
 One rule: never re-render a book with a different voice. Every timestamp in the
 database — chapter marks, index entries, the place you fell asleep — is tied to
-the audio that was actually produced.
+the audio that was actually produced. Which voice a book is read in is chosen
+when you ask for the book and not before: the page opens a picker on the add
+press, with a sample of each, and `somnia add --voice` names one from a
+terminal. There are [six](#the-voices). A render that died is picked back up in
+the voice it started in, so finishing one needs no decision at all.
 
 ## Search what has been rendered
 

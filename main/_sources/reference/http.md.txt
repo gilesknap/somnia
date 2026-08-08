@@ -28,6 +28,7 @@ would tell you.
 | `/api/stream/{gid}/{n}` | GET | The first `n` chapters as one file — or 404 |
 | `/api/sentence/{gid}/{ms}` | GET | Where the sentence being spoken at `ms` began |
 | `/api/catalog?q=…` | GET | Books to add, from the local catalog (both libraries) |
+| `/api/voices` | GET | The voices a book may be asked for in |
 | `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
 | `/api/book/{gid}/open` | POST | Make this the book a cold launch opens — or 404 |
 | `/api/ask` | POST | The agent's reply, and a move if it made one |
@@ -214,12 +215,39 @@ first. It travels for the same reason `have` does: the two libraries clear
 their books against different countries' copyright law, and that is worth
 knowing before the press rather than after it.
 
+(http-voices)=
+## `GET /api/voices`
+
+```json
+{
+  "voices": [
+    {"id": "af_heart", "name": "heart", "says": "American, warm and unhurried"},
+    {"id": "bm_george", "name": "george", "says": "British, a man, low"}
+  ]
+}
+```
+
+The six voices a book may be asked for in, in the order the page draws them —
+the first is the default, and the same one `SOMNIA_VOICE` starts at. Served
+rather than written into `app.js` so that the list the page offers and the list
+`POST /api/queue` will accept cannot come apart: a pill offering a voice the
+route would refuse is a press that does nothing.
+
+`id` is Kokoro's own name and the only form that reaches the model or the
+database. `name` is what to draw. `says` is one line for anybody the sample
+cannot reach — a phone on silent, a screen reader, a clip that did not arrive.
+
+Cached for a day. It changes when somnia is deployed and not otherwise. The
+samples themselves are static files under `/voice/{id}.m4a`, outside `/api/`,
+and the service worker treats them like the rest of the shell.
+
 ## `GET /api/queue`
 
 ```json
 {
   "items": [
     {"id": 7, "gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
+     "voice": "bm_george",
      "state": "rendering", "place": 0, "chapters_done": 4,
      "chapters_total": 49, "rendered_ms": 1840000, "stopping": false,
      "responding": true, "error": "",
@@ -250,6 +278,11 @@ nowhere: it is `false` for a render that has gone quiet for five minutes, which
 is the only way a crashed renderer can be told from a slow one. It is honest
 even when the worker unit has been stopped and there is nobody left to write
 anything.
+
+`voice` is what the request asked for, and `""` for one that asked for nothing —
+which is what the agent submits, and what every row written before the column
+existed holds. Empty means *the renderer's own*, and this process cannot see
+what that is, so nothing here guesses at it.
 
 ## `POST /api/ask`
 
@@ -329,7 +362,7 @@ about, and `"position_ms": null` would read as one.
 ## `POST /api/queue`
 
 ```json
-{"gid": 271}
+{"gid": 271, "voice": "bm_george"}
 ```
 
 **Always 200**, in one of two shapes:
@@ -355,9 +388,17 @@ costs a round trip and a parse, and a control that thinks for three seconds
 reads as broken — so an unknown gid is taken and fails minutes later in the
 worker with a sentence saying which of the two it was.
 
-400 is reserved for a body with no positive integer `gid`. Nothing starts a
-render in `somnia serve`: this writes one row, and the `somnia-worker` unit
-drains it one book at a time — see
+`voice` is optional and is held to [the roster](#http-voices) — the one thing
+this route checks that the queue itself does not. Omitted, the render uses
+whatever the renderer is configured with; named, it is written on the row and
+survives the hours between the press and the render, whichever process gets
+there. A name off the roster is **400**, because it can only be a page left open
+across a release or somebody with curl, and a book is six hours — too long to
+find out afterwards that a typo was quietly rendered in the default.
+
+400 is otherwise reserved for a body with no positive integer `gid`. Nothing
+starts a render in `somnia serve`: this writes one row, and the `somnia-worker`
+unit drains it one book at a time — see
 [ADR 5](../explanations/decisions/0005-render-one-book-at-a-time.md).
 
 ## `POST /api/queue/{id}/stop`
