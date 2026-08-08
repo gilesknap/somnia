@@ -12,6 +12,7 @@
 #   --venv DIR       build the environment here (default ~/somnia-venv)
 #   --env-file FILE  seed this settings file if it is absent (default ~/somnia.env)
 #   --ref REF        install this branch, tag or commit (default main)
+#   --pypi           install the last release from PyPI instead of a git ref
 #   --source SPEC    install from a checkout instead of GitHub
 #   --serve-only     no Kokoro and no torch: this machine only plays books
 #   --cuda           take the CUDA torch wheel; the default is CPU-only
@@ -23,14 +24,20 @@
 
 set -euo pipefail
 
-# somnia is not on PyPI. The name is taken there by an unrelated project, so
-# installing it by name gets you somebody else's package — always the git URL.
+# On PyPI this is somnia-reader, never somnia: that name belongs to an
+# unrelated project, and `pip install somnia` gets you somebody else's package
+# with no error to warn you. The import package and the command are still
+# plain somnia — only the name pip is given changes.
+DIST_NAME=somnia-reader
 REPO_URL=${SOMNIA_REPO_URL:-https://github.com/gilesknap/somnia.git}
 CPU_TORCH_INDEX=https://download.pytorch.org/whl/cpu
 
 venv=$HOME/somnia-venv
 env_file=$HOME/somnia.env
+# main, not the last release, because this is the project's own box-builder and
+# the box is expected to be ahead of the tags. --pypi is the released package.
 ref=main
+from_pypi=no
 source_spec=""
 render=yes
 cpu_torch=yes
@@ -50,7 +57,10 @@ die() {
     printf 'xx %s\n' "$*" >&2
     exit 1
 }
-usage() { sed -n '3,25p' "$0" | sed 's/^# \{0,1\}//'; }
+# The end of the header comment, by line number, so --help is the header. It
+# was 25 and printed two lines too many, which is how `set -euo pipefail` used
+# to turn up in the help text. Move it if you add a line above.
+usage() { sed -n '3,23p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -64,7 +74,12 @@ while [ $# -gt 0 ]; do
         ;;
     --ref)
         ref=${2:?--ref needs a branch, tag or commit}
+        from_pypi=no
         shift 2
+        ;;
+    --pypi)
+        from_pypi=yes
+        shift
         ;;
     --source)
         source_spec=${2:?--source needs a path}
@@ -173,7 +188,7 @@ say "updating pip"
 # carries a newer torch than the CPU index does, you get two gigabytes of CUDA
 # runtime to render a book with. Installing torch first, from the CPU index
 # alone, is the only form that cannot pick the wrong wheel — after which
-# somnia[ml] finds its torch requirement already satisfied.
+# somnia-reader[ml] finds its torch requirement already satisfied.
 
 if [ "$render" = yes ] && [ "$cpu_torch" = yes ]; then
     say "installing CPU torch from $CPU_TORCH_INDEX"
@@ -188,9 +203,29 @@ extras=""
 if [ -n "$source_spec" ]; then
     [ -f "$source_spec/pyproject.toml" ] || die "no pyproject.toml under $source_spec"
     spec="$source_spec$extras"
+elif [ "$from_pypi" = yes ]; then
+    spec="$DIST_NAME$extras"
 else
-    spec="somnia$extras @ git+$REPO_URL@$ref"
+    # The name in front of @ has to be the distribution name, not the import
+    # package. Say somnia here and pip clones, builds the metadata, sees it
+    # says somnia-reader, discards the whole thing as "inconsistent name" —
+    # and then goes looking for somnia on PyPI, where the other project is
+    # waiting. What you get is either a confusing failure or a stranger.
+    # The same trap runs backwards: --ref 0.5, or any ref from before the
+    # rename, builds metadata saying somnia and is discarded the same way —
+    # docs/how-to/upgrade.md says what to type instead.
+    spec="$DIST_NAME$extras @ git+$REPO_URL@$ref"
 fi
+
+# An environment built before the rename has the old distribution `somnia` in
+# it, and it owns every file somnia-reader is about to write. Installing over
+# the top leaves both listed, sharing one set of files, and then the first
+# `pip uninstall somnia` — which is what the docs used to tell you to type —
+# deletes those files while pip goes on reporting somnia-reader as installed.
+# What is left imports as an empty namespace package, so it looks fine until
+# something asks it for a book. Take the old name out first, while it is still
+# the only thing that owns them. Nothing to remove is the normal case.
+"$vpy" -m pip uninstall --quiet --yes somnia >/dev/null 2>&1 || true
 
 # Two passes, because pip will not reinstall a package whose name and version
 # it already has: a plain install of a new --ref into an existing environment

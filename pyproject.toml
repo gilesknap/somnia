@@ -3,7 +3,13 @@ requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "somnia"
+# The distribution is somnia-reader but the import package and the console
+# script are both plain somnia, and that mismatch is deliberate. `somnia` on
+# PyPI belongs to an unrelated AI-agent CLI, so a distribution called somnia
+# could never be installed by name — `pip install somnia` fetches a stranger.
+# Only what you type after `pip install` changes: `import somnia` and the
+# `somnia` command are what every doc, systemd unit and habit already says.
+name = "somnia-reader"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -55,7 +61,7 @@ dev = [
 
 [project.optional-dependencies]
 # Heavy ML dependencies (torch etc.) needed to render and index books.
-# Install with `pip install somnia[ml]` on the machine that runs ingest.
+# Install with `pip install "somnia-reader[ml]"` on the machine that runs ingest.
 ml = [
     "kokoro>=0.9",
     "sentence-transformers",
