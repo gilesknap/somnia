@@ -27,6 +27,10 @@ import { boot, VIEWPORT_HEIGHT } from "./harness.mjs";
 // quarters of the page would do as well.
 const WITH_KEYBOARD = 420;
 
+// How long the page waits before looking again, because a keyboard animates and
+// the viewport it leaves does not arrive with the focus event that started it.
+const SETTLING_MS = 250;
+
 // A window somebody dragged short, and the height the old query collapsed the
 // player at: 34rem at the browser's default 16px root. It is above what a
 // keyboard leaves and below what the phone has, which is exactly why guessing
@@ -189,6 +193,29 @@ test("a keyboard dismissed without the box losing focus is still the player", as
   const page = await boot(t);
   keyboardOver(page);
   page.resize(VIEWPORT_HEIGHT);
+  assert.equal(page.probe().screen, "player");
+  assert.equal(page.probe().keyboardUp, false);
+});
+
+// --------------------------------------------------- and again, a beat later
+
+// Focus and blur each measure twice: once on the event, and once a quarter
+// second after it, because the keyboard is still moving when the event lands.
+// Every other test here stops at the first measurement. The second one runs
+// with the page already on a screen, so a change that made it decide
+// differently would take somebody off the conversation a beat after the
+// keyboard put them there, and nothing above would notice.
+test("the measurement a beat later says the same as the first", async (t) => {
+  const page = await boot(t);
+  keyboardOver(page);
+  assert.equal(page.wake(SETTLING_MS), true);
+  assert.equal(page.probe().screen, "chat");
+  assert.equal(page.probe().keyboardUp, true);
+  // And on the way out, where the delayed pass is the first one to run in a
+  // window the keyboard has actually given back.
+  page.blur("question");
+  page.resize(VIEWPORT_HEIGHT);
+  assert.equal(page.wake(SETTLING_MS), true);
   assert.equal(page.probe().screen, "player");
   assert.equal(page.probe().keyboardUp, false);
 });
