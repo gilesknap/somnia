@@ -577,6 +577,64 @@ test("the transport is not on the chat screen", async (t) => {
   }
 });
 
+// ------------------------------------------------------------- the morning
+
+// The third screen, which is the one none of the tests above can arrive at: it
+// is not a press and not a measurement, it is a fact about last night read out
+// of storage at boot. morning.test.mjs owns everything the page does about it.
+// What is testable from here is the same thing this block tests about the other
+// two — that the sheet draws it, that nothing about the size of a window can,
+// and that the screen it replaces is really off.
+
+test("the morning is drawn on the wake screen and nowhere else", async (t) => {
+  // Off by default and turned on by the class, which is the direction every
+  // screen-scoped rule in this sheet runs in: a class that somehow never got
+  // written leaves the reader on the player, which is the app. The other way
+  // round it would be a morning nobody could get off, over a book they cannot
+  // see, with no header to leave by.
+  assert.ok(declared("#wake").includes("display: none"));
+  assert.ok(declared("body.wake-screen #wake").includes("display: flex"));
+  for (const block of mediaBlocks(RULES)) {
+    assert.ok(
+      !block.includes("#wake"),
+      `a media query is drawing the morning: ${block.slice(0, 120)}`,
+    );
+  }
+});
+
+// And what it replaces, which is everything — including the header, which no
+// other screen takes away. There is nothing to leave the morning for: `books ›`
+// at 7am opens a panel over an unanswered question, and it sits in the corner a
+// hand lands on first. Every way off that screen is one of the three presses on
+// it.
+//
+// Read as a set of selectors rather than looked for as one string, because these
+// five are one rule today and could be five tomorrow without anything about the
+// screen having changed.
+test("nothing the player draws is on the morning", async (t) => {
+  const off = new Set();
+  for (const [selector, body] of rules(SHEET)) {
+    if (!/\bdisplay\s*:\s*none/.test(body)) continue;
+    for (const one of selector.split(",")) {
+      const said = one.trim();
+      if (said.startsWith("body.wake-screen ")) {
+        off.add(said.slice("body.wake-screen ".length));
+      }
+    }
+  }
+  for (const gone of [
+    "header",
+    "#status",
+    "#composer",
+    ".rhythm",
+    // With the guard the rule below this one insists on, for the reason it
+    // gives: a class on <body> outranks `#player-bar[hidden]`.
+    "#player-bar:not([hidden])",
+  ]) {
+    assert.ok(off.has(gone), `the morning is still drawing ${gone}`);
+  }
+});
+
 // The other thing a class on <body> costs, and the one the sheet cannot say for
 // itself. `#player-bar` is `display: contents`, which beats the browser's own
 // `[hidden] { display: none }`, so the sheet has to hide it again by hand — and
@@ -629,6 +687,21 @@ test("the stylesheet opens and closes every comment exactly once", async (t) => 
 function where(at) {
   const line = SHEET.slice(0, at).split("\n").length;
   return `line ${line}: ${SHEET.slice(Math.max(0, at - 60), at + 2)}`;
+}
+
+// Everything the sheet declares for one selector, as one flattened string. The
+// selector is matched whole and on its own, so a rule written for several at
+// once answers for each of them — and a rule whose declarations grew since the
+// test was written still answers, which a literal `#wake { display: none; }`
+// does not.
+function declared(wanted) {
+  const said = [];
+  for (const [selector, body] of rules(SHEET)) {
+    const named = selector.split(",").some((one) => one.trim() === wanted);
+    if (named) said.push(body.replace(/\s+/g, " ").trim());
+  }
+  assert.ok(said.length, `nothing in the sheet draws ${wanted}`);
+  return said.join(" ");
 }
 
 // Every plain rule in the sheet as `[selector, declarations]`, whether it sits

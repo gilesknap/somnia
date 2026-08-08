@@ -1617,6 +1617,207 @@ body.chat-screen #transcript .said.failed {
   color: var(--failed);
 }
 
+/* ------------------------------------------------------------ the morning
+
+   The third screen, and the only one that is not arrived at by a press: it is
+   what the app opens on when the sleep timer ended the last night, and it is
+   shown once. What it holds is one sentence about last night and three ways to
+   answer it, and every other thing this page can draw is off.
+
+   Off by default and turned on by the class, which is the direction every
+   screen-scoped rule in this sheet runs in: a `wake-screen` that somehow never
+   got written leaves the reader on the player, which is the app. The same
+   failure the other way round would be a morning nobody could get off, over a
+   book they cannot see, with no header to leave by.
+
+   `space-between` in a column, and the design says why: the sentence belongs at
+   the top of the screen where a sentence is read, the three choices belong at
+   the bottom where a thumb already is, and the room between them is not a gap to
+   be filled. This screen has no rhythm spacers because it has nothing to space —
+   two blocks and the air between them. */
+#wake {
+  display: none;
+  flex: 1;
+  /* The same floor #transcript carries and for the same reason: without it a
+     flex child refuses to shrink below its content, so a phone on its side, or
+     a text scale turned right up, pushes the choices off the bottom of the
+     screen with nothing to scroll them back. */
+  min-height: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  /* The 20dp screen gutters, carried here rather than inherited: this element is
+     a child of the body, beside the header and the player, and the body's own
+     padding is the safe-area inset and nothing else. */
+  padding: 1rem;
+}
+
+body.wake-screen #wake {
+  display: flex;
+}
+
+/* And everything else, gone.
+
+   The header goes with the rest, which no other screen does. There is nothing to
+   leave this screen for: `books ›` at 7am opens a panel over an unanswered
+   question, and the corner it sits in is the one a hand lands on first. Every
+   way off the morning is one of the three presses at the foot of it.
+
+   `:not([hidden])` on the player for the reason every screen-scoped rule on that
+   element carries it: `#player-bar` is `display: contents`, which beats the
+   browser's own `[hidden] { display: none }`, so the sheet hides it again by
+   hand — and a class on <body> outranks an attribute. Without the guard this
+   rule would beat that one, and a page with no book open would lay the player
+   out under a morning. screens.test.mjs holds every one of them to it. */
+body.wake-screen header,
+body.wake-screen #status,
+body.wake-screen #composer,
+body.wake-screen .rhythm {
+  display: none;
+}
+
+body.wake-screen #player-bar:not([hidden]) {
+  display: none;
+}
+
+/* The sentence, and what is over and under it. `.section-label` unchanged for
+   `good morning` — the design asks for 11dp mono uppercase at .18em, which is
+   that class exactly, and gives it a .3 where the shared label is .5. The class
+   wins: a label is a label everywhere on this page, and one drawn a shade
+   quieter on one screen is a difference nobody can see and a rule that has to be
+   kept in step for ever. */
+#wake-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* 28dp, and the loudest thing on the screen. It is a heading in the markup as
+   well as in the type, because it is what this screen is: the fact somebody was
+   asleep for, said in the words a person would use, with the time in it. */
+#wake-said {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+/* And the hedge under it, in the italic that means the same thing everywhere in
+   this sheet: words that are not somnia's own — here, a guess it is owning up
+   to. It knows when the fade ran and has no idea when they stopped listening.
+
+   --faint, where the design writes .42. It sits between --faint's .5 and the
+   .22 the thread note carries, and this is a sentence to be read rather than an
+   aside about a screen. */
+#wake-before {
+  margin: 0;
+  font-size: 1.1rem;
+  font-style: italic;
+  line-height: 1.35;
+  color: var(--faint);
+}
+
+/* The three of them, stacked, each the full width of the screen. 12dp apart,
+   which is the transport's gap: they are read as one group of choices in the
+   same way that row is read as one control.
+
+   A class and not an id, which is the transport's shape as well and is the whole
+   reason that row works: `.transport button` is a class and a type, so
+   `#playpause` outranks it and the middle slab can be the warm one. Written as
+   `#wake-choices button` this rule would carry an id AND a type, and every one of
+   the three buttons below — each of which is an id on its own — would lose to it.
+   It was written that way once, and what it drew was three choices with the
+   right type on them and not one edge, fill or radius between them. */
+.wake-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* `min-height` and not the transport's flat `height`, which is the one place
+   these slabs and that row are sized by different rules. The transport's
+   argument is that a slab left to size itself around its own glyph is how 84dp
+   becomes 108; there is no glyph in here, there are words, and words wrap — at
+   the top of the reader's own type range the third choice takes two lines, and a
+   fixed box would have centred them through its own edges. What growth costs is
+   taken out of the gap above, which on this screen is the design's own answer to
+   what the spare room is for. */
+.wake-choices button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding: 0.4rem 1rem;
+  border: 0;
+  border-radius: 1rem;
+  background: none;
+  text-align: center;
+  transition: background-color 90ms linear;
+}
+
+/* The first choice, and the only warm thing on the screen — the same amber slab
+   the transport's centre is, for the same reason: what a thumb is aiming at is a
+   colour, and a colour survives being glanced at by somebody who has not read
+   anything yet. 92dp, which is taller than anything on the player, because at
+   this moment it is the whole of what the app is for. */
+#wake-places {
+  min-height: 4.6rem;
+  gap: 0.2rem;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+#wake-places:active {
+  background: var(--accent-surface-active);
+}
+
+/* It is drawn only on the mornings there is a list to open — see drawPlaces —
+   and `hidden` has to be able to say so over the `display: grid` above. */
+#wake-places[hidden] {
+  display: none;
+}
+
+/* The count under it, in the amber of the slab it is part of rather than in a
+   colour of its own. 16dp, and a fact rather than an instruction: `7 places
+   found` is what pressing would open, and it is the same string the position
+   line carries — one number, drawn twice, from one place. */
+#wake-found {
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: rgba(200, 135, 60, 0.6);
+}
+
+/* The second, which is how the list above gets made in the first place, and the
+   one choice that is always here. The page's plain surface: it is the ordinary
+   way in and not the one being pointed at. */
+#wake-ask {
+  min-height: 4rem;
+  background: var(--surface);
+  color: var(--mid);
+  font-size: 1.05rem;
+}
+
+#wake-ask:active {
+  background: var(--surface-active);
+}
+
+/* And the way out that changes nothing: no fill, no edge, the quietest type on
+   the screen. It carries the position it would keep so that keeping it is a
+   decision about a place in the book rather than a shrug at a button — which is
+   also why it is not simply the absence of a press. */
+#wake-keep {
+  min-height: 3.6rem;
+  color: var(--faint);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+#wake-keep:active {
+  color: var(--ink);
+}
+
 /* Short and wide is not a window with no room in it, it is a phone lying on its
    side, and the fit query above was measured at 390x400 and never at 844x390. In
    landscape it took away the chapter, the clock, and the only place the sleep

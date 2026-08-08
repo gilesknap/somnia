@@ -351,6 +351,21 @@ Not a timer older than six hours: someone opening the book the next evening is
 starting a night rather than finishing one, and a timer they could not remember
 setting would end it early for no reason they could see.
 
+**And the fade the timer ends on is written down for the same reason.** The
+night ending by itself was the one fact about it nothing kept: the timer clears
+itself on the way into the fade, and the fade then stops the book through the
+ordinary path, which reports `pause` — the same word a thumb sends, and the only
+word the server is ever told. So the page that opened in the morning could not
+tell a book put down at eleven from one that faded out at 1:47, and it needed to
+tell them apart twice over. Once for the rewind: how long the sound has been off
+was held in a variable, in the tab the phone had discarded, so the longest rung
+of that ladder — the one written for the night that ends with somebody asleep —
+had never run in the case it was built for. And once for the morning itself,
+which is a screen rather than a line over the player: the time the sound went at
+the top of it, and under that the last places somnia found, the conversation,
+and the position it would otherwise just keep. Twelve hours and no longer, on
+the timer's argument said at a morning's distance instead of a night's.
+
 ## Serving the audio and answering the questions are separate lanes
 
 A model turn blocks for tens of seconds on the API and on the embedder. A seek

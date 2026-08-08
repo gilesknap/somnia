@@ -49,6 +49,15 @@ const fwd30 = document.getElementById("fwd30");
 const chapterClock = document.getElementById("chapter-clock");
 const prevChapter = document.getElementById("prevchapter");
 const nextChapter = document.getElementById("nextchapter");
+// The morning screen, and the four things drawn on it. Two are written out of
+// the record the fade left — what time it went and where it stopped — and the
+// third is the same count the position line carries, drawn from the same place
+// so the two can never say different numbers about one list.
+const wakeSaid = document.getElementById("wake-said");
+const wakePlaces = document.getElementById("wake-places");
+const wakeFound = document.getElementById("wake-found");
+const wakeAsk = document.getElementById("wake-ask");
+const wakeKeep = document.getElementById("wake-keep");
 const candidates = document.getElementById("candidates");
 const candidatesBook = document.getElementById("candidates-book");
 const summaryLine = document.getElementById("candidates-summary");
@@ -1385,6 +1394,13 @@ function seekGlobal(ms, { play = null } = {}) {
 function ensurePlaying({ rewind = false } = {}) {
   const to = rewind ? resumePoint() : positionMs;
   lastPauseAt = 0;
+  // Read one line above and spent here: the book is playing again, so whatever
+  // last night's fade still had to say has now been said. The morning goes with
+  // it — a press on the lock screen while the wake screen is up is a choice, and
+  // the transport is not drawn on that screen, so a book playing under it would
+  // be a book nothing on the page could stop.
+  spendTheFade();
+  if (waking) leaveTheMorning();
   // From silence, however short the fade. A book coming back at full volume in
   // a dark room is the loudest thing that happens all night, and the sound of
   // it is what someone reaching for the phone at 3am is trying to avoid.
@@ -1537,6 +1553,16 @@ function fallAsleep() {
   // instant sooner would be twenty seconds of fading out followed by one
   // moment at full volume, which is the one thing this was here to prevent.
   player.volume = 1;
+  // The one thing about tonight that nothing else writes down. Every route into
+  // here is the timer ending a night, and the pause it just made reports
+  // `pause` — the same word a thumb sends — so without this the morning cannot
+  // tell a book put down at eleven from one that faded out at 1:47.
+  //
+  // After the pause and not before it, so that the two records of this moment
+  // are made in one order and not two: the pause handler writes `lastPauseAt`,
+  // which is this page's own memory of when the sound stopped, and this is the
+  // same fact written where a discarded tab cannot take it.
+  rememberTheFade();
   setStatus("goodnight");
   drawPlayer();
 }
@@ -1733,8 +1759,19 @@ function rewindFor(silentMs) {
 }
 
 function resumePoint() {
-  if (!lastPauseAt) return positionMs;
-  const back = rewindFor(Date.now() - lastPauseAt);
+  // When the sound stopped, from whichever of the two knows it.
+  //
+  // `lastPauseAt` first, because it is the fuller answer: it is written at every
+  // pause, whatever caused it, and it is this page's own memory of a night it
+  // was awake for. What it is not is a memory that survives — it is a `let`, and
+  // the night this rewind was written for is precisely the one that ends with
+  // the tab discarded. So the ordinary morning arrived here with nothing at all
+  // and gave back nothing, and the longest rung of the ladder above, which
+  // exists for exactly that night, had never once been reached in the case it
+  // was built for.
+  const stoppedAt = lastPauseAt || faded?.at || 0;
+  if (!stoppedAt) return positionMs;
+  const back = rewindFor(Date.now() - stoppedAt);
   const target = Math.max(0, positionMs - back);
   // Only the longest rung snaps. The sentence was looked up half a minute
   // behind where they stopped, because that is where the long rewind lands, so
@@ -1777,6 +1814,192 @@ async function rememberTheSentence() {
     console.error(error);
   }
 }
+
+// ---------------------------------------------------------- the morning after
+
+// What the fade leaves behind, so that the morning has something to go on.
+//
+// Everything else about a night survives it. The position is on the server, the
+// timer is in `somnia-sleep`, the last places are in `somnia-places`. The one
+// thing nothing wrote down was that the night had ended by itself: the timer
+// clears itself on the way into the fade, and the fade then stops the book
+// through the ordinary path, which reports `pause` — the same word a thumb
+// sends, and the only word the server is ever told. So the morning could not
+// tell a book put down at eleven from one that faded out at 1:47, and it needed
+// to tell them apart twice over: once for the rewind, and once for the screen.
+//
+// localStorage, beside the timer and the places and for the reason the timer
+// gives: the tab is the thing that does not survive the night. A backgrounded
+// page is discarded whenever the phone wants the memory back, so the relaunch is
+// the ordinary morning rather than an edge of one — which is exactly why
+// `lastPauseAt`, held in a variable, could never have been this record.
+const FADE_KEY = "somnia-fade";
+
+// Older than this and the morning it belonged to is over. A fade lands between
+// about ten at night and three in the morning; twelve hours past any of those is
+// the middle of the afternoon, which is after every morning and before the next
+// night. Someone opening the book then is starting a night, and a screen telling
+// them the timer faded them out at 1:47 would be about a night they have already
+// had the whole of a day since.
+const FADE_STALE_MS = 12 * 3_600_000;
+
+// The fade this page is still living with, or null. It holds two things and both
+// of them are read: when the sound went, which is what sizes the rewind and what
+// the morning screen says out loud, and where it stopped, which is what the
+// third choice on that screen offers to keep.
+let faded = null;
+
+// Whether the morning is still owed the wake screen. Separate from the record
+// because the two have different lives: the screen is answered by one press, and
+// the record goes on standing until the book is playing again, which is what
+// keeps the long rewind for somebody who chose to keep their place and then
+// pressed play.
+let waking = false;
+
+function rememberTheFade() {
+  faded = { at: Date.now(), positionMs: Math.round(positionMs) };
+  try {
+    localStorage.setItem(FADE_KEY, JSON.stringify(faded));
+  } catch (error) {
+    // Storage refused, or is full. The rewind still works for as long as this
+    // page lives — that is what `lastPauseAt` is — and what is lost is the
+    // screen the next launch would have opened on.
+    console.error(error);
+  }
+}
+
+// What the last page to be alive wrote down as it went quiet.
+//
+// Anything else in that key reads as a night that ended some other way, rather
+// than as a reason to throw: this runs at boot, before there is a screen to say
+// anything on, and the one thing the page opening at 2am has to do is open. It
+// is the rule `somnia-places` already follows and for the same reason.
+function restoreFade() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(FADE_KEY) || "null");
+  } catch (error) {
+    console.error(error);
+  }
+  if (!saved || typeof saved.at !== "number") return;
+  // Both halves or neither. A record with no position in it would draw a third
+  // choice offering to keep the book at `NaN`, on the one screen where every
+  // word is supposed to be a fact somnia actually holds.
+  if (typeof saved.positionMs !== "number") return;
+  const since = Date.now() - saved.at;
+  // A record from the future is a clock that has been put back — a phone that
+  // picked up the network's time in the night, or one carried across a
+  // timezone. Nothing true can be said about how long ago that fade was, so
+  // nothing is said: no rewind, and no screen naming a time that has not
+  // happened yet.
+  if (!(since >= 0 && since < FADE_STALE_MS)) return;
+  faded = saved;
+  waking = true;
+  drawWake();
+}
+
+// The fade, spent. Either the morning has been answered by a press on it, or the
+// book is playing again — which is the same answer said with a thumb — and
+// either way the rewind it feeds has been given and there is no second night in
+// it. A record left behind is a wake screen at eight o'clock for somebody who
+// was listening to the book at half past seven.
+function spendTheFade() {
+  faded = null;
+  try {
+    localStorage.removeItem(FADE_KEY);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Off the morning and back to the book, by the same three lines every other way
+// back to the player goes through. It is called from the two choices that end on
+// the player and from the book starting to play under the screen, which is what
+// a press on the lock screen does: the transport is not drawn on this screen, so
+// leaving it up over a playing book would be a book nothing on the page can
+// stop.
+function leaveTheMorning() {
+  waking = false;
+  backToTheBook();
+}
+
+// The wall clock, as the phone beside the bed shows it: `1:47`, `23:05`.
+//
+// Built by hand rather than asked of a locale, because the one this page runs in
+// writes `01:47` and the leading zero on the hour is a digit doing nothing on
+// the loudest line of the screen. Twenty-four hours and no am/pm for the same
+// reason: this line is read at 2am, when it is either the time on the clock
+// beside it or a word to be worked out.
+function wallClock(ms) {
+  const when = new Date(ms);
+  return `${when.getHours()}:${String(when.getMinutes()).padStart(2, "0")}`;
+}
+
+// What the morning screen says, out of the record and nothing else.
+function drawWake() {
+  if (!faded) return;
+  wakeSaid.textContent = `The timer faded you out at ${wallClock(faded.at)}.`;
+  // Where it stopped, on the book's own clock, in the shape every other clock on
+  // the page uses. It is written on the choice that keeps it so that keeping it
+  // is a decision about a place rather than a shrug at a button.
+  wakeKeep.textContent = `keep it where it stopped · ${timestamp(faded.positionMs)}`;
+  // And the count under the first choice, which is drawPlaces' business. Asked
+  // here as well as there because at this point the book is not open yet — the
+  // manifest is a fetch away — so the answer is "none that are about this book"
+  // until it lands, and this is what makes that the state the screen comes up
+  // in rather than a slab that appears and then goes away again.
+  drawPlaces();
+}
+
+// The screen, raised. Two moments call it: the page opening after a fade, which
+// is the ordinary morning; and a page that happened to survive the night coming
+// back into view still holding a record, which is the same morning on a phone
+// that did not kill the tab. Which of the two it was is not something the reader
+// can see, so it must not be something the app draws differently.
+function raiseTheMorning() {
+  if (!faded || waking) return;
+  waking = true;
+  // Whatever screen they left the phone on, they are not on it now. `asked` is
+  // the remembered "they want the conversation", and left standing it would put
+  // the chat back over the morning on the first resize after they pressed
+  // anything here.
+  stoppedAsking();
+  drawWake();
+  showScreen("wake");
+}
+
+// The three choices, in the order the screen draws them.
+//
+// Each of them is one press with nothing to confirm, and each ends somewhere
+// that answers the question this screen asks. The fade is spent by all three:
+// having been asked, the morning does not ask again.
+
+wakePlaces.addEventListener("click", () => {
+  spendTheFade();
+  leaveTheMorning();
+  // The same list the position line opens, raised the same way. There is no
+  // second route to Places and this is not one: what is here is the press,
+  // moved to the screen somebody is on at seven in the morning.
+  showRemembered();
+});
+
+wakeAsk.addEventListener("click", () => {
+  spendTheFade();
+  waking = false;
+  // Straight on to the conversation with the keyboard coming up, which is the
+  // same arrival the dock makes and is said the same way — `asked` is what that
+  // screen means, and a screen set without it would be undone by the first
+  // resize. The focus is what raises the keyboard, and it can only do that from
+  // inside the press that asked for it.
+  asked = true;
+  showScreen("chat");
+  question.focus();
+});
+
+wakeKeep.addEventListener("click", () => {
+  spendTheFade();
+  leaveTheMorning();
+});
 
 // The listener waiting for a touch anywhere on the page, or null. Its
 // truthiness is the whole of "armed" — a second flag is a second thing to keep
@@ -2327,6 +2550,14 @@ player.addEventListener("ended", () => {
     return;
   }
   setStatus(goodnight ? "goodnight" : "that is the end of the book");
+  // The one way the timer ends a night that does not go through fallAsleep: the
+  // file ran out before the book's clock reached the end of the chapter it was
+  // asked to stop at — a truncated encode, or a join that came up short — so the
+  // check that watches for that end never fired and this is where the night
+  // actually ended. The morning is owed the same record either way, and a
+  // morning that had one on some nights and not others would be worse than one
+  // that never came at all.
+  if (goodnight) rememberTheFade();
   // Nothing is coming. Anything still trying to get the book back is trying for
   // nobody now.
   wantsSound = false;
@@ -2803,12 +3034,24 @@ function drawPlaces() {
   const found = list ? list.places.length : 0;
   // One place is not counted as though there were more, which is the rule the
   // screen this opens already follows: it is the same list said in fewer words.
-  placesFound.textContent = found
-    ? `${found} ${found === 1 ? "place" : "places"} found`
-    : "";
+  const said = found ? `${found} ${found === 1 ? "place" : "places"} found` : "";
+  placesFound.textContent = said;
   placesFound.hidden = found === 0;
   placesOpen.disabled = found === 0;
   placesOpen.classList.toggle("openable", found > 0);
+  // The same sentence, on the morning screen's first choice, out of the same
+  // number and literally the same string. The design has had this wrong twice —
+  // a chat pill saying "see all 7 places" over a player line saying "4 places
+  // found" over a list of four — and both times it was a count worked out in two
+  // places. There is one here.
+  wakeFound.textContent = said;
+  // And on the mornings there is nothing to open, the choice is not drawn at
+  // all. Places is the last query's answer and nothing else, so on most mornings
+  // that list is empty; the position line can afford to sit there disabled
+  // because it is a readout either way, and a 92dp amber slab at the top of the
+  // morning cannot. What is left is two choices, the first of which is how the
+  // list gets made in the first place.
+  wakePlaces.hidden = found === 0;
 }
 
 // Pressed, it puts the last query's places back on the screen. It is the same
@@ -3515,9 +3758,17 @@ document.addEventListener("visibilitychange", () => {
     stopQueuePoll();
     return;
   }
-  // Back in front of them, and the phone may have been asleep for hours. Two
-  // things could have changed while nothing here was running: the network, and
-  // the book — a render that was three chapters in when the screen went off
+  // Back in front of them, and the phone may have been asleep for hours.
+  //
+  // If a fade happened while it was, this is the morning: the page is here to be
+  // looked at and the last thing it did was go quiet by itself. The tab
+  // surviving the night is luck rather than a different night — the ordinary
+  // case is a relaunch, which is the boot path — and which of the two happened
+  // is not something the reader can see, so it must not be something the app
+  // draws differently.
+  raiseTheMorning();
+  // Two things could have changed while nothing here was running: the network,
+  // and the book — a render that was three chapters in when the screen went off
   // can be twenty by now. Both are cheap to ask, and neither answers by itself.
   tryAgainNow();
   if (!awaiting && manifest?.status === "rendering") {
@@ -5214,6 +5465,15 @@ restoreSleep();
 // read out of storage a turn later would be a count that appeared on the
 // position line after somebody had already looked at it.
 restorePlaces();
+// And after the places, because the morning screen draws their count: it is the
+// same one line on the position line, and reading the fade first would draw the
+// screen with the count of a list nobody had read yet.
+//
+// Before the book for a second reason of its own. This is what decides which
+// screen the app comes up on, and the screens block further down asks it as the
+// page is laid out — so a fade found here is a page that opens on the morning,
+// rather than one that opens on the player and jumps a frame later.
+restoreFade();
 openTheBook();
 
 // ------------------------------------------------------------------ speaking
@@ -5290,8 +5550,8 @@ if (!Recognition) {
 
 // ------------------------------------------------------------------- screens
 
-// Which of the two screens the page is on, said out loud on <body> so the sheet
-// can ask.
+// Which of the three screens the page is on, said out loud on <body> so the
+// sheet can ask.
 //
 // There is one document and there always was. The player and the chat are the
 // same elements shown and hidden — no route, no history, nothing to come back
@@ -5326,15 +5586,16 @@ if (!Recognition) {
 // what the warning that used to be in this comment asked for. `asked` below is
 // the remembered "they want the conversation", it is set by a press on the dock
 // and cleared by a press on the way out, and no resize can overrule either.
-const SCREENS = ["player", "chat"];
+const SCREENS = ["player", "chat", "wake"];
 
 // The book and its controls, until something takes them off it.
 //
 // This is the page's own answer to "which screen?"; the class below is only how
-// the sheet gets told. Nothing in here reads it back yet — the first press that
-// will is the header, which the design draws differently on each of the two —
-// and it is a name rather than a boolean so that the third screen the design
-// already describes has somewhere to be.
+// the sheet gets told. It is a name rather than a boolean, and the third screen
+// the design described has now taken the room that left: `wake` is the morning
+// after a fade, and it is the one of the three that is neither a measurement nor
+// a press — it is a fact about last night, read out of storage before any of
+// this runs.
 //
 // `whichScreen` and not `screen`: `screen` is a browser global, and a top-level
 // `let screen` would quietly shadow it for the whole file.
@@ -5361,8 +5622,12 @@ function showScreen(name) {
   }
 }
 
-// Said before anything can ask, and before a keyboard can have an opinion.
-showScreen(whichScreen);
+// Said before anything can ask, and before a keyboard can have an opinion. The
+// morning is the one thing that can already be true this early — restoreFade has
+// run — and it is said here rather than a turn later so that a page opening
+// after a fade opens on the wake screen, instead of drawing the player and
+// replacing it a frame afterwards.
+showScreen(waking ? "wake" : whichScreen);
 
 // ------------------------------------------------------------------ keyboard
 
@@ -5448,7 +5713,14 @@ function readKeyboard() {
     if (up) hadKeyboard = true;
     else if (hadKeyboard) stoppedAsking();
   }
-  showScreen(asked || (up && typing === question) ? "chat" : "player");
+  // The morning outranks both of the others, and nothing measurable may take it
+  // off the screen: it is not a screen somebody asked for, it is a screen the
+  // page owes them until one of its three presses answers it. A keyboard coming
+  // up under it — a restored focus, a phone unlocked with the box still live —
+  // would otherwise put the conversation over an unanswered morning.
+  showScreen(
+    waking ? "wake" : asked || (up && typing === question) ? "chat" : "player",
+  );
 }
 
 viewport?.addEventListener("resize", () => {
