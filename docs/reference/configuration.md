@@ -19,8 +19,8 @@ expansion**, so write paths out in full: `/home/you/library` and not
 | `SOMNIA_DATA_DIR` | `$XDG_DATA_HOME/somnia`, else `~/.local/share/somnia` | Holds `somnia.db`, and `streams/<gid>/<n>.m4a` — a book's chapters joined into the one file the page plays, `n` being how many chapters it covers. A rebuildable cache and the largest thing in here: about the library again, more if a book opened mid-render left shorter joins behind, since none are reaped. Created on startup if it is not there |
 | `SOMNIA_LIBRARY_DIR` | `~/library/audiobooks` | Where rendered chapters are written, and the boundary outside which the server refuses to serve one |
 | `SOMNIA_VOICE` | `af_heart` | The Kokoro voice a render uses **when the request did not name one**. See [the voices](#the-voices) below |
-| `SOMNIA_AGENT_MODEL` | `claude-sonnet-5` | The model behind the conversation |
-| `SOMNIA_AGENT_EFFORT` | `medium` | How hard that model may think before answering: `low`, `medium`, `high`, `xhigh` or `max`. The main dial on how long a question waits. Anything else is ignored with a warning in the journal |
+| `SOMNIA_AGENT_MODEL` | `claude-haiku-4-5` | The model behind the conversation. `claude-sonnet-5` is the alternative — twice the wait, five times the cost, and no better on any case that has been measured |
+| `SOMNIA_AGENT_EFFORT` | `medium` | How hard that model may think before answering: `low`, `medium`, `high`, `xhigh` or `max`. **Only for models that have the dial** — Haiku has not, so on the default this is not sent and changes nothing. Anything else is ignored with a warning in the journal |
 | `SOMNIA_EMBED_MODEL` | `intfloat/e5-small-v2` | The sentence embedding model. Must be 384-dimensional |
 | `SOMNIA_ABS_URL` | `http://127.0.0.1:13378` | Audiobookshelf. A trailing slash is stripped for you |
 | `SOMNIA_ABS_TOKEN` | — | Unset means no ABS client is built at all, and nothing is written there |

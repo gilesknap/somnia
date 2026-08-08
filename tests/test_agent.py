@@ -7,12 +7,18 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from anthropic import Anthropic
+from anthropic import Anthropic, omit
 
 from black_beauty import CHAPTERS, PASSAGES, build_black_beauty
 from fakes import FakeAbs, FakeEmbedder
 from somnia.abs import AbsClient
-from somnia.agent import OFFER_SENTENCE, SYSTEM_PROMPT, Conversation, build_tools
+from somnia.agent import (
+    OFFER_SENTENCE,
+    SYSTEM_PROMPT,
+    Conversation,
+    build_tools,
+    forget_model_capabilities,
+)
 from somnia.config import Config, load_config
 from somnia.db import connect
 from somnia.embed import Embedder
@@ -110,6 +116,18 @@ def client_that_acts_each(
         beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner))
     )
     return cast(Anthropic, fake)
+
+
+@pytest.fixture(autouse=True)
+def forget_which_models_take_an_effort_level() -> Iterator[None]:
+    """The answer is remembered for the life of the process, so tests share it.
+
+    Harmless in a night's use and poisonous in a suite: whichever test asked
+    first decides what every later one is told about that model.
+    """
+    forget_model_capabilities()
+    yield
+    forget_model_capabilities()
 
 
 @pytest.fixture
@@ -467,15 +485,35 @@ def client_recording_system(
     return cast(Anthropic, fake)
 
 
-def client_recording_calls(calls: list[dict[str, Any]]) -> Anthropic:
-    """A client that keeps every argument the runner was built with."""
+def client_recording_calls(
+    calls: list[dict[str, Any]], effort: bool = True, levels: str = "low medium high"
+) -> Anthropic:
+    """A client that keeps every argument the runner was built with.
+
+    Its ``models.retrieve`` answers in the shape the real one does — nested
+    objects with a ``supported`` flag, not a dictionary — because that shape is
+    the whole of what :func:`effort_for` reads, and a fake that answers in some
+    other shape tests only that exceptions are caught.
+
+    ``effort`` is whether this model has the dial at all; ``levels`` is which
+    settings of it exist, since not every model offers every one.
+    """
 
     def tool_runner(**kwargs: Any) -> FakeRunner:
         calls.append(kwargs)
         return FakeRunner([SimpleNamespace(content=[text("Right you are.")])])
 
+    def retrieve(model: str) -> Any:
+        offered = {name: SimpleNamespace(supported=True) for name in levels.split()}
+        return SimpleNamespace(
+            capabilities=SimpleNamespace(
+                effort=SimpleNamespace(supported=effort, **offered)
+            )
+        )
+
     fake = SimpleNamespace(
-        beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner))
+        beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner)),
+        models=SimpleNamespace(retrieve=retrieve),
     )
     return cast(Anthropic, fake)
 
@@ -521,9 +559,110 @@ def test_how_hard_to_think_is_settable_and_reaches_the_model(
     calls: list[dict[str, Any]] = []
     cfg = Config()
     cfg.agent_effort = "low"
+    cfg.agent_model = "a-model-with-the-dial"
     Conversation(cfg, library_with_book, client_recording_calls(calls)).ask("hi", 271)
 
     assert calls[-1]["output_config"] == {"effort": "low"}
+
+
+def test_a_model_without_the_dial_is_not_sent_one(
+    library_with_book: Library,
+) -> None:
+    """Sending it anyway is how making somnia faster made it stop working.
+
+    Haiku 4.5 does not take an effort level — it answers a request carrying one
+    with "This model does not support the effort parameter", a 400, on every
+    question. And Haiku is precisely the model somebody moves to when they want
+    answers faster, by setting one environment variable, most likely at night.
+    So the documented way to speed somnia up would have been the way to break
+    it, with the model that was working before the change.
+    """
+    calls: list[dict[str, Any]] = []
+    cfg = Config()
+    cfg.agent_model = "a-model-without-the-dial"
+    conversation = Conversation(
+        cfg, library_with_book, client_recording_calls(calls, effort=False)
+    )
+
+    conversation.ask("hi", 271)
+
+    # Present but omitted, which is how the SDK is told to leave a field off
+    # the wire entirely rather than send it as null.
+    assert calls[-1]["output_config"] is omit
+
+
+def test_a_level_this_model_does_not_offer_is_not_sent_either(
+    library_with_book: Library,
+) -> None:
+    """`xhigh` exists on some models and not others, and asking for one a model
+    does not have is the same 400 as asking a model with no dial at all. So the
+    level is checked, not just the dial."""
+    calls: list[dict[str, Any]] = []
+    cfg = Config()
+    cfg.agent_model = "a-model-without-xhigh"
+    cfg.agent_effort = "xhigh"
+    client = client_recording_calls(calls, levels="low medium high")
+
+    Conversation(cfg, library_with_book, client).ask("hi", 271)
+
+    assert calls[-1]["output_config"] is omit
+
+
+def test_what_was_learned_about_one_level_is_not_reused_for_another(
+    library_with_book: Library,
+) -> None:
+    """The answer is about a model *and* a level, so it is remembered as both.
+
+    Remembered against the model alone, the first question asked would settle
+    it: having learned that this model takes `low`, somnia would go on to send
+    it `xhigh` — which the same model may not have — and that is the 400 this
+    whole function exists to prevent, coming back in through the fix.
+    """
+    calls: list[dict[str, Any]] = []
+    client = client_recording_calls(calls, levels="low medium high")
+    cfg = Config()
+    cfg.agent_model = "a-model-without-xhigh"
+
+    cfg.agent_effort = "low"
+    Conversation(cfg, library_with_book, client).ask("hi", 271)
+    assert calls[-1]["output_config"] == {"effort": "low"}
+
+    cfg.agent_effort = "xhigh"
+    Conversation(cfg, library_with_book, client).ask("hi", 271)
+    assert calls[-1]["output_config"] is omit
+
+
+def test_a_model_we_cannot_ask_about_is_sent_no_effort_either(
+    library_with_book: Library,
+) -> None:
+    """The safe way round when the Models API cannot be reached.
+
+    Guessing that the dial is there costs every question in the night; guessing
+    it is not costs two seconds a turn. So an unreachable lookup answers "no
+    dial" and somnia goes on answering, slower.
+    """
+    calls: list[dict[str, Any]] = []
+
+    def explodes(model: str) -> Any:
+        raise RuntimeError("no route to host")
+
+    def tool_runner(**kwargs: Any) -> FakeRunner:
+        calls.append(kwargs)
+        return FakeRunner([SimpleNamespace(content=[text("Right you are.")])])
+
+    client = cast(
+        Anthropic,
+        SimpleNamespace(
+            beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner)),
+            models=SimpleNamespace(retrieve=explodes),
+        ),
+    )
+    cfg = Config()
+    cfg.agent_model = "a-model-nobody-can-reach"
+
+    Conversation(cfg, library_with_book, client).ask("hi", 271)
+
+    assert calls[-1]["output_config"] is omit
 
 
 def test_an_effort_level_that_is_not_one_is_ignored_rather_than_obeyed(

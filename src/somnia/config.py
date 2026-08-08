@@ -46,18 +46,46 @@ class Config:
     voice: str = DEFAULT_VOICE
     embed_model: str = "intfloat/e5-small-v2"
     # Haiku was the first choice, on cost: cents per conversation, and enough
-    # to turn a mumbled description into a timestamp. It went back on that by
-    # reading a character's name as the title of a book somnia does not have
-    # and saying so. Sonnet is a few cents more a night and does not, which is
-    # the whole job. Set SOMNIA_AGENT_MODEL=claude-haiku-4-5 to go back — and
-    # it is worth a night: measured on nuc2, Haiku 4.5 answers in around a
-    # third of the time, and no longer fails the Rob Roy case that demoted it,
-    # against a prompt that has been hardened a great deal since.
-    agent_model: str = "claude-sonnet-5"
-    # How hard the model is allowed to think before it answers. Sonnet 5 thinks
-    # by default and defaults this to "high", which is what a question at 2am
-    # was waiting on: measured on nuc2, "medium" takes about two seconds off
-    # every turn and answers the same way on every case there is a test for.
+    # to turn a mumbled description into a timestamp. It lost the job in 9b26bb6
+    # for reading a character's name as the title of a book somnia does not have
+    # and saying so — the exact disambiguation the agent is here to do — and
+    # Sonnet, a few cents more a night, did not.
+    #
+    # It has the job back, on measurement rather than on the absence of one. 85
+    # turns per model on nuc2 (2026-08-08), against the real book with 51
+    # minutes of 306 heard, over this prompt rather than the much softer one it
+    # was judged against then:
+    #
+    #                       routing        spoiler-safe   median   p90
+    #   sonnet-5 (medium)   84/85          82/85          4.89s    6.40s
+    #   haiku-4.5           85/85          83/85          2.46s    3.50s
+    #
+    # Routing is every question that had to be answered rather than acted on,
+    # every name that had to be looked for in the book rather than the catalog
+    # — Rob Roy among them, five times — and every request that really was a
+    # move. Haiku did not put a foot wrong, and did not reproduce the mistake
+    # that demoted it. Half the time and a fifth of the cost, on a screen where
+    # every second of the wait is felt.
+    #
+    # Neither model is clean on spoilers and the two are indistinguishable at
+    # this sample size, so that column decided nothing. It is a reason to read
+    # ADR 6 again: retrieval never crossed the line in any of those turns —
+    # checked separately, mechanically — so what leaked came out of the model's
+    # own knowledge of the book, bounded by a sentence in the prompt and
+    # nothing else. That is true of whichever model is named here.
+    #
+    # Five tries at one question is not proof the old failure is gone, so if a
+    # name is ever misread as a book title again, SOMNIA_AGENT_MODEL=
+    # claude-sonnet-5 is the way back and this comment is the reason to take it.
+    agent_model: str = "claude-haiku-4-5"
+    # How hard the model is allowed to think before it answers, for the models
+    # that have such a dial. Haiku has not got one, so on the default this is
+    # not sent at all and changing it does nothing — see :func:`effort_for`.
+    # It is what makes Sonnet bearable if the model above is ever changed back:
+    # Sonnet 5 thinks by default and defaults this to "high", which is what a
+    # question at 2am was waiting on. Measured on nuc2, "medium" takes about two
+    # seconds off every turn and answers the same way on every case there is a
+    # test for.
     #
     # Lowering it is the safe half of that trade. Turning thinking off outright
     # is faster still and is deliberately not done: on Sonnet 5 a turn with no
