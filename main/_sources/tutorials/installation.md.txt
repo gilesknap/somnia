@@ -45,6 +45,15 @@ installer will not fetch for you: it checks, and prints the command for your
 package manager if either is missing. Nothing else stops, because an
 environment without them is still worth having on a machine that only serves.
 
+On Debian and Ubuntu there is a third, and it is not optional: **`python3-venv`
+is a separate package**, so a stock box has a Python that runs but cannot build
+a virtual environment. The installer checks for it and names it, but if you are
+installing by hand, get it first — matched to your interpreter:
+
+```bash
+sudo apt install ffmpeg espeak-ng python3.12-venv    # or python3.13-venv
+```
+
 ## Or by hand
 
 Four commands, and the order of the middle two matters:

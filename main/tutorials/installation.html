@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Installation &#8212; somnia 0.6.dev79+g93a76f255 documentation</title>
+    <title>Installation &#8212; somnia 0.6.dev82+gea14933f1 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=bdc22acf"></script>
+    <script src="../_static/documentation_options.js?v=66da128a"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -543,6 +543,13 @@ project’s own box-builder, and the box it builds is expected to be ahead. Pass
 installer will not fetch for you: it checks, and prints the command for your
 package manager if either is missing. Nothing else stops, because an
 environment without them is still worth having on a machine that only serves.</p>
+<p>On Debian and Ubuntu there is a third, and it is not optional: <strong><code class="docutils literal notranslate"><span class="pre">python3-venv</span></code>
+is a separate package</strong>, so a stock box has a Python that runs but cannot build
+a virtual environment. The installer checks for it and names it, but if you are
+installing by hand, get it first — matched to your interpreter:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ffmpeg<span class="w"> </span>espeak-ng<span class="w"> </span>python3.12-venv<span class="w">    </span><span class="c1"># or python3.13-venv</span>
+</pre></div>
+</div>
 </section>
 <section id="or-by-hand">
 <h2>Or by hand<a class="headerlink" href="#or-by-hand" title="Link to this heading">#</a></h2>
