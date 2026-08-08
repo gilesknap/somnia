@@ -13,7 +13,22 @@ bash somnia-doctor.sh
 ```
 
 ffmpeg, espeak-ng and a CPU torch all have to be there, and a book needs roughly
-30MB of disk an hour at the default bitrate.
+30MB of disk an hour at the default bitrate — **double that for a book you
+actually listen to**, because opening one in the page joins its chapters into a
+second copy under `SOMNIA_DATA_DIR/streams`, which is how a chapter boundary
+stopped taking the lock screen down with it
+([ADR 7](../explanations/decisions/0007-cross-a-chapter-without-letting-go.md)).
+That copy is a cache and can be deleted at any time the page is not open; it
+costs a second or two of `ffmpeg -c copy` to make again.
+
+Listening to a book *while it renders* costs more than double, and how much more
+depends entirely on how fast the box is. A join is named by how many chapters it
+holds, so every time the listener catches up with the render a new one is
+written and the old one is left behind — on a box that renders barely faster
+than it is read, that is a join of the first chapter, of the first two, of the
+first three, all night. Nothing reaps them yet. If a data directory is larger
+than you can account for, that is where it went, and `rm -r` on
+`SOMNIA_DATA_DIR/streams` with the page shut is the whole of the cure.
 
 ## The worker unit
 
@@ -79,6 +94,16 @@ interesting one: it only answers once a chapter has been rendered *and*
 indexed, so it says the pipeline works rather than that a process is alive. The
 page will already be playing chapter one by then — a book is listenable while
 the rest of it is still being read.
+
+What that looks like on the phone if the listener catches up with the renderer
+is a **pause**, not an ending: the sound stops a fraction before the end of what
+has been rendered, the lock screen card stays up with a play button on it, and
+the book carries on by itself when the next chapter lands. It is deliberate, and
+the reason is that letting the audio actually run out is what takes the card
+down and ends the night —
+[ADR 7](../explanations/decisions/0007-cross-a-chapter-without-letting-go.md).
+So a silent phone with a paused card at 1am usually means the renderer, not the
+network, and `somnia queue` is the thing to look at.
 
 ## Stopping one
 

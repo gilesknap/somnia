@@ -23,7 +23,7 @@ the ones a served night depends on:
 |---|---|
 | `ANTHROPIC_API_KEY` | the agent's model calls, paid by you not the phone |
 | `SOMNIA_LIBRARY_DIR` | where the rendered chapters are; the page streams them |
-| `SOMNIA_DATA_DIR` | where `somnia.db` lives, if not the default |
+| `SOMNIA_DATA_DIR` | where `somnia.db` lives, and where the joined-up copy of each book the page plays is written; needs room, not just a path |
 | `SOMNIA_ABS_URL`, `SOMNIA_ABS_TOKEN` | optional: keeping Audiobookshelf roughly in step, and the one-off below |
 | `SOMNIA_AGENT_MODEL` | another model; the default is Sonnet 5 |
 
