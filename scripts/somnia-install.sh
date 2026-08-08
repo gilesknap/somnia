@@ -328,7 +328,25 @@ if [ "$render" = yes ]; then
 fi
 
 if [ "$catalog" = yes ]; then
-    say "pulling the Gutenberg catalog (~20MB, once)"
+    # Into the database somnia will actually open, which is not the one this
+    # would reach on its own. Every other somnia on the box is started through a
+    # wrapper or a systemd unit that reads $env_file first; this line is not, so
+    # SOMNIA_DATA_DIR was unset and the whole catalog landed in the default
+    # ~/.local/share/somnia while the real database kept the old one — and the
+    # install said "catalog updated" either way. That is a silent wrong install
+    # of exactly the kind this script exists to prevent.
+    #
+    # Read out rather than sourced: an EnvironmentFile may hold an unquoted
+    # value with spaces in it, which systemd accepts and `.` would choke on.
+    # Commented-out lines cannot match, so an unset setting stays unset and the
+    # default applies.
+    data_dir=$(sed -n 's/^[[:space:]]*SOMNIA_DATA_DIR[[:space:]]*=[[:space:]]*//p' \
+        "$env_file" 2>/dev/null | sed 's/[[:space:]]*$//' | tail -n 1 |
+        tr -d '"'"'"'')
+    if [ -n "$data_dir" ]; then
+        export SOMNIA_DATA_DIR="$data_dir"
+    fi
+    say "pulling both catalogs (~20MB, once) into ${data_dir:-$HOME/.local/share/somnia}"
     "$venv/bin/somnia" catalog-update
 fi
 
