@@ -725,6 +725,44 @@
              to a screen here is the way out and nothing else. -->
         <h2 id="settings-title">Settings</h2>
 
+        <!-- How big the words are, and it is first because it is what somebody
+             comes to this screen for.
+
+             The design's Screen 7 lists two controls and this is not one of
+             them. It is here because the root in `style.css` is a fraction of
+             the screen now — which is what makes the page match the design on
+             any phone at any setting, and which takes browser zoom and Android's
+             display size out of play, because both work by changing how many CSS
+             px the screen is. Taking away the reader's only way to resize a page
+             and offering nothing back would be an accessibility failure wearing
+             the clothes of a fix. This is what is offered back.
+
+             It is better placed than what it replaces, so this is not merely
+             restitution. Zoom is several screens into Chrome's settings and
+             retunes every app on the phone; this is one press from the player,
+             on a night screen, and moves nothing but somnia. And it moves the
+             root, so every rem length goes with it — gutters, gaps, the three
+             spacer floors — and the player's rhythm survives being resized. A
+             control that moved type and left the spacing is the failure the
+             handoff's own note predicted.
+
+             The same two circles and readout as the dim below, deliberately. It
+             needs no note promising you can see it work: the press changes the
+             screen the press is on, down to the words of its own note. -->
+        <p id="text-label" class="section-label">how big the words</p>
+        <div id="text-row">
+          <button id="text-down" type="button" aria-label="Smaller words">–</button>
+          <span id="text-track" aria-hidden="true">
+            <span id="text-fill"></span>
+          </span>
+          <button id="text-up" type="button" aria-label="Bigger words">+</button>
+        </div>
+        <p id="text-note" class="setting-note">
+          everything on the page, not only this screen — the words and the space
+          around them together. somnia is sized here rather than in the phone's
+          settings.
+        </p>
+
         <!-- How dark the page takes the room.
 
              Two circles rather than a slider, at the size of the chapter

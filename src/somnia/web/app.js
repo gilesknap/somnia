@@ -127,6 +127,11 @@ const dimLayer = document.getElementById("dim");
 const dimDown = document.getElementById("dim-down");
 const dimUp = document.getElementById("dim-up");
 const dimFill = document.getElementById("dim-fill");
+// And the same three for the size of the words, which is the control above it
+// on the same screen and drawn by the same rules in the sheet.
+const textDown = document.getElementById("text-down");
+const textUp = document.getElementById("text-up");
+const textFill = document.getElementById("text-fill");
 // What `−30` and `+30` mean, set on Settings and read on the player. Kept by
 // their value rather than in an array of elements, because what the rest of this
 // file asks is "which one is 30?" and never "which one is second?".
@@ -358,6 +363,126 @@ restoreDim();
 
 dimDown.addEventListener("click", () => setDim(dimLevel - DIM_STEP));
 dimUp.addEventListener("click", () => setDim(dimLevel + DIM_STEP));
+
+// ------------------------------------------------------------- how big it is
+//
+// The root font size, chosen on Settings, applied to the whole page.
+//
+// It owes its existence to the root above it. That root is a fraction of the
+// screen, which is what makes the page match the design on any phone at any
+// setting — and the same thing takes browser zoom and Android's display size
+// out of play, because both of them work by changing how many CSS px the screen
+// is and the root now moves with that. A page that took away the reader's only
+// way to resize it and gave nothing back would be an accessibility failure
+// dressed as a fix. This is what it gives back.
+//
+// It is better placed than what it replaces, which is why this is not merely
+// restitution. Zoom is several screens into Chrome's settings and retunes every
+// app on the phone; this is one press from the player, on a night screen, and
+// moves nothing but somnia. And it moves the ROOT, so every rem length goes
+// with it — gutters, gaps, radii, the three spacer floors — and the player's
+// rhythm survives being resized.
+const TEXT_KEY = "somnia-text";
+// Multipliers on the root the sheet works out for itself, not sizes of their
+// own. The sheet divides the screen by 18 because that is what the design is —
+// 360 CSS px across at a 20px root — and this is the only number that moves it,
+// so 1 is the page exactly as drawn and the arithmetic stays in the one
+// declaration that owns it.
+//
+// The ceiling is measured, not chosen. 1.2 puts the page at 15rem across, the
+// last width the player holds; one step past that is 13.8rem, where the book's
+// title truncates to one line and the chapter title clips through its own
+// descenders. Neither of those is a scroll, so the range was set by looking at
+// renders rather than by reading SCROLLS.
+//
+// Five steps of 0.1 — enough of a change to be worth a press, few enough to
+// walk end to end in the dark without counting.
+const TEXT_STEPS = [0.8, 0.9, 1, 1.1, 1.2];
+const TEXT_DEFAULT = 1;
+
+let textSize = TEXT_DEFAULT;
+
+// Which step a size is at, or the nearest one to it. A size restored from a
+// version with different steps is still a size somebody chose: it has to draw a
+// readout and it has to be able to be stepped away from, and `indexOf` alone
+// would give it an empty bar and a jump to the end of the range.
+function nearestStep() {
+  const at = TEXT_STEPS.indexOf(textSize);
+  if (at >= 0) return at;
+  return TEXT_STEPS.reduce(
+    (best, step, i) =>
+      Math.abs(step - textSize) < Math.abs(TEXT_STEPS[best] - textSize) ? i : best,
+    0,
+  );
+}
+
+// The size on the page, on the readout, and in the two presses that change it —
+// the same four-way agreement `drawDim` keeps, for the same reason.
+function drawText() {
+  // One custom property, set inline on the root, which the sheet's own
+  // `font-size` multiplies. Nothing here computes a size: a second copy of
+  // `screen / 18` living in JavaScript is the copy that would drift, and the
+  // sheet's default of 1 means a launch before this line runs is the design's
+  // own size rather than an unstyled page.
+  document.documentElement.style.setProperty("--text-size", String(textSize));
+  // Where the size is along the range, drawn rather than stated. A multiplier
+  // means nothing to somebody holding the phone; how far along the sizes it is
+  // means everything.
+  const last = TEXT_STEPS.length - 1;
+  textFill.style.width = `${Math.round((nearestStep() / last) * 1000) / 10}%`;
+  textDown.disabled = textSize <= TEXT_STEPS[0];
+  textUp.disabled = textSize >= TEXT_STEPS[last];
+}
+
+// One step along the list, in whichever direction. Walking the list rather than
+// doing arithmetic on the value keeps every size that can be stored a size that
+// is on it — 0.1 in binary floating point has the same habit 0.06 does, and a
+// multiplier of 1.2000000000000002 is a record nobody chose.
+function stepText(by) {
+  const to = Math.min(TEXT_STEPS.length - 1, Math.max(0, nearestStep() + by));
+  setText(TEXT_STEPS[to]);
+}
+
+function setText(size) {
+  textSize = size;
+  drawText();
+  try {
+    localStorage.setItem(TEXT_KEY, String(textSize));
+  } catch (error) {
+    // Storage refused. The size still applies tonight, which is the half of it
+    // being read right now.
+    console.error(error);
+  }
+}
+
+function restoreText() {
+  let size = TEXT_DEFAULT;
+  try {
+    const saved = localStorage.getItem(TEXT_KEY);
+    const asked = saved?.trim() ? Number(saved) : NaN;
+    // The range and not the list: a size written by a version with different
+    // steps is still one somebody chose and still one this page can draw.
+    // Anything outside it — or any rubbish at all, which fails both
+    // comparisons as NaN — falls through to the design's own root.
+    if (asked >= TEXT_STEPS[0] && asked <= TEXT_STEPS[TEXT_STEPS.length - 1]) {
+      size = asked;
+    }
+  } catch (error) {
+    // Storage refused. The page opens at what the sheet says, which is the size
+    // it was drawn at.
+    console.error(error);
+  }
+  // Drawn, not set: what is on disk is what somebody chose, and rounding it to
+  // this version's steps and writing it back would edit a record nobody asked
+  // to have edited. The rule the dim level is restored under.
+  textSize = size;
+  drawText();
+}
+
+restoreText();
+
+textDown.addEventListener("click", () => stepText(-1));
+textUp.addEventListener("click", () => stepText(1));
 
 // ---------------------------------------------------------- how far a skip is
 //

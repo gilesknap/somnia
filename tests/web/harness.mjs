@@ -639,7 +639,18 @@ class FakeElement {
     this.textContent = "";
     this.hidden = false;
     this.attributes = {};
+    // Named properties are read and written straight — `el.style.width` — which
+    // is how the page paints everything else. A custom property cannot be:
+    // `--text-size` is not a JavaScript identifier, so the page reaches it
+    // through setProperty, and it lands in the same object so that a test reads
+    // both of them the same way. Non-enumerable, to stay out of anything that
+    // walks the styles an element has been given.
     this.style = {};
+    Object.defineProperty(this.style, "setProperty", {
+      value: (name, value) => {
+        this.style[name] = String(value);
+      },
+    });
     this.children = [];
     this.parent = null;
     // Which half of the play button is showing is a class rather than a glyph,
@@ -1019,6 +1030,10 @@ globalThis.__page = {
     // How much of the light the page is taking off the room, as a number. Set
     // once at boot from storage and by nothing else yet.
     dim: Number(dimLayer.style.opacity),
+    // The root every size on the page is measured off, as the page wrote it —
+    // the string and not a number, so a test can tell a root that was set from
+    // one that was never touched at all.
+    text: document.documentElement.style["--text-size"],
     sleep: sleepButton.textContent,
     spokenSleep: sleepButton.getAttribute("aria-label"),
     armed: sleepButton.classList.contains("armed"),
@@ -1233,6 +1248,11 @@ export async function boot(t, options = {}) {
   // registry because nothing ever asks the document for it — the page reaches it
   // through document.body, as a browser hands it over.
   fakeDocument.body = new FakeElement("body");
+  // <html>, carrying one thing, and it is the size of every word on the page:
+  // the root the whole rem scale is measured off. Handed over the way a browser
+  // hands it over rather than through the id registry, for the same reason
+  // <body> is — nothing ever asks the document for it by name.
+  fakeDocument.documentElement = new FakeElement("html");
   fakeDocument.getElementById = el;
   fakeDocument.visibilityState = "visible";
   // Made without an id, so nothing is registered until the page gives it one —
