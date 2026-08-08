@@ -226,11 +226,20 @@ def _repair(conn: sqlite3.Connection) -> None:
     # key: comparing them applies the integer affinity of the column that has
     # one, so '45839' meets 45839. Checked rather than assumed — every spelling
     # of this join returns the same rows.
+    #
+    # `c.title <> ''` says the same thing as ingest's `if row and row["title"]`,
+    # which is the point: the two ways a book can be named must not disagree
+    # about what counts as a name. No row in either published list can reach
+    # here empty — the CSV import drops a row with no Title and the Australian
+    # index cannot produce one — so this defends against nothing today. It is
+    # here because the alternative, if that ever stops being true, is a book
+    # silently losing the name it had.
     conn.execute(
         "UPDATE books SET title = ("
-        "  SELECT c.title FROM catalog c WHERE c.gid = books.gid"
+        "  SELECT c.title FROM catalog c WHERE c.gid = books.gid AND c.title <> ''"
         ") WHERE EXISTS ("
-        "  SELECT 1 FROM catalog c WHERE c.gid = books.gid AND c.title <> books.title"
+        "  SELECT 1 FROM catalog c WHERE c.gid = books.gid AND c.title <> ''"
+        "    AND c.title <> books.title"
         ")"
     )
     conn.execute(f"PRAGMA user_version = {_REPAIRED_TO}")
