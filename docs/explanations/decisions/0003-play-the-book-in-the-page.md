@@ -4,9 +4,14 @@
 
 Accepted. **Amended on 2026-08-07**: the sentence below saying "changing books
 is done by asking" no longer holds, and the paragraph headed *Choosing a book is
-a press now* at the end of this file says what replaced it and why. Everything
-else here stands — the page is still the player, the position is still somnia's
-own, and there is still no library to browse for something you do not have.
+a press now* at the end of this file says what replaced it and why. **Amended
+again on 2026-08-08**, and this one is a retraction rather than a refinement:
+the handset check recorded at the end of *Consequences* was written up as though
+it had settled two things, and it had settled one. The paragraph headed *The
+notification did not survive a boundary* says which half failed and how the
+check came to pass anyway. Everything else here stands — the page is still the
+player, the position is still somnia's own, and there is still no library to
+browse for something you do not have.
 
 ## Context
 
@@ -189,10 +194,13 @@ matter more than being moved to the passage, the app is still there to do it.
 
 Finally, this rested on an assumption that could only be checked on the handset:
 that an installed PWA keeps playing with the screen off on Android Chrome, and
-that its media notification survives a chapter boundary. **Checked on 2026-08-06,
-and both halves hold** — it played on with the phone locked, and it crossed a
-chapter while locked. That is the ground the rest of this decision stands on, so
-it is written here rather than left in a night's memory.
+that its media notification survives a chapter boundary. It was checked on
+2026-08-06 and written down here as *both halves hold* — it played on with the
+phone locked, and it crossed a chapter while locked. **The second half was
+withdrawn on 2026-08-08 and the sentence that claimed it is struck; see the end
+of this file.** The first half stands and has stood every night since. That is
+the ground the rest of this decision stands on, so it is written here rather
+than left in a night's memory.
 
 The spike page that answers it stays served, because the property belongs to the
 handset and not to this code: a future Chrome, a battery-saver setting or a new
@@ -258,3 +266,53 @@ playback speed, and any way to reach a book somnia has not rendered except by
 adding it. The page still opens the book you were last listening to. What
 changed is that there is now a way to say which one that is without composing a
 sentence.
+
+## Amendment, 2026-08-08: the notification did not survive a boundary
+
+**"Checked on 2026-08-06, and both halves hold" is withdrawn.** The first half
+holds: an installed PWA does keep playing with the screen off on Android Chrome,
+and it has done so every night since. The second half is false. The media
+notification does *not* survive a chapter boundary, and the way it fails is the
+way this project's failures always fail — the book goes quiet and nobody finds
+out until morning.
+
+What actually happens is that a boundary assigned `player.src`, which runs the
+media element load algorithm, which empties the element; and an element holding
+no media has nothing for Chrome to hang a platform media session on, so the
+notification comes down and has to be built again on the far side. Over
+Bluetooth, where audio focus has to be taken again and the A2DP route
+re-established, it is slow enough to see — and sometimes it did not complete,
+which at 2am means a locked phone with no transport on it and a book that has
+stopped. That is [issue 31](https://github.com/gilesknap/somnia/issues/31), which
+reports it as repeatedly seen on Bluetooth and not seen on the phone's own
+speaker, while declining to conclude anything from the second half: "that may
+only mean it is rarer there".
+
+**How a check of a false property passed.** The spike page this ADR points at,
+`spike-background-audio.html`, is what was run on 2026-08-06, and at that date
+`loadChapter()` was `audio.src = …; audio.load()` — the one-element path, the
+very thing that turned out to be the bug. So the check was not wrong about what
+it saw; it saw a real page do a real boundary. What is not known is the audio
+route it saw it on, because nobody wrote it down, and the check passing is the
+only evidence there is about it. Either it was the phone's own speaker, where
+this failure has never been seen and is presumably too quick to notice, or it was
+Bluetooth on a night the failure did not land — issue 31 reports it as
+intermittent even there. Both readings say the same thing, and it is the thing
+this amendment exists for: the result was written up as a property of Android
+Chrome when the most it could ever have been was a property of one route on one
+evening. **A check made on one audio route is a check of one audio route**, and
+a route nobody recorded is a route nobody knows.
+
+**What this ADR got right, and it deserves saying.** Two paragraphs down from
+the sentence being struck: *the failure would arrive as a night that went quiet
+rather than as anything in a log*. That is exactly, and only, how it arrived —
+there is no traceback anywhere for issue 31, and there never was going to be.
+The same paragraph's reason for keeping the spike page served, that the property
+belongs to the handset and not to this code, is what made the second check cheap
+enough to run: the page was still there, still reachable, and a whole-book mode
+was added to it in an evening.
+
+**What replaced the mechanism**, and not the decision: the page is still the
+player and everything else in this record stands. How a boundary is crossed is
+now its own decision, with costs of its own, in
+[ADR 7](0007-cross-a-chapter-without-letting-go.md).

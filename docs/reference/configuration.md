@@ -16,7 +16,7 @@ expansion**, so write paths out in full: `/home/you/library` and not
 | Variable | Default | What it is |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | — | The agent's model calls. Required by `ask` and `serve`, and by nothing else |
-| `SOMNIA_DATA_DIR` | `$XDG_DATA_HOME/somnia`, else `~/.local/share/somnia` | Holds `somnia.db`. Created on startup if it is not there |
+| `SOMNIA_DATA_DIR` | `$XDG_DATA_HOME/somnia`, else `~/.local/share/somnia` | Holds `somnia.db`, and `streams/<gid>/<n>.m4a` — a book's chapters joined into the one file the page plays, `n` being how many chapters it covers. A rebuildable cache and the largest thing in here: about the library again, more if a book opened mid-render left shorter joins behind, since none are reaped. Created on startup if it is not there |
 | `SOMNIA_LIBRARY_DIR` | `~/library/audiobooks` | Where rendered chapters are written, and the boundary outside which the server refuses to serve one |
 | `SOMNIA_VOICE` | `af_heart` | The Kokoro voice new renders use |
 | `SOMNIA_AGENT_MODEL` | `claude-sonnet-5` | The model behind the conversation |

@@ -317,35 +317,50 @@ export const SHRUNK_BOOK = {
 };
 
 // A book that can be listened to while it is still being written down, which is
-// the ordinary state of a book somnia was asked for this evening: five chapters
-// have audio, the parse says there are thirty-seven, and total_ms is how much
-// exists rather than how long the book is. Anything drawn as a fraction of
-// total_ms on this one over-reads, which is the whole reason it is here.
+// the ordinary state of a book somnia was asked for this evening: `read` of its
+// thirty-seven chapters have audio, and total_ms is how much exists rather than
+// how long the book is. Anything drawn as a fraction of total_ms on this one
+// over-reads, which is half the reason it is here.
+//
+// The other half is that this is the one book that is asked for twice. The page
+// holds the answer from boot while the render carries on behind it, and what it
+// is given on the next ask has to be the same book with more of it in: the same
+// chapters at the same times, another row after them, and the whole of it down a
+// URL the element has never loaded — `api/stream/900008/6` while it is holding
+// `api/stream/900008/5`. The distance between those two is the render frontier.
+// So it is a function of how much has been read rather than a fixed shape, and
+// `page.serves` is how a test says another chapter has landed.
 //
 // Its `authors` is the catalog's own field, verbatim, for a book with two names
 // on it: `Surname, Forename, dates`, semicolons between people. Every other
 // fixture carries a single tidy name, so this is the only one that can catch a
 // page printing the raw string.
-export const GROWING_BOOK = {
-  gid: 900008,
-  title: "The Moonstone",
-  authors: "Collins, Wilkie, 1824-1889; Reade, Charles, 1814-1884",
-  status: "rendering",
-  total_ms: 3_000_000,
-  position_ms: 1_800_000,
-  seq: 0,
-  heard_to_ms: 1_800_000,
-  chapters_total: 37,
-  stream_url: "api/stream/900008/5",
-  stream_ms: 3_000_000,
-  chapters: [0, 1, 2, 3, 4].map((idx) => ({
-    idx,
-    title: `Chapter ${idx + 1}`,
-    start_ms: idx * 600_000,
-    end_ms: (idx + 1) * 600_000,
-    url: `api/audio/900008/${idx}`,
-  })),
-};
+export function growingBook(read) {
+  return {
+    gid: 900008,
+    title: "The Moonstone",
+    authors: "Collins, Wilkie, 1824-1889; Reade, Charles, 1814-1884",
+    status: "rendering",
+    total_ms: read * 600_000,
+    position_ms: 1_800_000,
+    seq: 0,
+    heard_to_ms: 1_800_000,
+    chapters_total: 37,
+    stream_url: `api/stream/900008/${read}`,
+    stream_ms: read * 600_000,
+    chapters: Array.from({ length: read }, (_, idx) => ({
+      idx,
+      title: `Chapter ${idx + 1}`,
+      start_ms: idx * 600_000,
+      end_ms: (idx + 1) * 600_000,
+      url: `api/audio/900008/${idx}`,
+    })),
+  };
+}
+
+// Five chapters in, which is where every test that does not care about it finds
+// this book.
+export const GROWING_BOOK = growingBook(5);
 
 // A book somebody could actually fall asleep in. The tone book is twenty-four
 // seconds long — shorter than the shortest rewind and a four-hundredth of the
@@ -708,16 +723,22 @@ class FakeElement {
 // laid end to end; a chapter file is that one chapter. Anything else — an
 // element that was never given a source — is a duration nobody has said, which
 // is what a browser reports before metadata arrives.
-function lengthOfSource(url) {
+//
+// The manifests are the booted page's own copy rather than the module's, because
+// a render adding a chapter changes both halves of the answer at once: the book
+// grows a row, and the join that holds it is a longer file at a URL that did not
+// exist before. A fake that grew one and not the other would let a page pass
+// having loaded a stream no server could have served it.
+function lengthOfSource(manifests, url) {
   const stream = /^api\/stream\/(\d+)\/(\d+)$/.exec(url ?? "");
   if (stream) {
-    const book = MANIFESTS.get(`api/book/${stream[1]}`);
+    const book = manifests.get(`api/book/${stream[1]}`);
     const held = book?.chapters.slice(0, Number(stream[2]));
     return held?.length ? held[held.length - 1].end_ms / 1000 : NaN;
   }
   const chapter = /^api\/audio\/(\d+)\/(\d+)$/.exec(url ?? "");
   if (!chapter) return NaN;
-  const row = MANIFESTS.get(`api/book/${chapter[1]}`)?.chapters[
+  const row = manifests.get(`api/book/${chapter[1]}`)?.chapters[
     Number(chapter[2])
   ];
   return row ? (row.end_ms - row.start_ms) / 1000 : NaN;
@@ -727,10 +748,11 @@ function lengthOfSource(url) {
 // events below are fired in the order a browser fires them, and the comments
 // say which part of the spec each one is standing in for.
 class FakeAudio extends FakeElement {
-  constructor(order, clock, registry) {
+  constructor(order, clock, registry, manifests) {
     super("player", registry);
     this.order = order;
     this.clock = clock;
+    this.manifests = manifests;
     this._src = "";
     this.currentTime = 0;
     this.duration = NaN;
@@ -801,7 +823,7 @@ class FakeAudio extends FakeElement {
   // book ends after chapter one — which is `ended`, which is the one event that
   // takes the lock screen down. Pass one to say something else on purpose: a
   // truncated encode, or a stream that came up short of the book.
-  ready(duration = lengthOfSource(this.src)) {
+  ready(duration = lengthOfSource(this.manifests, this.src)) {
     this.duration = duration;
     this.readyState = 1;
     this.fire("loadedmetadata");
@@ -928,6 +950,20 @@ globalThis.__page = {
     // says now, and a test that wants to know whether a boundary will load
     // anything is asking this.
     perChapter: holdingOneChapter,
+    // Whether the page has given up on this book's join and will play it a file
+    // at a time from here. Beside perChapter rather than folded into it: the
+    // decision and its effect are a rung of the ladder apart — the flag is set
+    // on an error and the element only finds out at the next load — and a test
+    // that could see the effect alone could not tell a page that decided late
+    // from one that never decided at all.
+    fellBack: fellBackToChapters,
+    // How much book the source it is holding covers, and whether the sound is
+    // stopped a fraction short of the end of that. The pair is the render
+    // frontier as the page sees it: streamMs stays where it was while the
+    // manifest grows past it, which is what makes "the element was not reloaded
+    // when the book got longer" a thing a test can look at rather than infer.
+    streamMs,
+    atFrontier,
     idx: current && current.idx,
     // The book, over the chapter, over how many chapters there are. All three
     // come off the manifest and are drawn in one pass, so a page that named the
@@ -1074,7 +1110,13 @@ export async function boot(t, options = {}) {
   const clock = new FakeClock();
   const session = new FakeSession(order);
   const elements = new Map();
-  const audio = new FakeAudio(order, clock, elements);
+  // This page's own copy of what the server knows, because one thing really
+  // does change underneath a page in the night: a render finishes a chapter and
+  // the book the page opened is not the book it will be asked about next. A test
+  // says so with `page.serves`, and a copy per boot is what keeps that from
+  // being a chapter every other suite in the run silently inherits.
+  const manifests = new Map(MANIFESTS);
+  const audio = new FakeAudio(order, clock, elements, manifests);
   const localStorage = new FakeStorage(stored);
   const sessionStorage = new FakeStorage();
 
@@ -1243,14 +1285,14 @@ export async function boot(t, options = {}) {
         if (openRefused) {
           return { ok: false, json: async () => ({ error: "no book to open" }) };
         }
-        const opened = MANIFESTS.get(url.slice(0, -"/open".length));
+        const opened = manifests.get(url.slice(0, -"/open".length));
         return json({
           gid: opened ? opened.gid : 0,
           position_ms: opened ? opened.position_ms : null,
           seq: opened ? opened.seq : 0,
         });
       }
-      if (MANIFESTS.has(url)) return json(MANIFESTS.get(url));
+      if (manifests.has(url)) return json(manifests.get(url));
       // The agent, stood in for by whatever the test decided it would say. The
       // question is kept because half of what the page owes a turn is that the
       // right one was asked, and that a conversation started over is not.
@@ -1414,6 +1456,16 @@ export async function boot(t, options = {}) {
     // there is nothing to play of and for one that is not there at all.
     refuseToOpen: (on) => {
       openRefused = on;
+    },
+    // The render has finished another chapter. From here on everything the page
+    // can ask about that book answers with the longer one — the manifest, and
+    // the length of whatever join it names — which is the only thing that
+    // changes underneath a page between eleven and morning.
+    //
+    // It says nothing to the page. Nothing does: the page finds out by asking,
+    // and when it asks is most of what the frontier is about.
+    serves: (book) => {
+      manifests.set(`api/book/${book.gid}`, book);
     },
     // The tailnet eating one endpoint and not the others.
     unreachable: (which) => Object.assign(gone, which),
