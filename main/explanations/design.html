@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design decisions &#8212; somnia 0.7.dev29+g5ae152cc9 documentation</title>
+    <title>Design decisions &#8212; somnia 0.7.dev31+g2690c0e7e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=61c8bb48"></script>
+    <script src="../_static/documentation_options.js?v=ce750bcf"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -785,6 +785,16 @@ move, so <code class="docutils literal notranslate"><span class="pre">position_s
 it would for a press of <em>−30</em>. A turn either moves the book or asks which place
 was meant, never both — refused in the tool, before a move can write anything,
 and again in the shape of the reply.</p>
+<p>Every row’s words travel with the answer that named them, which is why there is
+no route anywhere that hands back the text of a chunk by id: that would be a
+general way to read unheard book text, one guessed integer wide, sitting on the
+server for the life of the deployment. The one exception proves the rule rather
+than bending it. <code class="docutils literal notranslate"><span class="pre">/api/passage/{gid}/{ms}</span></code> exists for the <em>you are here</em> row,
+which names no passage and so carries none — and it is addressed by a point on
+the book’s clock, not by an identifier, and answers out of a statement whose own
+<code class="docutils literal notranslate"><span class="pre">WHERE</span></code> carries <code class="docutils literal notranslate"><span class="pre">start_ms</span> <span class="pre">&lt;</span> <span class="pre">heard_to_ms</span></code>. Ask it about the last millisecond of
+the book and it replies with the last thing that was really spoken. There is
+nothing to guess and no refusal to read a frontier off.</p>
 </section>
 <section id="getting-through-the-night-is-the-page-s-job-now">
 <h2>Getting through the night is the page’s job now<a class="headerlink" href="#getting-through-the-night-is-the-page-s-job-now" title="Link to this heading">#</a></h2>

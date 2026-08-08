@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.7.dev29+g5ae152cc9 documentation</title>
+    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.7.dev31+g2690c0e7e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=61c8bb48"></script>
+    <script src="../../_static/documentation_options.js?v=ce750bcf"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -527,6 +527,31 @@ opens; and a low reach for the words now lands on that row’s own <code class="
 before the reading was beside the pill and nothing was under it. The miss that
 matters — onto the <em>next</em> row’s <code class="docutils literal notranslate"><span class="pre">goto</span></code>, which moves the book somewhere nobody
 asked for — is still held off by the row’s padding.</p>
+<p>Amended again, in two particulars, and both of them are about the reveal.</p>
+<p><strong>The reveal toggles.</strong> A second press on a row that has been opened puts its
+words away again, and its chapter title with them, and the line under the words
+says so — <em>tap to hide</em>. It was deliberately one-way before, on the grounds that
+a control whose meaning depends on how many times it has been pressed is the
+wrong thing to hand somebody who is not counting. What that missed is that the
+row states which press it is about to be, so nobody has to count; and that a
+screen which can only ever grow is the wrong shape for this one, because four
+places with their passages open is the column of book at 2am that the list
+exists to spare somebody. Until now the only way to fold one back was to close
+the screen and open it again.</p>
+<p><strong>The “you are here” marker is a place, not just a rule.</strong> It keeps its own
+line across the list — the listener’s position falls between two search hits and
+inside none, so it is not a row of the result set — but under that line it now
+holds what every other row holds: its time, stated at the size the list states
+times, and the words being spoken there, one press away. Amber marks it out, and
+the pill under it still says <code class="docutils literal notranslate"><span class="pre">here</span></code> rather than <code class="docutils literal notranslate"><span class="pre">goto</span></code>. Its words are the one
+thing on that screen no answer carries down, so the page fetches them, once, when
+the list is drawn: <code class="docutils literal notranslate"><span class="pre">/api/passage/{gid}/{ms}</span></code>, which is bounded by <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code>
+in the same statement that finds the row and is addressed by a point on the clock
+rather than by an id. That is not the oracle the rejected alternative below
+argues against — there is no identifier to guess and no way of asking that
+returns anything the sound has not already said out loud. If the request fails or
+the book has nothing indexed, the row offers no press at all, which is what it
+was before.</p>
 <p>Amended once more by
 <a class="reference internal" href="0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR 6</span></a>, in one particular. The
 rejected alternative below rests part of its case on <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> being both
