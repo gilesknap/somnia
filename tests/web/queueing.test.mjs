@@ -1021,13 +1021,15 @@ test("nothing daytime is on the night screen, and nothing nightly in daylight", 
   const page = await opened(t);
   page.queueView([job()]);
   await books(page);
-  // Books answers "what shall I listen to": the book playing, the shelf, how
-  // dark, and the quiet row to the other screen. Not the search, not the queue,
-  // not what the server last said.
-  for (const id of ["reading-now", "shelf", "dim-row", "to-workshop"]) {
+  // Books answers "what shall I listen to": the book playing, the shelf, and
+  // the quiet row to the other screen. Not the search, not the queue, not what
+  // the server last said — and not how dark the room is either, which is a
+  // setting rather than an answer to that question and is on Settings now.
+  for (const id of ["reading-now", "shelf", "to-workshop"]) {
     assert.equal(page.el(id).hidden, false, id);
   }
   assert.equal(page.el("workshop").hidden, true);
+  assert.equal(page.el("settings").hidden, true);
 
   page.click("to-workshop");
   await page.settle();
@@ -1036,9 +1038,13 @@ test("nothing daytime is on the night screen, and nothing nightly in daylight", 
   // still standing behind it, unchanged — this is an overlay and not a route.
   assert.equal(page.el("workshop").hidden, false);
   assert.equal(page.el("queue").hidden, false);
-  for (const id of ["queue-search", "queue-results", "jump-row"]) {
+  for (const id of ["queue-search", "queue-results"]) {
     assert.equal(page.el(id).hidden, false, id);
   }
+  // And the skip size is not on it. It was, on the argument that a thing set
+  // once is configuration; it is discovered in the dark, so it went to the
+  // night screen that now holds both settings.
+  assert.equal(page.el("settings").hidden, true);
 });
 
 // The other half of "nothing nightly in daylight", and the one that is not a

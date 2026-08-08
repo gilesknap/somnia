@@ -147,9 +147,9 @@ test("a level of nothing at all is a page with no dim on it", async (t) => {
 
 // ------------------------------------------------------ and the two presses
 //
-// `how dark` on Books, which is where the control lives because the layer it
-// moves is over Books too: it is set by looking at what it is doing, and there
-// is nothing to picture from a number on a settings screen.
+// `how dark the room` on Settings, and what made a settings screen safe to set
+// this from is that the screen is a night one: the layer is over it, so it is
+// still set by looking at what it is doing rather than by picturing a number.
 
 test("a press dims the page and writes the level down", async (t) => {
   const page = await boot(t);
@@ -196,8 +196,19 @@ test("opening the page does not edit the level it found", async (t) => {
 
 // ------------------------------------------------------- how far a skip is
 //
-// `skip button size` in Workshop, which renames the two most-pressed buttons in
-// the app — so what they say and what they do are one setting and not two.
+// `how far the skip buttons move` on Settings, which renames the two
+// most-pressed buttons in the app — so what they say and what they do are one
+// setting and not two.
+
+// What the three options say about themselves, which is the half of "which one
+// is chosen" that is not a colour. Read as a whole rather than one at a time:
+// what a screen reader has to be able to answer is which of the three, and that
+// is a property of the group.
+function pressed(page) {
+  return Object.fromEntries(
+    [15, 30, 60].map((s) => [s, page.el(`jump-${s}`).attributes["aria-pressed"]]),
+  );
+}
 
 test("the transport says thirty until somebody says otherwise", async (t) => {
   const page = await boot(t);
@@ -205,6 +216,11 @@ test("the transport says thirty until somebody says otherwise", async (t) => {
   assert.equal(page.el("fwd30").textContent, "+30");
   assert.equal(page.el("jump-30").classList.contains("chosen"), true);
   assert.equal(page.el("jump-15").classList.contains("chosen"), false);
+  // And it says so in the accessibility tree as well as in amber. The class is
+  // paint: without this, three identically labelled buttons on the one screen
+  // whose job is to report a setting back, and nothing to say which is already
+  // true.
+  assert.deepEqual(pressed(page), { 15: "false", 30: "true", 60: "false" });
 });
 
 test("choosing a skip size renames the buttons and moves the book by it", async (t) => {
@@ -220,6 +236,7 @@ test("choosing a skip size renames the buttons and moves the book by it", async 
   assert.equal(page.el("back30").attributes["aria-label"], "Back 15 seconds");
   assert.equal(page.el("jump-15").classList.contains("chosen"), true);
   assert.equal(page.el("jump-30").classList.contains("chosen"), false);
+  assert.deepEqual(pressed(page), { 15: "true", 30: "false", 60: "false" });
   assert.equal(page.storage.getItem("somnia-jump"), "15");
 
   // And the press moves the book by what the label says. A setting that renamed
@@ -246,4 +263,90 @@ test("a skip size that is not on offer is not adopted", async (t) => {
       `stored ${JSON.stringify(junk)}`,
     );
   }
+});
+
+// ------------------------------------------------- the screen they are set on
+//
+// Both of the settings above used to be lodgers. Dim was on Books, on the
+// argument that it can only be judged against the dark page it changes — true,
+// and no more true of Books than of any other night screen. Skip size was in
+// Workshop, on the argument that a thing set once is configuration — which is
+// wrong about when it is discovered, because nobody decides thirty seconds is
+// too far except in the dark, mid-book, having missed the same sentence twice.
+//
+// So they share a screen now, reached from the corner of the player that has
+// been empty since `start over` went to chat. What is asserted here is the two
+// things that can go wrong with an overlay: that it is not up until somebody
+// opens it, and that opening it and closing it again changed nothing.
+
+test("the settings screen is not up until somebody opens it", async (t) => {
+  const page = await boot(t);
+  assert.equal(page.probe().settingsUp, false);
+  page.click("to-settings");
+  assert.equal(page.probe().settingsUp, true);
+  page.click("settings-close");
+  assert.equal(page.probe().settingsUp, false);
+});
+
+// The inert open. Nothing here asks the server anything, nothing here moves the
+// book, and the way out is `‹ controls` in the same corner as every other way
+// out on the page — so the whole screen is a promise that the night it was
+// opened in is exactly the night it is closed into.
+test("settings changes nothing else about the page", async (t) => {
+  const page = await boot(t, { lastGid: HALF_HEARD.gid });
+  page.audio.ready(1800);
+  page.click("playpause");
+  await page.settle();
+  const before = page.probe();
+
+  page.click("to-settings");
+  await page.settle();
+  page.click("settings-close");
+  await page.settle();
+  assert.deepEqual(page.probe(), before);
+});
+
+// The one thing that had to be true for a settings screen to be allowed to hold
+// the dim control at all: this is a night screen, so the layer is over it. A
+// press moves the darkness of the page doing the pressing, which is the whole
+// of why the level is chosen by looking rather than by reading a number — and
+// it is the one thing Workshop, where the layer goes to zero, could not offer.
+test("the room stays dark while the darkness is being set", async (t) => {
+  const page = await boot(t, { stored: { "somnia-dim": "0.3" } });
+  page.click("to-settings");
+  assert.equal(page.probe().dim, 0.3);
+  page.click("dim-up");
+  assert.equal(page.probe().dim, 0.36);
+  page.click("settings-close");
+  // And it is the setting that moved, not a layer lifted for one screen.
+  assert.equal(page.probe().dim, 0.36);
+  assert.equal(page.storage.getItem("somnia-dim"), "0.36");
+});
+
+// A book the platform refused to start is waiting for a touch anywhere, and
+// every control on this screen is a touch. The screen borrows that listener on
+// the way in so the first press on `+` darkens the room without also starting
+// the book, and hands it back on the way out, where it is true again.
+test("a press on settings does not start a book that is waiting for a touch", async (t) => {
+  const page = await boot(t, { lastGid: HALF_HEARD.gid });
+  page.audio.ready(1800);
+  page.audio.refuse = "NotAllowedError";
+  page.click("playpause");
+  await page.settle();
+  assert.equal(page.probe().status, "tap anywhere to carry on");
+
+  // The screen is open and the listener has been borrowed, so a touch on it is
+  // a touch on a control and nothing else.
+  page.click("to-settings");
+  page.audio.refuse = null;
+  page.document.fire("pointerdown");
+  await page.settle();
+  assert.equal(page.audio.paused, true);
+
+  // And the way out hands it back, because by then it is true again: the book
+  // is still stopped and still waiting for the touch it was promised.
+  page.click("settings-close");
+  page.document.fire("pointerdown");
+  await page.settle();
+  assert.equal(page.audio.paused, false);
 });

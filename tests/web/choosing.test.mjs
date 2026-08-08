@@ -33,6 +33,12 @@ import {
 // beside a list. It names no place, no chapter, no character and no time.
 const OFFER_SENTENCE = "There are a few places that could be it.";
 
+// What is left of the phone with a keyboard over it, for the tests at the foot
+// of this file about which screen a question's answer leaves them on. The
+// number is not a threshold — see screens.test.mjs, which owns this measurement
+// and everything decided from it.
+const WITH_KEYBOARD = 420;
+
 // Words from a part of the book they have already heard, and words from a part
 // they have not. Distinct on purpose: every assertion about the guard is
 // "HIDDEN is nowhere", and two rows sharing a sentence would let a leak hide
@@ -1054,6 +1060,162 @@ test("a row in a book that has not been read yet moves nothing and says so", asy
   assert.equal(page.probe().gid, HALF_HEARD.gid);
   assert.equal(page.probe().toast, "");
   assert.equal(page.probe().status, "the first chapter is still being read");
+});
+
+// --------------------------------------------------- back to the book it moved
+
+// The screen a question is asked on is not the screen its answer is about. A
+// question moves the book, and the book is on the player — so the last thing
+// every route through here does is put the page back on it, and none of them
+// used to.
+//
+// It was hidden for as long as it was because one route does it by accident:
+// raising the list blurs the composer, a blur is the way off the chat screen,
+// and a question typed with a keyboard up therefore landed back on the player
+// without anybody having written that down. The microphone takes no focus, so
+// there was no blur to ride, and a question asked by voice ended with the book
+// moved and the conversation still over it. `follow` had neither — a single hit
+// moves the book with no list to raise and no blur to fire, so a typed search
+// that found one place left the page on the transcript too.
+//
+// So it is said once, by name, at both places where a question moves a book.
+
+// A question asked out loud: the finger goes down on the microphone and nothing
+// else happens to the page. No focus, no keyboard, nothing to measure — which is
+// what made this the route the accident never covered.
+function askedByVoice(page) {
+  page.touch("talk");
+  assert.equal(page.probe().screen, "chat");
+}
+
+// And the same question typed, with a keyboard up over it. `page.ask` fires the
+// composer's submit and no browser is here to move focus for it, so this is the
+// state a real phone is in at the moment the answer lands.
+function askedByTyping(page) {
+  page.touch("question");
+  page.focus("question");
+  page.resize(WITH_KEYBOARD);
+  assert.equal(page.probe().screen, "chat");
+}
+
+for (const [how, arrive] of [
+  ["by voice", askedByVoice],
+  ["by typing", askedByTyping],
+]) {
+  test(`a row chosen after a question asked ${how} lands back on the book`, async (t) => {
+    const page = await opened(t);
+    page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+    arrive(page);
+    await page.ask("the bit with the cart");
+    page.click("candidate-go-12");
+    await page.settle();
+    assert.equal(page.probe().positionMs, 1_234_567);
+    // The book moved, so the book is what is on the screen. A page left on the
+    // transcript here is a seek somebody made and cannot see the result of.
+    assert.equal(page.probe().screen, "player");
+    assert.equal(page.probe().keyboardUp, false);
+  });
+
+  test(`a single hit after a question asked ${how} lands back on the book`, async (t) => {
+    const page = await opened(t);
+    page.answers({
+      reply: "Taking you there.",
+      move: { gid: HALF_HEARD.gid, position_ms: 600_000, seq: 3 },
+    });
+    arrive(page);
+    await page.ask("take me to the storm");
+    assert.equal(page.probe().positionMs, 600_000);
+    // No list was ever raised, so there is no close and no blur to arrive by
+    // accident. This is the route that was wrong on both ways of asking.
+    assert.equal(page.probe().candidatesUp, false);
+    assert.equal(page.probe().screen, "player");
+    assert.equal(page.probe().keyboardUp, false);
+  });
+}
+
+// A row in another book is the same claim: the page went somewhere, and where it
+// went is on the player.
+test("a row in another book lands back on the book as well", async (t) => {
+  const page = await opened(t);
+  page.answers({
+    reply: OFFER_SENTENCE,
+    candidates: {
+      gid: OTHER_BOOK.gid,
+      title: OTHER_BOOK.title,
+      position_ms: null,
+      places: [elsewhere()],
+    },
+  });
+  askedByVoice(page);
+  await page.ask("the bit in the other book");
+  page.click("candidate-go-21");
+  for (let turn = 0; turn < 3; turn++) await page.settle();
+  assert.equal(page.probe().gid, OTHER_BOOK.gid);
+  assert.equal(page.probe().screen, "player");
+});
+
+// The other half of the rule, and the half that keeps it from being a page that
+// throws people off the conversation for asking a question. Only a book that
+// moved may take the screen; an answer made of words is a turn in a conversation
+// somebody is in the middle of having.
+test("an answer that only says something leaves them on the conversation", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: "Ginger is the chestnut mare in the next box." });
+  askedByVoice(page);
+  await page.ask("who is ginger");
+  assert.equal(page.probe().screen, "chat");
+});
+
+// The list itself is raised over the player, however the question was asked.
+// This is the other half of the same incoherence: typed, the blur that gets the
+// keyboard out of the list's way landed on the player as a side effect; spoken,
+// there was no focus to give up and the list stood over the transcript. One
+// screen either way, and it is the one the rows are about.
+//
+// Which is also what makes `close` answerable. It is the one way out that
+// promises to change nothing, and the screen is one of the things it must not
+// change — so where it leaves them is decided here, at the raise, rather than by
+// how they spoke.
+for (const [how, arrive] of [
+  ["by voice", askedByVoice],
+  ["by typing", askedByTyping],
+]) {
+  test(`the places are raised over the player when asked ${how}`, async (t) => {
+    const page = await opened(t);
+    page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+    arrive(page);
+    await page.ask("the bit with the cart");
+    assert.equal(page.probe().candidatesUp, true);
+    assert.equal(page.probe().screen, "player");
+    // And close changes nothing, which now includes the screen: they looked at
+    // four places, decided against all of them, and are where the list found
+    // them. The position line still counts the places, so the way back in is
+    // the one they came by.
+    page.click("candidates-cancel");
+    assert.equal(page.probe().screen, "player");
+  });
+}
+
+// And a move that nobody on this page just asked for may not take the screen
+// either. The refusal of the next report is how the agent moves a book by
+// itself, it can land fifteen seconds into the question after the one that
+// caused it, and a page that changed screens on it would take the keyboard away
+// from somebody mid-sentence.
+test("a move arriving by the other route leaves the screen alone", async (t) => {
+  const page = await playing(t);
+  askedByTyping(page);
+  page.reply({
+    accepted: false,
+    gid: HALF_HEARD.gid,
+    position_ms: 2_000_000,
+    seq: 3,
+    reason: "moved",
+  });
+  page.tick(15_000);
+  page.audio.advance(0.5);
+  await page.settle();
+  assert.equal(page.probe().positionMs, 2_000_000);
+  assert.equal(page.probe().screen, "chat");
 });
 
 // -------------------------------------------------------------------- cancel
