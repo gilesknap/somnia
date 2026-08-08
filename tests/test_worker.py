@@ -69,7 +69,7 @@ def gutenberg(monkeypatch: pytest.MonkeyPatch) -> Fetched:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.touch()
 
-    def fetch_book(gid: int) -> Any:
+    def fetch_book(gid: int, url: str | None = None) -> Any:
         return fetched.book
 
     monkeypatch.setattr(ChapterAudio, "encode", encode)
@@ -475,7 +475,7 @@ def test_a_book_gutenberg_will_not_give_us_says_which_kind_of_no_it_was(
     apart without another round trip to Gutenberg.
     """
 
-    def refuse(gid: int) -> Any:
+    def refuse(gid: int, url: str | None = None) -> Any:
         raise RuntimeError(f"could not fetch Gutenberg book {gid}")
 
     monkeypatch.setattr(ingest, "fetch_book", refuse)

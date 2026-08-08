@@ -104,6 +104,7 @@ function entry(overrides = {}) {
     title: "Treasure Island",
     authors: "Robert Louis Stevenson",
     have: null,
+    source: "gutenberg",
     ...overrides,
   };
 }
@@ -186,6 +187,7 @@ function results(page) {
   return page.el("queue-results").children.map((li) => ({
     name: words(li, "found-name"),
     by: words(li, "found-by"),
+    where: words(li, "found-where"),
     have: words(li, "found-have"),
     add: words(li, "found-add"),
   }));
@@ -1401,6 +1403,31 @@ test("a search asks once per press, not once per keystroke", async (t) => {
       // the author and not the other two, so the line says what it knows.
       name: "Treasure Island",
       by: "Robert Louis Stevenson",
+      // Nothing, for a Gutenberg book: naming the library on every row would
+      // be a column of noise on a list where four lines have to earn it.
+      where: null,
+      have: null,
+      add: "add this book",
+    },
+  ]);
+});
+
+test("a book from the Australian library says so, because that is the surprise", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries([
+    entry({ gid: 910100021, title: "Nineteen eighty-four", source: "australia" }),
+  ]);
+  await search(page, "nineteen eighty-four");
+  assert.deepEqual(results(page), [
+    {
+      name: "Nineteen eighty-four",
+      by: "Robert Louis Stevenson",
+      // The two libraries clear their books against different countries' law,
+      // and a title missing from the American catalog being found here is the
+      // whole reason the second one was added.
+      where: "PG Australia",
       have: null,
       add: "add this book",
     },
@@ -1439,6 +1466,7 @@ test("a render that died is offered again, because that retry was impossible", a
     {
       name: "Treasure Island",
       by: "Robert Louis Stevenson",
+      where: null,
       have: "part rendered",
       add: "finish this one",
     },

@@ -27,7 +27,7 @@ would tell you.
 | `/api/audio/{gid}/{idx}` | GET | The chapter's audio — or 404 |
 | `/api/stream/{gid}/{n}` | GET | The first `n` chapters as one file — or 404 |
 | `/api/sentence/{gid}/{ms}` | GET | Where the sentence being spoken at `ms` began |
-| `/api/catalog?q=…` | GET | Books to add, from the local Gutenberg catalog |
+| `/api/catalog?q=…` | GET | Books to add, from the local catalog (both libraries) |
 | `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
 | `/api/book/{gid}/open` | POST | Make this the book a cold launch opens — or 404 |
 | `/api/ask` | POST | The agent's reply, and a move if it made one |
@@ -185,7 +185,7 @@ answer quickly.
   "query": "black beauty",
   "entries": [
     {"gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
-     "have": "done"}
+     "have": "done", "source": "gutenberg"}
   ]
 }
 ```
@@ -206,6 +206,13 @@ and `null` if it has never heard of it. A live queue row wins, because a
 `pending` book that has just been asked for again is coming. It travels with the
 row so a book that is already on its way is *marked* rather than offered and
 then refused.
+
+`source` is which library the book came from — `gutenberg`, or `australia` for
+[Project Gutenberg Australia](http://gutenberg.net.au), whose ids start at
+900,000,000. The page names the second one on the row and says nothing for the
+first. It travels for the same reason `have` does: the two libraries clear
+their books against different countries' copyright law, and that is worth
+knowing before the press rather than after it.
 
 ## `GET /api/queue`
 

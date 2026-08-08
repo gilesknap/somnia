@@ -1278,6 +1278,7 @@ def test_the_catalog_can_be_searched_without_leaving_the_box(
         "title": "Black Beauty",
         "authors": "Sewell, Anna",
         "have": None,
+        "source": "gutenberg",
     }
 
 

@@ -153,15 +153,19 @@ went to sleep at — is invalidated.
 
 ## What is stored
 
-One sqlite file holds all of it: the Gutenberg catalog for browsing, the books
-and their chapter timelines, the indexed text windows, and the vectors.
+One sqlite file holds all of it: the catalog for browsing, the books and their
+chapter timelines, the indexed text windows, and the vectors.
 
 ```mermaid
 erDiagram
   catalog {
-    text gid "FTS5, ~75k rows"
+    text gid "FTS5, ~80k rows"
     text title
     text authors
+  }
+  catalog_urls {
+    int gid PK "only where the address is not computable"
+    text url "Project Gutenberg Australia"
   }
   books {
     int gid PK
@@ -361,7 +365,8 @@ fling them past the spoiler guard into the ending.
 
 | Module | Job |
 |---|---|
-| `catalog` | Gutenberg's official CSV dump in FTS5 — browsing is offline, with no third-party API |
+| `catalog` | Both libraries' published lists in one FTS5 table — browsing is offline, with no third-party API |
+| `pgau` | Project Gutenberg Australia's plain-text index, and the offset ids that keep it out of Gutenberg's way |
 | `gutenberg` | Fetch the HTML edition, parse it into chapters of paragraphs |
 | `segment` | Sentences (pysbd), and the overlapping windows the index is built from |
 | `tts` | The `TTSEngine` protocol, and Kokoro-82M behind it |

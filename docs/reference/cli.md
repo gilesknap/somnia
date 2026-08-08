@@ -12,8 +12,8 @@ therefore leaves a database behind whatever else happens.
 
 | Command | What it does | Needs |
 |---|---|---|
-| [`catalog-update`](#cli-catalog-update) | Download the Gutenberg catalog | the network |
-| [`search`](#cli-search) | Find a book id in that catalog | a catalog |
+| [`catalog-update`](#cli-catalog-update) | Download both Gutenberg catalogs | the network |
+| [`search`](#cli-search) | Find a book id in those catalogs | a catalog |
 | [`add`](#cli-add) | Ask for a book and render it here and now | `[ml]`, ffmpeg, espeak-ng |
 | [`queue`](#cli-queue) | Ask for a book, see what is rendering, stop one | nothing |
 | [`worker`](#cli-worker) | Empty the queue, one book at a time | `[ml]`, ffmpeg, espeak-ng |
@@ -34,18 +34,37 @@ file and no flag that overrides one. They are listed in
 somnia catalog-update
 ```
 
-Downloads the official Gutenberg CSV dump (~20MB) and replaces the local
-catalog table with it. Only rows of type `Text` with a title are kept.
+Downloads two lists and replaces the local catalog table with both of them:
+the official Gutenberg CSV dump (~20MB, only rows of type `Text` with a title),
+and [Project Gutenberg Australia](http://gutenberg.net.au)'s plain-text index
+(~700KB, only books with an HTML edition).
 
 ```console
 $ somnia catalog-update
-catalog updated: 76421 books
+catalog updated: 80494 books (76421 from Project Gutenberg, 4073 from Project Gutenberg Australia)
 ```
+
+The second library is worth the extra request because it barely overlaps the
+first: it clears books against Australian law rather than American, so about
+four fifths of it is not in the Gutenberg catalog at all. Orwell's novels are
+there, and Fitzgerald's uncollected stories, and several thousand pulp titles.
+Its ids start at 900,000,000 so that they cannot collide with Gutenberg's own —
+see [`search`](#cli-search) for what that looks like.
 
 It **replaces**, rather than merges: the table is emptied first, so a run that
 fails part way leaves you with what you started with, and a book that Gutenberg
-has withdrawn disappears from your catalog too. Nothing else needs the network,
-so after this the browsing is entirely offline.
+has withdrawn disappears from your catalog too. Both downloads finish before
+anything is written, so a library that is unreachable costs you the whole
+update rather than half of one. Nothing else needs the network, so after this
+the browsing is entirely offline.
+
+:::{note}
+Project Gutenberg Australia clears its books against **Australian** copyright
+law, and says so: "it is possible that some eBooks which are public domain in
+Australia are still under copyright protection in other countries." somnia does
+not filter on that, and cannot — the index carries no author death dates. If
+you are not in Australia, the check is yours to make.
+:::
 
 (cli-search)=
 ## `search`
@@ -60,8 +79,15 @@ handle the rest of somnia uses.
 
 ```console
 $ somnia search "black beauty"
-   271  Black Beauty — Sewell, Anna
+       271  Black Beauty — Sewell, Anna
+$ somnia search "nineteen eighty-four"
+ 910100021  Nineteen eighty-four — George Orwell  [PG Australia]
 ```
+
+Both libraries answer one search, because the question is "what can I listen to
+tonight" and that has one answer. The library is named only when it is the
+Australian one: every line saying "Project Gutenberg" would be a column of
+noise, and a nine-digit id is the other tell.
 
 Words are ANDed: every term has to appear somewhere in the row. Punctuation is
 dropped rather than interpreted, so an apostrophe cannot produce a syntax error,

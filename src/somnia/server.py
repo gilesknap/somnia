@@ -159,12 +159,19 @@ class Found:
     is already coming is *marked* rather than offered and then refused: a press
     that was never available cannot be a press that did nothing, and at 2am
     those two feel completely different.
+
+    ``source`` is which library it came from — 'gutenberg' or 'australia'. It
+    travels for the same reason ``have`` does: it changes what the row means
+    before anybody presses it. The two libraries clear their books against
+    different countries' law, and only one of those countries is the one the
+    listener is sitting in.
     """
 
     gid: int
     title: str
     authors: str
     have: str | None
+    source: str
 
 
 class Queue:
@@ -222,6 +229,7 @@ class Queue:
                 title=entry.title,
                 authors=entry.authors,
                 have=have.get(entry.gid),
+                source=entry.source,
             )
             for entry in entries
         ]
