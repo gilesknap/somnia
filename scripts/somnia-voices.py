@@ -32,7 +32,9 @@ from pathlib import Path
 # The page is served out of the package, so that is where the clips live: they
 # are static assets of the app in the way the fonts and the icons are, and a
 # deploy that carried the code without them would leave every press silent.
-DEFAULT_OUT = Path(__file__).resolve().parent.parent / "src" / "somnia" / "web" / "voice"
+DEFAULT_OUT = (
+    Path(__file__).resolve().parent.parent / "src" / "somnia" / "web" / "voice"
+)
 
 
 def main(argv: list[str] | None = None) -> int:
