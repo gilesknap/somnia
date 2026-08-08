@@ -20,13 +20,24 @@ phone and the flexible gap will be wrong or negative.
 
 SCROLLS must stay False. The brief makes "the player does not scroll at 360x780"
 a hard rule, and it is the first thing any added row breaks.
+
+    python3 measure.py /tmp/somnia/page.html 867 --text-scale 1.3
+
+is the other phone, and the harder one: the reader's text scale as Chrome for
+Android really applies it — every font size multiplied, every rem length left
+where it is, root 16. The 20px root above grows the spacing along with the type,
+so it can only ever report that a layout fits; this asks the question the three
+spacers actually face. See render.py for why the two are different phones.
 """
 
+import argparse
 import json
 import pathlib
 import re
 import subprocess
 import sys
+
+from render import resolve_root, scale_text
 
 PROBE = """
 <script>
@@ -69,10 +80,10 @@ window.addEventListener('load', () => {
 </head>"""
 
 
-def measure(src, height, root=20):
+def measure(src, height, root=20, text_scale=1.0):
     src = pathlib.Path(src)
     scaled = src.with_name(f".measure-{src.name}")
-    html = src.read_text().replace(
+    html = scale_text(src.read_text(), text_scale).replace(
         "</head>", f"<style>html {{ font-size: {root}px; }}</style>{PROBE}"
     )
     scaled.write_text(html)
@@ -106,12 +117,24 @@ def gap(a, b):
 
 
 if __name__ == "__main__":
-    src = sys.argv[1]
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("src")
     # 867, not 780 — the same number the docstring is emphatic about. A default
     # of 780 hands the caller who omits the argument a viewport of about 693 and
     # six gaps measured against a phone nobody has.
-    d = measure(src, int(sys.argv[2]) if len(sys.argv) > 2 else 867)
-    print(f"root={d['root']}px  viewport={d['viewport']}  scrollH={d['scrollH']}")
+    ap.add_argument("height", nargs="?", type=int, default=867)
+    ap.add_argument("--root", type=int, default=None)
+    ap.add_argument(
+        "--text-scale",
+        type=float,
+        default=1.0,
+        help="the reader's Android/Chrome text scale: type x this, lengths as-is",
+    )
+    a = ap.parse_args()
+    d = measure(a.src, a.height, resolve_root(a.root, a.text_scale), a.text_scale)
+    scale = f"  text x{a.text_scale}" if a.text_scale != 1 else ""
+    vp, sh = d["viewport"], d["scrollH"]
+    print(f"root={d['root']}px{scale}  viewport={vp}  scrollH={sh}")
     print(f"SCROLLS: {d['scrollH'] > d['viewport'] + 1}")
     # The player carries no conversation at all now — the whole thread is on the
     # chat screen — so on it there is one gap where there used to be two,
