@@ -111,12 +111,35 @@ done
 # sequences are a hard SyntaxError there. Prefer the newest version we can use
 # rather than whatever `python3` happens to be.
 
+# An interpreter has to be able to *build* a virtual environment, not merely to
+# run — on Debian and Ubuntu `python3-venv` is a separate package, and without
+# it `python3 -m venv` gets all the way to writing the directory before failing
+# with a message about ensurepip that names no part of somnia. Checking here
+# costs one subprocess and turns that into a sentence saying what to install.
+# `venv_package_hint` carries the name of the one that was so nearly right, so
+# the error can name a package rather than a category.
+venv_package_hint=""
+
+usable_python() {
+    "$1" -c 'import sys; raise SystemExit(not ((3, 11) <= sys.version_info < (3, 14)))' 2>/dev/null || return 1
+    if ! "$1" -c 'import ensurepip' 2>/dev/null; then
+        venv_package_hint="python$("$1" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)-venv"
+        return 1
+    fi
+    return 0
+}
+
+# The answer comes back in `found_python` rather than on stdout, because the
+# caller would have to write `$(find_python)` to read stdout and that runs the
+# whole search in a subshell — where `venv_package_hint` is set, and where it
+# dies along with the subshell. The diagnosis has to outlive the search.
+found_python=""
+
 find_python() {
     local candidate
     for candidate in python3.13 python3.12 python3.11 python3; do
-        if command -v "$candidate" >/dev/null 2>&1 &&
-            "$candidate" -c 'import sys; raise SystemExit(not ((3, 11) <= sys.version_info < (3, 14)))' 2>/dev/null; then
-            command -v "$candidate"
+        if command -v "$candidate" >/dev/null 2>&1 && usable_python "$candidate"; then
+            found_python=$(command -v "$candidate")
             return 0
         fi
     done
@@ -124,13 +147,23 @@ find_python() {
     # odd one. uv keeps interpreters of its own, off PATH, and any of those
     # will do. --system so that running this from inside a checkout finds a
     # real interpreter rather than that checkout's own virtual environment.
+    # These always carry ensurepip, so they skip the check above — and must,
+    # since no apt package would fix one of them anyway.
     if command -v uv >/dev/null 2>&1; then
-        uv python find --system '>=3.11,<3.14' 2>/dev/null && return 0
+        found_python=$(uv python find --system '>=3.11,<3.14' 2>/dev/null) &&
+            [ -n "$found_python" ] && return 0
     fi
+    found_python=""
     return 1
 }
 
-if ! python=$(find_python); then
+if find_python; then
+    python=$found_python
+else
+    if [ -n "$venv_package_hint" ]; then
+        die "somnia found a Python it can use but it cannot build a virtual" \
+            "environment — run: sudo apt install $venv_package_hint"
+    fi
     hint="install one with your package manager"
     command -v uv >/dev/null 2>&1 && hint="run: uv python install 3.13"
     die "somnia needs Python 3.11, 3.12 or 3.13, and none of those was found — $hint"
