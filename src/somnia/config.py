@@ -48,11 +48,32 @@ class Config:
     # Haiku was the first choice, on cost: cents per conversation, and enough
     # to turn a mumbled description into a timestamp. It went back on that by
     # reading a character's name as the title of a book somnia does not have
-    # and saying so. Sonnet is a few cents more a night and does not, which is
-    # the whole job. Set SOMNIA_AGENT_MODEL=claude-haiku-4-5 to go back — and
-    # it is worth a night: measured on nuc2, Haiku 4.5 answers in around a
-    # third of the time, and no longer fails the Rob Roy case that demoted it,
-    # against a prompt that has been hardened a great deal since.
+    # and saying so, and Sonnet — a few cents more a night — did not.
+    #
+    # That reason has expired, and the evidence is worth writing down rather
+    # than repeating. 85 turns per model on nuc2 (2026-08-08), against the real
+    # book with 51 minutes of 306 heard, over the prompt as it stands now
+    # rather than the much softer one Haiku was judged against:
+    #
+    #                       routing        spoiler-safe   median   p90
+    #   sonnet-5 (medium)   84/85          82/85          4.89s    6.40s
+    #   haiku-4.5           85/85          83/85          2.46s    3.50s
+    #
+    # Routing is every question that had to be answered rather than acted on,
+    # every name that had to be looked for in the book rather than the catalog
+    # — Rob Roy among them, five times, passed — and every request that really
+    # was a move. Haiku did not reproduce the failure that demoted it.
+    #
+    # Neither model is clean on spoilers and the two are indistinguishable at
+    # this sample size, so that column is not a reason to prefer either. It is
+    # a reason to read ADR 6 again: retrieval never crossed the line in any of
+    # those turns — that was checked separately, mechanically — so what leaked
+    # came out of the model's own knowledge of the book, which is bounded by a
+    # sentence in the prompt and nothing else.
+    #
+    # So the default stays Sonnet on nothing stronger than habit, and
+    # SOMNIA_AGENT_MODEL=claude-haiku-4-5 costs a fifth as much and answers in
+    # half the time. It is a night's use away from being the default.
     agent_model: str = "claude-sonnet-5"
     # How hard the model is allowed to think before it answers. Sonnet 5 thinks
     # by default and defaults this to "high", which is what a question at 2am
