@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design decisions &#8212; somnia 0.7.dev37+gd9c5ec744 documentation</title>
+    <title>Design decisions &#8212; somnia 0.7.dev39+gbc16c6de6 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=33b2fb21"></script>
+    <script src="../_static/documentation_options.js?v=cb80ad33"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -886,7 +886,21 @@ server-side — no OAuth. Voice input via the browser’s Web Speech API
 the original choice on cost, and mostly held up, but it read a character’s
 name as the title of a book somnia does not have and said so — a spoken
 half-sentence at 2am is exactly the disambiguation this is here to do. The
-difference is a few cents a night.</p></li>
+difference is a few cents a night. Measured again on nuc2 (2026-08-08), with
+a prompt that has been hardened a great deal since, Haiku 4.5 answers in
+about a third of the time and no longer fails that case; it is worth a night
+before ruling on, and the change is one environment variable.</p></li>
+<li><p><strong>How long a turn takes is mostly the model deciding how hard to think.</strong>
+Retrieval is around a tenth of a second — the two searches, the sqlite-vec
+lookup and the embedding of the question all together — and the rest of a
+five-to-eight second answer is round trips to Anthropic. So the levers are
+all on that side: <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code> (default <code class="docutils literal notranslate"><span class="pre">medium</span></code>, down from the
+API’s <code class="docutils literal notranslate"><span class="pre">high</span></code>, worth about two seconds a turn), the constant half of the
+system prompt cached across hops, and loading the embedding model at startup
+rather than inside whichever question needs it first. Turning thinking off
+altogether is faster again and is not done: a Sonnet 5 turn with no thinking
+can write its tool call into the reply as prose instead of calling the tool,
+which does not read as a failure — it reads as an answer.</p></li>
 <li><p>MCP server: designed for, never built, and nothing needs it. A FastMCP
 wrapper over the tool layer would be a dev-time convenience only — the 2am
 surface is the page, and the tools are a library any test can call directly.

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.7.dev37+gd9c5ec744 documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.7.dev39+gbc16c6de6 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=33b2fb21"></script>
+    <script src="../_static/documentation_options.js?v=cb80ad33"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -528,6 +528,9 @@ the ones a served night depends on:</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code></p></td>
 <td><p>another model; the default is Sonnet 5</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code></p></td>
+<td><p>how hard it may think before answering; the default is <code class="docutils literal notranslate"><span class="pre">medium</span></code></p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -552,11 +555,29 @@ than the one added most recently, at the beginning. It says what it did for
 every book, it never moves a position backwards, and running it again changes
 nothing — so if you are unsure whether it worked, run it again.</p>
 <p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code> overrides Sonnet 5. Haiku was the first choice, on cost,
-and mostly held up; set <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL=claude-haiku-4-5</span></code> to go back to it.</p>
+and mostly held up; set <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL=claude-haiku-4-5</span></code> to go back to it.
+Measured on nuc2 it answers in about a third of the time, so it is worth a
+night if the wait is what is bothering you.</p>
+<section id="if-a-question-takes-too-long-to-come-back">
+<h3>If a question takes too long to come back<a class="headerlink" href="#if-a-question-takes-too-long-to-come-back" title="Link to this heading">#</a></h3>
+<p>Almost none of the wait is somnia: a search of the book is a tenth of a second,
+and the rest is the model. Two things to try, in this order.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT=low</span></code> tells it to think less before answering. The default
+is <code class="docutils literal notranslate"><span class="pre">medium</span></code>, which is already below what the API would do on its own, and <code class="docutils literal notranslate"><span class="pre">low</span></code>
+takes off perhaps another second. Then <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL=claude-haiku-4-5</span></code>,
+which is the bigger difference by far. Restart <code class="docutils literal notranslate"><span class="pre">somnia-serve</span></code> after either.</p>
+<p>One wait is not the model and does not respond to any of that: the <strong>first</strong>
+question of the night that searches a book used to sit for twelve seconds while
+the embedding model loaded. That now happens as the server starts, so the cost
+lands where nobody is waiting — but it means <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code> is busy for those
+twelve seconds after it starts answering. The page, the book and the audio are
+all served throughout; only a search waits, and only if one is asked for that
+early.</p>
 <p><strong>Keep <code class="docutils literal notranslate"><span class="pre">--host</span></code> as localhost.</strong> The page has no login of any kind: anyone who
 can reach it can drive the agent, spend your API credit, listen to your books,
 and start or stop hours of rendering. Its only protection is that nothing but
 <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach the port.</p>
+</section>
 </section>
 <section id="publish-it-on-the-tailnet">
 <h2>Publish it on the tailnet<a class="headerlink" href="#publish-it-on-the-tailnet" title="Link to this heading">#</a></h2>
@@ -1037,7 +1058,10 @@ stand in for it.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-it">Run it</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-it">Run it</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#if-a-question-takes-too-long-to-come-back">If a question takes too long to come back</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#publish-it-on-the-tailnet">Publish it on the tailnet</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-it-on-the-phone">Install it on the phone</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#keep-it-running">Keep it running</a></li>

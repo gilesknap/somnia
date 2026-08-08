@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Configuration &#8212; somnia 0.7.dev37+gd9c5ec744 documentation</title>
+    <title>Configuration &#8212; somnia 0.7.dev39+gbc16c6de6 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=33b2fb21"></script>
+    <script src="../_static/documentation_options.js?v=cb80ad33"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -529,19 +529,23 @@ expansion</strong>, so write paths out in full: <code class="docutils literal no
 <td><p><code class="docutils literal notranslate"><span class="pre">claude-sonnet-5</span></code></p></td>
 <td><p>The model behind the conversation</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_EMBED_MODEL</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">medium</span></code></p></td>
+<td><p>How hard that model may think before answering: <code class="docutils literal notranslate"><span class="pre">low</span></code>, <code class="docutils literal notranslate"><span class="pre">medium</span></code>, <code class="docutils literal notranslate"><span class="pre">high</span></code>, <code class="docutils literal notranslate"><span class="pre">xhigh</span></code> or <code class="docutils literal notranslate"><span class="pre">max</span></code>. The main dial on how long a question waits. Anything else is ignored with a warning in the journal</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_EMBED_MODEL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">intfloat/e5-small-v2</span></code></p></td>
 <td><p>The sentence embedding model. Must be 384-dimensional</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_URL</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_URL</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:13378</span></code></p></td>
 <td><p>Audiobookshelf. A trailing slash is stripped for you</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code></p></td>
 <td><p>—</p></td>
 <td><p>Unset means no ABS client is built at all, and nothing is written there</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_LIBRARY_ID</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_LIBRARY_ID</span></code></p></td>
 <td><p>—</p></td>
 <td><p>Which ABS library to rescan. From <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">libraries</span></code></p></td>
 </tr>
