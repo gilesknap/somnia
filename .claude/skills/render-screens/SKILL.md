@@ -25,6 +25,50 @@ The tell that you have done it again: in a correct render, **"Where do you want
 to be?" nearly fills its line.** If it sits at about half the width, you are
 looking at the wrong phone.
 
+## The root is the page's own now, and `--root` is a real setting
+
+`style.css` sets `html { font-size: 125% }` — the 20px root, shipped — and **`how
+big the words` on Settings replaces it**, walking five steps from 100% to 150%.
+So `--root` is no longer a fiction this skill injects to imitate a phone. It is
+the control the reader actually has, and every value it takes is a screen
+somebody can be looking at:
+
+```bash
+python3 $S/render.py /tmp/somnia/page.html --out /tmp/somnia/big.png --root 24
+python3 $S/measure.py /tmp/somnia/page.html 867 --root 24
+```
+
+| `--root` | Settings | what it is |
+|---|---|---|
+| 16 | 100% | the floor — where the page came up before it had a root |
+| 20 | 125% | **the default, and what the design was drawn at** |
+| 24 | 150% | the ceiling, and the last size the player survives |
+
+**Check a layout change at 16 and 24, not only at 20.** The ceiling is measured
+and it is why the range stops there: at 26 the book's title truncates to one line
+and the chapter title clips through its descenders, and by 30 the player scrolls.
+Both are *worse* than scrolling and neither shows up in `SCROLLS`, so look at the
+PNG as well as the numbers.
+
+### `--text-scale`, and the phone that never arrived
+
+`--text-scale` multiplies every rem font size and leaves lengths alone, which is
+what Chrome-Android's text autosizer does when it applies a reader's scale. It
+moves the root to 16 on its own — passing it *and* `--root 20` counts the reader
+twice.
+
+Keep it for testing that the page survives a browser that *does* deliver a
+multiplier, because one may: the sheet no longer pins `text-size-adjust`, so
+anything Chrome sends now rides on top of whatever root Settings has chosen.
+Measured 2026-08-08: the player does not scroll at any scale to 2.0, the spacers
+giving up their slack first, and **1.5 is the last scale that still looks right**.
+
+What it is *not* is the phone somnia is read on. Verified on device, twice, with
+the pin already gone: **no multiplier arrives at all** — not to the page, and not
+to a bare unstyled paragraph either. That measurement is why the Settings control
+exists. Do not re-derive the OS route from this file without picking the phone up
+first; it has already cost two rounds.
+
 ## Two screens, not one — and the size no longer picks which
 
 The keyboard shrinks the viewport rather than covering it — the page asks for

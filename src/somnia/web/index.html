@@ -725,6 +725,42 @@
              to a screen here is the way out and nothing else. -->
         <h2 id="settings-title">Settings</h2>
 
+        <!-- How big the words are, and it is first because it is what somebody
+             comes to this screen for.
+
+             The design's Screen 7 lists two controls and this is not one of
+             them. That is not the design overruled but the design overtaken: it
+             was written believing Android's own font setting reached the page —
+             its own note says so in as many words — and it does not. Verified on
+             the phone, twice, with the pinning line already gone: nothing
+             arrives, not even to a bare paragraph with no CSS on it. So the one
+             accessibility control that matters most to a reader of 62 without
+             his glasses does not exist unless this page provides it.
+
+             It sets the root, which is the whole page and not this screen: every
+             size in the sheet is a rem measured off that root, and so is every
+             gap. Type and the space it sits in therefore grow together and the
+             player's rhythm survives — where the OS multiplier, had it ever
+             arrived, would have grown the words and left the gaps exactly where
+             they were. That is the failure the handoff's own note predicted, and
+             this control is the version of the fix that does not have it.
+
+             The same two circles and readout as the dim below, deliberately. It
+             needs no note promising you can see it work: the press changes the
+             screen the press is on, down to the words of its own note. -->
+        <p id="text-label" class="section-label">how big the words</p>
+        <div id="text-row">
+          <button id="text-down" type="button" aria-label="Smaller words">–</button>
+          <span id="text-track" aria-hidden="true">
+            <span id="text-fill"></span>
+          </span>
+          <button id="text-up" type="button" aria-label="Bigger words">+</button>
+        </div>
+        <p id="text-note" class="setting-note">
+          everything on the page, not only this screen. Whatever your phone does
+          to text sizes rides on top of it.
+        </p>
+
         <!-- How dark the page takes the room.
 
              Two circles rather than a slider, at the size of the chapter

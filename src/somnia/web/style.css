@@ -139,6 +139,27 @@ html {
      Reaching up a dark screen and getting a reload is not a mistake anyone
      should be able to make with a thumb. */
   overscroll-behavior-y: none;
+
+  /* The root every size below is measured against, and the page sets it rather
+     than hoping.
+
+     125% of the browser's default, which is 20px against the usual 16 — the
+     root the design drew every dp in this sheet at, and the one every render in
+     `render-screens` has been checked at. Until this line the shipped page had
+     no root at all and came up at 16, a fifth smaller than the drawing on every
+     screen anybody has ever looked at it on.
+
+     A percentage and not `20px`, and the difference is the whole point: a
+     percentage is still relative, so a reader who has raised their browser's
+     own default text size raises this with it, where `20px` would nail it shut.
+     That is the brief's instruction, followed literally.
+
+     It is a starting point and not a decision. `how big the words` on Settings
+     replaces this value, and any multiplier the browser applies on top — which
+     is what Android's font setting is, where it arrives at all — multiplies
+     whatever this resolves to. Three things compose here on purpose: what the
+     design drew, what the browser was told, and what the reader chose. */
+  font-size: 125%;
 }
 
 /* The scale, and why it is written in rem.
@@ -150,6 +171,27 @@ html {
    freeze the page at one night's setting: the whole reason the root is 20 and
    not 16 is that the reader turned the OS scale up, and a page in px is a page
    that stops listening the next time they turn it up again.
+
+   The 20px root used to be a fiction of the render harness and is now on `html`
+   above, which is the only reason any of the above is true on a phone. It was
+   worth finding out why the fiction had held for so long: the OS scale this
+   sheet was counting on does not arrive as a root font size. On Chrome for
+   Android it is a multiplier the text autosizer puts on computed font sizes —
+   type only, never lengths — and on the phone this page is read on, it does not
+   arrive at all. Verified on device, twice, with the pin already gone.
+
+   So the root is the page's own now, and the reader moves it from Settings.
+   That is the better mechanism for this sheet and not a consolation prize: a
+   root scales the rem LENGTHS too, so gutters, gaps, radii and the three spacer
+   floors grow with the type and the rhythm below survives the change. An
+   autosizer's multiplier would have grown the type and left the spacing where it
+   was. Where a browser does deliver one, it multiplies this root and the page
+   takes both.
+
+   The range is 100%–150% and the ceiling is measured, not chosen: at 175% the
+   book's title truncates to one line and the chapter title clips mid-glyph.
+   `render.py --root` walks it exactly, which is the one thing about the reader's
+   text size this repo can check without a phone in the room.
 
    Descending, so a size can be checked against the design without arithmetic:
    1.7 a page title · 1.45 a book · 1.35 what somnia says · 1.2 what you said ·
@@ -201,7 +243,21 @@ body {
   font: 400 1.35rem/1.45 "Newsreader", Georgia, ui-serif, serif;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
-  -webkit-text-size-adjust: 100%;
+  /* `auto`, and it is written out rather than left to the default because the
+     default is what every CSS reset overwrites on its way past. This line spent
+     the page's whole life reading `100%`, which is the same instruction with the
+     reader taken out of it: on Chrome for Android the font size chosen in
+     Android's settings arrives as a MULTIPLIER through the text-autosizing path,
+     and a percentage here replaces that multiplier with yours. `100%` means x1.0
+     — throw away whatever they asked for. For a page whose entire premise is
+     being read at 62 without glasses in the dark, that was the one accessibility
+     control that mattered, switched off by a line nobody wrote on purpose.
+
+     If you are here to add `100%` back because a lint rule or a reset asked for
+     it: no. See the comment on the scale above for what it costs and who pays
+     it. */
+  -webkit-text-size-adjust: auto;
+  text-size-adjust: auto;
 }
 
 button {
@@ -2233,8 +2289,15 @@ body.keyboard-up #candidates-note {
 
 /* Two 64dp circles and a readout between them, which is the chapter strip's
    shape one screen over — two targets with the thing they change in the middle.
-   Learning it twice is learning it once. */
-#dim-row {
+   Learning it twice is learning it once.
+
+   Which is why the text size is drawn by these same six rules rather than by six
+   more beside them. It is the same control over a different quantity — press an
+   end, watch the page answer — and a second set of numbers for it would be an
+   invitation for the two to drift apart on a screen whose whole argument is that
+   a thumb in the dark should have one shape to learn. */
+#dim-row,
+#text-row {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -2247,7 +2310,9 @@ body.keyboard-up #candidates-note {
    a symbol font might pick, and there is nothing in either shape for a font to
    get wrong. */
 #dim-down,
-#dim-up {
+#dim-up,
+#text-down,
+#text-up {
   flex: none;
   width: 3.2rem;
   height: 3.2rem;
@@ -2263,7 +2328,9 @@ body.keyboard-up #candidates-note {
 }
 
 #dim-down:active,
-#dim-up:active {
+#dim-up:active,
+#text-down:active,
+#text-up:active {
   border-color: var(--accent-line);
   background: var(--surface-active);
   color: var(--ink);
@@ -2274,7 +2341,9 @@ body.keyboard-up #candidates-note {
    book has no places. A control that looks pressable and is not is the thing
    the comments on this page argue against most often. */
 #dim-down:disabled,
-#dim-up:disabled {
+#dim-up:disabled,
+#text-down:disabled,
+#text-up:disabled {
   opacity: 0.3;
 }
 
@@ -2283,13 +2352,15 @@ body.keyboard-up #candidates-note {
    for the same reason. A 2px track is a thumb's width of nothing to grab, and a
    drag that overshot on this one would take the room to black with the only
    control that can undo it underneath the layer that just went up. */
-#dim-track {
+#dim-track,
+#text-track {
   flex: 1;
   height: 2px;
   background: var(--hairline);
 }
 
-#dim-fill {
+#dim-fill,
+#text-fill {
   display: block;
   height: 100%;
   background: var(--accent);
