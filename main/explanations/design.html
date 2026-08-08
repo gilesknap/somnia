@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design decisions &#8212; somnia 0.6.dev62+g6542c9943 documentation</title>
+    <title>Design decisions &#8212; somnia 0.6.dev69+g7eba4323d documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7a79b7d8"></script>
+    <script src="../_static/documentation_options.js?v=b2027598"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -236,7 +236,7 @@
           
           
           
-          <a href="https://pypi.org/project/somnia" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
         </li>
 </ul></div>
       
@@ -380,7 +380,7 @@
           
           
           
-          <a href="https://pypi.org/project/somnia" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
         </li>
 </ul></div>
         
@@ -882,11 +882,15 @@ at 3am takes the book with it.</p>
 <section id="deployment-shape">
 <h2>Deployment shape<a class="headerlink" href="#deployment-shape" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>One installable package, subcommands per role (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>, <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">worker</span></code>, <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span></code>, etc.). Heavy ML dependencies (torch, kokoro,
-sentence-transformers) live in the <code class="docutils literal notranslate"><span class="pre">[ml]</span></code> extra — install <code class="docutils literal notranslate"><span class="pre">somnia[ml]</span></code> on the
-rendering machine; CI and light installs skip them. On CPU-only machines
-install the CPU torch wheel
-(<code class="docutils literal notranslate"><span class="pre">--extra-index-url</span> <span class="pre">https://download.pytorch.org/whl/cpu</span></code>).</p></li>
+<li><p>One installable package, subcommands per role (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>, <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">worker</span></code>, <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span></code>, etc.). It is <code class="docutils literal notranslate"><span class="pre">somnia-reader</span></code> on PyPI — the name
+<code class="docutils literal notranslate"><span class="pre">somnia</span></code> there is an unrelated project — while the import package and the
+command stay <code class="docutils literal notranslate"><span class="pre">somnia</span></code>. Heavy ML dependencies (torch, kokoro,
+sentence-transformers) live in the <code class="docutils literal notranslate"><span class="pre">[ml]</span></code> extra — install
+<code class="docutils literal notranslate"><span class="pre">somnia-reader[ml]</span></code> on the rendering machine; CI and light installs skip
+them. On CPU-only machines install the CPU torch wheel <em>first</em>, from
+<code class="docutils literal notranslate"><span class="pre">--index-url</span> <span class="pre">https://download.pytorch.org/whl/cpu</span></code> and nothing else:
+<code class="docutils literal notranslate"><span class="pre">--extra-index-url</span></code> lets the resolver see both indexes and take the higher
+version, which is how a CPU box ends up with the CUDA build.</p></li>
 <li><p><strong>Two systemd user units</strong>, <code class="docutils literal notranslate"><span class="pre">somnia-serve</span></code> and <code class="docutils literal notranslate"><span class="pre">somnia-worker</span></code>, and deploying
 is pull main and restart both. They are separate so that restarting the one
 that serves the page cannot kill a render — which, before the worker existed,

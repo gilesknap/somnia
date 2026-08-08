@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Installation &#8212; somnia 0.6.dev62+g6542c9943 documentation</title>
+    <title>Installation &#8212; somnia 0.6.dev69+g7eba4323d documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7a79b7d8"></script>
+    <script src="../_static/documentation_options.js?v=b2027598"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -236,7 +236,7 @@
           
           
           
-          <a href="https://pypi.org/project/somnia" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
         </li>
 </ul></div>
       
@@ -380,7 +380,7 @@
           
           
           
-          <a href="https://pypi.org/project/somnia" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
         </li>
 </ul></div>
         
@@ -508,6 +508,9 @@ build of torch, writes a starter <code class="docutils literal notranslate"><spa
 except the one that has no default, and pulls the Gutenberg catalog. Run it
 twice and nothing is harmed: an existing environment is reused, and an existing
 settings file is never touched.</p>
+<p>It installs from <code class="docutils literal notranslate"><span class="pre">main</span></code> by default, not from the last release — this is the
+project’s own box-builder, and the box it builds is expected to be ahead. Pass
+<code class="docutils literal notranslate"><span class="pre">--pypi</span></code> for the released <code class="docutils literal notranslate"><span class="pre">somnia-reader</span></code> instead.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Flag</p></th>
@@ -524,10 +527,13 @@ settings file is never touched.</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ref</span> <span class="pre">REF</span></code></p></td>
 <td><p>install a branch, tag or commit rather than <code class="docutils literal notranslate"><span class="pre">main</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cuda</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--pypi</span></code></p></td>
+<td><p>install the last release from PyPI rather than a git ref</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cuda</span></code></p></td>
 <td><p>you really do have a GPU</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-catalog</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-catalog</span></code></p></td>
 <td><p>skip the ~20MB catalog download</p></td>
 </tr>
 </tbody>
@@ -544,7 +550,7 @@ environment without them is still worth having on a machine that only serves.</p
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>~/somnia-venv
 <span class="nb">source</span><span class="w"> </span>~/somnia-venv/bin/activate
 python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>--index-url<span class="w"> </span>https://download.pytorch.org/whl/cpu
-python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;somnia[ml] @ git+https://github.com/gilesknap/somnia.git&quot;</span>
+python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;somnia-reader[ml]&quot;</span>
 </pre></div>
 </div>
 <p>Install torch first, from the CPU index and nothing else. <code class="docutils literal notranslate"><span class="pre">--extra-index-url</span></code> is
@@ -552,10 +558,27 @@ not enough: pip resolves across both indexes and takes the highest version it
 finds, so on the day PyPI carries a newer torch than the CPU index does you get
 two gigabytes of CUDA runtime to render a book with. Leave <code class="docutils literal notranslate"><span class="pre">[ml]</span></code> off on any
 machine that only serves.</p>
-<p>The git URL is not a preference. <strong>somnia is not on PyPI</strong>: that name belongs to
-an unrelated project, so <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">somnia</span></code> installs a stranger’s package.
-Publishing this one as <code class="docutils literal notranslate"><span class="pre">somnia-reader</span></code> is
-<a class="reference external" href="https://github.com/gilesknap/somnia/issues/9">issue #9</a>.</p>
+<p><strong>The package is <code class="docutils literal notranslate"><span class="pre">somnia-reader</span></code>, not <code class="docutils literal notranslate"><span class="pre">somnia</span></code>.</strong> That name was taken on PyPI
+before this project existed, by an unrelated AI-agent CLI, so <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">somnia</span></code> gets you a stranger’s package that will not answer to any command on
+this site. The extra name is the only thing that changed: <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">somnia</span></code> and
+the <code class="docutils literal notranslate"><span class="pre">somnia</span></code> command are untouched.</p>
+<p>If pip answers <em>No matching distribution found for somnia-reader</em>, there is no
+release on PyPI for it to find — the first one may not have gone out yet. The
+repository has the code either way, and that is the next section.</p>
+</section>
+<section id="ahead-of-the-last-release">
+<h2>Ahead of the last release<a class="headerlink" href="#ahead-of-the-last-release" title="Link to this heading">#</a></h2>
+<p>A tagged release is a snapshot, and <code class="docutils literal notranslate"><span class="pre">main</span></code> moves. If you are chasing a fix that
+has landed but not been tagged — which the issue will normally say — install
+from the repository instead:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;somnia-reader[ml] @ git+https://github.com/gilesknap/somnia.git&quot;</span>
+</pre></div>
+</div>
+<p>or plain <code class="docutils literal notranslate"><span class="pre">bash</span> <span class="pre">somnia-install.sh</span></code>, which is already what it does. Torch still
+goes in first, from the CPU index; nothing about that changes.</p>
+<p>Into an environment that already has somnia in it, that command does nothing at
+all and says so cheerfully — see <a class="reference internal" href="../how-to/upgrade.html"><span class="std std-doc">Upgrade to a new version</span></a>
+for the uninstall that makes it stick.</p>
 </section>
 <section id="configure">
 <span id="id1"></span><h2>Configure<a class="headerlink" href="#configure" title="Link to this heading">#</a></h2>
@@ -677,6 +700,7 @@ inside <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRA
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install">Install</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#or-by-hand">Or by hand</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ahead-of-the-last-release">Ahead of the last release</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure">Configure</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prove-it-works">Prove it works</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#or-run-it-in-a-container">Or run it in a container</a></li>

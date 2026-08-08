@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Upgrade to a new version &#8212; somnia 0.6.dev62+g6542c9943 documentation</title>
+    <title>Upgrade to a new version &#8212; somnia 0.6.dev69+g7eba4323d documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7a79b7d8"></script>
+    <script src="../_static/documentation_options.js?v=b2027598"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -236,7 +236,7 @@
           
           
           
-          <a href="https://pypi.org/project/somnia" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
         </li>
 </ul></div>
       
@@ -380,7 +380,7 @@
           
           
           
-          <a href="https://pypi.org/project/somnia" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
         </li>
 </ul></div>
         
@@ -494,13 +494,15 @@
 </pre></div>
 </div>
 <p>Released versions are on the <a class="reference external" href="https://github.com/gilesknap/somnia/releases">releases
-page</a>. There is no PyPI package —
-that name belongs to another project
-(<a class="reference external" href="https://github.com/gilesknap/somnia/issues/9">#9</a>) — so upgrading means
-pointing pip at a different git ref.</p>
+page</a> and on PyPI as
+<a class="reference external" href="https://pypi.org/project/somnia-reader/">somnia-reader</a> — <code class="docutils literal notranslate"><span class="pre">somnia</span></code> there is an
+unrelated project and always was. Upgrading means either taking the newer
+release or pointing pip at a different git ref; the second is how you get a fix
+that has landed on <code class="docutils literal notranslate"><span class="pre">main</span></code> but has not been tagged yet.</p>
 <section id="with-the-installer">
 <h2>With the installer<a class="headerlink" href="#with-the-installer" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>somnia-install.sh<span class="w"> </span>--ref<span class="w"> </span><span class="m">0</span>.6
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>somnia-install.sh<span class="w"> </span>--ref<span class="w"> </span><span class="m">0</span>.6<span class="w">     </span><span class="c1"># a git tag, branch or commit</span>
+bash<span class="w"> </span>somnia-install.sh<span class="w"> </span>--pypi<span class="w">        </span><span class="c1"># the last release from PyPI</span>
 </pre></div>
 </div>
 <p>It reuses the environment it finds, replaces somnia inside it, and leaves your
@@ -510,16 +512,37 @@ settings file alone. Add <code class="docutils literal notranslate"><span class=
 <section id="by-hand">
 <h2>By hand<a class="headerlink" href="#by-hand" title="Link to this heading">#</a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>~/somnia-venv/bin/activate
-python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>uninstall<span class="w"> </span>-y<span class="w"> </span>somnia
-python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;somnia[ml] @ git+https://github.com/gilesknap/somnia.git@0.6&quot;</span>
+python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>uninstall<span class="w"> </span>-y<span class="w"> </span>somnia-reader
+python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;somnia-reader[ml] @ git+https://github.com/gilesknap/somnia.git@0.6&quot;</span>
 </pre></div>
 </div>
-<p>The uninstall is not superstition. pip treats a direct URL requirement as
-satisfied when the name and version already match, so re-running the install
-command with a new <code class="docutils literal notranslate"><span class="pre">--ref</span></code> clones the repository, decides there is nothing to
-do, and leaves you on the old version — with no error to notice. (The installer
-gets around this by force-reinstalling somnia and nothing else, which is why it
-does not disturb your two gigabytes of torch.)</p>
+<p>Uninstall by the <em>distribution</em> name, <code class="docutils literal notranslate"><span class="pre">somnia-reader</span></code> — <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">uninstall</span> <span class="pre">somnia</span></code>
+finds nothing to remove and exits happily, which looks exactly like success.</p>
+<p>The uninstall itself is not superstition either. pip treats a direct URL
+requirement as satisfied when the name and version already match, so re-running
+the install command with a new <code class="docutils literal notranslate"><span class="pre">--ref</span></code> clones the repository, decides there is
+nothing to do, and leaves you on the old version — with no error to notice. (The
+installer gets around this by force-reinstalling somnia and nothing else, which
+is why it does not disturb your two gigabytes of torch.)</p>
+<p>Upgrading to a <em>release</em> needs no uninstall, because a plain
+<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--upgrade</span> <span class="pre">&quot;somnia-reader[ml]&quot;</span></code> compares versions rather than
+shrugging at a URL.</p>
+<p><strong>The first upgrade across the rename wants both names off first</strong>: an
+environment built before it still has <code class="docutils literal notranslate"><span class="pre">somnia</span></code> in it, owning the very files the
+new one is about to write, so say <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">uninstall</span> <span class="pre">-y</span> <span class="pre">somnia</span> <span class="pre">somnia-reader</span></code>.
+Leave the old name there and the day anyone finally uninstalls it, it takes the
+working install’s files with it while pip carries on reporting somnia-reader as
+present. The installer does this for you.</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">--ref</span></code> only reaches back as far as the rename.</strong> 0.5 and everything older
+calls itself <code class="docutils literal notranslate"><span class="pre">somnia</span></code> in its own metadata, and pip will not take a direct URL
+whose name disagrees with what it builds: <em>has inconsistent name: expected
+‘somnia-reader’, but metadata has ‘somnia’</em>. It does not stop there either — it
+discards the ref you asked for and looks the name up on PyPI instead, so once
+there is a release it will hand you the newest one and call that success.
+Install an old version under the name it was published with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;somnia[ml] @ git+https://github.com/gilesknap/somnia.git@0.5&quot;</span>
+</pre></div>
+</div>
 </section>
 <section id="what-survives-it">
 <h2>What survives it<a class="headerlink" href="#what-survives-it" title="Link to this heading">#</a></h2>
