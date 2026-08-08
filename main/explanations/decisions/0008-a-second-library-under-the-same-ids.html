@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>2. Adopt python-copier-template for project structure &#8212; somnia 0.7.dev12+gfdb189d76 documentation</title>
+    <title>8. A second library, under the same ids &#8212; somnia 0.7.dev12+gfdb189d76 documentation</title>
   
   
   
@@ -47,7 +47,7 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=30646c52"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'explanations/decisions/0002-switched-to-python-copier-template';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'explanations/decisions/0008-a-second-library-under-the-same-ids';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://gilesknap.github.io/somnia/switcher.json';
@@ -59,8 +59,8 @@
     <link rel="icon" href="../../_static/dls-logo.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="3. Play the book in the page, not in Audiobookshelf" href="0003-play-the-book-in-the-page.html" />
-    <link rel="prev" title="1. Record architecture decisions" href="0001-record-architecture-decisions.html" />
+    <link rel="next" title="Design decisions" href="../design.html" />
+    <link rel="prev" title="7. Cross a chapter without letting go of the player" href="0007-cross-a-chapter-without-letting-go.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -425,13 +425,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../decisions.html">Architectural Decision Records</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="0001-record-architecture-decisions.html">1. Record architecture decisions</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">2. Adopt python-copier-template for project structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0002-switched-to-python-copier-template.html">2. Adopt python-copier-template for project structure</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0003-play-the-book-in-the-page.html">3. Play the book in the page, not in Audiobookshelf</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
-<li class="toctree-l2"><a class="reference internal" href="0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">8. A second library, under the same ids</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../design.html">Design decisions</a></li>
@@ -481,7 +481,7 @@
     
     <li class="breadcrumb-item"><a href="../decisions.html" class="nav-link">Architectural Decision Records</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">2. Adopt python-copier-template for project structure</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">8. A second library, under the same ids</span></li>
   </ul>
 </nav>
 </div>
@@ -498,34 +498,73 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="adopt-python-copier-template-for-project-structure">
-<h1>2. Adopt python-copier-template for project structure<a class="headerlink" href="#adopt-python-copier-template-for-project-structure" title="Link to this heading">#</a></h1>
+  <section id="a-second-library-under-the-same-ids">
+<h1>8. A second library, under the same ids<a class="headerlink" href="#a-second-library-under-the-same-ids" title="Link to this heading">#</a></h1>
+<p>Date: 2026-08-08</p>
 <section id="status">
 <h2>Status<a class="headerlink" href="#status" title="Link to this heading">#</a></h2>
 <p>Accepted</p>
 </section>
 <section id="context">
 <h2>Context<a class="headerlink" href="#context" title="Link to this heading">#</a></h2>
-<p>We should use the following <a class="reference external" href="https://github.com/DiamondLightSource/python-copier-template">python-copier-template</a>.
-The template will ensure consistency in developer
-environments and package management.</p>
+<p>Project Gutenberg Australia holds books Project Gutenberg does not. The two
+clear their books against different countries’ copyright law — Australia’s is
+life+70 from the author’s death, America’s is 95 years from publication — so
+the collections barely overlap. Matching all 4,384 Australian titles against
+the 77,820 in the Gutenberg dump on title and author finds around 650 in both.
+The rest is roughly four fifths of the smaller library, and it is not marginal:
+it holds every Orwell novel, <em>Tender is the Night</em>, late Woolf and Chesterton,
+and several thousand pulp titles nobody else has transcribed.</p>
+<p>somnia identifies a book by one integer. That <code class="docutils literal notranslate"><span class="pre">gid</span></code> is the primary key of
+<code class="docutils literal notranslate"><span class="pre">books</span></code>, the foreign key of <code class="docutils literal notranslate"><span class="pre">chapters</span></code> and <code class="docutils literal notranslate"><span class="pre">chunks</span></code>, the unique key of a live
+queue row, a path segment in four HTTP routes, the thing a saved position is
+saved against, and the number the page holds in a variable all night. Adding a
+second library means either that integer stops being sufficient, or it does
+not.</p>
+<p>Three things about the Australian library are not true of the other one. There
+is no CSV dump and no API — the catalog is one plain text file meant for a
+person to read. A book’s address cannot be computed from its id, the way
+Gutenberg’s always can. And it is finished: no new books since 31 December
+2024.</p>
 </section>
 <section id="decision">
 <h2>Decision<a class="headerlink" href="#decision" title="Link to this heading">#</a></h2>
-<p>We have switched to using the template.</p>
+<p><strong>One <code class="docutils literal notranslate"><span class="pre">gid</span></code> space, offset.</strong> Australian ids are <code class="docutils literal notranslate"><span class="pre">900,000,000</span></code> plus the book’s
+address — two digits of directory and seven of filename. Gutenberg is at 78,000
+after fifty years, so the ranges cannot meet. Both halves of the address go in
+because the file stem alone is not unique: <code class="docutils literal notranslate"><span class="pre">1000621</span></code> is <em>The Last Lemurian</em>
+under <code class="docutils literal notranslate"><span class="pre">ebooks11</span></code> and <em>A Mummer’s Throne</em> under <code class="docutils literal notranslate"><span class="pre">ebooks10</span></code>.</p>
+<p><strong>One <code class="docutils literal notranslate"><span class="pre">catalog</span></code> table</strong>, holding both libraries, because the question the page
+asks is “what can I listen to tonight” and that has one answer. Which library a
+result came from is read back off its id rather than stored, so there is one
+fact and not two that can drift.</p>
+<p><strong>A new <code class="docutils literal notranslate"><span class="pre">catalog_urls</span></code> table</strong> mapping gid to address, written at import. Not
+derived: sixty-nine of the four thousand break even the loose naming rule, so a
+computed URL would 404 at the front of the queue, hours after the press, and
+read as “Gutenberg does not have this book”.</p>
+<p><strong>One parser.</strong> Australia marks its books up the same way — a heading per
+chapter, a <code class="docutils literal notranslate"><span class="pre">&lt;p&gt;</span></code> per paragraph — and <code class="docutils literal notranslate"><span class="pre">parse_book_html</span></code> handled them unaltered
+the first time it was tried. Only what wraps them differs, which is one
+function that cuts on the HTML comments fencing the site banner and footer.</p>
 </section>
 <section id="consequences">
 <h2>Consequences<a class="headerlink" href="#consequences" title="Link to this heading">#</a></h2>
-<p>This module will use a fixed set of tools as developed in <code class="docutils literal notranslate"><span class="pre">python-copier-template</span></code>
-and can pull from this template to update the packaging to the latest techniques.</p>
-<p>As such, the developer environment may have changed, the following could be
-different:</p>
-<ul class="simple">
-<li><p>linting</p></li>
-<li><p>formatting</p></li>
-<li><p>pip venv setup</p></li>
-<li><p>CI/CD</p></li>
-</ul>
+<p>Nothing downstream of the catalog learns that there are two libraries. The
+queue, the player, the audio routes, the semantic index and every saved
+position keep the column they already have, and no migration touches them.</p>
+<p><code class="docutils literal notranslate"><span class="pre">catalog_urls</span></code> is a new table, so <code class="docutils literal notranslate"><span class="pre">CREATE</span> <span class="pre">TABLE</span> <span class="pre">IF</span> <span class="pre">NOT</span> <span class="pre">EXISTS</span></code> really does reach
+an existing database. A missing row means Gutenberg proper, which is exactly
+what every database that predates this table already meant, so there is nothing
+to backfill and no window in which search returns nothing.</p>
+<p>The catalog is rebuilt from both lists at once. A library that is unreachable
+costs the whole update rather than half of one, and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code>
+now makes two requests instead of one.</p>
+<p>Nine-digit ids appear in the CLI, in URLs and in the page. They are ugly and
+they are load-bearing: the id says which library the book is from.</p>
+<p><strong>somnia does not check whether an Australian book is public domain where the
+listener is, and cannot</strong> — the index carries no author death dates. The
+library is cleared for Australia only and says so itself. That check is the
+reader’s.</p>
 </section>
 </section>
 
@@ -540,20 +579,20 @@ different:</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="0001-record-architecture-decisions.html"
+       href="0007-cross-a-chapter-without-letting-go.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">1. Record architecture decisions</p>
+        <p class="prev-next-title">7. Cross a chapter without letting go of the player</p>
       </div>
     </a>
     <a class="right-next"
-       href="0003-play-the-book-in-the-page.html"
+       href="../design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">3. Play the book in the page, not in Audiobookshelf</p>
+        <p class="prev-next-title">Design decisions</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -587,7 +626,7 @@ different:</p>
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/gilesknap/somnia/edit/main/docs/explanations/decisions/0002-switched-to-python-copier-template.md">
+    <a href="https://github.com/gilesknap/somnia/edit/main/docs/explanations/decisions/0008-a-second-library-under-the-same-ids.md">
       <i class="fa-solid fa-pencil"></i>
       
       
@@ -602,7 +641,7 @@ different:</p>
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../_sources/explanations/decisions/0002-switched-to-python-copier-template.md.txt">
+    <a href="../../_sources/explanations/decisions/0008-a-second-library-under-the-same-ids.md.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
