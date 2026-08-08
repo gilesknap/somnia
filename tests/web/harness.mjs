@@ -387,6 +387,12 @@ export function listed(book) {
   };
 }
 
+// Every book somnia has, and what a page booted without a `library` of its own
+// is given. Exported so that a test counting rows can say the rule it is really
+// testing — every book but the one playing — instead of a number that the next
+// fixture added above would quietly falsify.
+export const EVERY_BOOK = [...MANIFESTS.values()];
+
 // The eight the page registers. A browser throws for an action it has never
 // heard of, which is the whole reason registration is wrapped in a try, so the
 // fake throws too.
@@ -1054,7 +1060,7 @@ export async function boot(t, options = {}) {
         if (gone.books) throw new Error("no route to host");
         return json({
           last_gid: lastGid,
-          books: library ?? [...MANIFESTS.values()].map(listed),
+          books: library ?? EVERY_BOOK.map(listed),
         });
       }
       // Making a book the one a cold launch opens, which is the whole of

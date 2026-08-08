@@ -35,6 +35,7 @@ import { test } from "node:test";
 
 import {
   boot,
+  EVERY_BOOK,
   GROWING_BOOK,
   HALF_HEARD,
   listed,
@@ -672,8 +673,9 @@ test("the book playing underneath is not on the shelf as well", async (t) => {
     shelf(page).some((row) => row.name.startsWith("Half Heard")),
     false,
   );
-  // Every other book somnia has is there, though.
-  assert.equal(shelf(page).length, 9);
+  // Every other book somnia has is there, though — counted from the library
+  // the page was booted with, so a fixture added to it moves this with it.
+  assert.equal(shelf(page).length, EVERY_BOOK.length - 1);
 });
 
 test("a shelf row is opened where it was left, and takes the panel with it", async (t) => {
