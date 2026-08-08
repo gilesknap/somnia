@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.6.dev102+gc865d4124 documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.6.dev109+gcf1f805c9 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=eb179ee1"></script>
+    <script src="../_static/documentation_options.js?v=dad101ec"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -676,14 +676,22 @@ the one you last pressed on the shelf — at the place you left it, or at its
 beginning if you have not started it, and does not start it: opening the app at
 2am to ask a question is not the same as asking for the book. Press play when
 you want it.</p>
-<p>To read something else, open <em>library</em> and press the book on the shelf — or ask,
+<p>To read something else, open <em>books</em> and press the book on the shelf — or ask,
 which still works and is still the shortest way to say it. There is still no
-library of things you do not have to browse: the search at the foot of that
-panel is for <em>adding</em> a book, and it goes to Gutenberg’s catalog rather than to
-your shelf.</p>
+library of things you do not have to browse: <em>Workshop</em>, behind the quiet row at
+the foot of <em>Books</em>, is where a book is <em>added</em>, and its search goes to
+Gutenberg’s catalog rather than to your shelf.</p>
+<p>Those two are one screen each on purpose. <strong>Books</strong> is the night screen — which
+book, and how dark — and it is set at the same type size as the player, because
+it is read in the same dark without glasses. <strong>Workshop</strong> is the daytime one —
+find a book, have it read, watch it being made, and set how far a skip goes —
+and it is smaller and denser than anything else in the app, because it is read
+sitting up with the lights on.</p>
 <p>On the page there are three buttons: back thirty seconds, play/pause, forward
-thirty seconds. Most nights you will use none of them, because the screen is
-off. With the phone locked the book is driven from the notification, the lock
+thirty seconds — or fifteen, or sixty, if you have said so in <em>Workshop</em> under
+<em>skip button size</em>; the labels say which. Most nights you will use none of them,
+because the screen is off. With the phone locked the book is driven from the
+notification, the lock
 screen and whatever is paired over Bluetooth: play, pause, back and forward,
 previous and next chapter, and a scrubber. The scrubber covers the chapter, not
 the book — three minutes to the pixel across a whole novel is no use for the
@@ -716,7 +724,8 @@ on when chapter four arrives. A book with nothing rendered at all says <em>the
 first chapter is still being read</em>, and the player appears when that chapter
 lands — already playing if the agent took you to that book, waiting to be
 pressed if you only opened the app. A book whose render is not running and has
-no audio at all says <em>nothing yet — press library to add one</em>, which is also
+no audio at all says <em>nothing yet — press books, then Workshop, to add one</em>,
+which is also
 what a somnia with no books in it says.</p>
 <p>When a render stopped part way — you stopped it, or a reboot did — the audio
 runs out mid-book, and the page says <em>the rest of this book hasn’t been read
@@ -724,7 +733,7 @@ yet</em> rather than <em>that is the end of the book</em>. It knows the differen
 the parse writes down how many chapters the book has, so a book three chapters
 into thirty-nine is tellable from one that is over. Nothing ends: the sleep
 timer keeps counting and the page keeps wanting the sound. Queue the book
-again — from <em>library</em>, or by asking — and it picks up at the chapter after the
+again — from <em>Workshop</em>, or by asking — and it picks up at the chapter after the
 last finished one.</p>
 <p>When the tailnet goes — wifi power save and a tailscale re-key both do it for a
 few seconds — the page says <em>the book stopped arriving</em> and keeps trying,
@@ -735,32 +744,71 @@ It stops the moment you pause — nothing reloads chapters under a book somebody
 has put down — and waking the phone, or the wifi coming back, makes it try
 again at once, so there is nothing to press.</p>
 </section>
-<section id="choosing-and-adding-books-from-the-page">
-<h2>Choosing and adding books from the page<a class="headerlink" href="#choosing-and-adding-books-from-the-page" title="Link to this heading">#</a></h2>
-<p><em>library</em>, in the top left corner, opens a panel over the page. The book keeps
+<section id="choosing-a-book-books">
+<h2>Choosing a book: <em>Books</em><a class="headerlink" href="#choosing-a-book-books" title="Link to this heading">#</a></h2>
+<p><em>books</em>, in the top left corner, opens a panel over the page. The book keeps
 playing underneath it, and <em>‹ controls</em> puts it away having changed nothing at
-all. Two presses on it do change something, and both are presses on a book:
-<em>pick it up</em>, which starts the book already open, and a book on the shelf, which
-opens that one.</p>
+all. What does change something is tapping a book — the one at the top, which
+starts the book already open, or one on the shelf, which opens that one. No book
+on this screen carries a button of its own: opening one is the same gesture
+wherever it is in the list.</p>
+<p>It is a night screen, and everything on it is set at the player’s own type size
+for that reason: it is read in the same dark, at the same arm’s length, by
+somebody who has taken their glasses off. It asks one question — <em>what shall I
+listen to</em> — and nothing that is not part of that answer is on it. It asks the
+server for one thing, once, when it opens: which books there are. It schedules
+no wake and polls nothing, so a night spent looking at it is a night with no
+radio traffic in it.</p>
 <p>At the top, under <em>reading now</em>, is the book that is playing underneath the
-panel — <em>The Moonstone — Collins, Wilkie, 1824-1889</em>, and under it <em>chapter 4
-of 37 · 1h12m in</em> over a hairline showing how far through it you are. <em>in</em>, and
-not <em>listened</em>: nothing anywhere records how long you have listened for, so the
-number is how far into the book the mark is. The hairline is not drawn at all
-while the book is still being rendered, because until the render is over the
-book’s length is only how much of it exists so far. <em>pick it up at 1:12:08</em>
-starts it and puts the panel away — the same press as the play button, made
-from up here. When it is already playing that button reads <em>back to it ·
-playing</em> and does nothing but take you back to the controls.</p>
+panel — <em>The Moonstone</em> in amber, the only amber title in the app, and under it
+<em>chapter 4 of 37 · picks up at 1:12:08</em> over a hairline showing how far through
+it you are. The time is where a tap would land you; while the book is actually
+sounding the heading reads <em>playing now</em> and the line ends <em>· playing</em>, because
+then there is nothing to start. The hairline is not drawn at all while the book
+is still being rendered, because until the render is over the book’s length is
+only how much of it exists so far. Tapping the block starts it and puts the
+panel away — the same press as the play button, made from up here.</p>
 <p>Under it, <em>on the shelf</em> is every other book somnia has, each with where you
-left it — <em>0:27:42 in</em>, or <em>not started</em> — and <em>pick it up</em>, which opens that
-book at that place and takes the panel away with it. Changing your mind costs
-one press back: nothing is written to the book you left, so it is still exactly
-where it was, and so is the one you looked at. A book still being rendered says
-so and offers no press until its first chapter exists, because until then there
-is nothing to play. A book whose render stopped part way says <em>part rendered</em>
-and can still be opened — what was read plays.</p>
-<p>Under that is what is happening, in a box headed <em>the server is working</em>: the book being rendered, with <em>narrating</em> in the corner of its line
+left it — <em>0:27:42 in</em>, or <em>not started</em>. Tapping a row opens that book at that
+place and takes the panel away with it. Changing your mind costs one press back:
+nothing is written to the book you left, so it is still exactly where it was,
+and so is the one you looked at. A book still being rendered says so and is not
+a press at all until its first chapter exists, because until then there is
+nothing to play. A book whose render stopped part way says <em>part rendered</em> and
+can still be opened — what was read plays. If the box cannot be reached, the
+shelf you last saw stays on screen with <em>couldn’t reach somnia</em> under it: an
+empty shelf and an unreachable server look identical and mean opposite things.</p>
+<p>The rows say the title and nothing else — no author, no dates, no cover. At this
+size the catalogue’s <em>Title — Surname, Forename, dates</em> is three lines of a
+phone, and it is metadata about a book you already own and chose. The title is
+what you recognise a book you own by. Who wrote it appears in <em>Workshop</em>, where
+you are choosing among seventy thousand you do not.</p>
+<p>Under the shelf is <em>how dark</em>, which is the one setting that lives on a screen
+rather than in a list, and it lives here because the layer it moves is over this
+screen too: press <em>–</em> or <em>+</em> and the page you are looking at gets lighter or
+darker as you watch. It goes from nothing to rather dark in ten presses, and it
+cannot go dark enough to hide itself.</p>
+<p>Last, above a hairline and deliberately quiet, is the row to <em>Workshop</em>. Nothing
+behind it is a job for 2am.</p>
+</section>
+<section id="adding-a-book-and-watching-it-made-workshop">
+<h2>Adding a book, and watching it made: <em>Workshop</em><a class="headerlink" href="#adding-a-book-and-watching-it-made-workshop" title="Link to this heading">#</a></h2>
+<p><em>Workshop — add books, settings</em>, at the foot of <em>Books</em>, and reachable no other
+way. <em>‹ books</em> comes back, and <em>Books</em> is exactly where you left it.</p>
+<p>This is the daytime screen and it is denser than anything else in the app,
+because it is read sitting up with the lights on — denser, and brighter. It is
+drawn in its own ink rather than the night palette: fuller cream, stronger
+hairlines, a lifted amber, and the sheet of black the rest of the app is read
+through comes off entirely while it is up. Every alpha in the night scale was
+chosen for a dark room, and in daylight those same values are not quiet, they
+are gone. Nothing on it goes below 16dp. It asks one question too: <em>get me a new
+book, and tell me it worked</em>. The order down it is that sentence.</p>
+<p>At the top, under <em>project gutenberg</em>, is the search. Under the results is what
+is happening, in a box headed <em>the server is working</em> — on the same screen and
+directly beneath them on purpose, because somebody who has just pressed <em>add
+this book</em> wants to see it being made, and splitting the press from its
+consequence is how the same book gets added twice. The box holds the book being
+rendered, with <em>narrating</em> in the corner of its line
 and, under the name, which chapter it is on and how much of it can be played
 now — <em>chapter 4 of 39 · 1h12m read so far</em> — over a hairline that fills as the
 chapters land. Under it is whatever is waiting, marked <em>queued</em>, saying how far
@@ -779,9 +827,10 @@ box did, or nobody ever started <code class="docutils literal notranslate"><span
 <p>Under those are the renders that ended in the last day, and a failed one says
 why in a sentence — <em>Gutenberg has book 4321 but no HTML edition, so somnia
 cannot read it</em>. They go away by themselves after a day. There is nothing to
-dismiss and no badge or count anywhere on the panel: a book finishing at 3am is
-not news to somebody asleep.</p>
-<p>To add one, type part of a title or an author and press <em>find</em>. That searches
+dismiss and no badge or count anywhere: a book finishing at 3am is
+not news to somebody asleep, and it is on a screen nobody opens at 3am.</p>
+<p>Searching is the top of this screen, and it is what you came here for: type part
+of a title or an author and press <em>find</em>. That searches
 the copy of the Gutenberg catalog on this machine, so it answers in the time a
 tap takes and works with the internet down — run <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code> if a
 book you know exists is not in it. A book somnia already has, or already has
@@ -794,9 +843,20 @@ stops at the end of the sentence it is reading, about twenty seconds later,
 which is what keeps every chapter that was finished playable and stops the
 index filling up with half a chapter. The row stays as the record of a render
 somebody stopped.</p>
-<p>The panel asks the server how things are going every five seconds while it is
+<p>At the foot is <em>skip button size</em> — fifteen, thirty or sixty seconds — which is
+what the two buttons either side of play on the player mean, and what they say.
+Set once, probably never again, which is exactly why it is here and not on a
+screen read at night.</p>
+<p><em>Workshop</em> asks the server how things are going every five seconds while it is
 open, and stops the moment it is closed or the phone goes in a pocket. Nothing
-about the queue is polled otherwise.</p>
+about the queue is polled otherwise — and since this is the only screen the
+queue is on, and it is two presses from the player behind a row that says
+<em>daytime</em>, no night has a five-second wake in it.</p>
+<p>There is no settings screen and there is not going to be one. The two things
+that wanted one are <em>how dark</em>, which is a night control and lives on <em>Books</em>
+where it can be judged against the dark page it is changing, and <em>skip button
+size</em>, which is configuration and lives here. Two controls that share nothing
+but being adjustable are not a screen.</p>
 </section>
 <section id="check-screen-off-playback-before-you-trust-a-night-to-it">
 <h2>Check screen-off playback before you trust a night to it<a class="headerlink" href="#check-screen-off-playback-before-you-trust-a-night-to-it" title="Link to this heading">#</a></h2>
@@ -886,7 +946,8 @@ diagnostic nobody runs, and this is the one question the whole pivot rests on.</
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#keep-it-running">Keep it running</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asking-it-things">Asking it things</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#playing-the-book">Playing the book</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-and-adding-books-from-the-page">Choosing and adding books from the page</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-book-books">Choosing a book: <em>Books</em></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-a-book-and-watching-it-made-workshop">Adding a book, and watching it made: <em>Workshop</em></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#check-screen-off-playback-before-you-trust-a-night-to-it">Check screen-off playback before you trust a night to it</a></li>
 </ul>
   </nav></div>

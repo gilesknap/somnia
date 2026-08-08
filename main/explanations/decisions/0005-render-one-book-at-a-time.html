@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>5. Render one book at a time, in its own unit, and let the page watch &#8212; somnia 0.6.dev102+gc865d4124 documentation</title>
+    <title>5. Render one book at a time, in its own unit, and let the page watch &#8212; somnia 0.6.dev109+gcf1f805c9 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=eb179ee1"></script>
+    <script src="../../_static/documentation_options.js?v=dad101ec"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -500,13 +500,17 @@
 <h1>5. Render one book at a time, in its own unit, and let the page watch<a class="headerlink" href="#render-one-book-at-a-time-in-its-own-unit-and-let-the-page-watch" title="Link to this heading">#</a></h1>
 <section id="status">
 <h2>Status<a class="headerlink" href="#status" title="Link to this heading">#</a></h2>
-<p>Accepted. One sentence below is out of date: this panel <em>does</em> open books now —
-<code class="docutils literal notranslate"><span class="pre">on</span> <span class="pre">the</span> <span class="pre">shelf</span></code>, added 2026-08-07 — and the paragraph headed <strong>The page watches,
-and adds, and never opens</strong> is annotated where that matters. Nothing about the
-queue, the worker unit, the lease or the heartbeat is affected: what was added
-is a list of books somnia has already rendered and one write of <code class="docutils literal notranslate"><span class="pre">position_at</span></code>.
-The argument for the reversal is in
-<a class="reference internal" href="0003-play-the-book-in-the-page.html"><span class="std std-doc">ADR 3</span></a>’s amendment.</p>
+<p>Accepted. Two things below are out of date and both are about the screen rather
+than the mechanism. This panel <em>does</em> open books now — <code class="docutils literal notranslate"><span class="pre">on</span> <span class="pre">the</span> <span class="pre">shelf</span></code>, added
+2026-08-07 — and it is no longer one panel: it was cut in two on 2026-08-08,
+<code class="docutils literal notranslate"><span class="pre">Books</span></code> at night and <code class="docutils literal notranslate"><span class="pre">Workshop</span></code> in daylight, with the catalog search, the queue
+and the ended rows all on the daytime half. The paragraph headed <strong>The page
+watches, and adds, and never opens</strong> is annotated where both matter.</p>
+<p>Nothing about the queue itself, the worker unit, the lease or the heartbeat is
+affected by either. What was added in the first was a list of books somnia has
+already rendered and one write of <code class="docutils literal notranslate"><span class="pre">position_at</span></code>; the second moved elements
+between two overlays and moved the poll with them. The argument for the first
+reversal is in <a class="reference internal" href="0003-play-the-book-in-the-page.html"><span class="std std-doc">ADR 3</span></a>’s amendment.</p>
 </section>
 <section id="context">
 <h2>Context<a class="headerlink" href="#context" title="Link to this heading">#</a></h2>
@@ -622,9 +626,19 @@ literally true: a catalog search for <em>adding</em> is not a library browser.
 somnia already has, and ADR 3’s clause was withdrawn to allow it. What that
 amendment kept is the distinction this paragraph turns on — the catalog search
 is still <em>adding</em>, and still a different act from picking up a book you have.)
+(<strong>Amended 2026-08-08</strong>: that distinction is two screens now. The panel had
+grown to eight blocks and could not be read in the dark, and what fixed it was
+cutting on <em>when</em> each block is used: <code class="docutils literal notranslate"><span class="pre">Books</span></code> is the night half — the book
+playing, the shelf, how dark — at the player’s own type size, and <code class="docutils literal notranslate"><span class="pre">Workshop</span></code> is
+the daytime half — the catalog search, the queue, the ended rows, the server
+note, and how far a skip goes — smaller and denser than anything else in the
+app, behind a quiet row at the foot of <code class="docutils literal notranslate"><span class="pre">Books</span></code>. The poll went with the queue, so
+the five-second wake is now on a screen two presses from the player that nobody
+opens at 3am. The header pill says <code class="docutils literal notranslate"><span class="pre">books</span></code> and the panel says <code class="docutils literal notranslate"><span class="pre">Books</span></code> back.)
 The way out is a <code class="docutils literal notranslate"><span class="pre">‹</span> <span class="pre">controls</span></code> pill in the top left — the same corner and word as
-the way out of <code class="docutils literal notranslate"><span class="pre">#candidates</span></code>, and the same shape as the <code class="docutils literal notranslate"><span class="pre">library</span></code> pill that
-opened this — and it is inert in the full sense
+the way out of <code class="docutils literal notranslate"><span class="pre">#candidates</span></code>, and the same shape as the <code class="docutils literal notranslate"><span class="pre">books</span></code> pill that opened
+this; <code class="docutils literal notranslate"><span class="pre">Workshop</span></code>’s says <code class="docutils literal notranslate"><span class="pre">‹</span> <span class="pre">books</span></code>, because that is where it goes — and it is
+inert in the full sense
 <a class="reference internal" href="0004-choose-a-place-from-a-list.html"><span class="std std-doc">ADR 4</span></a> gave that word; the destructive
 control is <code class="docutils literal notranslate"><span class="pre">stop</span> <span class="pre">reading</span> <span class="pre">this</span></code>, two presses, quiet and dashed and nowhere near
 the transport.</p>
