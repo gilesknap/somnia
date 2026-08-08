@@ -634,6 +634,11 @@ class FakeElement {
     this.textContent = "";
     this.hidden = false;
     this.attributes = {};
+    // data-* attributes, which the voice picker uses to carry which voice a
+    // pill is for. A plain object is the whole of what the page asks of it:
+    // it writes names and reads them back, and never touches the attribute
+    // spelling a real DOM would derive from them.
+    this.dataset = {};
     this.style = {};
     this.children = [];
     this.parent = null;
@@ -1184,8 +1189,21 @@ export async function boot(t, options = {}) {
   // play, and the one refusal a press on the shelf can meet.
   const opens = [];
   let openRefused = false;
+  // Every time the page asked for the roster, and every sample it played. The
+  // second one is the whole of what the picker does that a class on a pill
+  // cannot show: a voice is chosen by hearing it.
+  const voiceAsks = [];
+  const samples = [];
   let queueItems = [];
   let catalogFound = [];
+  // The roster the picker draws, as /api/voices answers it. Two of the six the
+  // server really ships, which is enough for every question a test has — which
+  // one is chosen, that the choice is remembered, that it reaches the submit —
+  // and short enough to read in an assertion.
+  let voiceRoster = [
+    { id: "af_heart", name: "heart", says: "American, warm and unhurried" },
+    { id: "bm_george", name: "george", says: "British, a man, low" },
+  ];
   let submitAnswer = { ok: true, id: 1, said: "It is next to be rendered." };
   let stopAnswer = { ok: true, state: "cancelled", said: "Taken out." };
   // Which of the six the tailnet is eating at the moment. Held apart rather
@@ -1198,6 +1216,7 @@ export async function boot(t, options = {}) {
     submit: false,
     stop: false,
     catalog: false,
+    voices: false,
     open: false,
     books: false,
     passage: false,
@@ -1258,6 +1277,27 @@ export async function boot(t, options = {}) {
     crypto: { randomUUID: () => `test-token-${++minted}` },
     Blob: FakeBlob,
     MediaMetadata: FakeMediaMetadata,
+    // A voice sample, which is the one sound this page makes that is not the
+    // book. Deliberately not a FakeAudio: it has none of the book's machinery
+    // on it — no chapters, no reports, no media session — and a stand-in that
+    // had would invite a test to assert the picker does something to the night
+    // that it must not.
+    Audio: class {
+      constructor() {
+        this.src = "";
+        this.paused = true;
+      }
+
+      play() {
+        this.paused = false;
+        samples.push(this.src);
+        return Promise.resolve();
+      }
+
+      pause() {
+        this.paused = true;
+      }
+    },
     URLSearchParams,
     // The address the app was opened at. Only the query is ever read, and only
     // once, at load: `?chapters` is how the same phone can be made to play the
@@ -1349,6 +1389,14 @@ export async function boot(t, options = {}) {
         if (gone.catalog) throw new Error("no route to host");
         searches.push(url);
         return json({ query: url, entries: catalogFound });
+      }
+      // The voices a book may be asked for in. Counted, because the page is
+      // supposed to ask for this once and keep it: it changes when somnia is
+      // deployed and not while somebody is looking at a list of books.
+      if (url === "api/voices") {
+        if (gone.voices) throw new Error("no route to host");
+        voiceAsks.push(url);
+        return json({ voices: voiceRoster });
       }
       if (url.startsWith("api/sentence/")) {
         sentenceAsks.push(url);
@@ -1478,6 +1526,12 @@ export async function boot(t, options = {}) {
     catalogEntries: (entries) => {
       catalogFound = entries;
     },
+    // The roster the server would serve, and what the picker has since played.
+    voices: (roster) => {
+      voiceRoster = roster;
+    },
+    voiceAsks,
+    samples,
     submitReply: (body) => {
       submitAnswer = body;
     },
