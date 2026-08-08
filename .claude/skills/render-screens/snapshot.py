@@ -241,7 +241,7 @@ PANELS = {
         ],
     },
     # Settings, the third night screen, and the one overlay with no list on it
-    # at all: two controls and the sentences under them. It is raised over the
+    # at all: three controls and the sentences under them. It is raised over the
     # player rather than over Books — the pill that opens it is in the player's
     # own top-right corner — so nothing under it is unhidden here.
     #
@@ -251,8 +251,10 @@ PANELS = {
     "settings": {
         "unhide": ["settings"],
         # A fifth of the way up the range, so the track is neither empty nor
-        # full and can be seen to be a readout.
-        "styles": {"dim-fill": {"width": "20%"}},
+        # full and can be seen to be a readout. The words' own size sits at its
+        # middle step, which is where the page ships and is the only value that
+        # shows the track has both directions to go in.
+        "styles": {"dim-fill": {"width": "20%"}, "text-fill": {"width": "50%"}},
         # 30 is the shipped default, and the render has to show which of the
         # three is lit or the control photographs as three identical pills.
         "chosen": "jump-30",

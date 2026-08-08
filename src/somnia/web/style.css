@@ -154,6 +154,13 @@
   --failed: #c08a80; /* what is said when a person is needed */
   --failed-line: #6b3f3a; /* and an edge drawn under it */
 
+  /* How big the reader wants the words, as a multiplier on the root below. 1 is
+     the design, and it is the only value written down anywhere: `how big the
+     words` on Settings sets this one property inline and the arithmetic stays
+     in the one declaration that owns it. A page that has never been asked reads
+     at exactly the size it was drawn. */
+  --text-size: 1;
+
   color-scheme: dark;
 }
 
@@ -169,6 +176,39 @@ html {
      Reaching up a dark screen and getting a reload is not a mistake anyone
      should be able to make with a thumb. */
   overscroll-behavior-y: none;
+
+  /* The root every size below is measured against, and it is a fraction of the
+     screen rather than a number of pixels.
+
+     The design's metric is 360 CSS px across at a 20px root — which is to say
+     the page is **18 rem wide**, and that ratio is the whole of it. Divide the
+     screen by 18 and every dp in this sheet lands where it was drawn, on any
+     phone, at any display size, at any browser zoom. Nothing has to be told
+     what device it is on.
+
+     Until this line there was no root here at all and the page took the
+     browser's 16px, so how close it came to the design was an accident of how
+     the reader had tuned their phone. Measured on the reader's own: display
+     size one notch up and page zoom at 133% gave a 309px viewport — 19.4rem
+     across where the design wants 18, which is the "a little smaller than the
+     renders" that kept coming back. Somebody opening it having tuned nothing
+     would have got about 25.7rem, which is the same page a quarter of the size
+     it was drawn, on an app whose premise is being read without glasses.
+
+     `min(100vw, 460px)` and not `100vw`, so a desktop window stops the type
+     growing with it. 460 is about as wide as a phone gets; past that the page
+     is not being read the way it was designed to be and holding the size is
+     kinder than honouring the ratio.
+
+     What this costs, and it is a real cost: display size and browser zoom no
+     longer change somnia's apparent size. They still move everything else on
+     the phone. The size control this page owes them is `how big the words` on
+     Settings, which is `--text-size` below, and it is better placed than either
+     — one press from the player instead of several screens into Chrome's
+     settings, and it scales the rem LENGTHS too, so the gaps grow with the
+     words and the rhythm survives. A page that took zoom away and gave nothing
+     back would be the accessibility failure this is meant to fix. */
+  font-size: calc(var(--text-size) * min(100vw, 460px) / 18);
 }
 
 /* The scale, and why it is written in rem.
@@ -180,6 +220,21 @@ html {
    freeze the page at one night's setting: the whole reason the root is 20 and
    not 16 is that the reader turned the OS scale up, and a page in px is a page
    that stops listening the next time they turn it up again.
+
+   That paragraph was written believing the OS scale reached the page. It does
+   not: Android's font size never arrives, and what does arrive — display size,
+   and Chrome's own page zoom — changes how many CSS px the screen is rather
+   than how big a rem is. So the root above is the page's own, taken as a
+   fraction of the screen, and `--text-size` is what the reader moves. Every
+   number below is still a dp divided by 20, and dividing the screen by 18 is
+   what makes that true again.
+
+   The multiplier's range is 0.8–1.2 and the ceiling is measured, not chosen:
+   1.2 puts the page at 15rem across, which is the last width the player holds.
+   At 13.8rem — a step further — the book's title truncates to one line and the
+   chapter title clips through its own descenders, and neither shows up as a
+   scroll. `render.py --width` walks it: 18rem is `--width 360 --root 20`, and
+   the ceiling is the same 360 at root 24.
 
    Descending, so a size can be checked against the design without arithmetic:
    1.7 a page title · 1.45 a book · 1.35 what somnia says · 1.2 what you said ·
@@ -2292,8 +2347,15 @@ body.keyboard-up #candidates-note {
 
 /* Two 64dp circles and a readout between them, which is the chapter strip's
    shape one screen over — two targets with the thing they change in the middle.
-   Learning it twice is learning it once. */
-#dim-row {
+   Learning it twice is learning it once.
+
+   Which is why the text size is drawn by these same six rules rather than by six
+   more beside them. It is the same control over a different quantity — press an
+   end, watch the page answer — and a second set of numbers for it would be an
+   invitation for the two to drift apart on a screen whose whole argument is that
+   a thumb in the dark should have one shape to learn. */
+#dim-row,
+#text-row {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -2306,7 +2368,9 @@ body.keyboard-up #candidates-note {
    a symbol font might pick, and there is nothing in either shape for a font to
    get wrong. */
 #dim-down,
-#dim-up {
+#dim-up,
+#text-down,
+#text-up {
   flex: none;
   width: 3.2rem;
   height: 3.2rem;
@@ -2322,7 +2386,9 @@ body.keyboard-up #candidates-note {
 }
 
 #dim-down:active,
-#dim-up:active {
+#dim-up:active,
+#text-down:active,
+#text-up:active {
   border-color: var(--accent-line);
   background: var(--surface-active);
   color: var(--ink);
@@ -2333,7 +2399,9 @@ body.keyboard-up #candidates-note {
    book has no places. A control that looks pressable and is not is the thing
    the comments on this page argue against most often. */
 #dim-down:disabled,
-#dim-up:disabled {
+#dim-up:disabled,
+#text-down:disabled,
+#text-up:disabled {
   opacity: 0.3;
 }
 
@@ -2342,13 +2410,15 @@ body.keyboard-up #candidates-note {
    for the same reason. A 2px track is a thumb's width of nothing to grab, and a
    drag that overshot on this one would take the room to black with the only
    control that can undo it underneath the layer that just went up. */
-#dim-track {
+#dim-track,
+#text-track {
   flex: 1;
   height: 2px;
   background: var(--hairline);
 }
 
-#dim-fill {
+#dim-fill,
+#text-fill {
   display: block;
   height: 100%;
   background: var(--accent);
