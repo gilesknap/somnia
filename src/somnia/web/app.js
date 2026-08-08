@@ -416,7 +416,20 @@ async function ask(text) {
     // moved under a listener who has not chosen yet — and a move that really
     // happened comes back as the refusal of the next report anyway.
     if (body.candidates?.places?.length) showCandidates(body.candidates);
-    else follow(body.move);
+    else if (body.move) {
+      // The turn knew where they meant, so there is no list to raise, no close
+      // to press and nothing that incidentally gives the keyboard back. This is
+      // the whole of the way back to the book for a search that found one place,
+      // by voice or by keyboard alike.
+      //
+      // On `body.move` and not on whether follow() did anything: the move may
+      // already have been applied by the other route — the refusal of the next
+      // report, which can beat the answer here — and the book is at the place
+      // they asked for either way. What decides the screen is that the answer to
+      // their question was a book that moved.
+      follow(body.move);
+      backToTheBook();
+    }
   } catch (error) {
     pending.className = "said failed";
     pending.textContent = "Couldn't reach somnia. Still here?";
@@ -2485,6 +2498,16 @@ async function chooseCandidate(place) {
   // First, so that nothing between here and the seek can leave a list of places
   // over a book that has already gone to one of them.
   closeCandidates();
+  // And the screen this list was raised over, which is the conversation whenever
+  // the question that raised it was asked out loud — the microphone takes no
+  // focus, so nothing about it ever put the page back on the player. `goto` is
+  // the one press on this list that moves the book, so it is the one press that
+  // owes them the sight of it: without this the seek lands behind a transcript,
+  // and the only evidence a nine-hour book went anywhere is a toast.
+  //
+  // Before the seek rather than after, so that the same press cannot be two
+  // frames — the book moving on one and the screen catching up on the next.
+  backToTheBook();
   if (list.gid === gid && manifest) {
     if (place.start_ms > manifest.total_ms) {
       // The manifest is older than the render: this book grew while the page
@@ -4165,6 +4188,21 @@ function stoppedAsking() {
   hadKeyboard = false;
 }
 
+// The way back to the player, as one thing with a name. Three lines, in this
+// order, and every route off the chat screen goes through them: forget that they
+// asked, give the keyboard back, and say so.
+//
+// It is a function because the routes are no longer only presses. `‹ controls`
+// and the thread are somebody leaving; the two below are the book moving, which
+// is the same arrival at the player and must not be a second, slightly different
+// copy of these lines — a way back that forgot one of them is a page that goes
+// to the book and comes back to the conversation on the next resize.
+function backToTheBook() {
+  stoppedAsking();
+  question.blur?.();
+  stoppedTyping();
+}
+
 for (const field of typingFields) {
   field.addEventListener("focus", () => {
     // A focus nobody asked for is not a request for anything, which is the same
@@ -4239,11 +4277,7 @@ function stoppedTyping() {
 // here rather than left to the blur: the screen is a remembered press now, and a
 // way out that only gave the keyboard back would hand it straight to a page that
 // still believed it was wanted.
-toControls.addEventListener("click", () => {
-  stoppedAsking();
-  question.blur?.();
-  stoppedTyping();
-});
+toControls.addEventListener("click", backToTheBook);
 
 // The same way out, made out of the biggest thing on the screen.
 //
@@ -4263,9 +4297,7 @@ toControls.addEventListener("click", () => {
 // player there is nothing here to press in the first place.
 transcript.addEventListener("click", () => {
   if (!document.body.classList.contains("chat-screen")) return;
-  stoppedAsking();
-  question.blur?.();
-  stoppedTyping();
+  backToTheBook();
 });
 
 // And neither corner of that screen may take the composer's focus, which is the

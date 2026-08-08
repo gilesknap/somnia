@@ -75,16 +75,35 @@
      is wanted, and what is only a hint inside a box someone is about to type
      in. Alpha and not hex so every one of them is the same colour going out,
      which is what makes the hierarchy read as depth instead of as four
-     decisions. */
+     decisions.
+
+     Lifted 2026-08-08, on the reader's own eyes rather than on the brief. The
+     design's scale — .6 / .42 / .4 / .32 / .13 — was drawn against a mock and
+     read as too dark on the phone in the room it is for, with the dim slider
+     already at zero, which is the one setting that could have answered it. So
+     the quiet end came up and the loud end barely moved: what was too dark was
+     never the headline, it was everything under it.
+
+     The direction of the fix matters as much as the numbers. Darkness is
+     available on demand — ten presses of `–` take the whole page to black, and
+     that layer is over everything — whereas brightness the palette never had is
+     available nowhere at all. A page that ships too dark can only be read by
+     somebody who knows the control exists; a page that ships a little bright is
+     one press from wherever the room wants it. So the scale is set for the room
+     at its lightest and the slider does the rest.
+
+     The hierarchy is what is preserved, not the values: the gaps between the
+     four are the same shape as before, so nothing that read as depth reads as
+     four decisions now. */
   --ink: #e6dcc8;
-  --mid: rgba(230, 220, 200, 0.6);
-  --dim: rgba(230, 220, 200, 0.4);
-  --faint: rgba(230, 220, 200, 0.32);
-  /* The design's .42 — between --dim and --faint, and it exists rather than
-     rounding to one of them because the placement line is the one run of prose
-     the player screen shows and the brief names the value. */
-  --placement: rgba(230, 220, 200, 0.42);
-  --hairline: rgba(230, 220, 200, 0.13);
+  --mid: rgba(230, 220, 200, 0.75);
+  --dim: rgba(230, 220, 200, 0.58);
+  --faint: rgba(230, 220, 200, 0.5);
+  /* Between --dim and --faint, and it exists rather than rounding to one of
+     them because the placement line is the one run of prose the player screen
+     shows and the brief gives it a value of its own. */
+  --placement: rgba(230, 220, 200, 0.6);
+  --hairline: rgba(230, 220, 200, 0.2);
 
   --toast-bg: #150f06; /* the one sentence said out loud, and then not */
 
