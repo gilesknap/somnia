@@ -88,11 +88,13 @@ const queueClose = document.getElementById("queue-close");
 // about the rows the server is holding, and the two must not be muddled here of
 // all places.
 const readingNow = document.getElementById("reading-now");
+const readingLabel = document.getElementById("reading-label");
+// The block itself, which is the press: there is no button under it any more.
+const readingOpen = document.getElementById("reading-open");
 const readingTitle = document.getElementById("reading-title");
 const readingMeta = document.getElementById("reading-meta");
 const readingTrack = document.getElementById("reading-track");
 const readingFill = document.getElementById("reading-fill");
-const readingResume = document.getElementById("reading-resume");
 // The books somnia already has, under the one it is playing, and the label over
 // them. The label goes with the rows — the rule every other list on this panel
 // follows, because a heading over nothing is a claim that something is there.
@@ -213,7 +215,17 @@ let dimLevel = DIM_DEFAULT;
 // it. Everything that sets `dimLevel` comes through here, so the four cannot
 // disagree.
 function drawDim() {
-  dimLayer.style.opacity = String(dimLevel);
+  // Everywhere but Workshop. That screen is read sitting up with the lights on,
+  // and the layer over it would be taking light off the one page in this app
+  // that has none to spare — at a level chosen for 3am it made the whole thing
+  // unreadable whatever the ink did. The level itself is untouched: this is the
+  // layer being lifted for as long as that screen is up, not the setting being
+  // changed, so `how dark` reads the same when Books is back in front.
+  //
+  // Written here rather than as a rule in the sheet because this is the one
+  // property on this element the page sets inline, and an inline opacity beats
+  // any stylesheet that tried to zero it.
+  dimLayer.style.opacity = String(workshop.hidden ? dimLevel : 0);
   // The fill is the level against the range it can be set to, not against 1:
   // this is a readout of a control, and the control stops at DIM_MAX.
   dimFill.style.width = `${Math.round((dimLevel / DIM_MAX) * 1000) / 10}%`;
@@ -2700,7 +2712,7 @@ function titleOf(title, id) {
 }
 
 // The block at the top of the books panel: which book is playing under it, how
-// far in, and the one press that goes back to it.
+// far in, and — being the press itself — the way back to it.
 //
 // Everything here comes off the manifest and the position this page is already
 // holding. Nothing is fetched, nothing is stored, and nothing on the server
@@ -2729,14 +2741,26 @@ function drawReadingNow() {
   const total = manifest.chapters_total || 0;
   const number = current.idx + 1;
   const which = total ? `chapter ${number} of ${total}` : `chapter ${number}`;
-  // `in` and not the design's `listened`, and the difference is not a word.
-  // Nothing anywhere stores how long anybody has listened for: ADR 3 dropped
-  // Audiobookshelf's session history on purpose at the pivot, and what is left
-  // is a position and the reasons the page gives when it reports one. So this
-  // is how far into the book the mark is, said as such. Empty under a minute,
-  // from howMuch, because "0m in" reads as a book nobody has started.
-  const into = howMuch(positionMs);
-  readingMeta.textContent = into ? `${which} · ${into} in` : which;
+  // And where the press will land, in the book's own clock — the same string
+  // the player's position readout shows, so the panel and the screen behind it
+  // name one place. This is what the pill above the shelf used to say, and it
+  // reads better here: on the button it was the label of a control, and in the
+  // line it is a fact about the book, beside the chapter it belongs with.
+  //
+  // A book already sounding has nothing to start, so it says that instead of
+  // offering a time — which on a playing book is out of date by the moment it
+  // is read, and names a place nothing is going to move to.
+  //
+  // Not `1h12m in`, which this line said while the block had a pill under it.
+  // That was the only honest thing the line could hold once `listened` was
+  // ruled out — ADR 3 dropped Audiobookshelf's session history at the pivot and
+  // nothing stores how long anybody has listened for — but distance travelled
+  // is the lesser reading of the two, and the place is now free to be said here.
+  const where = player.paused ? `picks up at ${timestamp(positionMs)}` : "playing";
+  readingMeta.textContent = `${which} · ${where}`;
+  // And the label over it, which is the same fact read at a glance from the top
+  // of the screen rather than from the end of a line.
+  readingLabel.textContent = player.paused ? "reading now" : "playing now";
   // The same fraction drawn rather than stated — and nothing at all while the
   // book is still arriving. total_ms is how much audio exists, which on a
   // finished book is how long the book is and on one still being read is not:
@@ -2754,14 +2778,6 @@ function drawReadingNow() {
     // error four times a second.
     readingFill.style.width = `${Math.round(through * 1000) / 10}%`;
   }
-  // Where the press will take them, in the book's own clock — the same string
-  // the player's position readout shows, so the panel and the screen behind it
-  // name one place. A book already sounding has nothing to start, and the label
-  // says so instead of offering a time that is a moment out of date by the time
-  // it is read.
-  readingResume.textContent = player.paused
-    ? `pick it up at ${timestamp(positionMs)}`
-    : "back to it · playing";
 }
 
 // ------------------------------------------------------------ on the shelf
@@ -2807,44 +2823,40 @@ function shelfRow(entry) {
   const li = document.createElement("li");
   li.className = "shelved";
   li.id = `shelf-${entry.gid}`;
-  // The reading and the press across one line, with the hairline under both
-  // rather than under the reading alone: a rule that stopped where the text
-  // stops is a fraction of a row, and it would be read against the full-width
-  // one above it, which is a fraction of a book.
-  const line = document.createElement("div");
-  line.className = "shelved-line";
-  const text = document.createElement("div");
-  text.className = "shelved-text";
-  const name = document.createElement("p");
+  // The row is the press, and the whole of it is: name, line and hairline
+  // inside one target rather than a reading with a pill on the end of it. Four
+  // pills down a list are four controls to aim at where the question is only
+  // which book, and at this screen's type scale the pill and the title were
+  // fighting over the same row. Tapping the book is the one gesture Books has —
+  // the block above works the same way — so there is nothing on this list to
+  // learn that was not already learnt at the top of the screen.
+  //
+  // A book with no audio behind it is not a press at all. It is marked rather
+  // than offered and then refused, which is the rule the search results already
+  // follow and the same rule the server keeps: it answers 404 for a book there
+  // is nothing to play of. So the parts go inside a button or inside a plain
+  // div, and only one of the two can be pressed — where before the difference
+  // was a pill that was there or was not.
+  const press = document.createElement(entry.chapters ? "button" : "div");
+  press.className = "shelved-open";
+  if (entry.chapters) {
+    press.type = "button";
+    // Set at creation, as candidateRow does, or nothing in a test can reach it.
+    press.id = `shelf-open-${entry.gid}`;
+    press.addEventListener("click", () => openShelved(entry, press));
+  }
+  // Spans rather than paragraphs, and the same for the hairline below: a
+  // <button> takes phrasing content, and a <p> or a <div> inside one is invalid
+  // even where a browser draws it. The sheet gives each of them a block display
+  // back. `reading now` above is built the same way, in index.html.
+  const name = document.createElement("span");
   name.className = "shelved-name";
   name.textContent = titleOf(entry.title, entry.gid);
-  text.append(name);
-  const meta = document.createElement("p");
+  press.append(name);
+  const meta = document.createElement("span");
   meta.className = "shelved-meta";
   meta.textContent = shelfWords(entry);
-  text.append(meta);
-  line.append(text);
-  // A book with no audio behind it is marked rather than offered and then
-  // refused — the rule the search results already follow, and the same rule the
-  // server keeps: it answers 404 for a book there is nothing to play of, so a
-  // press that got this far cannot leave somebody on a book that will not
-  // sound.
-  if (entry.chapters) {
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "shelved-open";
-    // Set at creation, as candidateRow does, or nothing in a test can reach it.
-    open.id = `shelf-open-${entry.gid}`;
-    // The panel's own words for this press, borrowed from the block above
-    // rather than invented: it is the same act, made about a book that is not
-    // open yet. Without the time, which belongs to `reading now` — a shelf of
-    // four books each offering a different h:mm:ss is four numbers to read
-    // where the question is only which book.
-    open.textContent = "pick it up";
-    open.addEventListener("click", () => openShelved(entry, open));
-    line.append(open);
-  }
-  li.append(line);
+  press.append(meta);
   // How far through, drawn rather than stated, and only where the whole book is
   // here: the same guard drawReadingNow carries, for the same reason. While a
   // render is going total_ms is how much audio exists rather than how long the
@@ -2853,25 +2865,30 @@ function shelfRow(entry) {
   // started gets none either — there is nothing to draw, and an empty track
   // where every other row has a fill reads as a book at zero rather than as a
   // book at nothing.
+  //
+  // Inside the press with the words above it, because the press is the row now.
+  // The divider between one book and the next is still on the <li>, so a rule
+  // that stopped where the text stops is still not a thing this list can show.
   if (entry.status === "done" && entry.total_ms > 0 && entry.position_ms) {
-    const track = document.createElement("div");
+    const track = document.createElement("span");
     track.className = "shelved-track";
-    const fill = document.createElement("div");
+    const fill = document.createElement("span");
     fill.className = "shelved-fill";
     const through = Math.min(1, entry.position_ms / entry.total_ms);
     fill.style.width = `${Math.round(through * 1000) / 10}%`;
     track.append(fill);
-    li.append(track);
+    press.append(track);
   }
+  li.append(press);
   return li;
 }
 
 function drawShelf() {
-  // Never the book playing underneath. That one is the block above with a press
-  // of its own that says where it will land, and a second row for it here would
-  // be two controls doing one thing — with the row being the worse of the two,
-  // because it would adopt the server's copy of the position, which is up to
-  // fifteen seconds behind the sound.
+  // Never the book playing underneath. That one is the block above — the same
+  // shape as one of these rows, in amber, with the time it would land at in its
+  // line — and a second row for it here would be two entries for one book, with
+  // this one being the worse of them, because it would adopt the server's copy
+  // of the position, which is up to fifteen seconds behind the sound.
   const others = shelved.filter((entry) => entry.gid !== gid);
   shelf.replaceChildren(...others.map(shelfRow));
   // A label over nothing is a claim that something should be there, which is
@@ -3430,6 +3447,10 @@ function hideQueue() {
 function showWorkshop() {
   if (!workshop.hidden) return;
   workshop.hidden = false;
+  // The dim layer comes off with it, and goes back on at `‹ books`. drawDim
+  // reads the screen rather than being told a level, so these two calls cannot
+  // leave the layer disagreeing with which screen is up.
+  drawDim();
   // Never focusing the search box. Focusing it pops the keyboard, and the
   // keyboard changes the geometry the fixed overlay just measured itself
   // against, so the screen would arrive with its way out under the letters.
@@ -3445,6 +3466,9 @@ function showWorkshop() {
 function hideWorkshop() {
   if (workshop.hidden) return;
   workshop.hidden = true;
+  // And the room goes back to whatever darkness was set for it, on the screen
+  // that set it.
+  drawDim();
   stopQueuePoll();
   forgetStop();
   queueRows = [];
@@ -3466,7 +3490,9 @@ toWorkshop.addEventListener("click", showWorkshop);
 workshopClose.addEventListener("click", hideWorkshop);
 
 // The press that starts the book already open, and one of the two ways out of
-// this panel that are not `close`.
+// this panel that are not `close`. It is the whole `reading now` block — title,
+// line and hairline — rather than a pill under it: see the block's own comment
+// in index.html for why that pill is gone.
 //
 // The order of the three lines matters and the first of them is the whole of
 // why this is not just a call to hideQueue. showQueue borrows the tap-to-resume
@@ -3485,8 +3511,8 @@ workshopClose.addEventListener("click", hideWorkshop);
 // for the same silence, the same fade up from nothing, the same landing on the
 // start of a sentence after an hour. A second kind of resume is a second thing
 // to reason about at 2am, and this one would be the one nobody tested. Only
-// when it is really stopped — the label already said `back to it · playing`
-// rather than offering a time, and there is nothing there to start.
+// when it is really stopped — the block's own line already said `· playing`
+// rather than a time, and there is nothing there to start.
 //
 // A shelf row for the book that is already open lands here too, rather than
 // opening it again; see openShelved.
@@ -3496,7 +3522,7 @@ function pickItUp() {
   if (player.paused) ensurePlaying({ rewind: true });
 }
 
-readingResume.addEventListener("click", pickItUp);
+readingOpen.addEventListener("click", pickItUp);
 queueSearch.addEventListener("submit", (event) => {
   event.preventDefault();
   findBooks();

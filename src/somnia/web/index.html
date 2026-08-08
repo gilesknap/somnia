@@ -56,14 +56,18 @@
 
          It also used to be true that nothing on it opened a book. That is no
          longer the shape of it: `reading now` at the top starts the book
-         already open — `pick it up at 1:12:08`, which is the play button
-         pressed from up here rather than from behind — and `on the shelf`
-         under it opens any book somnia has, at the place that book was left.
-         ADR 3 said changing books was done by asking; its amendment says what
-         that was really protecting against, which was browsing a library to
-         find something new. Tapping one of the three books you already have is
-         not that, and the search — which is that — is still a separate act, on
-         a screen of its own now.
+         already open — the play button pressed from up here rather than from
+         behind — and `on the shelf` under it opens any book somnia has, at the
+         place that book was left. ADR 3 said changing books was done by asking;
+         its amendment says what that was really protecting against, which was
+         browsing a library to find something new. Tapping one of the three
+         books you already have is not that, and the search — which is that — is
+         still a separate act, on a screen of its own now.
+
+         Neither of those presses is a button. Every entry on this screen is
+         opened by tapping the book itself, which is the one gesture the screen
+         has: a pill under the block at the top would make the book already
+         playing the single row that worked differently from the rest.
 
          So there are three ways out now — `‹ controls`, which changes nothing at
          all, and the two presses that open a book, which take the panel away
@@ -78,8 +82,9 @@
          used rather than what it is about. Books answers "what shall I listen
          to" at the player's own type scale; Workshop answers "get me a new
          book, and tell me it worked" sitting up with the lights on, and is
-         allowed to be denser and smaller than anything else in the app because
-         of it. It is reached only from the quietest row at the foot of Books,
+         allowed to be denser than anything else in the app because of it —
+         denser, and brighter, which is the half that took a second pass to get
+         right. It is reached only from the quietest row at the foot of Books,
          and its way out says `‹ books` rather than `‹ controls`, because that
          is where it goes. -->
 
@@ -718,71 +723,92 @@
              The whole block goes when there is no book — label and all. A
              heading over nothing is a claim that something should be there.
 
-             What is deliberately not here is `put it down`, which was dropped
-             rather than faked: it is a shelving action somnia has no notion of
-             — pausing is not shelving, and there is nothing on the server to
-             write "finished with for now" to. The design's other half of this
-             block, the shelf of books under it, was dropped for a reason that
-             no longer stands — that this panel must not open a book — and it
-             is the section below. -->
+             What is deliberately not here is a button. There was one — a 64dp
+             amber pill reading `pick it up at 1:12:08` — and it sat under a
+             block that already named the book it would open. Every row on the
+             shelf below opens its book by being tapped, so a pill here made the
+             book already playing the one entry on the screen that worked
+             differently, and at this screen's type scale it was a second
+             control on a row that could not hold one. The block is the press
+             now; amber is what says which book is current; and the time the
+             pill was carrying moved into the line under the title, where it is
+             a fact about the book rather than the label of a button.
+
+             `put it down` is not here either, and never was. It is a shelving
+             action somnia has no notion of — pausing is not shelving, and there
+             is nothing on the server to write "finished with for now" to — and
+             the design has since dropped it for a reason that stands on its
+             own: what somebody wants is to listen to something else, and the
+             shelf below already does that in one tap. -->
         <section id="reading-now" hidden>
-          <p class="section-label">reading now</p>
+          <!-- `reading now`, or `playing now` while it is actually sounding.
+               The block underneath says the same thing in its own line, and the
+               label is what a glance at the top of the screen reads first. -->
+          <p id="reading-label" class="section-label">reading now</p>
 
-          <!-- `Title — Surname, Forename, dates`, at 29dp, which is the
-               catalog's own author field verbatim beside the book's own name.
-               Two names on one book arrive as one string with a semicolon in
-               it, and app.js sets the page's own separator between them: read
-               raw it is a run of commas and semicolons with nothing to say
-               where one person ends and the next begins.
+          <!-- The whole block, and one target: title, line, hairline. It opens
+               the book on the player, which is the play button made from up
+               here — the only book it can reach is the one already open, so the
+               panel still opens nothing and switches nothing. It takes the
+               panel down with it, because the question this was opened with has
+               just been answered and a panel left standing over a book that has
+               started playing is one more thing to get out of.
 
-               Allowed to wrap, where the player's headline is cut to one line.
-               Nothing pressed without looking is underneath this one — the
-               transport is on the screen behind the panel — so a second line
-               here costs a line of a list somebody is reading, not the position
-               of a button a thumb arrives at in the dark. -->
-          <p id="reading-title"></p>
+               A press and not a div with a listener on it: it is reached by a
+               keyboard and named to a screen reader for the same reason every
+               other press on this page is. -->
+          <button id="reading-open" type="button">
+            <!-- The book's own title at 29dp, and the only amber title in the
+                 app. That is what marks it as the current book — the shelf
+                 under it is ink — and it is why nothing here needs a word to
+                 say which of these books is playing.
 
-          <!-- `chapter 4 of 37 · 1h12m in`, and both halves are as honest as
-               the page can make them.
+                 The title alone. `Title — Surname, Forename, dates` was right
+                 at 21dp on a panel doing eight jobs and is three lines of a
+                 night screen at 29; who wrote it is catalogue metadata about a
+                 book somebody already owns and chose, and where that earns its
+                 room is Workshop's search results.
 
-               The count carries the player's own guard: 0 means nobody wrote
-               the total down, which is every book rendered before the column
-               existed, and it says `chapter 4` and stops rather than `4 of 0`.
+                 Allowed to wrap, where the player's headline is cut to one
+                 line. Nothing pressed without looking is underneath this one —
+                 the transport is on the screen behind the panel — so a second
+                 line here costs a line of a list somebody is reading, not the
+                 position of a button a thumb arrives at in the dark. -->
+            <span id="reading-title"></span>
 
-               `in` and not the design's `listened`. Nothing anywhere stores how
-               long anybody has listened for — ADR 3 dropped the session history
-               on purpose when the pivot left Audiobookshelf behind — so the
-               only number this page can stand behind is how far into the book
-               the mark is. Saying `listened` over it would be a claim about a
-               night nobody recorded. -->
-          <p id="reading-meta"></p>
+            <!-- `chapter 4 of 49 · picks up at 1:12:08`, or `· playing` when
+                 the book is already sounding. Every part of it is as honest as
+                 the page can make it.
 
-          <!-- How far in, drawn rather than stated, and absent entirely while
-               the book is still arriving. total_ms is how much audio exists,
-               which on a finished book is how long the book is and on a book
-               still being read is not: a bar drawn from it would reach the end
-               at chapter five of thirty-seven and then walk backwards as the
-               rest landed. No bar is the truth; the line above already says
-               which chapter of how many. -->
-          <div id="reading-track" hidden><div id="reading-fill"></div></div>
+                 The count carries the player's own guard: 0 means nobody wrote
+                 the total down, which is every book rendered before the column
+                 existed, and it says `chapter 4` and stops rather than `4 of 0`.
 
-          <!-- The one press, and the first press on this panel that changes
-               anything about the book. It says where it will land — `pick it up
-               at 1:12:08` — and `back to it · playing` when the book is already
-               sounding, because then there is nothing to start and the press is
-               only the way back to the controls.
+                 The time is where the press will land, in the book's own clock
+                 — the same string the player's position readout shows, so the
+                 panel and the screen behind it name one place. It used to be
+                 the label of the pill that is gone, and before that this line
+                 said `1h12m in`; the design put the timestamp here, which is
+                 also the more useful of the two readings, because it names the
+                 place rather than the distance. A book already sounding has
+                 nothing to start, so it says so instead of offering a time that
+                 is a moment out of date by the time it is read. -->
+            <span id="reading-meta"></span>
 
-               It is the play button, made from up here. The only book it can
-               reach is the one already open, so the panel still opens nothing
-               and switches nothing. It takes the panel down with it: the
-               question this was opened with has just been answered, and a panel
-               left standing over a book that has started playing is one more
-               thing to get out of. -->
-          <button id="reading-resume" type="button"></button>
+            <!-- How far in, drawn rather than stated, and absent entirely while
+                 the book is still arriving. total_ms is how much audio exists,
+                 which on a finished book is how long the book is and on a book
+                 still being read is not: a bar drawn from it would reach the end
+                 at chapter five of thirty-seven and then walk backwards as the
+                 rest landed. No bar is the truth; the line above already says
+                 which chapter of how many. -->
+            <span id="reading-track" hidden><span id="reading-fill"></span></span>
+          </button>
         </section>
 
-        <!-- The books somnia already has, each one a press that resumes it
-             where it was left. The panel opens a book now, and that is a
+        <!-- The books somnia already has, each row a press that resumes it
+             where it was left — the row itself, not a pill on the end of it.
+             The panel opens a book now, and that is a
              change of mind written down rather than smuggled in: ADR 3 used to
              say changing books was done by asking, and its amendment says what
              it really objected to, which was browsing to find something new.
@@ -797,13 +823,14 @@
              millisecond, so a wrong press costs one press back.
 
              The book playing underneath is not in this list. It is the block
-             above, with a press of its own that says where it will land, and a
-             second row for it here would be two controls doing one thing.
+             above, which is the same shape as one of these rows in amber, and a
+             second row for it here would be two entries for one book.
 
              A book with no audio yet — still being read, or a render that died
-             before its first chapter — is a row with no press, marked the way
-             the search results below mark a book that is already here. A press
-             that was never available cannot be a press that did nothing. -->
+             before its first chapter — is a row that is not a press at all,
+             marked the way the search results below mark a book that is already
+             here. A press that was never available cannot be a press that did
+             nothing. -->
         <p id="shelf-label" class="section-label" hidden>on the shelf</p>
         <ul id="shelf"></ul>
 
@@ -883,9 +910,19 @@
          book still playing underneath, not a <dialog>, showModal() never
          called, no role and no aria-modal — and different from both in the one
          way that matters: it is read sitting up with the lights on, so it is
-         allowed to be denser and smaller than anything else here. That is the
-         whole point of the split. Books had to hold this as well, and holding
-         both is what made it too small to read at night.
+         allowed to be denser than anything else here. That is the whole point
+         of the split. Books had to hold this as well, and holding both is what
+         made it too small to read at night.
+
+         Denser, and read in daylight, which is why this screen carries its own
+         ink and switches the dim layer off. Every alpha in the night palette
+         was chosen for a dark room and a dilated pupil; on a phone at half
+         brightness in the sun those same values are not quiet, they are gone —
+         and a screen drawn entirely from the quiet end of a scale has no
+         hierarchy left either. The sheet sets a second set of values on this
+         element and everything under it inherits them; #dim goes to zero while
+         it is up, because dimming a daytime screen is the one thing that cannot
+         be fixed by any amount of ink. Nothing here goes below 16dp.
 
          One sentence: *get me a new book, and tell me it worked*. The order is
          that sentence. Find one, add it, and then watch the box make it —
@@ -1038,6 +1075,12 @@
          It ships at 0.12 and is read back from storage, and what writes it is
          `how dark` on Books — two circles on the screen the layer is over, so
          the level is chosen by looking at it rather than by reading a number.
+
+         The one screen it is not over is Workshop, where it goes to zero for as
+         long as that screen is up. Everywhere else the layer is taking the last
+         of the light off a dark room; there it would be taking light off a
+         screen being read in daylight, and at a level somebody chose for 3am it
+         made the whole thing unreadable whatever the ink did.
          It is not on a settings screen because there is no settings screen: dim
          is a night control and lives where night things are, and the only other
          thing that wanted one is the jump size, which is daytime configuration

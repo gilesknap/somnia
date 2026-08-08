@@ -270,9 +270,10 @@ again at once, so there is nothing to press.
 
 *books*, in the top left corner, opens a panel over the page. The book keeps
 playing underneath it, and *‹ controls* puts it away having changed nothing at
-all. Two presses on it do change something, and both are presses on a book:
-*pick it up*, which starts the book already open, and a book on the shelf, which
-opens that one.
+all. What does change something is tapping a book — the one at the top, which
+starts the book already open, or one on the shelf, which opens that one. There
+are no buttons on this screen at all: every entry is opened by tapping the book
+itself.
 
 It is a night screen, and everything on it is set at the player's own type size
 for that reason: it is read in the same dark, at the same arm's length, by
@@ -283,28 +284,25 @@ no wake and polls nothing, so a night spent looking at it is a night with no
 radio traffic in it.
 
 At the top, under *reading now*, is the book that is playing underneath the
-panel — *The Moonstone*, and under it *chapter 4
-of 37 · 1h12m in* over a hairline showing how far through it you are. *in*, and
-not *listened*: nothing anywhere records how long you have listened for, so the
-number is how far into the book the mark is. The hairline is not drawn at all
-while the book is still being rendered, because until the render is over the
-book's length is only how much of it exists so far. *pick it up at 1:12:08*
-starts it and puts the panel away — the same press as the play button, made
-from up here. When it is already playing that button reads *back to it ·
-playing* and does nothing but take you back to the controls.
+panel — *The Moonstone* in amber, the only amber title in the app, and under it
+*chapter 4 of 37 · picks up at 1:12:08* over a hairline showing how far through
+it you are. The time is where a tap would land you; while the book is actually
+sounding the heading reads *playing now* and the line ends *· playing*, because
+then there is nothing to start. The hairline is not drawn at all while the book
+is still being rendered, because until the render is over the book's length is
+only how much of it exists so far. Tapping the block starts it and puts the
+panel away — the same press as the play button, made from up here.
 
 Under it, *on the shelf* is every other book somnia has, each with where you
-left it — *0:27:42 in*, or *not started* — and *pick it up*, which opens that
-book at that place and takes the panel away with it. Changing your mind costs
-one press back: nothing is written to the book you left, so it is still exactly
-where it was, and so is the one you looked at. A book still being rendered says
-so and offers no press until its first chapter exists, because until then there
-is nothing to play. A book still being rendered says
-so and offers no press until its first chapter exists. A book whose render
-stopped part way says *part rendered* and can still be opened — what was read
-plays. If the box cannot be reached, the shelf you last saw stays on screen with
-*couldn't reach somnia* under it: an empty shelf and an unreachable server look
-identical and mean opposite things.
+left it — *0:27:42 in*, or *not started*. Tapping a row opens that book at that
+place and takes the panel away with it. Changing your mind costs one press back:
+nothing is written to the book you left, so it is still exactly where it was,
+and so is the one you looked at. A book still being rendered says so and is not
+a press at all until its first chapter exists, because until then there is
+nothing to play. A book whose render stopped part way says *part rendered* and
+can still be opened — what was read plays. If the box cannot be reached, the
+shelf you last saw stays on screen with *couldn't reach somnia* under it: an
+empty shelf and an unreachable server look identical and mean opposite things.
 
 The rows say the title and nothing else — no author, no dates, no cover. At this
 size the catalogue's *Title — Surname, Forename, dates* is three lines of a
@@ -326,10 +324,14 @@ behind it is a job for 2am.
 *Workshop — add books, settings*, at the foot of *Books*, and reachable no other
 way. *‹ books* comes back, and *Books* is exactly where you left it.
 
-This is the daytime screen and it is denser and smaller than anything else in
-the app, because it is read sitting up with the lights on. It asks one question
-too: *get me a new book, and tell me it worked*. The order down it is that
-sentence.
+This is the daytime screen and it is denser than anything else in the app,
+because it is read sitting up with the lights on — denser, and brighter. It is
+drawn in its own ink rather than the night palette: fuller cream, stronger
+hairlines, a lifted amber, and the sheet of black the rest of the app is read
+through comes off entirely while it is up. Every alpha in the night scale was
+chosen for a dark room, and in daylight those same values are not quiet, they
+are gone. Nothing on it goes below 16dp. It asks one question too: *get me a new
+book, and tell me it worked*. The order down it is that sentence.
 
 At the top, under *project gutenberg*, is the search. Under the results is what
 is happening, in a box headed *the server is working* — on the same screen and

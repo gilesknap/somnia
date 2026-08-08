@@ -2090,6 +2090,40 @@ body.keyboard-up #candidates-note {
   margin: 0 0 0.5rem;
 }
 
+/* The block is the press: title, line and hairline in one target, with nothing
+   under it. There was a 64dp amber pill there — `pick it up at 1:12:08` — and
+   it sat beneath a block that already named the book it would open. Every row
+   of the shelf below opens its book by being tapped, so the pill made the book
+   already playing the one entry on the screen that worked differently, and at
+   this screen's type scale it was a second control on a row that could not hold
+   one. Amber is what says which book is current now, and the time the pill was
+   carrying is in the line under the title.
+
+   12dp above and 20dp below, which is the design's block and is also the shelf
+   row's own padding with the label taking the place of the top half: this and
+   the rows under it are the same thing at two weights, and they should sit on
+   the same rhythm.
+
+   A button, so it must be told to stop looking like one — no border, no fill,
+   left-aligned, and the page's own type rather than the browser's. */
+#reading-open {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0.6rem 0 1rem;
+}
+
+/* The flash under a thumb, and it is the whole block because the block is what
+   was pressed. Full width of the column and no radius: this is a row being
+   struck, not a pill lighting up. */
+#reading-open:active {
+  background: var(--surface-active);
+}
+
 /* 29dp — the chapter title's size on the player, and that is the whole of the
    reason it is this and not the 25 it was. This screen is read in the same dark
    at the same arm's length as the player, so it takes the player's scale: the
@@ -2097,24 +2131,32 @@ body.keyboard-up #candidates-note {
    search box, a queue, a list of failures and a note about the server. Those
    are in daylight now, and what they were costing was legibility here.
 
+   Amber, and the only amber title in the app. That is what marks this as the
+   book being listened to — the shelf below it is ink — and it is doing the work
+   the pill used to do, without spending a row on it. Nothing else on Books is
+   this colour, so there is never a second thing on the screen that could be
+   mistaken for the current book.
+
    Allowed to wrap: nothing pressed without looking is under it — the transport
    is on the screen behind this one — so the second line of a long title costs a
    line of list rather than moving a button in the dark, which is the trade the
    player's own headline could not make. */
 #reading-title {
+  display: block;
   margin: 0;
-  color: var(--ink);
+  color: var(--accent);
   font-size: 1.45rem;
   line-height: 1.3;
 }
 
-/* Which chapter, and how far in. 21dp, which is the chapter position's size on
-   the player, for the reason the title above takes the chapter title's. Tabular
-   figures, as everywhere a clock appears on this page: a number that changes
-   under a redraw must not move the words after it. */
+/* Which chapter, and where the press lands. 21dp, which is the chapter
+   position's size on the player, for the reason the title above takes the
+   chapter title's. Tabular figures, as everywhere a clock appears on this page:
+   a number that changes under a redraw must not move the words after it. */
 #reading-meta {
+  display: block;
   margin: 0.3rem 0 0;
-  color: var(--dim);
+  color: var(--placement);
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
 }
@@ -2130,6 +2172,7 @@ body.keyboard-up #candidates-note {
    a second while the book plays, so it is already continuous, and easing it
    would leave it half a second behind the sound all night. */
 #reading-track {
+  display: block;
   height: 2px;
   margin-top: 0.7rem;
   background: var(--hairline);
@@ -2140,76 +2183,50 @@ body.keyboard-up #candidates-note {
 }
 
 #reading-fill {
+  display: block;
   height: 100%;
   background: var(--accent);
 }
 
-/* The one press on this panel that touches the book, and the full width of the
-   panel because it has no partner: the design pairs it with `put it down` and
-   that half is not built, so there is nothing to share the row with.
+/* The books somnia already has, under the one it is playing, and the same thing
+   at a lower weight: a title, a line under it, a hairline, and the whole of it
+   is the press. The block above is one of these rows in amber.
 
-   64dp of amber-edged pill, which is the shape `finish this one` already uses
-   further down for the other press somebody arrives here having decided to
-   make. Not --accent-surface: that fill is reserved for the button pressed
-   without looking, and nobody presses this one without reading it — the whole
-   value of the label is the time in it. */
-#reading-resume {
-  display: block;
-  width: 100%;
-  min-height: 3.2rem;
-  margin-top: 0.8rem;
-  border: 1px solid var(--accent-line);
-  border-radius: 999px;
-  background: var(--accent-tint);
-  color: var(--accent);
-  /* 22dp, the design's size for this press, and one the panel could not spend
-     while it was eight blocks long. */
-  font-size: 1.1rem;
-  padding: 0.6rem 1rem;
-}
-
-#reading-resume:active {
-  background: var(--accent-surface);
-}
-
-/* The books somnia already has, under the one it is playing. The shape is the
-   search results' — a reading on the left, one press on the right, a hairline
-   between one book and the next — because it is the same kind of list, and a
-   second row shape would be a second thing to learn in the dark. The two are
-   read on different screens now, in different light, so they are the same shape
-   at two different sizes: this one at night, and the results in Workshop at the
-   size a daylight list can afford.
-
-   The press is a plain pill and not the amber one. Amber on this screen is the
-   press somebody arrived having already decided to make, and there is exactly
-   one of those: `pick it up at 1:12:08`, full width, for the book already
-   sounding. Four warm pills down a list would be four books all claiming to be
-   that one.
+   No pill on the end of a row. There was one on every row and one under the
+   block above, and between them they were four or five controls to aim at on a
+   screen whose only question is which book — while the title, the thing being
+   read, gave up the width to hold them. Tapping the book is the one gesture
+   this screen has.
 
    20dp of padding above and below, which is the design's row and is also what
    turns a list of three books into something a thumb can pick from without
    aiming. No cover art: a cover is a bright rectangle in a dark room. */
 .shelved {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: 1rem 0;
   border-bottom: 1px solid var(--hairline);
 }
 
-/* The reading and the press, across one line. The hairline under this rather
-   than inside it is why the line is its own box: a rule that stopped where the
-   text stops would be a fraction of a row read against the full-width one under
-   `reading now`, which is a fraction of a book. */
-.shelved-line {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
+/* The row as a target. It is a <button> where the book can be played and a
+   plain <div> where it cannot — a book with no audio behind it is marked rather
+   than offered and then refused — so everything here has to hold for both, and
+   the button has to be told to stop looking like one.
+
+   The padding is on this rather than on the <li> so that the press really is
+   the whole row rather than a target inset inside a rule. */
+.shelved-open {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 1rem 0;
 }
 
-.shelved-text {
-  flex: 1;
-  min-width: 0;
+/* Struck rather than lit: the same flash as the block above, for the same
+   reason, and the only thing that happens to a row under a thumb. */
+.shelved-open:active {
+  background: var(--surface-active);
 }
 
 /* 26dp — a step under `reading now`'s 29, which is the right order for a list
@@ -2217,6 +2234,7 @@ body.keyboard-up #candidates-note {
    size a night list had to be while this screen was also carrying the daytime
    work. */
 .shelved-name {
+  display: block;
   margin: 0;
   color: var(--ink);
   font-size: 1.3rem;
@@ -2227,6 +2245,7 @@ body.keyboard-up #candidates-note {
    figures for the same reason every clock on this page has them: the time is
    the part being read, and it must not move the words after it. */
 .shelved-meta {
+  display: block;
   margin: 0.2rem 0 0;
   color: var(--dim);
   font-size: 0.95rem;
@@ -2237,38 +2256,16 @@ body.keyboard-up #candidates-note {
    of it is here — see drawShelf. No transition, because this list is drawn when
    the panel opens rather than under somebody's eyes. */
 .shelved-track {
+  display: block;
   height: 2px;
+  margin-top: 0.55rem;
   background: var(--hairline);
 }
 
 .shelved-fill {
+  display: block;
   height: 100%;
   background: var(--accent);
-}
-
-/* Well over the 44dp floor, well under the slabs on the transport, aimed at
-   rather than landed on. This press moves the night to another book, and while
-   that costs nothing that cannot be undone — the book left behind keeps its own
-   position — it is still not a thing to do by brushing the screen.
-
-   It used to be sized with `add this book` in Workshop. They are on different
-   screens in different light now, so the sameness that was worth keeping is
-   gone: this one takes the night scale like everything else here. */
-.shelved-open {
-  flex: none;
-  min-width: 5.6rem;
-  min-height: 3.2rem;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  background: none;
-  color: var(--mid);
-  font-size: 1.05rem;
-  padding: 0.5rem 0.9rem;
-}
-
-.shelved-open:active {
-  background: var(--surface-active);
-  color: var(--ink);
 }
 
 /* ------------------------------------------------------------- how dark
@@ -2457,10 +2454,13 @@ body.keyboard-up #candidates-note {
    Baseline alignment on .job-line uses the name's FIRST baseline, so however
    many lines the title wraps to, the word stays on the top one: the corner of
    the row is still where the answer is. */
+/* 17dp, with the title it is the other end of. It was 14, which is under this
+   screen's floor: the stage word is the answer somebody came to this screen
+   for, and it was the smallest thing on it. */
 .job-stage {
   flex: none;
   color: var(--dim);
-  font-size: 0.7rem;
+  font-size: 0.85rem;
 }
 
 /* Warm only while a book is really being read. Everything else on this panel —
@@ -2473,12 +2473,15 @@ body.keyboard-up #candidates-note {
 
 /* What is actually happening inside the stage, and who wrote the book above it.
    One rule, because they are the second line of the two lists on this screen and
-   they are read as one thing — 14dp, the meta size of a daylight list. */
+   they are read as one thing — 16dp, which is this screen's floor and the meta
+   size of a daylight list. It was 14: denser than the night screens is what this
+   screen is for, and small enough to squint at is not, because the reader is the
+   same 62-year-old on both of them. */
 .job-state,
 .found-meta {
   margin: 0;
   color: var(--dim);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2601,11 +2604,15 @@ body.keyboard-up #candidates-note {
   min-width: 0;
   min-height: 2.8rem;
   background: var(--surface);
-  border: 1px solid transparent;
+  /* An edge in daylight, where at night the fill alone said "type here". The
+     border was already here and transparent so that focusing it could warm the
+     edge without moving anything by a pixel; now it starts visible and warms
+     from there. */
+  border: 1px solid var(--control-edge);
   border-radius: 999px;
   color: var(--ink);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   padding: 0.7rem 1.1rem;
 }
 
@@ -2630,11 +2637,11 @@ body.keyboard-up #candidates-note {
   flex: none;
   width: 4.1rem;
   min-height: 2.8rem;
-  border: 0;
+  border: 1px solid var(--control-edge);
   border-radius: 0.9rem;
   background: var(--surface);
-  color: var(--mid);
-  font-size: 0.85rem;
+  color: var(--ink);
+  font-size: 0.9rem;
   padding: 0.6rem;
 }
 
@@ -2664,13 +2671,13 @@ body.keyboard-up #candidates-note {
   min-width: 0;
 }
 
-/* 17dp, and the smallest list type in the app. A search result is scanned in
+/* 18dp, and the smallest list title in the app. A search result is scanned in
    daylight against a title somebody already has in mind, which is a different
    act from choosing a book off a shelf in the dark at 26. */
 .found-name {
   margin: 0;
   color: var(--ink);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.25;
 }
 
@@ -2736,7 +2743,7 @@ body.keyboard-up #candidates-note {
 /* ------------------------------------------------------ Workshop, in daylight
 
    The one screen in this app not drawn for a dark room, and the only place
-   where "smaller" is the right answer.
+   where "denser" is the right answer.
 
    It is built exactly like the two overlays above it — fixed, over the page,
    its own scroller, its way out pinned above that scroller — and it earns the
@@ -2745,6 +2752,10 @@ body.keyboard-up #candidates-note {
    hold the search, the queue, the failures and the note as well, and holding
    both is what pushed the night type down to a size that could not be read
    without glasses. Every dp taken off here was given back over there.
+
+   Denser is not smaller, and getting that wrong twice is what the block below
+   is for: nothing on this screen goes under 16dp, and the ink it is drawn in is
+   this screen's own.
 
    First, before anything else sets a display: an author id rule beats the
    browser's own [hidden] { display: none }, and forgetting it is a screen over
@@ -2755,8 +2766,44 @@ body.keyboard-up #candidates-note {
 
 /* z-index 11, one above Books, because this comes up over Books and Books is
    still standing behind it. `‹ books` puts this away and the screen it came
-   from is where it was left, at the row that opened it. */
+   from is where it was left, at the row that opened it.
+
+   And the daytime ink, set here so that everything under this element inherits
+   it and nothing outside it can. This is the one place on the page where the
+   rule at the top of the file — one cream, dropped down the page by alpha —
+   holds with different numbers, and the reason is that the numbers were never
+   about the colour. They were chosen for a dark room and a dilated pupil. Read
+   in daylight on a phone at half brightness, .3 on a near-black ground is not
+   quiet, it is absent, and a screen drawn entirely from the quiet end of that
+   scale had no hierarchy left either: everything faint, and nothing leading.
+
+   So: the cream goes up to full and the alphas roughly double, the hairlines
+   come up enough to be rules rather than rumours, the surfaces lift off the
+   background enough to read as controls, and the amber is lifted — the night
+   value goes muddy against a bright surround, which is the one of these that is
+   about the colour and not about the light.
+
+   The layer that dims all this is taken to zero while the screen is up, which
+   app.js does rather than the sheet: #dim's opacity is set inline. */
 #workshop {
+  --ink: #f4ece0;
+  --mid: rgba(244, 236, 224, 0.62);
+  --dim: rgba(244, 236, 224, 0.55);
+  --faint: rgba(244, 236, 224, 0.5);
+  --hairline: rgba(244, 236, 224, 0.16);
+
+  --accent: #e8a45c;
+  --accent-line: rgba(232, 164, 92, 0.75);
+  --accent-tint: rgba(232, 164, 92, 0.16);
+  --accent-surface: #3a2a15;
+
+  --surface: #211f28;
+  --surface-active: #2b2934;
+  /* The edge on a control surface, which the night screens do without: there a
+     filled slab on a near-black ground is already a control. In daylight the
+     two are close enough that the fill alone stops saying so. */
+  --control-edge: rgba(244, 236, 224, 0.14);
+
   position: fixed;
   inset: 0;
   z-index: 11;
@@ -2787,17 +2834,21 @@ body.keyboard-up #candidates-note {
   font-size: 1.5rem;
   font-weight: 400;
   line-height: 1.15;
-  color: var(--mid);
+  /* Full ink, where the night screens' titles are a step down from it. In
+     daylight the step down was the whole hierarchy going with it — this is the
+     word that says which screen is open, and it leads. */
+  color: var(--ink);
 }
 
-/* What the screen is for, once, at 16dp. It is the smallest sentence in the
-   app and it can be, because it is read in daylight on the first visit and
-   never again. */
+/* What the screen is for, once, at 17dp. It is the smallest sentence on this
+   screen and it can be, because it is read in daylight on the first visit and
+   never again — but it is not the 16 it was, which is this screen's floor and
+   not a size to spend on prose. */
 #workshop-note {
   margin: -0.4rem 0 0;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   line-height: 1.35;
-  color: var(--faint);
+  color: var(--mid);
 }
 
 #workshop-scroll .section-label {

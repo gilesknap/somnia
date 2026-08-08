@@ -109,22 +109,33 @@ PANELS = {
         "unhide": ["queue", "reading-now", "reading-track", "shelf-label"],
         "text": {
             "reading-title": "The Wind in the Willows",
-            "reading-meta": "chapter 4 of 37 · 1h12m in",
-            "reading-resume": "pick it up at 1:12:08",
+            # The time is in this line now — it used to be the label of a pill
+            # under the block, and the pill is gone. Nothing on `reading now`
+            # is a button any more: the block is the press.
+            "reading-meta": "chapter 4 of 37 · picks up at 1:12:08",
         },
         "styles": {"reading-fill": {"width": "12.4%"}, "dim-fill": {"width": "20%"}},
         # Three books, which is the shape of a real shelf on this box, and one
         # of them long enough to wrap. Titles only: Books gave the author up
         # when it took the player's type scale — see whoWrote in app.js.
+        #
+        # The third value is whether the row is a press at all, not what a
+        # button on it says: a book with no audio yet is a plain div and every
+        # other row is a button wrapping the whole of itself.
         "shelf": [
-            ["Black Beauty", "0:41:19 in", "pick it up"],
-            ["The Adventures of Sherlock Holmes", "not started", "pick it up"],
-            ["The Moonstone", "2:03:55 in · part rendered", "pick it up"],
+            ["Black Beauty", "0:41:19 in", True],
+            ["The Adventures of Sherlock Holmes", "not started", True],
+            ["The Moonstone", "2:03:55 in · part rendered", True],
         ],
     },
     "workshop": {
         "unhide": ["queue", "workshop", "queue-working", "queue-ended"],
         "text": {"queue-note": "", "queue-said": ""},
+        # The dim layer comes off while this screen is up — app.js does it in
+        # drawDim, and drawDim does not run in a snapshot. Without this every
+        # render of Workshop is the daylight screen photographed through 12% of
+        # black, which is the one thing this screen is not.
+        "styles": {"dim": {"opacity": "0"}},
         "found": [
             ["Treasure Island", "Stevenson, Robert Louis, 1850-1894", "", "add this book"],
             ["Kidnapped", "Stevenson, Robert Louis, 1850-1894", "already here", None],
@@ -213,6 +224,12 @@ FILL = """
       el.textContent = text;
       return el;
     };
+    const span = (cls, text) => {
+      const el = document.createElement("span");
+      el.className = cls;
+      el.textContent = text;
+      return el;
+    };
     const div = (cls, ...kids) => {
       const el = document.createElement("div");
       el.className = cls;
@@ -239,10 +256,13 @@ FILL = """
     put("shelf", (PANEL.shelf || []).map(([name, meta, press]) => {
       const li = document.createElement("li");
       li.className = "shelved";
-      const text = div("shelved-text", p("shelved-name", name), p("shelved-meta", meta));
-      const line = div("shelved-line", text);
-      if (press) line.append(pill("shelved-open", press));
-      li.append(line);
+      const row = document.createElement(press ? "button" : "div");
+      if (press) row.type = "button";
+      row.className = "shelved-open";
+      // Spans, as app.js builds them: a <button> takes phrasing content, and
+      // the sheet gives each of these a block display back.
+      row.append(span("shelved-name", name), span("shelved-meta", meta));
+      li.append(row);
       return li;
     }));
 

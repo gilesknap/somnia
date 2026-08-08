@@ -470,8 +470,12 @@ test("the panel survives an agent answer and a move without closing", async (t) 
 // -------------------------------------------------------------- reading now
 
 // The block at the top of the panel, as somebody opening it in the dark would
-// read it: which book is playing under this, the line under that, whether there
-// is a hairline at all and how far it has got, and what the one press offers.
+// read it: the label over it, which book is playing under this, the line under
+// that, and whether there is a hairline at all and how far it has got.
+//
+// There is no `press` in here any more, because there is no button: the block
+// itself is the press. What it would have said is in `meta` — see the block's
+// comment in index.html.
 //
 // `bar` is null where no hairline is drawn, which is the whole of the guard
 // against a bar that over-reads: while a book is still arriving, total_ms is
@@ -479,12 +483,12 @@ test("the panel survives an agent answer and a move without closing", async (t) 
 function reading(page) {
   return {
     up: !page.el("reading-now").hidden,
+    label: page.el("reading-label").textContent,
     title: page.el("reading-title").textContent,
     meta: page.el("reading-meta").textContent,
     bar: page.el("reading-track").hidden
       ? null
       : page.el("reading-fill").style.width,
-    press: page.el("reading-resume").textContent,
   };
 }
 
@@ -495,6 +499,8 @@ test("Books names the book playing under it, by its title alone", async (t) => {
   await books(page);
   assert.deepEqual(reading(page), {
     up: true,
+    // Paused, so the block is offering to start it.
+    label: "reading now",
     // The title, and nothing else. This block used to read
     // `The Moonstone — Collins, Wilkie, 1824-1889 · Reade, Charles, 1814-1884`,
     // which was right at 21dp on a panel doing eight jobs and is three lines of
@@ -502,14 +508,14 @@ test("Books names the book playing under it, by its title alone", async (t) => {
     // somebody already owns and chose; where it earns its room is Workshop's
     // search results, and that is the only list in the app that carries it now.
     title: "The Moonstone",
-    // `in`, not `listened`: nothing anywhere stores how long anybody has
-    // listened for. ADR 3 dropped the session history on purpose, so the only
-    // honest reading of this number is how far into the book the mark is.
-    meta: "chapter 4 of 37 · 30m in",
+    // Where the press lands, which is what the pill under this block used to
+    // say. Not `30m in`, which is what this line said while the pill was
+    // holding the time: a place is more use than a distance, and the line is
+    // free to say it now.
+    meta: "chapter 4 of 37 · picks up at 0:30:00",
     // Five chapters of thirty-seven have audio, so total_ms is how much exists
     // and not how long the book is.
     bar: null,
-    press: "pick it up at 0:30:00",
   });
 });
 
@@ -520,8 +526,9 @@ test("a book nobody counted says which chapter it is in and stops there", async 
   await books(page);
   // The same guard the player's own count carries, and for the same reason: 0
   // means nobody wrote the number down, which is every book rendered before the
-  // column existed. `chapter 1 of 0` is the sentence this prevents.
-  assert.equal(reading(page).meta, "chapter 1");
+  // column existed. `chapter 1 of 0` is the sentence this prevents — and the
+  // half of the line that is still true is still said.
+  assert.equal(reading(page).meta, "chapter 1 · picks up at 0:00:00");
   // Nothing is in front of the mark that has not been rendered — the book is
   // finished — so the hairline is honest here even without a denominator for
   // the chapters.
@@ -549,13 +556,13 @@ test("a book still arriving gets no hairline rather than one that over-reads", a
   assert.equal(reading(whole).bar, "27.8%");
 });
 
-test("`pick it up` starts the book and takes the panel away with it", async (t) => {
+test("tapping the block starts the book and takes the panel away with it", async (t) => {
   const page = await opened(t);
   page.queueView([job()]);
   await books(page);
-  assert.equal(reading(page).press, "pick it up at 0:16:40");
+  assert.equal(reading(page).meta, "chapter 1 of 2 · picks up at 0:16:40");
 
-  page.click("reading-resume");
+  page.click("reading-open");
   await page.settle();
   assert.equal(page.audio.paused, false);
   // The panel is the thing they were on their way through, not the thing they
@@ -572,13 +579,16 @@ test("a book already sounding is offered back rather than started again", async 
   const page = await playing(t);
   page.queueView([job()]);
   await books(page);
-  assert.equal(reading(page).press, "back to it · playing");
+  // No time offered, because there is nothing to move to — and the label over
+  // the block says the same thing at a glance.
+  assert.equal(reading(page).meta, "chapter 1 of 2 · playing");
+  assert.equal(reading(page).label, "playing now");
   const playCalls = page.audio.playCalls;
 
-  page.click("reading-resume");
+  page.click("reading-open");
   await page.settle();
   // Nothing to start. The press is the way back to the controls and that is
-  // all it is, which is what the label said it would be.
+  // all it is, which is what the line said it would be.
   assert.equal(page.audio.playCalls, playCalls);
   assert.equal(page.audio.paused, false);
   assert.equal(page.probe().queueUp, false);
@@ -597,7 +607,7 @@ test("picking it up leaves no tap waiting over a book that is now playing", asyn
   page.queueView([job()]);
   await books(page);
   page.audio.refuse = null;
-  page.click("reading-resume");
+  page.click("reading-open");
   await page.settle();
   assert.equal(page.audio.paused, false);
 
@@ -628,15 +638,16 @@ test("with no book open the block goes rather than standing empty", async (t) =>
 //
 // The rows are read out of the DOM, as the queue's are: what /api/books said is
 // its own business and the only thing worth asserting is what somebody would
-// read in the dark. `open` is null where the row offers no press at all, which
+// read in the dark. `opens` is false where the row is not a press at all, which
 // is the whole of the guard against a book nobody can play yet being offered
-// and then refused.
+// and then refused — and since the press is the row rather than a pill on the
+// end of it, what says so is the tag rather than a label.
 function shelf(page) {
   return page.el("shelf").children.map((li) => ({
     name: words(li, "shelved-name"),
     meta: words(li, "shelved-meta"),
     bar: part(li, "shelved-fill")?.style.width ?? null,
-    open: words(li, "shelved-open"),
+    opens: part(li, "shelved-open")?.tagName === "BUTTON",
   }));
 }
 
@@ -661,7 +672,7 @@ test("the shelf says where each book was left and what is happening to it", asyn
       // question a shelf answers that a list of titles does not.
       meta: "0:00:04 in",
       bar: "25%",
-      open: "pick it up",
+      opens: true,
     },
     {
       // The title alone, as `reading now` above it, out of one function. Two
@@ -674,7 +685,7 @@ test("the shelf says where each book was left and what is happening to it", asyn
       // at chapter five of thirty-seven.
       meta: "0:30:00 in · being read now",
       bar: null,
-      open: "pick it up",
+      opens: true,
     },
     {
       // A render that stopped part way. It plays, so it is offered — and it
@@ -682,15 +693,16 @@ test("the shelf says where each book was left and what is happening to it", asyn
       name: "Stopped Part Way",
       meta: "0:00:00 in · part rendered",
       bar: null,
-      open: "pick it up",
+      opens: true,
     },
     {
       // Nothing to play at all. Marked rather than offered and then refused: a
-      // press that was never available cannot be a press that did nothing.
+      // press that was never available cannot be a press that did nothing. The
+      // row is a plain div, so there is nothing on it to land on.
       name: "Still Being Read",
       meta: "the first chapter is still being read",
       bar: null,
-      open: null,
+      opens: false,
     },
   ]);
 });
@@ -1002,6 +1014,31 @@ test("nothing daytime is on the night screen, and nothing nightly in daylight", 
   for (const id of ["queue-search", "queue-results", "jump-row"]) {
     assert.equal(page.el(id).hidden, false, id);
   }
+});
+
+// The other half of "nothing nightly in daylight", and the one that is not a
+// screen at all: the sheet of black the whole app is read through.
+test("the dim layer comes off Workshop and goes back on at `‹ books`", async (t) => {
+  const page = await opened(t, { stored: { "somnia-dim": "0.42" } });
+  page.queueView([]);
+  await books(page);
+  // Books is a night screen and is read through it, like everything else.
+  assert.equal(page.probe().dim, 0.42);
+
+  page.click("to-workshop");
+  await page.settle();
+  await page.settle();
+  // Workshop is not. At a level somebody chose for 3am this screen was
+  // unreadable whatever its ink did, and dimming a screen read in daylight is
+  // wrong at any level.
+  assert.equal(page.probe().dim, 0);
+
+  page.click("workshop-close");
+  await page.settle();
+  // The level was never touched — the layer was lifted, not the setting — so
+  // the room comes back exactly as dark as it was, and nothing was written.
+  assert.equal(page.probe().dim, 0.42);
+  assert.equal(page.storage.getItem("somnia-dim"), "0.42");
 });
 
 // The one thing on Books that the split could have quietly deleted. The shelf
