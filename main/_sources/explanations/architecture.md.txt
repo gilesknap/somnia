@@ -169,7 +169,7 @@ erDiagram
   }
   books {
     int gid PK
-    text title "the catalog's name, not the file's header line"
+    text title "the catalog's name; the scrape only if it has none"
     text status "pending, rendering, done"
     int total_ms "grows while rendering"
     int chapters_total "how many it HAS; 0 = unknown"
