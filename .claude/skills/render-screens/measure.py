@@ -20,13 +20,28 @@ phone and the flexible gap will be wrong or negative.
 
 SCROLLS must stay False. The brief makes "the player does not scroll at 360x780"
 a hard rule, and it is the first thing any added row breaks.
+
+It is not, however, the detector for type that is too big. The column is
+`flex: 1` all the way down, so the spacers give until there is nothing left and
+then type lands on type — titles truncate, the chapter name clips through its
+descenders, the header pills meet the wordmark — and none of that scrolls. At
+360 wide the page is clean to a root of 24, broken by 26 and does not scroll
+until 30. Open the PNG as well as reading this.
+
+    python3 measure.py /tmp/somnia/page.html 867 --text-size 1.2
+
+is the top of the reader's own range, `how big the words` on Settings. 0.8 is the
+bottom and 1 is what ships.
 """
 
+import argparse
 import json
 import pathlib
 import re
 import subprocess
 import sys
+
+from render import REM_WIDE, overrides
 
 PROBE = """
 <script>
@@ -69,12 +84,28 @@ window.addEventListener('load', () => {
 </head>"""
 
 
-def measure(src, height, root=20):
+def measure(src, height, root=None, text_size=None, width=360):
+    """The gaps down the player, at a width `--dump-dom` refuses to give us.
+
+    This one has to inject a root where `render.py` must not, and the reason is
+    the tool rather than the page: `--dump-dom` opens a real window and **will
+    not go below 500px wide**, so the page — which now takes its root from
+    `100vw` — would work one out for a 500px phone and every gap below would be
+    measured against a screen nobody holds. It came out as a 25.6px root against
+    an intended 20.
+
+    So the root the page *would* have had at `width` is worked out here and
+    injected, which is the same arithmetic `style.css` does and is why REM_WIDE
+    is imported rather than typed again. `--root` overrides it for a what-if.
+    """
     src = pathlib.Path(src)
     scaled = src.with_name(f".measure-{src.name}")
-    html = src.read_text().replace(
-        "</head>", f"<style>html {{ font-size: {root}px; }}</style>{PROBE}"
-    )
+    if root is None:
+        root = (text_size or 1) * min(width, 460) / REM_WIDE
+    # The multiplier is already in the root, so it must not be sent twice: an
+    # injected root wins outright over the sheet's calc, and `--text-size`
+    # alongside it would be a custom property nothing reads.
+    html = src.read_text().replace("</head>", f"{overrides(root, None)}{PROBE}")
     scaled.write_text(html)
     try:
         dom = subprocess.run(
@@ -83,7 +114,7 @@ def measure(src, height, root=20):
                 "--headless",
                 "--disable-gpu",
                 "--dump-dom",
-                f"--window-size=360,{height}",
+                f"--window-size={width},{height}",
                 "--virtual-time-budget=2000",
                 str(scaled),
             ],
@@ -106,12 +137,31 @@ def gap(a, b):
 
 
 if __name__ == "__main__":
-    src = sys.argv[1]
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("src")
     # 867, not 780 — the same number the docstring is emphatic about. A default
     # of 780 hands the caller who omits the argument a viewport of about 693 and
     # six gaps measured against a phone nobody has.
-    d = measure(src, int(sys.argv[2]) if len(sys.argv) > 2 else 867)
-    print(f"root={d['root']}px  viewport={d['viewport']}  scrollH={d['scrollH']}")
+    ap.add_argument("height", nargs="?", type=int, default=867)
+    ap.add_argument("--width", type=int, default=360)
+    ap.add_argument(
+        "--root",
+        type=float,
+        default=None,
+        help="force a root in px; omit and the page takes it from --width",
+    )
+    ap.add_argument(
+        "--text-size",
+        type=float,
+        default=None,
+        help="the reader's own control on Settings: 0.8-1.2, shipping at 1",
+    )
+    a = ap.parse_args()
+    d = measure(a.src, a.height, a.root, a.text_size, a.width)
+    chosen = f"  text x{a.text_size}" if a.text_size is not None else ""
+    print(
+        f"root={d['root']}px{chosen}  viewport={d['viewport']}  scrollH={d['scrollH']}"
+    )
     print(f"SCROLLS: {d['scrollH'] > d['viewport'] + 1}")
     # The player carries no conversation at all now — the whole thread is on the
     # chat screen — so on it there is one gap where there used to be two,

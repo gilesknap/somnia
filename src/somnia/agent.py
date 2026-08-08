@@ -4,9 +4,13 @@ The model's job is routing, disambiguation and phrasing, not retrieval — the
 tools do the work. What it may say used to be bounded by what a tool had handed
 it in this conversation; since ADR 6 it is bounded by how far the listener has
 listened instead, which is a line the tools compute and tell it about rather
-than one it has to remember. The default model is Haiku, which costs cents per
-conversation and is more than enough to turn "the bit where the horse dies"
-into a place in the book.
+than one it has to remember. The model is Sonnet — see :mod:`somnia.config` for
+why it is not Haiku, and for the two settings that decide how long a turn takes.
+
+Everything sent here is shaped around one number: a question asked in the dark
+is answered in a handful of seconds, and every one of them is felt. So the
+constant half of the prompt is cached rather than re-read on each hop, and the
+model is told how hard to think rather than left to decide.
 """
 
 import logging
@@ -16,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from anthropic import Anthropic, beta_tool
+from anthropic.types.beta import BetaTextBlockParam
 
 from .abs import AbsClient
 from .config import Config
@@ -557,6 +562,35 @@ def build_tools(
     ]
 
 
+def _system(open_book: str) -> list[BetaTextBlockParam]:
+    """The prompt in two blocks, so the constant half can be cached.
+
+    Everything the model is told is the same every night except the last line,
+    which says which book is open — so the two are split, and the cache
+    breakpoint goes between them. A prompt cache is a prefix match: the tools
+    are rendered before the system prompt, so one breakpoint here covers both,
+    and about four thousand tokens of prompt stop being read from scratch on
+    every hop of every turn.
+
+    The order is what makes it work, and it is the whole of the reason this is
+    a list rather than a string. Put the open book first and the constant
+    behind it and the prefix changes whenever the book does, which is to say
+    the cache never reads. It has to be the volatile line that comes last.
+
+    Worth it even for a single question asked once in a night: a turn is two or
+    three round trips, and only the first of them pays for the write. The rest
+    read it back at a tenth of the price.
+    """
+    return [
+        {
+            "type": "text",
+            "text": SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"},
+        },
+        {"type": "text", "text": open_book},
+    ]
+
+
 def _line(row: QueueRow) -> str:
     """What to say about a book that is not a book yet, in one clause.
 
@@ -692,7 +726,8 @@ class Conversation:
         runner = self._client.beta.messages.tool_runner(
             model=self._cfg.agent_model,
             max_tokens=self._cfg.agent_max_tokens,
-            system=SYSTEM_PROMPT + self._open_book(gid),
+            output_config={"effort": self._cfg.agent_effort},
+            system=_system(self._open_book(gid)),
             tools=self._tools,
             messages=turn,
         )

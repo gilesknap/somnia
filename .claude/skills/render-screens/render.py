@@ -1,11 +1,23 @@
 """Screenshot a page at the phone it is actually read on.
 
 The measure is the whole point of this file. somnia is read on a Pixel 6 Pro
-with Android's text scaling turned up, because it is read without glasses in the
-dark — so the effective viewport is about 360x780 CSS px with a 20px root, not
-the 412x892 at 16px a stock device emulation gives you. Every line is roughly a
-third wider in practice than a default render shows, and a layout that fits at
-the stock measure can overflow on the actual phone.
+with the display size turned up, because it is read without glasses in the dark
+— so the effective viewport is about 360x780 CSS px, not the 412x892 a stock
+device emulation gives you. Every line is roughly a third wider in practice than
+a default render shows, and a layout that fits at the stock measure can overflow
+on the actual phone.
+
+**The width is the setting; the root follows from it.** `style.css` takes its
+root from the screen — `min(100vw, 460px) / 18`, because the design is 360 CSS
+px across at a 20px root and 360/20 is 18 — so a render at a given width gets
+the root the phone would have at that width, with nothing injected. This file
+therefore injects **no root at all** unless `--root` is passed on purpose. It
+used to inject 20px always, which was right at 360 and quietly wrong everywhere
+else: it drew a phone with the design's type at a viewport the design's type was
+never sized for.
+
+`--root` survives for asking what-if, and `--text-size` models the reader's own
+control on Settings, which multiplies that root.
 
 The keyboard genuinely shrinks the viewport rather than covering it, because the
 page asks for `interactive-widget=resizes-content`. So the page with a keyboard
@@ -29,7 +41,30 @@ import subprocess
 WIDTH = 360
 HEIGHT = 780
 KEYBOARD_HEIGHT = 470
-ROOT = 20
+
+# The design's own metric, and the only number here that came from the brief:
+# 360 CSS px across at a 20px root is a page 18 rem wide. `style.css` divides by
+# it, and anything in this skill that needs to know what root a width implies
+# divides by it too, rather than keeping a second copy of the answer.
+REM_WIDE = 18
+
+
+def overrides(root=None, text_size=None):
+    """The one <style> that makes a render ask a question the page would not.
+
+    Empty by default, which is the point: the page works its own root out from
+    the width, so a render with nothing injected is the phone at that width.
+    """
+    rules = []
+    if root is not None:
+        rules.append(f"html {{ font-size: {root}px; }}")
+    if text_size is not None:
+        # What `how big the words` writes. app.js sets it inline; a snapshot has
+        # no app.js, and a later rule of equal specificity beats the sheet's own
+        # default, so a plain block is the same thing said a different way.
+        rules.append(f":root {{ --text-size: {text_size}; }}")
+    return f"<style>{' '.join(rules)}</style>\n" if rules else ""
+
 
 # What app.js would have put on <body>. The chat screen carries `keyboard-up` as
 # well because that is the only route onto it: the two overlays read that class
@@ -39,16 +74,23 @@ SCREENS = {"player": ["player-screen"], "chat": ["chat-screen", "keyboard-up"]}
 
 
 def render(
-    src, out, width=WIDTH, height=HEIGHT, root=ROOT, screen="player", keyboard=False
+    src,
+    out,
+    width=WIDTH,
+    height=HEIGHT,
+    root=None,
+    screen="player",
+    keyboard=False,
+    text_size=None,
 ):
     src, out = pathlib.Path(src), pathlib.Path(out)
     classes = SCREENS[screen] + (["keyboard-up"] if keyboard else [])
-    # The root font is injected rather than edited into style.css: what is being
-    # photographed has to stay byte-for-byte the page that ships.
+    # Anything being forced is injected rather than edited into style.css: what
+    # is being photographed has to stay byte-for-byte the page that ships.
     scaled = src.with_name(f".scaled-{src.name}")
     scaled.write_text(
         src.read_text()
-        .replace("</head>", f"<style>html {{ font-size: {root}px; }}</style>\n</head>")
+        .replace("</head>", f"{overrides(root, text_size)}</head>")
         # Last thing in the body, so it lands after the snapshot's own fill
         # script has set the default screen rather than before it. The scroll
         # belongs here and not in the fill for the same reason: the conversation
@@ -56,11 +98,24 @@ def render(
         # this line is a scroll of a box with nothing in it, and the render comes
         # out showing the top of a thread the phone is showing the bottom of.
         # app.js scrolls it on every resize; app.js is what a snapshot drops.
+        #
+        # Scrolled twice, and the second one is the one that matters. Newsreader
+        # arrives as a data URI and swaps in when it is ready, which changes how
+        # tall the thread is — so a scroll taken before that lands on a height
+        # that is about to be wrong, and the chat render comes out a line and a
+        # half short. It was reproducible rather than random, which is worse:
+        # adding any element to <head> shifted the moment and silently moved
+        # every chat render with it. Waiting on `fonts.ready` makes the picture a
+        # fact about the page instead of about what else was in the document.
         .replace(
             "</body>",
             f"<script>document.body.className = {' '.join(sorted(set(classes)))!r};"
             "const said = document.getElementById('transcript');"
-            "if (said) said.scrollTop = said.scrollHeight;</script>\n</body>",
+            "const bottom = () => { if (said) said.scrollTop = said.scrollHeight; };"
+            "bottom();"
+            "if (document.fonts) document.fonts.ready.then(bottom);"
+            "addEventListener('resize', bottom);"
+            "setTimeout(bottom, 600);</script>\n</body>",
         )
     )
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -98,7 +153,18 @@ if __name__ == "__main__":
         default=HEIGHT,
         help=f"{HEIGHT} with no keyboard, {KEYBOARD_HEIGHT} with one up",
     )
-    ap.add_argument("--root", type=int, default=ROOT)
+    ap.add_argument(
+        "--root",
+        type=float,
+        default=None,
+        help="force a root in px; omit and the page takes it from --width",
+    )
+    ap.add_argument(
+        "--text-size",
+        type=float,
+        default=None,
+        help="the reader's own control on Settings: 0.8-1.2, shipping at 1",
+    )
     ap.add_argument(
         "--screen",
         choices=sorted(SCREENS),
@@ -111,4 +177,8 @@ if __name__ == "__main__":
         help="a keyboard up over whichever screen — what the overlays shrink for",
     )
     a = ap.parse_args()
-    print(render(a.src, a.out, a.width, a.height, a.root, a.screen, a.keyboard))
+    print(
+        render(
+            a.src, a.out, a.width, a.height, a.root, a.screen, a.keyboard, a.text_size
+        )
+    )

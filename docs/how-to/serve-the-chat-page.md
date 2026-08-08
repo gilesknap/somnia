@@ -26,6 +26,7 @@ the ones a served night depends on:
 | `SOMNIA_DATA_DIR` | where `somnia.db` lives, and where the joined-up copy of each book the page plays is written — sometimes more than one for a book opened mid-render; needs room, not just a path |
 | `SOMNIA_ABS_URL`, `SOMNIA_ABS_TOKEN` | optional: keeping Audiobookshelf roughly in step, and the one-off below |
 | `SOMNIA_AGENT_MODEL` | another model; the default is Sonnet 5 |
+| `SOMNIA_AGENT_EFFORT` | how hard it may think before answering; the default is `medium` |
 
 `SOMNIA_LIBRARY_DIR` is the one that has become load-bearing since the page
 became the player, and it fails quietly if it is wrong. Chapters are never
@@ -53,6 +54,26 @@ nothing — so if you are unsure whether it worked, run it again.
 
 `SOMNIA_AGENT_MODEL` overrides Sonnet 5. Haiku was the first choice, on cost,
 and mostly held up; set `SOMNIA_AGENT_MODEL=claude-haiku-4-5` to go back to it.
+Measured on nuc2 it answers in about a third of the time, so it is worth a
+night if the wait is what is bothering you.
+
+### If a question takes too long to come back
+
+Almost none of the wait is somnia: a search of the book is a tenth of a second,
+and the rest is the model. Two things to try, in this order.
+
+`SOMNIA_AGENT_EFFORT=low` tells it to think less before answering. The default
+is `medium`, which is already below what the API would do on its own, and `low`
+takes off perhaps another second. Then `SOMNIA_AGENT_MODEL=claude-haiku-4-5`,
+which is the bigger difference by far. Restart `somnia-serve` after either.
+
+One wait is not the model and does not respond to any of that: the **first**
+question of the night that searches a book used to sit for twelve seconds while
+the embedding model loaded. That now happens as the server starts, so the cost
+lands where nobody is waiting — but it means `somnia serve` is busy for those
+twelve seconds after it starts answering. The page, the book and the audio are
+all served throughout; only a search waits, and only if one is asked for that
+early.
 
 **Keep `--host` as localhost.** The page has no login of any kind: anyone who
 can reach it can drive the agent, spend your API credit, listen to your books,

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from anthropic import Anthropic
 from starlette.testclient import TestClient
 
 from conftest import ToneBook
@@ -33,7 +34,9 @@ class FakeConversation:
     # that a value crossed the wire, and that is the same proof either way.
     seen_gids: list[int | None] = []
 
-    def __init__(self, cfg: Config, library: Library) -> None:
+    def __init__(
+        self, cfg: Config, library: Library, client: Anthropic | None = None
+    ) -> None:
         self.turns: list[str] = []
 
     def ask(self, question: str, gid: int | None = None) -> Turn:
@@ -49,7 +52,9 @@ class MovingConversation:
     what the page is told comes from the same place a real move would put it.
     """
 
-    def __init__(self, cfg: Config, library: Library) -> None:
+    def __init__(
+        self, cfg: Config, library: Library, client: Anthropic | None = None
+    ) -> None:
         self._library = library
 
     def ask(self, question: str, gid: int | None = None) -> Turn:
@@ -72,7 +77,9 @@ class OfferingConversation:
     places: list[int] = []
     move: Moved | None = None
 
-    def __init__(self, cfg: Config, library: Library) -> None:
+    def __init__(
+        self, cfg: Config, library: Library, client: Anthropic | None = None
+    ) -> None:
         self._library = library
 
     def ask(self, question: str, gid: int | None = None) -> Turn:
