@@ -200,12 +200,27 @@ test("opening the page does not edit the level it found", async (t) => {
 // most-pressed buttons in the app — so what they say and what they do are one
 // setting and not two.
 
+// What the three options say about themselves, which is the half of "which one
+// is chosen" that is not a colour. Read as a whole rather than one at a time:
+// what a screen reader has to be able to answer is which of the three, and that
+// is a property of the group.
+function pressed(page) {
+  return Object.fromEntries(
+    [15, 30, 60].map((s) => [s, page.el(`jump-${s}`).attributes["aria-pressed"]]),
+  );
+}
+
 test("the transport says thirty until somebody says otherwise", async (t) => {
   const page = await boot(t);
   assert.equal(page.el("back30").textContent, "−30");
   assert.equal(page.el("fwd30").textContent, "+30");
   assert.equal(page.el("jump-30").classList.contains("chosen"), true);
   assert.equal(page.el("jump-15").classList.contains("chosen"), false);
+  // And it says so in the accessibility tree as well as in amber. The class is
+  // paint: without this, three identically labelled buttons on the one screen
+  // whose job is to report a setting back, and nothing to say which is already
+  // true.
+  assert.deepEqual(pressed(page), { 15: "false", 30: "true", 60: "false" });
 });
 
 test("choosing a skip size renames the buttons and moves the book by it", async (t) => {
@@ -221,6 +236,7 @@ test("choosing a skip size renames the buttons and moves the book by it", async 
   assert.equal(page.el("back30").attributes["aria-label"], "Back 15 seconds");
   assert.equal(page.el("jump-15").classList.contains("chosen"), true);
   assert.equal(page.el("jump-30").classList.contains("chosen"), false);
+  assert.deepEqual(pressed(page), { 15: "true", 30: "false", 60: "false" });
   assert.equal(page.storage.getItem("somnia-jump"), "15");
 
   // And the press moves the book by what the label says. A setting that renamed

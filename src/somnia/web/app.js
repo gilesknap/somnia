@@ -328,8 +328,18 @@ function drawJump() {
   fwd30.textContent = `+${jumpStep}`;
   back30.setAttribute("aria-label", `Back ${jumpStep} seconds`);
   fwd30.setAttribute("aria-label", `Forward ${jumpStep} seconds`);
+  // Which of the three is the one in force, said twice: once in amber for the
+  // eye and once in the accessibility tree for everybody else. The class is
+  // paint and nothing else — a reader who cannot see the amber had three
+  // identically labelled buttons and no way to tell which of them was already
+  // true, on the one screen in the app whose whole job is to report a setting
+  // back. Written on every button rather than only the chosen one, because the
+  // false is the half that carries the information: three buttons of which two
+  // say "not this" is a group with an answer in it.
   for (const [seconds, button] of jumpButtons) {
-    button.classList.toggle("chosen", seconds === jumpStep);
+    const chosen = seconds === jumpStep;
+    button.classList.toggle("chosen", chosen);
+    button.setAttribute("aria-pressed", String(chosen));
   }
 }
 

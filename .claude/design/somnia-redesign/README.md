@@ -454,7 +454,16 @@ Night. Reached from the player's left pill (which now reads `books ›`). Header
    `total_ms` is how much audio exists, so a bar drawn from it reaches the end at chapter 5 of 37 and then
    walks backwards. **No cover art** — bright rectangles in a dark room, and four lines of
    text scan faster half-asleep.
-3. **how dark the room** — the dim control, **between `reading now` and the shelf**, above a hairline. Two
+3. **how dark the room** — ~~the dim control, **between `reading now` and the shelf**~~ — **SUPERSEDED by
+   Screen 7 within this same revision, and not built here.** Screen 6 says "Workshop holds no settings. Both
+   controls are on Screen 7" and the implementation-status note says "Both belong on a new night Settings
+   screen"; two statements against one, and duplicating the control would give one setting two homes — the
+   failure the Books/Workshop split was undoing. Everything the argument below was protecting survives,
+   because Settings is a night screen too and the overlay is over it exactly as it is over Books. Resolved
+   this way in gilesknap/somnia#55; the reasoning is also in the comment above `#queue` in `index.html`, so
+   a future port cannot restore the duplicate without reading it. The original text follows.
+
+   ~~The dim control, between `reading now` and the shelf~~, above a hairline. Two
    64dp circles (`–` / `+`, 26dp glyphs, 0.06 steps, range 0–0.6) either side of a 2dp amber-filled track.
    The overlay updates live as it changes, which is the whole reason it is on a night screen: it can only be
    judged against the dark UI you are actually looking at, and a slider anywhere else is a slider set blind.
