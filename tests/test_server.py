@@ -723,6 +723,140 @@ def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
     ]
 
 
+# ----------------------------------------------------------- switching books
+
+
+def a_second_book(tone_book: ToneBook, gid: int, *, rendered: bool = True) -> None:
+    """Another book to switch to, with or without a chapter of audio behind it."""
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO books (gid, title, voice, status, total_ms)"
+            " VALUES (?, 'The Other Book', 'af_heart', 'done', 8000)",
+            (gid,),
+        )
+        if rendered:
+            tone_book.conn.execute(
+                "INSERT INTO chapters (book_gid, idx, title, start_ms, end_ms,"
+                " audio_file) VALUES (?, 0, 'Its Only Chapter', 0, 8000, '')",
+                (gid,),
+            )
+
+
+def added_first(tone_book: ToneBook, gid: int) -> None:
+    """Make this the oldest book on the shelf, whatever order the test added them.
+
+    ``created_at`` breaks a tie on ``position_at`` and is written in whole
+    seconds like it is, so two books a test inserts carry the same one and an
+    exact tie is decided by nothing anybody wrote down. Saying which is older
+    aims the tie-break, so a test about the lead is answered only by the lead.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET created_at = '2000-01-01 00:00:00' WHERE gid = ?",
+            (gid,),
+        )
+
+
+def test_the_page_can_choose_which_book_it_is_on(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """One POST, and a cold launch opens somewhere else from now on.
+
+    This is the whole of switching books. The position it answers with is the
+    book's own, from before the press — it is where the page is about to
+    resume, not something this wrote.
+    """
+    a_second_book(tone_book, GID + 1)
+    report(tone_client, position_ms=5_000)
+    assert tone_client.get("/api/books").json()["last_gid"] == GID
+
+    response = tone_client.post(f"/api/book/{GID + 1}/open")
+    assert response.status_code == 200
+    assert response.json() == {"gid": GID + 1, "position_ms": None, "seq": 0}
+    assert tone_client.get("/api/books").json()["last_gid"] == GID + 1
+
+
+def test_opening_a_book_changes_nothing_a_listener_could_notice(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """Everything about the row except which book is the most recent one.
+
+    In particular not ``position_seq``, which counts agent moves and nothing
+    else: a page that came away from this holding a stale count would have its
+    next report refused, and the refusal would drag it to wherever the server
+    thought the book was.
+    """
+    listening_at(tone_book, position_ms=11_000, heard_to_ms=9_000)
+    before = book_row(tone_book)
+    assert tone_client.post(f"/api/book/{GID}/open").status_code == 200
+    after = book_row(tone_book)
+    assert {k: v for k, v in after.items() if k != "position_at"} == {
+        k: v for k, v in before.items() if k != "position_at"
+    }
+    # And the page carries on saying where it is as though nothing had
+    # happened — which, as far as the report protocol goes, nothing has.
+    status, body = report(tone_client, position_ms=11_500)
+    assert (status, body["accepted"]) == (200, True)
+
+
+def test_the_book_being_left_does_not_take_the_switch_back(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The page's last word about the old book lands just after the switch.
+
+    That is the real order of a press: open the new book, then say where the
+    old one had got to. Both writes stamp ``position_at``, both are counted in
+    whole seconds, and if the parting one won then a reload would open the book
+    they had just left — which is the only way the whole feature can look
+    broken while every request in it succeeded.
+
+    The book being opened is made the older of the two, so ``created_at`` is on
+    the side of the book being left. Otherwise both rows are added inside one
+    second, the tie-break has nothing to say, and this passes with or without
+    the lead it exists to protect.
+    """
+    a_second_book(tone_book, GID + 1)
+    added_first(tone_book, GID + 1)
+    report(tone_client, position_ms=5_000)
+    assert tone_client.post(f"/api/book/{GID + 1}/open").status_code == 200
+
+    status, body = report(tone_client, position_ms=5_500, reason="switch")
+    assert (status, body["accepted"]) == (200, True)
+    assert tone_client.get("/api/books").json()["last_gid"] == GID + 1
+
+
+def test_a_book_there_is_nothing_to_play_of_cannot_be_opened(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """404 for a book that is not there, and for one still being read.
+
+    Both are the same answer to a press — there is nothing to open — and the
+    panel offers a press in neither state. The guard is on the server as well
+    because a book with no audio made the most recent one would leave the next
+    launch waiting on a render rather than on the book that was playing.
+    """
+    a_second_book(tone_book, GID + 1, rendered=False)
+    report(tone_client, position_ms=5_000)
+    assert tone_client.post(f"/api/book/{GID + 1}/open").status_code == 404
+    assert tone_client.post("/api/book/404404/open").status_code == 404
+    assert tone_client.get("/api/books").json()["last_gid"] == GID
+
+
+def test_switching_books_is_a_post_and_a_get_does_not_do_it(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The GET beside this one is the manifest, and it has to stay one.
+
+    A switch a GET could make would be made by anything that fetches ahead of
+    somebody, which on this page includes the service worker — the reason every
+    route it uses sits under /api/ in the first place.
+    """
+    a_second_book(tone_book, GID + 1)
+    report(tone_client, position_ms=5_000)
+    assert tone_client.get(f"/api/book/{GID + 1}/open").status_code != 200
+    assert tone_client.get("/api/books").json()["last_gid"] == GID
+
+
 # ---------------------------------------------------- coming back to the book
 
 

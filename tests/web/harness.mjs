@@ -370,6 +370,29 @@ const MANIFESTS = new Map(
   ].map((m) => [`api/book/${m.gid}`, m]),
 );
 
+// One book as /api/books lists it — player.BookEntry, field for field, built
+// from the manifest of the same book so the two can never say different things
+// about it. `chapters` is how many of them can be played, which is what tells a
+// book still waiting on its first chapter from one there is something to open.
+export function listed(book) {
+  return {
+    gid: book.gid,
+    title: book.title,
+    authors: book.authors,
+    status: book.status,
+    total_ms: book.total_ms,
+    chapters: book.chapters.length,
+    position_ms: book.position_ms,
+    seq: book.seq,
+  };
+}
+
+// Every book somnia has, and what a page booted without a `library` of its own
+// is given. Exported so that a test counting rows can say the rule it is really
+// testing — every book but the one playing — instead of a number that the next
+// fixture added above would quietly falsify.
+export const EVERY_BOOK = [...MANIFESTS.values()];
+
 // The eight the page registers. A browser throws for an action it has never
 // heard of, which is the whole reason registration is wrapped in a try, so the
 // fake throws too.
@@ -493,6 +516,9 @@ const BORN_HIDDEN = new Set([
   // rendered never gets one at all.
   "reading-now",
   "reading-track",
+  // The label over the shelf, which goes with its rows the way the ended list's
+  // does: a somnia with one book has nothing to put under it.
+  "shelf-label",
   "toast",
   // The count under the position line. The line is a plain readout until there
   // are places to open from it, so the document ships the count with nothing in
@@ -894,6 +920,12 @@ export async function boot(t, options = {}) {
     // otherwise — and the one that says otherwise says `[]`, which is a somnia
     // that has never rendered anything and is the state the books panel exists
     // for.
+    //
+    // The rows are player.BookEntry's shape, field for field, drawn from the
+    // manifests themselves so the two can never disagree about a book. That
+    // matters now the shelf draws from them: a harness that answered with only
+    // a gid, as this one did while nothing read the rest, would let a page pass
+    // that cannot say where any book was left.
     library = null,
     // Whether this browser has a visual viewport at all. Every engine that can
     // run this page does, so `false` is the arm and not the ordinary case — it
@@ -946,16 +978,28 @@ export async function boot(t, options = {}) {
   const submits = [];
   const stops = [];
   const searches = [];
+  // Every book the page asked to be made the current one, and whether the
+  // server is refusing to — which is what it does for a book with nothing to
+  // play, and the one refusal a press on the shelf can meet.
+  const opens = [];
+  let openRefused = false;
   let queueItems = [];
   let catalogFound = [];
   let submitAnswer = { ok: true, id: 1, said: "It is next to be rendered." };
   let stopAnswer = { ok: true, state: "cancelled", said: "Taken out." };
-  // Which of the four the tailnet is eating at the moment. Held apart rather
+  // Which of the six the tailnet is eating at the moment. Held apart rather
   // than as one switch because the interesting failures are one-sided: a submit
   // that never landed while the list is still arriving is the press that must
   // leave no row behind, and it cannot be staged with a server that is simply
   // gone.
-  const gone = { queue: false, submit: false, stop: false, catalog: false };
+  const gone = {
+    queue: false,
+    submit: false,
+    stop: false,
+    catalog: false,
+    open: false,
+    books: false,
+  };
 
   const fakeWindow = new FakeElement("window");
   const fakeDocument = new FakeElement("document");
@@ -1041,10 +1085,28 @@ export async function boot(t, options = {}) {
     fetch: async (url, init) => {
       fetches.push(url);
       if (url === "api/books") {
+        if (gone.books) throw new Error("no route to host");
         return json({
           last_gid: lastGid,
-          books:
-            library ?? [...MANIFESTS.values()].map((m) => ({ gid: m.gid })),
+          books: library ?? EVERY_BOOK.map(listed),
+        });
+      }
+      // Making a book the one a cold launch opens, which is the whole of
+      // switching books. It answers with the book's own position and count —
+      // untouched, because the route writes neither — and the page throws that
+      // body away and asks for the manifest, which is the point: nothing here
+      // is a second place a position is remembered.
+      if (url.startsWith("api/book/") && url.endsWith("/open")) {
+        if (gone.open) throw new Error("no route to host");
+        opens.push(url);
+        if (openRefused) {
+          return { ok: false, json: async () => ({ error: "no book to open" }) };
+        }
+        const opened = MANIFESTS.get(url.slice(0, -"/open".length));
+        return json({
+          gid: opened ? opened.gid : 0,
+          position_ms: opened ? opened.position_ms : null,
+          seq: opened ? opened.seq : 0,
         });
       }
       if (MANIFESTS.has(url)) return json(MANIFESTS.get(url));
@@ -1201,11 +1263,17 @@ export async function boot(t, options = {}) {
     stopReply: (body) => {
       stopAnswer = body;
     },
+    // The server refusing to open a book, which is what it answers for a book
+    // there is nothing to play of and for one that is not there at all.
+    refuseToOpen: (on) => {
+      openRefused = on;
+    },
     // The tailnet eating one endpoint and not the others.
     unreachable: (which) => Object.assign(gone, which),
     submits,
     stops,
     searches,
+    opens,
     reply: (answer) => {
       positionReply = answer;
     },

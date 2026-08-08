@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted
+Accepted. One sentence below is out of date: this panel *does* open books now —
+`on the shelf`, added 2026-08-07 — and the paragraph headed **The page watches,
+and adds, and never opens** is annotated where that matters. Nothing about the
+queue, the worker unit, the lease or the heartbeat is affected: what was added
+is a list of books somnia has already rendered and one write of `position_at`.
+The argument for the reversal is in
+[ADR 3](0003-play-the-book-in-the-page.md)'s amendment.
 
 ## Context
 
@@ -126,10 +132,14 @@ while it is open and the page is visible. It searches the catalog, submits,
 shows what is rendering and what is waiting, and stops one. It never switches
 what is playing, so [ADR 3](0003-play-the-book-in-the-page.md)'s "the page opens
 the book they were last listening to; changing books is done by asking" stays
-literally true: a catalog search for *adding* is not a library browser. The way
-out is a `‹ controls` pill in the top left — the same corner and word as the way
-out of `#candidates`, and the same shape as the `library` pill that opened
-this — and it is inert in the full sense
+literally true: a catalog search for *adding* is not a library browser.
+(**Amended 2026-08-07**: the panel does open books now, from a shelf of the ones
+somnia already has, and ADR 3's clause was withdrawn to allow it. What that
+amendment kept is the distinction this paragraph turns on — the catalog search
+is still *adding*, and still a different act from picking up a book you have.)
+The way out is a `‹ controls` pill in the top left — the same corner and word as
+the way out of `#candidates`, and the same shape as the `library` pill that
+opened this — and it is inert in the full sense
 [ADR 4](0004-choose-a-place-from-a-list.md) gave that word; the destructive
 control is `stop reading this`, two presses, quiet and dashed and nowhere near
 the transport.
@@ -179,7 +189,10 @@ somebody will propose a third, and the argument for this one is weaker than for
 the first: a list of places answers a question the listener just asked, whereas
 this is a thing somebody goes looking for. Its defences are that it is opened
 only on purpose from the far corner, that it holds no payload so nothing has to
-close it, and that it never switches what is playing.
+close it, and that it never switches what is playing. (**Amended 2026-08-07**:
+the third of those is gone — it switches what is playing when a book on its
+shelf is pressed. The first two still hold, and the press replaced by it was a
+sentence typed to an agent at 2am.)
 
 **No percentage, no time remaining, no notification.** People will want all
 three. Chapters differ in length by an order of magnitude, so a bar drawn from
