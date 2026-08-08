@@ -128,7 +128,12 @@ phone.
 
 Ask to be taken somewhere and the book goes there and plays from there. If the
 passage is in a book that was not even open, that book opens. Nothing has to be
-pressed afterwards.
+pressed afterwards — including nothing to get back to the book. A question is
+asked on the conversation and answered by a book that moved, so the page puts
+the player back in front of you rather than leaving the seek behind a
+transcript. It does that whether you typed the question or held the microphone,
+which it did not use to: typed, the keyboard going down took you back by
+accident, and spoken there was no keyboard to go down.
 
 Ask it a *question* instead — who Rob Roy is, what became of Ginger, why they
 went to London — and it answers in a sentence and leaves the book exactly where
@@ -146,10 +151,13 @@ them, so you recognise the moment rather than take somnia's word for it, and
 never the words of a place you have not reached yet, which is the paragraph
 after this one. There is a *you are here* marker sitting
 between them in book order so you can see which are behind you and which are
-ahead. Press *goto* on a row and the book goes there and plays. Press
+ahead. Press *goto* on a row and the book goes there and plays, and the list
+goes with it, leaving you on the player looking at where you have arrived. Press
 *‹ controls* in the top left — the same corner and the same word as the way out
 of everything else — and nothing whatever happens: the book carries on exactly
-as it was, in the same place, with the same sleep timer running. Nothing has
+as it was, in the same place, with the same sleep timer running, on the player
+the list was standing over. It stands over the player however the question was
+asked, so what *‹ controls* gives back does not depend on whether you spoke it. Nothing has
 moved while the list is up, so there is nothing to undo. The book keeps playing
 underneath it the whole time, which also means a sleep timer left to run out
 under a list still ends the night — the list is not a reason to keep the book

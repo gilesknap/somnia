@@ -972,20 +972,35 @@ test("an answer that only says something leaves them on the conversation", async
   assert.equal(page.probe().screen, "chat");
 });
 
-// A list raised by voice is a list over the conversation, and closing it puts
-// the conversation back. `close` is the one way out that promises to change
-// nothing, and the screen underneath is one of the things it must not change —
-// somebody who looked at four places and decided against all of them is still in
-// the middle of asking.
-test("closing the places leaves the screen it was raised over", async (t) => {
-  const page = await opened(t);
-  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
-  askedByVoice(page);
-  await page.ask("the bit with the cart");
-  assert.equal(page.probe().screen, "chat");
-  page.click("candidates-cancel");
-  assert.equal(page.probe().screen, "chat");
-});
+// The list itself is raised over the player, however the question was asked.
+// This is the other half of the same incoherence: typed, the blur that gets the
+// keyboard out of the list's way landed on the player as a side effect; spoken,
+// there was no focus to give up and the list stood over the transcript. One
+// screen either way, and it is the one the rows are about.
+//
+// Which is also what makes `close` answerable. It is the one way out that
+// promises to change nothing, and the screen is one of the things it must not
+// change — so where it leaves them is decided here, at the raise, rather than by
+// how they spoke.
+for (const [how, arrive] of [
+  ["by voice", askedByVoice],
+  ["by typing", askedByTyping],
+]) {
+  test(`the places are raised over the player when asked ${how}`, async (t) => {
+    const page = await opened(t);
+    page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+    arrive(page);
+    await page.ask("the bit with the cart");
+    assert.equal(page.probe().candidatesUp, true);
+    assert.equal(page.probe().screen, "player");
+    // And close changes nothing, which now includes the screen: they looked at
+    // four places, decided against all of them, and are where the list found
+    // them. The position line still counts the places, so the way back in is
+    // the one they came by.
+    page.click("candidates-cancel");
+    assert.equal(page.probe().screen, "player");
+  });
+}
 
 // And a move that nobody on this page just asked for may not take the screen
 // either. The refusal of the next report is how the agent moves a book by

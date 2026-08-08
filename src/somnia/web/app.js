@@ -2431,12 +2431,22 @@ function showCandidates(list) {
   for (const row of rows) candidateList.append(row);
 
   candidates.hidden = false;
-  // Giving focus up, never taking it. The keyboard is up on exactly the turns
-  // that produce a list — they just typed a question — and half the screen
-  // being keyboard is how the cancel button ends up somewhere a thumb cannot
-  // reach. Nothing here calls focus() on anything: this page does not move the
-  // cursor around under people.
-  question.blur?.();
+  // Giving focus up, never taking it. Half the screen being keyboard is how the
+  // close button ends up somewhere a thumb cannot reach. Nothing here calls
+  // focus() on anything: this page does not move the cursor around under people.
+  //
+  // Through the named way back rather than a bare blur(), because what this
+  // press really is is an arrival on the player with a list over it. The old
+  // comment here said the keyboard is up on exactly the turns that produce a
+  // list, "they just typed a question" — which was never true of the microphone,
+  // and that is how this list came to sit over two different screens depending
+  // on how the question was asked. Typed, the blur landed on the player by
+  // accident; spoken, there was no focus to give up and the list stood over the
+  // conversation. Now it is one screen either way, which is also what makes
+  // `close` answerable: it changes nothing, so it leaves them wherever the list
+  // was raised over, and that has to be somewhere that does not depend on
+  // whether they used their voice.
+  backToTheBook();
   // A book waiting for a touch before it will make a sound would otherwise
   // start on the first press anywhere on this overlay — a row, a reveal, or
   // cancel. Cancel especially: the one control that promises to change nothing
