@@ -157,7 +157,17 @@ there is a *you are here* line — and under it, in amber, where you actually ar
 the time, the words being spoken there behind the same press, and a *here*
 button that takes you back to it if you have gone somewhere and it was wrong.
 Press *goto* on a row and the book goes there and plays, and the list
-goes with it, leaving you on the player looking at where you have arrived. Press
+goes with it, leaving you on the player looking at where you have arrived. The
+line at the foot of the screen names where you landed — *moved to 1:20:20* —
+with *undo* beside it for six seconds, which puts you back exactly where the
+press found you and says *back where you were*. It is there because *goto* is
+the one press in the app that throws a position away, and without it the only
+route back is asking again. Anything that moves the book inside those six
+seconds takes the offer away and leaves the sentence: a way back holds a
+position, not an intention, and after a press of *+30* it would be a fourth move
+rather than a way back. After it has gone, the *here* button on the list is the
+way back that is left — it remembers where you were when you asked, not where
+the book has got to since. Press
 *‹ controls* in the top left — the same corner and the same word as the way out
 of everything else — and nothing whatever happens: the book carries on exactly
 as it was, in the same place, with the same sleep timer running, on the player

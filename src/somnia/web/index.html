@@ -1227,7 +1227,28 @@
          safe to have was not the count of controls but the palette: dim set on
          a daylight screen would be a number chosen against a page the layer is
          not over, which is the one way this control can be got wrong. -->
-    <p id="toast" hidden aria-live="polite"></p>
+    <!-- Two nodes rather than one, and the reason is the button beside it. The
+         sentence has to be readable on its own — "is anything being said?" is
+         asked of #toast-said and not of a box whose text now runs
+         "moved to 1:20:20undo" — so the words get an element and the way back
+         gets an element, and the live region is the pair.
+
+         #toast-undo is the one pressable thing that has ever been inside this
+         box, and it is here because `goto` is the last destructive press in the
+         app: it discards the position, and without this the only route back is
+         another semantic search — the expensive thing this whole app exists to
+         avoid. It ships hidden and is shown for the one toast that has
+         something to undo; every other sentence the page says is about a press
+         that can be undone by pressing the opposite thing.
+
+         The box around it still takes no press — see `pointer-events` in the
+         sheet — because for its few seconds it lies across the microphone. The
+         button turns them back on for itself alone, which is the whole of the
+         exception. -->
+    <p id="toast" hidden aria-live="polite">
+      <span id="toast-said"></span>
+      <button type="button" id="toast-undo" hidden>undo</button>
+    </p>
     <div id="dim" aria-hidden="true"></div>
 
     <script src="app.js"></script>
