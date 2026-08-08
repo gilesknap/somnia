@@ -48,6 +48,37 @@ real state worth looking at and is not the chat screen.
 Render both of the first two. A change that tidies one can break the other, and
 the composer is supposed to be identical across the flip.
 
+## Two CSS traps this page has already sprung
+
+Both cost a round of work, and neither is visible in a test suite — the page
+renders, nothing throws, and the size is simply wrong on one of the two screens.
+
+**A media query does not win on being the matching one.** The player size and
+the chat size for `.said` were written at the **same specificity** in different
+blocks, so **source order** decided the winner on both screens, and the rule for
+the screen you were not looking at kept applying to the one you were.
+Specificity is compared first; a media query only gates whether a block applies
+at all and adds nothing to the weight of what is inside it.
+
+The fix is to make the two rules beat each other **in one direction only, on
+purpose**. The player size is `#transcript .said`; the chat size is
+`body.chat-screen #transcript .said`, which carries a class on `<body>` as well
+and so wins wherever it applies — by specificity rather than by being written
+later. If you add a third size, give it a weight, not a position.
+
+**Hiding siblings moves the browser's default margins onto whatever is left.**
+The player draws only the newest turn, with
+`#transcript .said:not(:last-child) { display: none }`. The browser's own
+`p { margin: 1em 0 }` then landed on the one turn still showing, and because it
+is in `em` it grew with the type — so the gap above the placement line drifted
+every time the type scale changed. `margin-top: 0` is explicit for that reason.
+Any rule that hides all but one of a set is worth re-measuring afterwards: the
+survivor inherits edges it never had while it had neighbours.
+
+`measure.py` reads only turns with a client rect, so a hidden turn is no longer
+mistaken for the top of the conversation — it once reported `-48` against a
+layout that was right.
+
 ## Doing it
 
 ```bash
