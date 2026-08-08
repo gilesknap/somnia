@@ -277,3 +277,28 @@ def test_an_empty_catalog_defers_the_repair_rather_than_spending_it(
         assert _title(conn, 45839) == "Dracula"
     finally:
         conn.close()
+
+
+def test_a_nameless_catalog_row_cannot_take_a_book_s_name_away(
+    tmp_path: Path,
+) -> None:
+    """The same guard ingest keeps: an empty title is not a name.
+
+    Neither published list can put an empty title in the catalog — the CSV
+    import drops a row that has none, and the Australian index cannot produce
+    one — so this is written straight into the table. It is pinned because the
+    two places a book can be named must not disagree about what counts as one.
+    """
+    path = tmp_path / "nameless.db"
+    conn = connect(path)
+    update_catalog(conn, csv_text=_CATALOG_CSV, index_text="")
+    _rendered(conn, 45839, _SCRAPED)
+    with conn:
+        conn.execute("UPDATE catalog SET title = '' WHERE gid = '45839'")
+    conn.close()
+
+    conn = connect(path)
+    try:
+        assert _title(conn, 45839) == _SCRAPED
+    finally:
+        conn.close()
