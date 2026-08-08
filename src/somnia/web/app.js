@@ -1395,6 +1395,26 @@ player.addEventListener("timeupdate", () => {
   // A swap costs a few hundred milliseconds of a twenty-second fade.
   stepFade();
   countDownToSleep();
+  // The other way the timer ends a night, and the only one with a time to
+  // arrive at: they asked for the end of this chapter, and the book's own clock
+  // has reached it. What ends the night is that time and not the file
+  // underneath happening to run out. The two are the same instant for as long
+  // as a chapter is a file of its own, and they stop being the same instant the
+  // moment a whole book arrives down one URL — there a chapter ends in the
+  // middle of a file with hours left in it, and nothing but this marks the
+  // place. Founding it on the clock now, while the file still ends here too,
+  // is what makes that change a change to how a chapter is loaded and not a
+  // change to when the night ends.
+  //
+  // Stopped rather than faded, for the reason `ended` gives further down: ingest
+  // leaves half a second of silence at the end of every chapter, and the last
+  // words of one are a place a book means to be put down. Twenty seconds of
+  // fading out from here would be a fade over silence that nobody hears.
+  if (sleepsAtChapterEnd() && positionMs >= current.chapter.end_ms) {
+    clearSleep();
+    fallAsleep();
+    return;
+  }
   drawPlayer();
 
   // At most once a second. The platform interpolates between these from the
@@ -1502,7 +1522,15 @@ player.addEventListener("ended", () => {
   // out sooner than the database says it should. `ended` decides that a
   // chapter is over, never the clock: a truncated encode becomes a skip rather
   // than a book that hangs at 2am.
-  if (swapping || !current) return;
+  //
+  // Unless the sound was already meant to be off, in which case there is
+  // nothing left here to decide: whatever stopped it has said what happens
+  // next. The chapter-end sleep above is the one that does, and on a file of
+  // exactly the length the database gives its chapter it stops a few
+  // milliseconds ahead of this. An `ended` arriving behind it would read a
+  // timer that had just been spent, find it off, and start the next chapter
+  // over a book that was deliberately put down for the night.
+  if (swapping || !current || !wantsSound) return;
   positionMs = current.chapter.end_ms;
   const next = manifest.chapters[current.idx + 1];
   const goodnight = sleepsAtChapterEnd();

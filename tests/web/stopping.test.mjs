@@ -266,18 +266,72 @@ test("reaching for the control during the fade brings the sound back too", async
   assert.equal(page.probe().sleep, "sleep timer · 15m");
 });
 
-test("the end of the chapter is not crossed when the night ends there", async (t) => {
+test("the night ends where the chapter's clock ends, not where the file does", async (t) => {
   const page = await boot(t);
-  page.audio.ready();
+  // A shade longer than the chapter, which is what a real chapter file is: a
+  // decoder that ignores the edit list runs up to one AAC frame past what was
+  // rendered. Those twenty-three milliseconds are the whole of what lets this
+  // test tell the two mechanisms apart — at the moment the book's own clock
+  // says the chapter is over, the file still has sound left in it.
+  page.audio.ready(8.023);
   for (let tap = 0; tap < 5; tap++) page.click("sleep");
   assert.equal(page.probe().sleep, "sleep timer · chapter end");
   page.click("playpause");
-  page.audio.currentTime = 7.7;
+  page.audio.currentTime = 7.75;
   page.audio.fire("timeupdate");
-  // The whole of what "end of chapter" asks for is that this boundary is not
-  // crossed, so the swap lead must not take it either.
+  // A quarter of a second short of the end of the chapter is still the chapter.
+  assert.equal(page.audio.paused, false);
+  // Four times a second is the rate timeupdate comes off the media pipeline
+  // at, so this is the first sample at or past the end of the chapter.
+  page.audio.advance(0.25);
+  await page.settle();
+  assert.equal(page.audio.paused, true);
+  assert.equal(page.probe().positionMs, 8000);
+  // The file was never allowed to run out. `ended` is what removes the player
+  // from the platform's session, and a chapter end is about to stop being a
+  // place where a file ends at all.
+  assert.equal(page.audio.ended, false);
+  // And nothing was loaded to get here — the boundary was not crossed, which
+  // is the whole of what "end of chapter" asks for.
   assert.equal(page.audio.srcWrites.length, 1);
-  page.audio.advance(0.4);
+  assert.equal(page.probe().status, "goodnight");
+  // Spent, not still counting: coming back tomorrow night is a decision to set
+  // another one, which is one tap.
+  assert.equal(page.probe().sleep, "sleep timer · off");
+});
+
+test("the file running out in the same instant does not undo the night ending", async (t) => {
+  const page = await boot(t);
+  // A file exactly as long as the chapter the database describes, which is what
+  // every chapter of every book is today. The clock stops the book and the file
+  // runs out a moment later, in that order, and the `ended` that follows finds
+  // a sleep timer that has just been spent — it must not read that as a night
+  // with no end set and start the next chapter over a book put down on purpose.
+  page.audio.ready(8);
+  for (let tap = 0; tap < 5; tap++) page.click("sleep");
+  page.click("playpause");
+  page.audio.currentTime = 7.75;
+  page.audio.fire("timeupdate");
+  page.audio.advance(0.25);
+  await page.settle();
+  assert.equal(page.audio.srcWrites.length, 1);
+  assert.equal(page.audio.paused, true);
+  assert.equal(page.probe().status, "goodnight");
+  assert.equal(page.probe().sleep, "sleep timer · off");
+});
+
+test("a chapter whose file runs out early still ends the night", async (t) => {
+  const page = await boot(t);
+  // A truncated encode: half a second less audio than the database says the
+  // chapter has, so the clock above never reaches the end and `ended` is the
+  // only thing that ever says the chapter is over. It is the backstop, and a
+  // night set to end here has to end on it too.
+  page.audio.ready(7.5);
+  for (let tap = 0; tap < 5; tap++) page.click("sleep");
+  page.click("playpause");
+  page.audio.currentTime = 7.25;
+  page.audio.fire("timeupdate");
+  page.audio.advance(0.25);
   await page.settle();
   assert.equal(page.audio.srcWrites.length, 1);
   assert.equal(page.audio.paused, true);
