@@ -531,6 +531,24 @@ const HEARTBEAT_MS = 15_000;
 const RENDER_ASK_MS = 5_000;
 const RENDER_ASK_MAX_MS = 60_000;
 
+// How far short of the end of what has been read the sound is stopped, when
+// what has been read is not the whole book. Two things fix the size of it.
+//
+// It must be worth more than one timeupdate. They come off the media pipeline
+// about four times a second, so a mark closer to the end than one sample can be
+// stepped clean over — and what is on the far side of it is `ended`, which is
+// the one event that takes the player out of the platform's media session.
+//
+// It must be less than the half second of silence ingest leaves at the end of
+// every chapter (paragraph_silence_ms, config.py), so that stopping early stops
+// in that silence rather than in the middle of a word. Nothing is lost either
+// way — the sound comes back from where it stopped, not from the join — but a
+// sentence cut off is a sentence somebody has to go back for in the morning.
+//
+// Four hundred milliseconds is inside both, with room for the sample rate to be
+// half what it is.
+const FRONTIER_LEAD_MS = 400;
+
 // How long a stall is given to sort itself out before the chapter is put back
 // under it, and how long to leave between attempts once something has actually
 // failed. Two seconds because a tailnet re-key is usually over before that;
@@ -695,6 +713,66 @@ function chapterAtATime() {
 // its mind about what it was holding would read half an hour into a chapter
 // file as half an hour into the book, and put the listener four chapters back.
 let holdingOneChapter = false;
+
+// How much book that source holds, on the book's clock. For the whole book down
+// one URL it is the render frontier as it stood when the source was loaded, and
+// deliberately not as it stands now: the manifest is asked again all night and
+// grows, while the element goes on holding the join it was given. The gap
+// between this number and `manifest.total_ms` is a chapter that exists and is
+// not in the element, and everything below is about that gap.
+let streamMs = 0;
+
+// Whether the sound is stopped a fraction short of the end of that source,
+// waiting for the rest of the book to be read.
+//
+// Cleared by the three things that mean it is not stopped there any more: a
+// source loaded, a place seeked to, and sound coming out. A stale one is not
+// harmless — askForMore reads it to decide whether an arriving chapter is
+// something to carry on into, and left set under a book somebody had moved or
+// put down it would start the sound again on its own.
+let atFrontier = false;
+
+// Whether the source the element is holding stops short of the book. Either the
+// audio is already there and this source does not hold it, or the render is
+// still running and will make some.
+//
+// False for a chapter file, always: one of those stops short of the book by
+// design, and the file running out is how that path crosses a boundary at all.
+function sourceIsShortOfTheBook() {
+  if (holdingOneChapter || !manifest) return false;
+  return manifest.total_ms > streamMs || manifest.status === "rendering";
+}
+
+// The narrower half of that: audio the manifest names which this source does
+// not hold. It is the difference between something to load and nothing to do
+// but wait, and it is only ever true because the page refreshed the manifest
+// without reloading the element — which is the whole of the deferral that keeps
+// a night to one load or none.
+function audioPastTheSource() {
+  if (holdingOneChapter || !manifest) return false;
+  return manifest.total_ms > streamMs;
+}
+
+// The furthest into the source the sound is allowed to get. The lead is taken
+// off the book's clock and then run through toElementSeconds, so the 50 ms of
+// headroom there is kept underneath it: the render clock and the container
+// clock disagree by a frame in either direction, and this has to be short of
+// the end of whichever of the two is shorter.
+function frontierSeconds() {
+  return toElementSeconds(streamMs - FRONTIER_LEAD_MS, player.duration);
+}
+
+// Whether a place in the book is inside what this source holds, and so somewhere
+// the element can be taken to without loading anything.
+function insideTheSource(ms, at) {
+  if (holdingOneChapter) return at.idx === current.idx;
+  // Past this source's frontier, with the audio for it in the manifest: it is a
+  // different join at a different URL and only a load reaches it. Without this
+  // the seek would be clamped to the end of what was loaded, so a row chosen in
+  // a chapter that landed after the book was opened would answer with the last
+  // moment of the chapter before it — and answer with it again on every press.
+  return !(audioPastTheSource() && ms >= streamMs);
+}
 
 // Where the sound is, on the book's clock, whichever of the two the element is
 // holding. Every reading of the media clock in the page goes through here.
@@ -884,8 +962,15 @@ function loadSource({ idx, chapter, offset_ms }, { play }) {
   swapping = true;
   enterChapter({ idx, chapter });
   // Which of the two this is, decided once, here, and remembered — see
-  // holdingOneChapter.
+  // holdingOneChapter. How much book it holds is decided in the same breath and
+  // for the same reason: the manifest can grow between one of these and the
+  // next, and the frontier belongs to what was loaded rather than to what the
+  // server has since said.
   holdingOneChapter = chapterAtATime();
+  streamMs = holdingOneChapter ? chapter.end_ms : manifest.stream_ms;
+  // Whatever this is being loaded for, the sound is no longer stopped at the
+  // end of the last source. Usually this load is the answer to that.
+  atFrontier = false;
   // Where to land, said in the loaded thing's own milliseconds: a chapter file
   // starts at the chapter, the whole book starts at the beginning of the book.
   // Applied at loadedmetadata, when there is a duration to clamp it against.
@@ -917,6 +1002,10 @@ function seekGlobal(ms, { play = null } = {}) {
   if (fade?.thenSleep) startFade(1, FADE_IN_MS);
   const at = locate(ms);
   positionMs = Math.max(0, Math.min(ms, manifest.total_ms));
+  // They are somewhere of their own choosing now, which is not the end of what
+  // has been read however near it they land. Left set, a chapter arriving ten
+  // minutes later would take a book they had moved and start it playing.
+  atFrontier = false;
   // Every seek in the page comes through here, which is what makes this the
   // one place the played clock has to be set aside: the ground between where
   // they were and where they are going is not ground anybody heard, and
@@ -938,12 +1027,12 @@ function seekGlobal(ms, { play = null } = {}) {
     current &&
     player.readyState > 0 &&
     !player.error &&
-    (!holdingOneChapter || at.idx === current.idx)
+    insideTheSource(ms, at)
   ) {
     // Within what the element is already holding, which under one URL per book
-    // is everywhere in it. This branch is what keeps autoplay policy out of the
-    // common case: a seek on a live element needs no permission at all, so it
-    // does not ask for any.
+    // is everywhere in the book that had been read when it was loaded. This
+    // branch is what keeps autoplay policy out of the common case: a seek on a
+    // live element needs no permission at all, so it does not ask for any.
     //
     // An element holding an error is not a live one however much of the file it
     // still has: it will not fetch again until it is loaded afresh, so a press
@@ -996,6 +1085,59 @@ function ensurePlaying({ rewind = false } = {}) {
 function pauseHere() {
   weArePausing = true;
   player.pause();
+}
+
+// The sound has come to the end of what has been read of this book, and the
+// book is not over: the render is still going, or it went on while this source
+// was playing. Reached from timeupdate a fraction of a second before the source
+// runs out, because the one thing that must not happen here is `ended`.
+//
+// `ended` takes the player out of the platform's media session, and on a locked
+// phone that is the panel gone — not for a moment but for the whole of the
+// wait, which was measured at 3321 seconds on the five-chapter book. A pause
+// suspends the session instead: the panel stays up, with a play button on it,
+// for as long as the render takes. That is what somebody half awake should find
+// at 2am when the book is waiting for more of itself.
+//
+// This is the ordinary path and not an edge of one. A book added at eleven is
+// playable within minutes and renders a chapter every three and a quarter
+// minutes for hours after that, so any book listened to on the night it was
+// added arrives here.
+function reachTheFrontier() {
+  // They asked for the night to end at the end of this chapter, and this is as
+  // near the end of it as the sound is ever going to get: the check that
+  // watches for the chapter's own end is four hundred milliseconds further on
+  // and will never be reached. Without this the night would not end at all —
+  // it would be handed back twenty minutes later when the next chapter landed
+  // and the page started the book again over somebody who had asked it to stop.
+  if (sleepsAtChapterEnd()) {
+    clearSleep();
+    fallAsleep();
+    return;
+  }
+  // The rest of it is already here: the manifest was asked again while they
+  // were still listening to what this source holds, and it named audio this
+  // source does not have. There is nothing to be gained by stopping in front of
+  // it — the load is the same load whether it happens now or five seconds from
+  // now — so the longer join is taken at once and the sound carries on.
+  if (audioPastTheSource()) {
+    // Whatever was being waited for is here, so the sentence about waiting for
+    // it comes down. Usually there is no wait to stop — this is the first time
+    // the page has reached the frontier at all — and stopping nothing costs
+    // nothing.
+    stopAwaiting();
+    loadSource(locate(positionMs), { play: wantsSound });
+    return;
+  }
+  // Nowhere to go yet. Stop here and wait to be told the book has got longer,
+  // on the same ladder a chapter file running out has always used. What the
+  // sound was doing is read before the pause, because the pause is what takes
+  // it away: `wantsSound` is false the moment the handler runs, and it is the
+  // whole of whether the book starts itself again when the chapter lands.
+  const play = wantsSound;
+  atFrontier = true;
+  pauseHere();
+  awaitMore(gid, { play, at: current.idx });
 }
 
 // ------------------------------------------------------- the end of the night
@@ -1505,6 +1647,33 @@ player.addEventListener("timeupdate", () => {
   // be swallowed as the spurious one a src assignment fires.
   stepFade();
   countDownToSleep();
+  // The render frontier: the sound is about to run off the end of what this
+  // source holds, and there is more book than that. Stopping a fraction short of
+  // it is what keeps the lock screen panel up for the wait — see
+  // reachTheFrontier, which is also where a night asked to end at this chapter
+  // is ended, because at the frontier the two are the same moment and the check
+  // below is four hundred milliseconds too late to see it.
+  //
+  // Only while there is sound to stop. A paused element still gets a timeupdate
+  // out of a seek, and coming back through here would be the page pausing what
+  // is already paused and asking again for a chapter it is already waiting on.
+  //
+  // KNOWN: timeupdate comes off the media pipeline and goes on firing with the
+  // screen off, which is what the fade and the sleep timer already rest on.
+  // ASSUMED: that it keeps to something near four a second there. If a phone
+  // ever throttles it past the four hundred milliseconds this leaves, the next
+  // sample lands the far side of the end, the element ends, and the panel goes
+  // with it — and `ended` picks the wait up from exactly here, so the book still
+  // carries on when the chapter lands. What a throttled handler costs is the
+  // panel, not the night.
+  if (
+    !player.paused &&
+    sourceIsShortOfTheBook() &&
+    player.currentTime >= frontierSeconds()
+  ) {
+    reachTheFrontier();
+    return;
+  }
   // The way the timer ends a night with a time to arrive at: they asked for the
   // end of this chapter, and the book's own clock has reached it. What ends the
   // night is that time and not the file underneath happening to run out — with
@@ -1575,6 +1744,12 @@ player.addEventListener("play", () => {
   // From here the sound is meant to be on, and anything that takes it away is
   // something to get back from rather than something that happened.
   wantsSound = true;
+  // And it is not stopped at the end of what has been read, whatever started it
+  // — the wait's own reload, or a thumb on the play button while the render is
+  // still going. The second of those is the one that needs saying: it plays the
+  // last fraction of a second again and comes straight back to the frontier, and
+  // it can only be stopped there a second time if this has been given up first.
+  atFrontier = false;
   // The timer measures listening, so it starts counting from here and not from
   // whenever it was last looked at.
   sleepCountedAt = Date.now();
@@ -1666,8 +1841,9 @@ player.addEventListener("ended", () => {
   if (next && !goodnight) {
     // A chapter at a time: the next file, which is the ordinary boundary there.
     // Under one URL per book it means the stream stopped short of a book that
-    // has grown since it was built — the render frontier — and the way on is
-    // the longer stream the manifest is now naming. Both are the same call
+    // has grown since it was built — the render frontier, reached without the
+    // pause a fraction before it having had a sample to fire on — and the way
+    // on is the longer stream the manifest is now naming. Both are the same call
     // because both are "load whatever holds the place we are going to".
     loadSource(locate(next.start_ms), { play: true });
     return;
@@ -1694,6 +1870,13 @@ player.addEventListener("ended", () => {
     // Saying otherwise here is the lie somebody would act on: they added the
     // book at eleven, chapter one was playable in minutes, and the night ends
     // three chapters into forty-nine with the sleep timer thrown away.
+    //
+    // This is where a chapter file always runs out, and where the whole book
+    // runs out when the pause a fraction short of the frontier had no sample to
+    // fire on. The flag says the same thing either way — the sound is stopped
+    // at the end of what has been read — and askForMore asks it rather than
+    // asking `player.ended`, which is only true on one of the two.
+    atFrontier = true;
     awaitMore(gid, { play: true, at: current.idx });
     drawPlayer();
     return;
@@ -3741,6 +3924,15 @@ async function refreshManifest() {
     return false;
   }
   const grew = fresh.chapters.length > manifest.chapters.length;
+  // The timeline is adopted and the element is left holding the join it was
+  // given, however much longer a join this manifest names. That deferral is the
+  // whole of what keeps a night to one load or none: nuc2 reads a chapter every
+  // three and a quarter minutes, so taking each new join as it landed would be a
+  // hundred and fifteen loads between eleven and morning — a hundred and fifteen
+  // elements emptied, and a hundred and fifteen chances for the lock screen
+  // panel not to come back — for audio the listener will not reach for hours.
+  // `streamMs` goes on saying how much book the element really holds, and the
+  // load happens if and when they reach it.
   manifest = fresh;
   // The element is holding a chapter object from the manifest just replaced.
   // Pointing it at the row of the same index in the new one keeps every clock
@@ -3786,16 +3978,40 @@ async function askForMore() {
   clearTimeout(waiting.timer);
   try {
     if (gid === waiting.gid && manifest) {
-      if (await refreshManifest()) {
-        stopAwaiting();
-        // Only if they are still standing where the audio ran out. If they went
-        // somewhere else in the meantime, the longer timeline was all they
-        // needed: the boundary at the end of wherever they are now will take
-        // them into the new chapter by itself.
-        if (player.ended && current?.idx === waiting.at) {
-          const next = manifest.chapters[waiting.at + 1];
-          if (next) loadSource(locate(next.start_ms), { play: waiting.play });
+      const grew = await refreshManifest();
+      // Only if they are still standing where the audio ran out. If they went
+      // somewhere else in the meantime, the longer timeline was all they
+      // needed: the frontier at the end of wherever they are now will take them
+      // into the new chapter by itself.
+      //
+      // `atFrontier` and not `player.ended`. The element does not end any more
+      // — it is stopped a fraction of a second short of the end of what it
+      // holds, so that the panel is suspended rather than taken down — and a
+      // guard on `ended` would sit here all night beside a chapter that had
+      // already arrived. The flag is set on both routes, so this still covers
+      // the element that really did end: a chapter file always does, and the
+      // whole book does when no timeupdate fell inside the pause's window.
+      if (atFrontier && current?.idx === waiting.at) {
+        // What there is to go to, asked of the manifest rather than of this
+        // one answer. A book that grew while they were still listening to the
+        // chapter in front of the frontier grew on an earlier ask, and a page
+        // that only ever acted on the ask that found it would leave them
+        // stopped in front of audio that was already here — for another minute,
+        // and then another.
+        const next = manifest.chapters[waiting.at + 1];
+        if (next) {
+          stopAwaiting();
+          // From where the sound stopped, not from the top of the new chapter.
+          // The two are the same place for a chapter file, which ends where its
+          // chapter does; under one URL per book the stop is a fraction short of
+          // the join, and that fraction is the silence ingest leaves at the end
+          // of every chapter — heard twice rather than lost.
+          loadSource(locate(positionMs), { play: waiting.play });
+          return;
         }
+      }
+      if (grew) {
+        stopAwaiting();
         return;
       }
       if (manifest.status !== "rendering") {
