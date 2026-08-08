@@ -5,8 +5,9 @@ but nothing about it is private to the page.
 
 **There is no authentication on any of it.** Anything that can reach the port
 can list your books, read the agent, spend your API credit, move your position,
-and start or stop hours of rendering. Reachability is the authentication, which
-is why the server binds to localhost and the only path in is `tailscale serve`.
+change which book you are on, and start or stop hours of rendering.
+Reachability is the authentication, which is why the server binds to localhost
+and the only path in is `tailscale serve`.
 
 Everything the page fetches lives under `/api/`, and that prefix does work: the
 service worker knows never to cache it — the Cache API throws when asked to
@@ -27,6 +28,7 @@ would tell you.
 | `/api/sentence/{gid}/{ms}` | GET | Where the sentence being spoken at `ms` began |
 | `/api/catalog?q=…` | GET | Books to add, from the local Gutenberg catalog |
 | `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
+| `/api/book/{gid}/open` | POST | Make this the book a cold launch opens — or 404 |
 | `/api/ask` | POST | The agent's reply, and a move if it made one |
 | `/api/forget` | POST | Drops one conversation |
 | `/api/position` | POST | What became of a report — always 200 |
@@ -52,6 +54,12 @@ would tell you.
 been played — the one moment it is fair to ask which book they want.
 `position_ms` is `null` for a book never started, which is a different answer
 from `0`.
+
+`chapters` is how many of the book's chapters can be played *now*, counted from
+rows that really exist, and `0` means there is nothing to open yet: a render
+that has not produced its first chapter, or one that died before it. The books
+panel draws its shelf from this list, and that is the field that decides whether
+a row offers a press at all.
 
 ## `GET /api/book/{gid}`
 
@@ -85,6 +93,38 @@ It is `0` for every book rendered before the column existed, and `0` means
 nobody wrote it down, so say nothing rather than "3 of 0".
 
 404 for a book that is not there.
+
+## `POST /api/book/{gid}/open`
+
+```json
+{"gid": 271, "position_ms": 11560000, "seq": 3}
+```
+
+The whole of switching books, and it writes one column: `position_at`. Since
+`last_gid` is simply the book with the newest one, making a book the most recent
+*is* choosing it — there is no new state, and no second place a position is
+remembered.
+
+Nothing else on the row is touched. `position_ms` stays where the last report
+put it, which is what makes the book resume exactly where it was left;
+`heard_to_ms` stays because pressing a button has not heard anything; and
+`position_seq` stays because that counts agent moves and nothing else, so the
+page's next report is accepted rather than refused and the listener is not
+dragged anywhere. The two numbers in the answer are the book's own, from before
+the press — they say where the page is about to resume, and the page then asks
+for the manifest anyway.
+
+The timestamp written is a couple of seconds ahead of every other book's rather
+than simply `datetime('now')`. That column counts whole seconds and a tie is
+broken by which book was added first, and the write this has to beat is the
+page's parting report for the book it is leaving, which lands milliseconds
+later — without the lead, a reload could open the book you had just left.
+
+**404** for a book that is not there, and for a book with no audio yet — a
+render still on its first chapter, or one that died before it. Both are the same
+answer to a press: there is nothing to open. The guard is here and not only on
+the page because a book nobody can play made the most recent one would leave the
+next launch waiting on a render instead of on the book that was playing.
 
 ## `GET /api/audio/{gid}/{idx}`
 

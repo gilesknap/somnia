@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; somnia 0.6.dev82+gea14933f1 documentation</title>
+    <title>Architecture &#8212; somnia 0.6.dev93+g6117fa982 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=66da128a"></script>
+    <script src="../_static/documentation_options.js?v=7f89c8f9"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -1002,7 +1002,7 @@ and their chapter timelines, the indexed text windows, and the vectors.</p>
     int heard_to_ms &quot;high-water mark&quot;
     int position_ms &quot;nullable: never started&quot;
     int position_seq &quot;agent moves only&quot;
-    text position_at &quot;last report taken&quot;
+    text position_at &quot;last report taken, or opened; newest is last_gid&quot;
     text abs_item_id
   }
   queue {
@@ -1284,19 +1284,23 @@ ahead of the static mount that would otherwise swallow them.</p>
 <td><p>player</p></td>
 <td><p>The manifest: timeline, position, <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code>, in one round trip</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code></p></td>
+<td><p>player</p></td>
+<td><p>Make this the book a cold launch opens — one column, nothing else</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></p></td>
 <td><p>player</p></td>
 <td><p>One chapter’s m4a. Range, <code class="docutils literal notranslate"><span class="pre">If-Range</span></code> and 416 are Starlette’s own</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
 <td><p>player</p></td>
 <td><p>Where the sentence at a point began, for the long rewind</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/position</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/position</span></code></p></td>
 <td><p>player</p></td>
 <td><p>The page’s report; always 200, accepted or refused</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/</span></code></p></td>
 <td><p>—</p></td>
 <td><p>The page itself, served straight off the installed package</p></td>
 </tr>

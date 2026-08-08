@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.6.dev82+gea14933f1 documentation</title>
+    <title>HTTP surface &#8212; somnia 0.6.dev93+g6117fa982 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=66da128a"></script>
+    <script src="../_static/documentation_options.js?v=7f89c8f9"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -494,8 +494,9 @@
 but nothing about it is private to the page.</p>
 <p><strong>There is no authentication on any of it.</strong> Anything that can reach the port
 can list your books, read the agent, spend your API credit, move your position,
-and start or stop hours of rendering. Reachability is the authentication, which
-is why the server binds to localhost and the only path in is <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code>.</p>
+change which book you are on, and start or stop hours of rendering.
+Reachability is the authentication, which is why the server binds to localhost
+and the only path in is <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code>.</p>
 <p>Everything the page fetches lives under <code class="docutils literal notranslate"><span class="pre">/api/</span></code>, and that prefix does work: the
 service worker knows never to cache it — the Cache API throws when asked to
 store the 206 a seek produces — and it keeps these routes ahead of the static
@@ -540,23 +541,27 @@ would tell you.</p>
 <td><p>GET</p></td>
 <td><p>What is rendering, what is waiting, what went wrong</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Make this the book a cold launch opens — or 404</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>The agent’s reply, and a move if it made one</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Drops one conversation</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>What became of a report — always 200</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Ask for a book — always 200</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Stop a render, or take a book out of the line</p></td>
 </tr>
@@ -581,6 +586,11 @@ would tell you.</p>
 been played — the one moment it is fair to ask which book they want.
 <code class="docutils literal notranslate"><span class="pre">position_ms</span></code> is <code class="docutils literal notranslate"><span class="pre">null</span></code> for a book never started, which is a different answer
 from <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">chapters</span></code> is how many of the book’s chapters can be played <em>now</em>, counted from
+rows that really exist, and <code class="docutils literal notranslate"><span class="pre">0</span></code> means there is nothing to open yet: a render
+that has not produced its first chapter, or one that died before it. The books
+panel draws its shelf from this list, and that is the field that decides whether
+a row offers a press at all.</p>
 </section>
 <section id="get-api-book-gid">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code><a class="headerlink" href="#get-api-book-gid" title="Link to this heading">#</a></h2>
@@ -610,6 +620,34 @@ thirty-nine — which is not the end of the book — from reaching the end of on
 It is <code class="docutils literal notranslate"><span class="pre">0</span></code> for every book rendered before the column existed, and <code class="docutils literal notranslate"><span class="pre">0</span></code> means
 nobody wrote it down, so say nothing rather than “3 of 0”.</p>
 <p>404 for a book that is not there.</p>
+</section>
+<section id="post-api-book-gid-open">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code><a class="headerlink" href="#post-api-book-gid-open" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The whole of switching books, and it writes one column: <code class="docutils literal notranslate"><span class="pre">position_at</span></code>. Since
+<code class="docutils literal notranslate"><span class="pre">last_gid</span></code> is simply the book with the newest one, making a book the most recent
+<em>is</em> choosing it — there is no new state, and no second place a position is
+remembered.</p>
+<p>Nothing else on the row is touched. <code class="docutils literal notranslate"><span class="pre">position_ms</span></code> stays where the last report
+put it, which is what makes the book resume exactly where it was left;
+<code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> stays because pressing a button has not heard anything; and
+<code class="docutils literal notranslate"><span class="pre">position_seq</span></code> stays because that counts agent moves and nothing else, so the
+page’s next report is accepted rather than refused and the listener is not
+dragged anywhere. The two numbers in the answer are the book’s own, from before
+the press — they say where the page is about to resume, and the page then asks
+for the manifest anyway.</p>
+<p>The timestamp written is a couple of seconds ahead of every other book’s rather
+than simply <code class="docutils literal notranslate"><span class="pre">datetime('now')</span></code>. That column counts whole seconds and a tie is
+broken by which book was added first, and the write this has to beat is the
+page’s parting report for the book it is leaving, which lands milliseconds
+later — without the lead, a reload could open the book you had just left.</p>
+<p><strong>404</strong> for a book that is not there, and for a book with no audio yet — a
+render still on its first chapter, or one that died before it. Both are the same
+answer to a press: there is nothing to open. The guard is here and not only on
+the page because a book nobody can play made the most recent one would leave the
+next launch waiting on a render instead of on the book that was playing.</p>
 </section>
 <section id="get-api-audio-gid-idx">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code><a class="headerlink" href="#get-api-audio-gid-idx" title="Link to this heading">#</a></h2>
@@ -854,6 +892,7 @@ too.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-books"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/books</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-book-gid"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-book-gid-open"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-audio-gid-idx"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-sentence-gid-ms"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-catalog"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code></a></li>

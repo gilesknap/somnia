@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>5. Render one book at a time, in its own unit, and let the page watch &#8212; somnia 0.6.dev82+gea14933f1 documentation</title>
+    <title>5. Render one book at a time, in its own unit, and let the page watch &#8212; somnia 0.6.dev93+g6117fa982 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=66da128a"></script>
+    <script src="../../_static/documentation_options.js?v=7f89c8f9"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -500,7 +500,13 @@
 <h1>5. Render one book at a time, in its own unit, and let the page watch<a class="headerlink" href="#render-one-book-at-a-time-in-its-own-unit-and-let-the-page-watch" title="Link to this heading">#</a></h1>
 <section id="status">
 <h2>Status<a class="headerlink" href="#status" title="Link to this heading">#</a></h2>
-<p>Accepted</p>
+<p>Accepted. One sentence below is out of date: this panel <em>does</em> open books now —
+<code class="docutils literal notranslate"><span class="pre">on</span> <span class="pre">the</span> <span class="pre">shelf</span></code>, added 2026-08-07 — and the paragraph headed <strong>The page watches,
+and adds, and never opens</strong> is annotated where that matters. Nothing about the
+queue, the worker unit, the lease or the heartbeat is affected: what was added
+is a list of books somnia has already rendered and one write of <code class="docutils literal notranslate"><span class="pre">position_at</span></code>.
+The argument for the reversal is in
+<a class="reference internal" href="0003-play-the-book-in-the-page.html"><span class="std std-doc">ADR 3</span></a>’s amendment.</p>
 </section>
 <section id="context">
 <h2>Context<a class="headerlink" href="#context" title="Link to this heading">#</a></h2>
@@ -611,10 +617,14 @@ while it is open and the page is visible. It searches the catalog, submits,
 shows what is rendering and what is waiting, and stops one. It never switches
 what is playing, so <a class="reference internal" href="0003-play-the-book-in-the-page.html"><span class="std std-doc">ADR 3</span></a>’s “the page opens
 the book they were last listening to; changing books is done by asking” stays
-literally true: a catalog search for <em>adding</em> is not a library browser. The way
-out is a <code class="docutils literal notranslate"><span class="pre">‹</span> <span class="pre">controls</span></code> pill in the top left — the same corner and word as the way
-out of <code class="docutils literal notranslate"><span class="pre">#candidates</span></code>, and the same shape as the <code class="docutils literal notranslate"><span class="pre">library</span></code> pill that opened
-this — and it is inert in the full sense
+literally true: a catalog search for <em>adding</em> is not a library browser.
+(<strong>Amended 2026-08-07</strong>: the panel does open books now, from a shelf of the ones
+somnia already has, and ADR 3’s clause was withdrawn to allow it. What that
+amendment kept is the distinction this paragraph turns on — the catalog search
+is still <em>adding</em>, and still a different act from picking up a book you have.)
+The way out is a <code class="docutils literal notranslate"><span class="pre">‹</span> <span class="pre">controls</span></code> pill in the top left — the same corner and word as
+the way out of <code class="docutils literal notranslate"><span class="pre">#candidates</span></code>, and the same shape as the <code class="docutils literal notranslate"><span class="pre">library</span></code> pill that
+opened this — and it is inert in the full sense
 <a class="reference internal" href="0004-choose-a-place-from-a-list.html"><span class="std std-doc">ADR 4</span></a> gave that word; the destructive
 control is <code class="docutils literal notranslate"><span class="pre">stop</span> <span class="pre">reading</span> <span class="pre">this</span></code>, two presses, quiet and dashed and nowhere near
 the transport.</p>
@@ -658,7 +668,10 @@ somebody will propose a third, and the argument for this one is weaker than for
 the first: a list of places answers a question the listener just asked, whereas
 this is a thing somebody goes looking for. Its defences are that it is opened
 only on purpose from the far corner, that it holds no payload so nothing has to
-close it, and that it never switches what is playing.</p>
+close it, and that it never switches what is playing. (<strong>Amended 2026-08-07</strong>:
+the third of those is gone — it switches what is playing when a book on its
+shelf is pressed. The first two still hold, and the press replaced by it was a
+sentence typed to an agent at 2am.)</p>
 <p><strong>No percentage, no time remaining, no notification.</strong> People will want all
 three. Chapters differ in length by an order of magnitude, so a bar drawn from
 4/39 moves in lurches that read as a stall; the only honest time denominator

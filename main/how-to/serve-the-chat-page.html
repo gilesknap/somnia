@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.6.dev82+gea14933f1 documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.6.dev93+g6117fa982 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=66da128a"></script>
+    <script src="../_static/documentation_options.js?v=7f89c8f9"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -671,14 +671,16 @@ all of them.</p>
 </section>
 <section id="playing-the-book">
 <h2>Playing the book<a class="headerlink" href="#playing-the-book" title="Link to this heading">#</a></h2>
-<p>The page opens the book you were last listening to, at the place you left it,
-and does not start it — opening the app at 2am to ask a question is not the
-same as asking for the book. Press play when you want it. There is still no
-library to browse: <em>another book</em> is something you ask for, the same way you
-ask for a passage. The <em>library</em> control in the corner adds books and watches
-them being rendered; it never opens one, and nothing on it changes what is
-playing — the word is the design’s, and what is behind it is a catalog search
-for adding rather than a shelf to pick from.</p>
+<p>The page opens the book you last had open — the one you were listening to, or
+the one you last pressed on the shelf — at the place you left it, or at its
+beginning if you have not started it, and does not start it: opening the app at
+2am to ask a question is not the same as asking for the book. Press play when
+you want it.</p>
+<p>To read something else, open <em>library</em> and press the book on the shelf — or ask,
+which still works and is still the shortest way to say it. There is still no
+library of things you do not have to browse: the search at the foot of that
+panel is for <em>adding</em> a book, and it goes to Gutenberg’s catalog rather than to
+your shelf.</p>
 <p>On the page there are three buttons: back thirty seconds, play/pause, forward
 thirty seconds. Most nights you will use none of them, because the screen is
 off. With the phone locked the book is driven from the notification, the lock
@@ -733,11 +735,13 @@ It stops the moment you pause — nothing reloads chapters under a book somebody
 has put down — and waking the phone, or the wifi coming back, makes it try
 again at once, so there is nothing to press.</p>
 </section>
-<section id="adding-a-book-from-the-page">
-<h2>Adding a book from the page<a class="headerlink" href="#adding-a-book-from-the-page" title="Link to this heading">#</a></h2>
+<section id="choosing-and-adding-books-from-the-page">
+<h2>Choosing and adding books from the page<a class="headerlink" href="#choosing-and-adding-books-from-the-page" title="Link to this heading">#</a></h2>
 <p><em>library</em>, in the top left corner, opens a panel over the page. The book keeps
-playing underneath it, nothing on it opens a book or switches which one you are
-listening to, and <em>‹ controls</em> puts it away having changed nothing at all.</p>
+playing underneath it, and <em>‹ controls</em> puts it away having changed nothing at
+all. Two presses on it do change something, and both are presses on a book:
+<em>pick it up</em>, which starts the book already open, and a book on the shelf, which
+opens that one.</p>
 <p>At the top, under <em>reading now</em>, is the book that is playing underneath the
 panel — <em>The Moonstone — Collins, Wilkie, 1824-1889</em>, and under it <em>chapter 4
 of 37 · 1h12m in</em> over a hairline showing how far through it you are. <em>in</em>, and
@@ -746,9 +750,16 @@ number is how far into the book the mark is. The hairline is not drawn at all
 while the book is still being rendered, because until the render is over the
 book’s length is only how much of it exists so far. <em>pick it up at 1:12:08</em>
 starts it and puts the panel away — the same press as the play button, made
-from up here, and the only book it can reach is the one already playing. When
-it is already playing that button reads <em>back to it · playing</em> and does nothing
-but take you back to the controls.</p>
+from up here. When it is already playing that button reads <em>back to it ·
+playing</em> and does nothing but take you back to the controls.</p>
+<p>Under it, <em>on the shelf</em> is every other book somnia has, each with where you
+left it — <em>0:27:42 in</em>, or <em>not started</em> — and <em>pick it up</em>, which opens that
+book at that place and takes the panel away with it. Changing your mind costs
+one press back: nothing is written to the book you left, so it is still exactly
+where it was, and so is the one you looked at. A book still being rendered says
+so and offers no press until its first chapter exists, because until then there
+is nothing to play. A book whose render stopped part way says <em>part rendered</em>
+and can still be opened — what was read plays.</p>
 <p>Under that is what is happening, in a box headed <em>the server is working</em>: the book being rendered, with <em>narrating</em> in the corner of its line
 and, under the name, which chapter it is on and how much of it can be played
 now — <em>chapter 4 of 39 · 1h12m read so far</em> — over a hairline that fills as the
@@ -875,7 +886,7 @@ diagnostic nobody runs, and this is the one question the whole pivot rests on.</
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#keep-it-running">Keep it running</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asking-it-things">Asking it things</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#playing-the-book">Playing the book</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-a-book-from-the-page">Adding a book from the page</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-and-adding-books-from-the-page">Choosing and adding books from the page</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#check-screen-off-playback-before-you-trust-a-night-to-it">Check screen-off playback before you trust a night to it</a></li>
 </ul>
   </nav></div>

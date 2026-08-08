@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>3. Play the book in the page, not in Audiobookshelf &#8212; somnia 0.6.dev82+gea14933f1 documentation</title>
+    <title>3. Play the book in the page, not in Audiobookshelf &#8212; somnia 0.6.dev93+g6117fa982 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=66da128a"></script>
+    <script src="../../_static/documentation_options.js?v=7f89c8f9"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -500,7 +500,11 @@
 <h1>3. Play the book in the page, not in Audiobookshelf<a class="headerlink" href="#play-the-book-in-the-page-not-in-audiobookshelf" title="Link to this heading">#</a></h1>
 <section id="status">
 <h2>Status<a class="headerlink" href="#status" title="Link to this heading">#</a></h2>
-<p>Accepted</p>
+<p>Accepted. <strong>Amended on 2026-08-07</strong>: the sentence below saying “changing books
+is done by asking” no longer holds, and the paragraph headed <em>Choosing a book is
+a press now</em> at the end of this file says what replaced it and why. Everything
+else here stands — the page is still the player, the position is still somnia’s
+own, and there is still no library to browse for something you do not have.</p>
 </section>
 <section id="context">
 <h2>Context<a class="headerlink" href="#context" title="Link to this heading">#</a></h2>
@@ -640,7 +644,8 @@ longer configurable, because they are no longer settings.</p>
 <p>Playback speed is simply not there: nothing changes the rate, and there is no
 control for it. Nor is there a library browser, a chapter list, Android Auto,
 or listening statistics. The page opens the book they were last listening to;
-changing books is done by asking. ABS’s listening sessions are gone as a data
+changing books is done by asking. <strong>That last clause was amended on 2026-08-07
+— see the end of this file.</strong> ABS’s listening sessions are gone as a data
 source too, so the play/pause history the design hoped to infer sleep onset
 from no longer exists — what is left is <code class="docutils literal notranslate"><span class="pre">position_at</span></code> and the reasons the page
 gives when it reports. Nothing seeds the spoiler guard from ABS while a night
@@ -672,6 +677,51 @@ phone can take it away again, and the failure would arrive as a night that went
 quiet rather than as anything in a log.
 <a class="reference internal" href="../../how-to/serve-the-chat-page.html"><span class="std std-doc">how-to/serve-the-chat-page.md</span></a> says how to
 run it.</p>
+</section>
+<section id="amendment-2026-08-07-choosing-a-book-is-a-press-now">
+<h2>Amendment, 2026-08-07: choosing a book is a press now<a class="headerlink" href="#amendment-2026-08-07-choosing-a-book-is-a-press-now" title="Link to this heading">#</a></h2>
+<p><strong>“Changing books is done by asking” is withdrawn.</strong> The books panel lists the
+books somnia already has, under <code class="docutils literal notranslate"><span class="pre">on</span> <span class="pre">the</span> <span class="pre">shelf</span></code>, and a press opens one where it
+was left. Asking still works and is still the shortest way to say it out loud.</p>
+<p>What made this reversible is that the sentence was never load-bearing on its
+own. It was one line of a paragraph about what the pivot cost, listed beside the
+chapter list and Android Auto, and what it was really refusing was <strong>a library
+browser</strong>: a screen you go to in order to find something you do not have, which
+is a second place to get lost in at 2am and a screen full of books you have
+never heard of. That objection has not moved an inch. The panel does have such a
+search now — the Gutenberg catalog, seventy-five thousand books nobody owns —
+and it is a separate act at the far end of the same panel, which
+<a class="reference internal" href="0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a> argued into existence as <em>adding</em>.</p>
+<p>A shelf of three books you already have, each one a place you left, is not that
+search wearing a hat. It is the cold launch’s own question — which book — asked
+at a moment other than a cold launch, and its answer is one tap on a book whose
+name you recognise.</p>
+<p>The other half of the argument is the mechanism, which is what makes a wrong
+press cheap. Positions have been per book since this ADR was written:
+<code class="docutils literal notranslate"><span class="pre">position_ms</span></code>, <code class="docutils literal notranslate"><span class="pre">position_seq</span></code>, <code class="docutils literal notranslate"><span class="pre">position_at</span></code> and <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> are columns on
+each row, and <code class="docutils literal notranslate"><span class="pre">last_gid</span></code> is simply the book with the newest <code class="docutils literal notranslate"><span class="pre">position_at</span></code>. So
+switching books is one write of one column, <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code>, and it
+touches nothing else — not the position, not the mark, and above all not
+<code class="docutils literal notranslate"><span class="pre">position_seq</span></code>, because that counts agent moves and a page that came away
+holding a stale count would have its next report refused and be dragged back.
+Nothing is moved, nothing is heard, and the book being left keeps its own place
+to the millisecond. <strong>Changing your mind costs exactly one press back</strong>, which
+is the property a list of books has to have before a half-asleep thumb may land
+on it, and it is the reason this is a smaller decision than the ADR it amends.</p>
+<p>Two edges are written down because they cost something. A book with no audio yet
+cannot be opened — the route answers 404 and the shelf offers no press — because
+making it the most recent book would leave the <em>next</em> launch waiting on a render
+rather than on the book that was playing, silently. And the timestamp the route
+writes is a couple of seconds ahead of every other book’s, because
+<code class="docutils literal notranslate"><span class="pre">datetime('now')</span></code> counts whole seconds and the write it has to beat is the
+page’s parting report for the book it is leaving, which lands milliseconds
+later; a tie there is broken by which book was added first, and a reload would
+have opened the book they had just left.</p>
+<p>What is still not here: a chapter list, Android Auto, listening statistics,
+playback speed, and any way to reach a book somnia has not rendered except by
+adding it. The page still opens the book you were last listening to. What
+changed is that there is now a way to say which one that is without composing a
+sentence.</p>
 </section>
 </section>
 
@@ -727,6 +777,7 @@ run it.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-alternatives-we-rejected">The alternatives we rejected</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#decision">Decision</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#consequences">Consequences</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amendment-2026-08-07-choosing-a-book-is-a-press-now">Amendment, 2026-08-07: choosing a book is a press now</a></li>
 </ul>
   </nav></div>
 

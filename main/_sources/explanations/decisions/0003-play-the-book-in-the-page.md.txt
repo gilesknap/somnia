@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted
+Accepted. **Amended on 2026-08-07**: the sentence below saying "changing books
+is done by asking" no longer holds, and the paragraph headed *Choosing a book is
+a press now* at the end of this file says what replaced it and why. Everything
+else here stands — the page is still the player, the position is still somnia's
+own, and there is still no library to browse for something you do not have.
 
 ## Context
 
@@ -159,7 +163,8 @@ longer configurable, because they are no longer settings.
 Playback speed is simply not there: nothing changes the rate, and there is no
 control for it. Nor is there a library browser, a chapter list, Android Auto,
 or listening statistics. The page opens the book they were last listening to;
-changing books is done by asking. ABS's listening sessions are gone as a data
+changing books is done by asking. **That last clause was amended on 2026-08-07
+— see the end of this file.** ABS's listening sessions are gone as a data
 source too, so the play/pause history the design hoped to infer sleep onset
 from no longer exists — what is left is `position_at` and the reasons the page
 gives when it reports. Nothing seeds the spoiler guard from ABS while a night
@@ -195,3 +200,53 @@ phone can take it away again, and the failure would arrive as a night that went
 quiet rather than as anything in a log.
 [how-to/serve-the-chat-page.md](../../how-to/serve-the-chat-page.md) says how to
 run it.
+
+## Amendment, 2026-08-07: choosing a book is a press now
+
+**"Changing books is done by asking" is withdrawn.** The books panel lists the
+books somnia already has, under `on the shelf`, and a press opens one where it
+was left. Asking still works and is still the shortest way to say it out loud.
+
+What made this reversible is that the sentence was never load-bearing on its
+own. It was one line of a paragraph about what the pivot cost, listed beside the
+chapter list and Android Auto, and what it was really refusing was **a library
+browser**: a screen you go to in order to find something you do not have, which
+is a second place to get lost in at 2am and a screen full of books you have
+never heard of. That objection has not moved an inch. The panel does have such a
+search now — the Gutenberg catalog, seventy-five thousand books nobody owns —
+and it is a separate act at the far end of the same panel, which
+[ADR 5](0005-render-one-book-at-a-time.md) argued into existence as *adding*.
+
+A shelf of three books you already have, each one a place you left, is not that
+search wearing a hat. It is the cold launch's own question — which book — asked
+at a moment other than a cold launch, and its answer is one tap on a book whose
+name you recognise.
+
+The other half of the argument is the mechanism, which is what makes a wrong
+press cheap. Positions have been per book since this ADR was written:
+`position_ms`, `position_seq`, `position_at` and `heard_to_ms` are columns on
+each row, and `last_gid` is simply the book with the newest `position_at`. So
+switching books is one write of one column, `POST /api/book/{gid}/open`, and it
+touches nothing else — not the position, not the mark, and above all not
+`position_seq`, because that counts agent moves and a page that came away
+holding a stale count would have its next report refused and be dragged back.
+Nothing is moved, nothing is heard, and the book being left keeps its own place
+to the millisecond. **Changing your mind costs exactly one press back**, which
+is the property a list of books has to have before a half-asleep thumb may land
+on it, and it is the reason this is a smaller decision than the ADR it amends.
+
+Two edges are written down because they cost something. A book with no audio yet
+cannot be opened — the route answers 404 and the shelf offers no press — because
+making it the most recent book would leave the *next* launch waiting on a render
+rather than on the book that was playing, silently. And the timestamp the route
+writes is a couple of seconds ahead of every other book's, because
+`datetime('now')` counts whole seconds and the write it has to beat is the
+page's parting report for the book it is leaving, which lands milliseconds
+later; a tie there is broken by which book was added first, and a reload would
+have opened the book they had just left.
+
+What is still not here: a chapter list, Android Auto, listening statistics,
+playback speed, and any way to reach a book somnia has not rendered except by
+adding it. The page still opens the book you were last listening to. What
+changed is that there is now a way to say which one that is without composing a
+sentence.
