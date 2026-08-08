@@ -390,10 +390,22 @@ process to deploy must not kill a render that is four hours in.
   the original choice on cost, and mostly held up, but it read a character's
   name as the title of a book somnia does not have and said so — a spoken
   half-sentence at 2am is exactly the disambiguation this is here to do. The
-  difference is a few cents a night. Measured again on nuc2 (2026-08-08), with
-  a prompt that has been hardened a great deal since, Haiku 4.5 answers in
-  about a third of the time and no longer fails that case; it is worth a night
-  before ruling on, and the change is one environment variable.
+  difference is a few cents a night. **That reason has since expired.** Over 85
+  turns per model on nuc2 (2026-08-08), against the real book and the prompt as
+  it now stands, Haiku 4.5 routed 85/85 against Sonnet's 84/85, was judged
+  spoiler-safe on 83/85 against Sonnet's 82/85, and answered in a median 2.46s
+  against 4.89s. It did not reproduce the Rob Roy failure in five tries. The
+  default stays Sonnet on habit rather than evidence; the change is one
+  environment variable. See `somnia/config.py` for the table.
+- **The spoiler guard is two things and only one of them is sound.** In that
+  same run, retrieval never once crossed the line — checked mechanically, every
+  passage handed to the model began before the mark. What leaked, on both
+  models, at two to four turns in a hundred, was the model's own knowledge of
+  the book. That is precisely the surface ADR 6 opened when it let the agent
+  answer out of what it already knows: everything behind the line is a prompt
+  instruction, not a mechanism, and prompt instructions are followed most of
+  the time. Worth knowing before trusting the guard absolutely, and not a
+  reason to prefer either model.
 - **How long a turn takes is mostly the model deciding how hard to think.**
   Retrieval is around a tenth of a second — the two searches, the sqlite-vec
   lookup and the embedding of the question all together — and the rest of a
