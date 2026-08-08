@@ -79,7 +79,12 @@ name = "Giles Knap"
 
 [tool.setuptools.package-data]
 # The PWA is served straight off the installed package.
-somnia = ["web/*"]
+#
+# The second line is not redundant: these globs do not recurse, so `web/*`
+# ships the page and leaves `web/voice/` behind — and the failure is silent,
+# because a missing sample is a picker that still picks and simply never plays
+# anything. Any new directory under web/ needs a line of its own.
+somnia = ["web/*", "web/voice/*"]
 
 [tool.setuptools_scm]
 version_file = "src/somnia/_version.py"
