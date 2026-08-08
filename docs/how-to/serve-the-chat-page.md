@@ -396,8 +396,29 @@ tap takes and works with the internet down — run `somnia catalog-update` if a
 book you know exists is not in it. A book somnia already has, or already has
 coming, is marked and offers no button; a render that died is marked *part
 rendered* and offers *finish this one*, which picks it up at the chapter after
-the last finished one. One press queues it, and the sentence underneath is the
-server's own — the same sentence the agent says when you ask it out loud.
+the last finished one.
+
+*add this book* does not queue it. It opens *read in* under that row — the
+voices somnia can read it in, one pill each, with *add it* underneath — and the
+same press closes it again, so the way back is the button your thumb is already
+on. Pressing a name plays a few seconds of it: the same line of *Black Beauty*
+in every voice, so what you are comparing is the voice and not the sentence. If
+the book is playing it is paused first, and stays paused — two things reading
+aloud at once is the one thing worth avoiding here, and starting the book again
+under somebody who is still choosing is worse than leaving the play button where
+they can find it. The last voice you chose is the one the next book opens on, so
+the second book of an evening is two presses.
+
+It is asked here, and only here, because a book is read by one narrator and
+cannot be re-read by another: every timestamp somnia holds — chapter marks,
+index entries, the place you fell asleep — was measured against the audio that
+was actually made. *finish this one* therefore offers no choice at all and picks
+the book up in the voice it started in.
+
+*add it* queues it, and the sentence underneath is the server's own — the same
+sentence the agent says when you ask it out loud. The row it makes says which
+voice, beside its place in the line, while taking it out again still costs
+nothing.
 
 *stop reading this* takes two presses, and the second one only asks. The render
 stops at the end of the sentence it is reading, about twenty seconds later,

@@ -149,7 +149,18 @@ and therefore what makes cancelling and resuming safe at all.
 
 Never re-render a book with a different engine or voice. Durations change, and
 every timestamp — every index entry, every chapter mark, and the position they
-went to sleep at — is invalidated.
+went to sleep at — is invalidated. Which voice a book gets is therefore settled
+once, on the queue row, at the moment somebody asks for it; the renderer prefers
+that, then the voice already on the book, then its own configuration, so neither
+a deploy nor a resume can change a narrator half way through.
+
+Each chapter opens by saying what it is — *Chapter 12. The Invisible Man* — and
+that line is built from the heading rather than being the heading: roman
+numerals are converted, capitals are taken out, and a heading with no number in
+it is spoken without one, because somnia's chapter *index* counts what the
+parser found and is not what the book calls the chapter. It is rendered before
+the first sentence's clock is read, so it costs the timestamps nothing, and it
+is deliberately not indexed — it is not the book's text.
 
 ## What is stored
 
