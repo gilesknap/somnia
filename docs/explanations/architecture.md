@@ -169,7 +169,7 @@ erDiagram
   }
   books {
     int gid PK
-    text title
+    text title "the catalog's name, not the file's header line"
     text status "pending, rendering, done"
     int total_ms "grows while rendering"
     int chapters_total "how many it HAS; 0 = unknown"
@@ -376,7 +376,7 @@ fling them past the spoiler guard into the ending.
 | `ingest` | The streaming pipeline that joins all of the above — resumable, stoppable |
 | `queue` | The ingest queue as pure functions: submit, claim, beat, stop, reconcile |
 | `worker` | The supervisor and the one-book child that holds the lease |
-| `db` | The schema, the migrations, WAL, and loading sqlite-vec |
+| `db` | The schema, the migrations, the one-off repairs, WAL, and loading sqlite-vec |
 | `tools` | Everything the agent can do, as a plain library with no Anthropic import |
 | `agent` | The system prompt and the tool-runner loop |
 | `player` | The fast lane: manifest, audio files, position reports |

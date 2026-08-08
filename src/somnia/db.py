@@ -185,6 +185,56 @@ def _migrate(conn: sqlite3.Connection) -> None:
         "  AND EXISTS (SELECT 1 FROM chapters WHERE chapters.book_gid = books.gid)"
     )
 
+    _repair(conn)
+
+
+# One-off repairs of data already written, as against the migrations above,
+# which are idempotent by construction and cheap to re-check on every open.
+# These are neither, so they are run once and recorded in sqlite's own
+# `user_version` — a field made for exactly this, and cheaper than a table.
+_REPAIRED_TO = 1
+
+
+def _repair(conn: sqlite3.Connection) -> None:
+    """Give back their real names the books that kept Gutenberg's header line.
+
+    Ingest used to take the book's name from the HTML `<title>`, which for a
+    good part of the corpus reads "The Project Gutenberg eBook of Dracula, by
+    Bram Stoker." — so that is what the shelf said, wrapping to three lines on
+    the one screen whose whole job is recognising a book you own in the dark.
+    Ingest asks the catalog now, but a book already rendered keeps the name it
+    was given, and only this puts it right.
+
+    **Run once, not on every open.** The tempting version of this is guarded by
+    `books.title <> catalog.title` and left to run forever, which is wrong in a
+    way that only shows up at size: `catalog` is FTS5 with an UNINDEXED gid, so
+    proving a title *matches* means scanning all 81,893 rows, once per book.
+    Measured at 300ms for five books and 11.7 seconds for two hundred — on every
+    CLI call and every server start, to do nothing.
+
+    Nothing is written when the catalog is empty, and the version is not moved
+    on either: a box that renders a book before it first runs `catalog-update`
+    would otherwise have this marked done while the name it needed was still
+    unknown, and nothing would ever come back for it.
+    """
+    if conn.execute("PRAGMA user_version").fetchone()[0] >= _REPAIRED_TO:
+        return
+    if conn.execute("SELECT 1 FROM catalog LIMIT 1").fetchone() is None:
+        return
+
+    # No CAST, though catalog.gid is text and books.gid is an INTEGER primary
+    # key: comparing them applies the integer affinity of the column that has
+    # one, so '45839' meets 45839. Checked rather than assumed — every spelling
+    # of this join returns the same rows.
+    conn.execute(
+        "UPDATE books SET title = ("
+        "  SELECT c.title FROM catalog c WHERE c.gid = books.gid"
+        ") WHERE EXISTS ("
+        "  SELECT 1 FROM catalog c WHERE c.gid = books.gid AND c.title <> books.title"
+        ")"
+    )
+    conn.execute(f"PRAGMA user_version = {_REPAIRED_TO}")
+
 
 def connect(db_path: Path, *, cross_thread: bool = False) -> sqlite3.Connection:
     """Open (creating if needed) the somnia database.

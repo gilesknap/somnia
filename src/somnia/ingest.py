@@ -214,9 +214,24 @@ def ingest_book(
     book = fetch_book(gid, url)
     total = len(book.chapters)
     row = conn.execute(
-        "SELECT authors FROM catalog WHERE gid = ?", (str(gid),)
+        "SELECT title, authors FROM catalog WHERE gid = ?", (str(gid),)
     ).fetchone()
     authors: str = row["authors"] if row else ""
+
+    # What the book is called is the catalog's to say, not the file's. The HTML
+    # <title> is "The Project Gutenberg eBook of Dracula, by Bram Stoker." for a
+    # good part of the corpus, and that is what the shelf used to wear. Stripping
+    # that prefix would be a second guess at a string already held correctly one
+    # table away — and the catalog's name is also the one that was on screen when
+    # somebody pressed for the book, which is the name they are looking for at
+    # 2am. The scrape stays as the fallback: it is the only source for anything
+    # that did not come through the catalog, and `somnia add` will take a gid the
+    # catalog has never heard of.
+    #
+    # Longer is allowed. 37431's catalog title is longer than its scraped one and
+    # correct where the scrape was wrong — it really is Steele Mackaye's play and
+    # not Austen's novel. This is about the name being right, not being short.
+    title: str = str(row["title"]) if row and row["title"] else book.title
 
     # Read what we knew about this book before the upsert overwrites it. If the
     # chapter count has moved, Gutenberg has re-issued the text under us and
@@ -259,19 +274,19 @@ def ingest_book(
             " ON CONFLICT(gid) DO UPDATE SET title = excluded.title,"
             " authors = excluded.authors, voice = excluded.voice,"
             " chapters_total = excluded.chapters_total, status = 'rendering'",
-            (gid, book.title, authors, cfg.voice, total),
+            (gid, title, authors, cfg.voice, total),
         )
 
     book_dir = (
         cfg.library_dir
         / _safe_name(authors.split(";")[0], "Unknown Author")
-        / _safe_name(book.title, f"gutenberg-{gid}")
+        / _safe_name(title, f"gutenberg-{gid}")
     )
 
     try:
         start_at, offset_ms = _resume_from(conn, gid)
         if start_at:
-            logger.info("resuming %s at chapter %d/%d", book.title, start_at + 1, total)
+            logger.info("resuming %s at chapter %d/%d", title, start_at + 1, total)
         for idx, chapter in enumerate(book.chapters):
             if idx < start_at:
                 continue
@@ -337,6 +352,4 @@ def ingest_book(
 
     with conn:
         conn.execute("UPDATE books SET status = 'done' WHERE gid = ?", (gid,))
-    logger.info(
-        "finished %s: %d chapters, %.1f hours", book.title, total, offset_ms / 3.6e6
-    )
+    logger.info("finished %s: %d chapters, %.1f hours", title, total, offset_ms / 3.6e6)
