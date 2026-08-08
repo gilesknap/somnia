@@ -324,6 +324,29 @@ test("the phone going in a pocket stops it, and coming back starts it", async (t
   assert.deepEqual(page.waits(), [POLL_MS]);
 });
 
+// Workshop is an overlay over Books, so Books is up behind it and "the panel is
+// open" is true on both screens. Asking that question alone fetched the shelf
+// every time the phone came back to Workshop — a list under the screen being
+// looked at, and a request nobody could have read the answer to.
+test("coming back to Workshop asks for the queue and not the shelf", async (t) => {
+  const page = await opened(t);
+  page.queueView([job()]);
+  await workshop(page);
+  const shelves = () => page.fetches.filter((url) => url === "api/books").length;
+  const queues = () => page.fetches.filter((url) => url === "api/queue").length;
+  const wasShelves = shelves();
+  const wasQueues = queues();
+
+  page.document.visibilityState = "hidden";
+  page.document.fire("visibilitychange");
+  page.document.visibilityState = "visible";
+  page.document.fire("visibilitychange");
+  await page.settle();
+  await page.settle();
+  assert.equal(queues(), wasQueues + 1);
+  assert.equal(shelves(), wasShelves);
+});
+
 test("a page coming back with both screens shut asks nothing", async (t) => {
   const page = await opened(t);
   page.document.visibilityState = "hidden";

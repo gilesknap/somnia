@@ -2389,13 +2389,19 @@ document.addEventListener("visibilitychange", () => {
   if (!awaiting && manifest?.status === "rendering") {
     refreshManifest().catch((error) => console.error(error));
   }
-  // And if they left either screen up, whatever it is showing is as old as the
-  // sleep was. Asked now rather than in five seconds, for the same reason as
-  // the two above: coming back to the app is the moment somebody is looking,
-  // and for the shelf it is one of only two such moments. Each screen is asked
-  // for its own thing — Books has no queue on it and Workshop has no shelf —
-  // and Workshop being up means Books is up behind it, so both fire.
-  if (!queuePanel.hidden) askForTheShelf();
+  // And whatever screen they left up is as old as the sleep was. Asked now
+  // rather than in five seconds, for the same reason as the two above: coming
+  // back to the app is the moment somebody is looking, and for the shelf it is
+  // one of only two such moments.
+  //
+  // The screen in front is the one asked, and only that one. Workshop being up
+  // means Books is up behind it — it is an overlay over Books, not a route away
+  // from it — so `!queuePanel.hidden` is true on both screens and on its own it
+  // would fetch the shelf every time the phone came back to Workshop, for a
+  // list nobody can see under the screen they are looking at. Books has no
+  // queue on it and Workshop has no shelf, so each screen asks for its own one
+  // thing and neither asks for the other's.
+  if (!queuePanel.hidden && workshop.hidden) askForTheShelf();
   if (!workshop.hidden) pollQueue();
 });
 

@@ -137,16 +137,41 @@ PANELS = {
         # black, which is the one thing this screen is not.
         "styles": {"dim": {"opacity": "0"}},
         "found": [
-            ["Treasure Island", "Stevenson, Robert Louis, 1850-1894", "", "add this book"],
+            [
+                "Treasure Island",
+                "Stevenson, Robert Louis, 1850-1894",
+                "",
+                "add this book",
+            ],
             ["Kidnapped", "Stevenson, Robert Louis, 1850-1894", "already here", None],
-            ["The Black Arrow", "Stevenson, Robert Louis, 1850-1894", "part rendered", "finish this one"],
+            [
+                "The Black Arrow",
+                "Stevenson, Robert Louis, 1850-1894",
+                "part rendered",
+                "finish this one",
+            ],
         ],
         "live": [
-            ["Black Beauty — Sewell, Anna", "narrating", "chapter 4 of 39 · 1h12m read so far", "10.3%"],
-            ["Treasure Island — Stevenson, Robert Louis", "queued", "1st in line", None],
+            [
+                "Black Beauty — Sewell, Anna",
+                "narrating",
+                "chapter 4 of 39 · 1h12m read so far",
+                "10.3%",
+            ],
+            [
+                "Treasure Island — Stevenson, Robert Louis",
+                "queued",
+                "1st in line",
+                None,
+            ],
         ],
         "gone": [
-            ["The Moonstone — Collins, Wilkie", "stopped", "stopped part way — what was read still plays", None],
+            [
+                "The Moonstone — Collins, Wilkie",
+                "stopped",
+                "stopped part way — what was read still plays",
+                None,
+            ],
         ],
         # 30 is the shipped default, and the render has to show which of the
         # three is lit or the control photographs as three identical pills.
@@ -282,7 +307,8 @@ FILL = """
       }
       li.append(div("found-text", p("found-name", name), meta));
       if (press) {
-        li.append(pill(press === "finish this one" ? "found-add again" : "found-add", press));
+        const warm = press === "finish this one";
+        li.append(pill(warm ? "found-add again" : "found-add", press));
       }
       return li;
     }));
@@ -290,7 +316,8 @@ FILL = """
     const jobRow = (gone) => ([name, stage, state, width]) => {
       const li = document.createElement("li");
       li.className = gone ? "job gone" : "job";
-      const head = div("job-line", p("job-name", name), p("job-stage" + (gone ? "" : " now"), stage));
+      const stageCls = "job-stage" + (gone ? "" : " now");
+      const head = div("job-line", p("job-name", name), p(stageCls, stage));
       li.append(head, p("job-state", state));
       if (width) li.append(bar("job-track", "job-fill", width));
       if (!gone) li.append(pill("job-stop", "stop reading this"));
@@ -361,7 +388,7 @@ if __name__ == "__main__":
     ap.add_argument(
         "--panel",
         choices=sorted(PANELS),
-        help="raise an overlay over the page and fill its lists: books, or workshop over it",
+        help="raise an overlay and fill its lists: books, or workshop over it",
     )
     args = ap.parse_args()
     if args.panel and args.panel not in PANELS:
