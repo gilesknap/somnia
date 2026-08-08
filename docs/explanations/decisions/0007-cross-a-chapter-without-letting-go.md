@@ -181,10 +181,11 @@ the frontier, so on a box slow enough for that to happen at nearly every
 boundary the disk ends up holding a join of the first chapter, of the first two,
 of the first three, and so on. That is arithmetic rather than a measurement: for
 a forty-nine chapter book it sums to about twenty-five times the book, some four
-gigabytes for a five-hour Black Beauty, none of which is deleted by anything. On
-nuc2 it does not arise, because the frontier is reached nought or one times a
-night — this is the paragraph below about the box's speed, wearing the other
-hat, and it is the second reason moving to a slower box reopens the decision.
+gigabytes for a five-hour Black Beauty, none of which is deleted by anything. In
+practice it does not arise, because steady listening does not reach the frontier
+at all — see the paragraph below, which is this one wearing the other hat. It
+would take a render repeatedly stopped and restarted under a listener, which is
+the same short list of ways the frontier is met in the first place.
 
 **Nothing reaps any of that, and the omission is deliberate rather than
 outstanding.** The safe half of a reaper is easy and buys nothing on a box with
@@ -266,16 +267,32 @@ falling back on a good join costs a blink at every boundary, and failing to fall
 back on a missing one costs the whole night — but it is a real cost and it is
 written here rather than discovered later.
 
-**The "nought or one reload a night" figure is a property of nuc2, not of this
-design.** It holds because the renderer outruns the listener and pulls away
-after the first chapter: measured on 2026-08-07, nuc2 renders at 3.87× realtime
-and the VPS at 1.06×. At VPS speed the render barely keeps ahead of the reading,
-the frontier is met at nearly every boundary, and this design collapses back
-toward the behaviour it replaced for any book being listened to as it renders —
-each frontier crossing is a fresh join loaded into the element, which is a `src`
-write and a gestureless `play()`, which is the old bug arriving one boundary at
-a time. **Moving the box reopens this decision**, and that is the condition it
-was accepted under.
+**A listener does not normally reach the frontier at all, and this should be
+said plainly because the machinery for it reads as though they would.** Measured
+on 2026-08-07 with `scripts/somnia-bench.py`: nuc2 renders at 3.87× realtime and
+the VPS at 1.06×. Both outrun 1× listening. A book is opened when its first
+chapter exists, so the listener begins one whole chapter behind the frontier and
+the gap only widens — on nuc2 quickly, on the VPS by six percent an hour, but in
+neither case does it close. Steady listening never catches a running render.
+
+What reaches the frontier is a render that is **not running**: one that was
+stopped, or died, or that a deploy shot in the head, or — this being the
+ordinary case rather than the exotic one — a book queued behind another, because
+[ADR 5](0005-render-one-book-at-a-time.md) renders one book at a time and the
+second book's frontier does not move until the first is finished. A listener
+pressing through chapters faster than they play reaches it too.
+
+So the frontier is an edge, not the path. The reason it is worth the machinery
+anyway is what it costs when it is met: `ended` fires, the platform drops the
+player, and the panel goes — leaving a locked phone with no transport on it and
+somebody asleep in front of it. Stopping a fraction short turns that into a
+paused card with a play button, which is a night that can be resumed.
+
+**What the 1.06× measurement does mean** is that the VPS has no cushion. The
+margin is the one chapter of head start plus six percent, so any interruption to
+the render is recovered from slowly, and a frontier met on that box is met for
+much longer. That is the second reason **moving to a slower box reopens this
+decision**, and it is the condition this was accepted under.
 
 **Finally, and in ADR 3's own words, this rests on an assumption that could only
 be checked on the handset**: that Chrome, given one progressive `audio/mp4` of
