@@ -1,0 +1,995 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>HTTP surface &#8212; somnia 0.6 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=ec806d2c"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=30646c52"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/http';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://gilesknap.github.io/somnia/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.6';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/dls-logo.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="somnia" href="../_api/somnia.html" />
+    <link rel="prev" title="Configuration" href="configuration.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.6" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/dls-logo.svg" class="logo__image only-light" alt=""/>
+    <img src="../_static/dls-logo.svg" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">somnia</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/gilesknap/somnia" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/gilesknap/somnia" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar">
+  <svg class="pst-icon" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command line</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">HTTP surface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../_api/somnia.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../genindex.html">Index</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/gilesknap/somnia/releases">Release Notes</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../reference.html" class="nav-link">Reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">HTTP surface</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="http-surface">
+<h1>HTTP surface<a class="headerlink" href="#http-surface" title="Link to this heading">#</a></h1>
+<p>What <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code> answers. The page is the only client this was written for,
+but nothing about it is private to the page.</p>
+<p><strong>There is no authentication on any of it.</strong> Anything that can reach the port
+can list your books, read the agent, spend your API credit, move your position,
+change which book you are on, and start or stop hours of rendering.
+Reachability is the authentication, which is why the server binds to localhost
+and the only path in is <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code>.</p>
+<p>Everything the page fetches lives under <code class="docutils literal notranslate"><span class="pre">/api/</span></code>, and that prefix does work: the
+service worker knows never to cache it — the Cache API throws when asked to
+store the 206 a seek produces — and it keeps these routes ahead of the static
+mount, which would otherwise swallow them. <code class="docutils literal notranslate"><span class="pre">/</span></code> serves the PWA itself.</p>
+<p>All times are milliseconds on the <strong>book clock</strong>: the render clock, counted in
+samples before encoding, and the same clock chapter marks, search results and
+saved positions all speak. It is not per-chapter, and it is not what a decoder
+would tell you.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Route</p></th>
+<th class="head"><p>Method</p></th>
+<th class="head"><p>Answers</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/health</span></code></p></td>
+<td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">true}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/books</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Every book, most recently listened to first</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>One book, whole — or 404</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/audio/{gid}/{idx}</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>The chapter’s audio — or 404</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/stream/{gid}/{n}</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>The first <code class="docutils literal notranslate"><span class="pre">n</span></code> chapters as one file — or 404</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Where the sentence being spoken at <code class="docutils literal notranslate"><span class="pre">ms</span></code> began</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Books to add, from the local Gutenberg catalog</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>What is rendering, what is waiting, what went wrong</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Make this the book a cold launch opens — or 404</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>The agent’s reply, and a move if it made one</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Drops one conversation</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>What became of a report — always 200</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Ask for a book — always 200</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Stop a render, or take a book out of the line</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="get-api-books">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/books</span></code><a class="headerlink" href="#get-api-books" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;last_gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;books&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">22320000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapters&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">last_gid</span></code> is what a cold launch opens. It is <code class="docutils literal notranslate"><span class="pre">null</span></code> only when nothing has ever
+been played — the one moment it is fair to ask which book they want.
+<code class="docutils literal notranslate"><span class="pre">position_ms</span></code> is <code class="docutils literal notranslate"><span class="pre">null</span></code> for a book never started, which is a different answer
+from <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">chapters</span></code> is how many of the book’s chapters can be played <em>now</em>, counted from
+rows that really exist, and <code class="docutils literal notranslate"><span class="pre">0</span></code> means there is nothing to open yet: a render
+that has not produced its first chapter, or one that died before it. The books
+panel draws its shelf from this list, and that is the field that decides whether
+a row offers a press at all.</p>
+</section>
+<section id="get-api-book-gid">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code><a class="headerlink" href="#get-api-book-gid" title="Link to this heading">#</a></h2>
+<p>One round trip on purpose: the page needs all of this before it can put a finger
+on the play button, and two fetches at 2am on a tailnet is two chances to be
+left with a player showing nothing.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">22320000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapters_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;chapters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;01. My Early Home&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;start_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;end_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">455000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;api/audio/271/0&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;stream_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;api/stream/271/49&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;stream_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">22320000</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">status</span></code> is <code class="docutils literal notranslate"><span class="pre">pending</span></code>, <code class="docutils literal notranslate"><span class="pre">rendering</span></code> or <code class="docutils literal notranslate"><span class="pre">done</span></code> — how the page tells a book still
+growing from a render that died. <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> is the high-water mark the
+spoiler guard uses, which is not <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>: the agent can move someone
+backwards, and doing so must not shrink what may be searched. Chapter <code class="docutils literal notranslate"><span class="pre">url</span></code> is
+relative, because the app may be mounted under a path.</p>
+<p><code class="docutils literal notranslate"><span class="pre">stream_url</span></code> is the whole of what has been read of this book down one URL, and
+<code class="docutils literal notranslate"><span class="pre">stream_ms</span></code> is how much book that is. The page loads it once and crosses every
+chapter inside it without touching the media element — see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code>. It is <code class="docutils literal notranslate"><span class="pre">null</span></code> when there is nothing to join, which is a
+book with no audio yet; the per-chapter <code class="docutils literal notranslate"><span class="pre">url</span></code>s are always there beside it, and a
+page that finds no stream plays the book a file at a time.</p>
+<p><code class="docutils literal notranslate"><span class="pre">chapters_total</span></code> is how many chapters the book <strong>has</strong>, against <code class="docutils literal notranslate"><span class="pre">chapters</span></code>,
+which is how many can be played. While a render is going those differ, and the
+difference is the only way to tell running out of audio three chapters into
+thirty-nine — which is not the end of the book — from reaching the end of one.
+It is <code class="docutils literal notranslate"><span class="pre">0</span></code> for every book rendered before the column existed, and <code class="docutils literal notranslate"><span class="pre">0</span></code> means
+nobody wrote it down, so say nothing rather than “3 of 0”.</p>
+<p>404 for a book that is not there.</p>
+</section>
+<section id="post-api-book-gid-open">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code><a class="headerlink" href="#post-api-book-gid-open" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The whole of switching books, and it writes one column: <code class="docutils literal notranslate"><span class="pre">position_at</span></code>. Since
+<code class="docutils literal notranslate"><span class="pre">last_gid</span></code> is simply the book with the newest one, making a book the most recent
+<em>is</em> choosing it — there is no new state, and no second place a position is
+remembered.</p>
+<p>Nothing else on the row is touched. <code class="docutils literal notranslate"><span class="pre">position_ms</span></code> stays where the last report
+put it, which is what makes the book resume exactly where it was left;
+<code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> stays because pressing a button has not heard anything; and
+<code class="docutils literal notranslate"><span class="pre">position_seq</span></code> stays because that counts agent moves and nothing else, so the
+page’s next report is accepted rather than refused and the listener is not
+dragged anywhere. The two numbers in the answer are the book’s own, from before
+the press — they say where the page is about to resume, and the page then asks
+for the manifest anyway.</p>
+<p>The timestamp written is a couple of seconds ahead of every other book’s rather
+than simply <code class="docutils literal notranslate"><span class="pre">datetime('now')</span></code>. That column counts whole seconds and a tie is
+broken by which book was added first, and the write this has to beat is the
+page’s parting report for the book it is leaving, which lands milliseconds
+later — without the lead, a reload could open the book you had just left.</p>
+<p><strong>404</strong> for a book that is not there, and for a book with no audio yet — a
+render still on its first chapter, or one that died before it. Both are the same
+answer to a press: there is nothing to open. The guard is here and not only on
+the page because a book nobody can play made the most recent one would leave the
+next launch waiting on a render instead of on the book that was playing.</p>
+</section>
+<section id="get-api-audio-gid-idx">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code><a class="headerlink" href="#get-api-audio-gid-idx" title="Link to this heading">#</a></h2>
+<p>The audio, as <code class="docutils literal notranslate"><span class="pre">audio/mp4</span></code>. Range, If-Range and 416 are handled, so seeking
+works. No filename is offered — this is something to play, not to download.</p>
+<p>404 if there is no such chapter, and also if the row points at a file that has
+gone or resolved outside <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code>. The second case is a warning in
+the journal; on the phone both look like one chapter that didn’t arrive.</p>
+<p>The media type is pinned rather than guessed. Python does not know <code class="docutils literal notranslate"><span class="pre">.m4a</span></code> and
+the container image has no mime table, so guessing yields
+<code class="docutils literal notranslate"><span class="pre">application/octet-stream</span></code> and Safari refuses to play the book — a bug that
+cannot reproduce on a development machine.</p>
+</section>
+<section id="get-api-stream-gid-n">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code><a class="headerlink" href="#get-api-stream-gid-n" title="Link to this heading">#</a></h2>
+<p>The book’s first <code class="docutils literal notranslate"><span class="pre">n</span></code> chapters joined into one <code class="docutils literal notranslate"><span class="pre">audio/mp4</span></code>, with the same Range,
+If-Range and 416 handling as a chapter, and the same pinned media type for the
+same reason.</p>
+<p><code class="docutils literal notranslate"><span class="pre">n</span></code> is a version rather than a length: it names the chapters the file holds, so
+a book that grew while somebody was listening is offered a <em>new</em> url and the
+file their phone has open is never rewritten under an in-flight range request.
+Versions are built on the first ask — a second or two of ffmpeg, <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">copy</span></code>, so
+not a byte of audio is re-encoded — and kept under <code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR/streams</span></code>,
+never in the library, because the library is Audiobookshelf’s own layout.</p>
+<p>404 if the book has fewer than <code class="docutils literal notranslate"><span class="pre">n</span></code> chapters, if any of their audio has gone, or
+if the join could not honestly be made. The reason is in the journal. The page
+still has a url for every chapter, so a book with no stream is one that rebuilds
+the lock screen at every boundary — a worse night, not a lost one.</p>
+</section>
+<section id="get-api-sentence-gid-ms">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code><a class="headerlink" href="#get-api-sentence-gid-ms" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;start_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11554300</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Where the sentence being spoken at <code class="docutils literal notranslate"><span class="pre">ms</span></code> began. The page asks when someone
+pauses, never when they press play: a resume has to be instant, and a phone
+that has been face down for an hour is the least likely thing on the tailnet to
+answer quickly.</p>
+</section>
+<section id="get-api-catalog">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code><a class="headerlink" href="#get-api-catalog" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;black beauty&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;entries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;have&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>An FTS5 search of the local catalog — the copy <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code> writes —
+so there is no round trip to Gutenberg and no wait. <code class="docutils literal notranslate"><span class="pre">language</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">en</span></code>.
+Punctuation is the caller’s own: terms are quoted before they reach FTS5, so an
+apostrophe is a search rather than a syntax error.</p>
+<p>At most <strong>eight</strong> entries. Eight is what fits on a phone above a raised
+keyboard, and a list that has to be scrolled to be read is a second screen
+wearing a hat; someone who cannot see the book they meant should type more of
+its name.</p>
+<p><code class="docutils literal notranslate"><span class="pre">have</span></code> is what somnia already thinks of that gid — <code class="docutils literal notranslate"><span class="pre">done</span></code>, <code class="docutils literal notranslate"><span class="pre">rendering</span></code> or
+<code class="docutils literal notranslate"><span class="pre">pending</span></code> from the book itself, <code class="docutils literal notranslate"><span class="pre">queued</span></code> or <code class="docutils literal notranslate"><span class="pre">rendering</span></code> from a live queue row —
+and <code class="docutils literal notranslate"><span class="pre">null</span></code> if it has never heard of it. A live queue row wins, because a
+<code class="docutils literal notranslate"><span class="pre">pending</span></code> book that has just been asked for again is coming. It travels with the
+row so a book that is already on its way is <em>marked</em> rather than offered and
+then refused.</p>
+</section>
+<section id="get-api-queue">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code><a class="headerlink" href="#get-api-queue" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;items&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rendering&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;place&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapters_done&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;chapters_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rendered_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1840000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;stopping&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;responding&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="nt">&quot;submitted_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-08-05 22:14:03&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-08-05 22:14:11&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Everything worth showing, in one request: what is rendering, then what is
+waiting in the order it will be taken, then what ended in the last 24 hours.
+After a day a failure is history rather than news, and history is in
+<code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">--user</span> <span class="pre">-u</span> <span class="pre">somnia-worker</span></code> — which is why nothing here has to be
+dismissed.</p>
+<p><code class="docutils literal notranslate"><span class="pre">state</span></code> is <code class="docutils literal notranslate"><span class="pre">queued</span></code>, <code class="docutils literal notranslate"><span class="pre">rendering</span></code>, <code class="docutils literal notranslate"><span class="pre">done</span></code>, <code class="docutils literal notranslate"><span class="pre">cancelled</span></code> or <code class="docutils literal notranslate"><span class="pre">failed</span></code>. That is the
+queue’s own vocabulary and is <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">books.status</span></code>, which is still exactly
+<code class="docutils literal notranslate"><span class="pre">pending</span></code>, <code class="docutils literal notranslate"><span class="pre">rendering</span></code>, <code class="docutils literal notranslate"><span class="pre">done</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">place</span></code> is the rank among the books that are waiting, and <code class="docutils literal notranslate"><span class="pre">0</span></code> for anything that
+is not waiting — the one being rendered has left the line rather than being at
+the head of it. <code class="docutils literal notranslate"><span class="pre">chapters_done</span></code> is counted from chapters that really exist,
+because a chapters row is written only once its audio does. <code class="docutils literal notranslate"><span class="pre">chapters_total</span></code> is
+<code class="docutils literal notranslate"><span class="pre">0</span></code> until the parse finishes, and <code class="docutils literal notranslate"><span class="pre">0</span></code> means unknown. <code class="docutils literal notranslate"><span class="pre">stopping</span></code> is a render that
+has been asked to stop and will, at the end of the sentence it is reading.</p>
+<p><code class="docutils literal notranslate"><span class="pre">responding</span></code> is worked out from the heartbeat when you ask, and is stored
+nowhere: it is <code class="docutils literal notranslate"><span class="pre">false</span></code> for a render that has gone quiet for five minutes, which
+is the only way a crashed renderer can be told from a slow one. It is honest
+even when the worker unit has been stopped and there is nobody left to write
+anything.</p>
+</section>
+<section id="post-api-ask">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code><a class="headerlink" href="#post-api-ask" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;question&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;where does the horse get hurt?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">token</span></code> is minted by the page when it starts and keys a conversation held in
+memory; nothing is written to disk. <code class="docutils literal notranslate"><span class="pre">token</span></code> and <code class="docutils literal notranslate"><span class="pre">question</span></code> are required — 400
+otherwise — and a turn that fails is a 500 whose body says <em>Something went wrong
+down here.</em></p>
+<p><code class="docutils literal notranslate"><span class="pre">gid</span></code> is the book the page has open, and it is optional. It is named to the
+model on the end of the system prompt, once per turn, so that a question over a
+playing book is not answered with <em>which book do you mean?</em> — which is what
+happened while it was missing, on every turn, because the model could list the
+shelf and nothing told it which of them was making the sound. Anything that is
+not a positive integer — absent, <code class="docutils literal notranslate"><span class="pre">null</span></code>, a string, a bool — is taken as “no book
+open” rather than refused, so a page that has opened nothing can still ask, and
+a cached older <code class="docutils literal notranslate"><span class="pre">app.js</span></code> keeps working.</p>
+<p>It is sent per turn rather than fixed at the start of a conversation: the page
+can open another book between two questions, and a conversation that remembered
+the first one would answer the second about the wrong book.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;reply&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;move&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">}}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">move</span></code> is present only when the book actually moved, so the page reads the key
+rather than its contents. The sequence number travels with the position because
+adopting one without the other would have the page’s next report refused.</p>
+<p>This is a head start, not the mechanism: if the reply never arrives, the same
+move lands within fifteen seconds as the refusal of the page’s next report.</p>
+</section>
+<section id="post-api-forget">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/forget</span></code><a class="headerlink" href="#post-api-forget" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">{&quot;token&quot;:</span> <span class="pre">&quot;…&quot;}</span></code> → <code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">true}</span></code>. Drops that conversation, which is what
+<em>Start over</em> does when the agent has the wrong end of a mumbled question.</p>
+</section>
+<section id="post-api-position">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/position</span></code><a class="headerlink" href="#post-api-position" title="Link to this heading">#</a></h2>
+<p>The only position write the page makes.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;played_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tick&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">played_ms</span></code> is sound that really came out of the speaker since the last report —
+not time that passed — and it is what may raise the heard-to mark. A body
+missing it claims no playback rather than an impossible amount of it.</p>
+<p><code class="docutils literal notranslate"><span class="pre">reason</span></code> is one of <code class="docutils literal notranslate"><span class="pre">load</span></code>, <code class="docutils literal notranslate"><span class="pre">play</span></code>, <code class="docutils literal notranslate"><span class="pre">tick</span></code>, <code class="docutils literal notranslate"><span class="pre">seek</span></code>, <code class="docutils literal notranslate"><span class="pre">chapter</span></code>, <code class="docutils literal notranslate"><span class="pre">pause</span></code>, <code class="docutils literal notranslate"><span class="pre">hidden</span></code>,
+<code class="docutils literal notranslate"><span class="pre">unload</span></code>, <code class="docutils literal notranslate"><span class="pre">ended</span></code>, <code class="docutils literal notranslate"><span class="pre">switch</span></code>. An unknown one is taken as a tick and noted in the
+journal. The five that mean the sound stopped — <code class="docutils literal notranslate"><span class="pre">pause</span></code>, <code class="docutils literal notranslate"><span class="pre">hidden</span></code>, <code class="docutils literal notranslate"><span class="pre">unload</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ended</span></code>, <code class="docutils literal notranslate"><span class="pre">switch</span></code> — also send the position to Audiobookshelf, as a background
+task after the reply is on the wire.</p>
+<p><strong>Always 200</strong>, in one of two shapes:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>A refusal is not an error. It is how the page is told the agent moved the book
+while it was not looking, and it carries where to go instead. A 409 would put a
+red line in the console at 2am for something working exactly as designed, and
+be unreadable to the <code class="docutils literal notranslate"><span class="pre">sendBeacon</span></code> sent as the page dies. Nulls are dropped
+rather than sent: a report about a book that is gone has no position to talk
+about, and <code class="docutils literal notranslate"><span class="pre">&quot;position_ms&quot;:</span> <span class="pre">null</span></code> would read as one.</p>
+<p>400 is reserved for a body with no <code class="docutils literal notranslate"><span class="pre">gid</span></code> or no <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>.</p>
+</section>
+<section id="post-api-queue">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue</span></code><a class="headerlink" href="#post-api-queue" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Always 200</strong>, in one of two shapes:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty is next to be rendered.&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty is already here, all of it.&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">said</span></code> is a sentence to show somebody — it is the <em>same string</em>
+<code class="docutils literal notranslate"><span class="pre">Library.add_book</span></code> gives the agent, out of the same function, so the page and
+the voice cannot disagree about what just happened. A refusal is an answer, not
+an error, for the reason <code class="docutils literal notranslate"><span class="pre">/api/position</span></code> gives above: a 409 would put a red line
+in the console at 2am for something working exactly as designed and invite a
+throw in the fetch wrapper that skipped the one line that mattered.</p>
+<p>Two things are refused: a book with a live queue row, which is already coming,
+and a book somnia has all of. A render that died, was stopped, or was killed by
+a deploy is <strong>accepted</strong> — that is the retry that used to be impossible.</p>
+<p>Nothing is fetched here. Whether Gutenberg has this book, and has it as HTML,
+costs a round trip and a parse, and a control that thinks for three seconds
+reads as broken — so an unknown gid is taken and fails minutes later in the
+worker with a sentence saying which of the two it was.</p>
+<p>400 is reserved for a body with no positive integer <code class="docutils literal notranslate"><span class="pre">gid</span></code>. Nothing starts a
+render in <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>: this writes one row, and the <code class="docutils literal notranslate"><span class="pre">somnia-worker</span></code> unit
+drains it one book at a time — see
+<a class="reference internal" href="../explanations/decisions/0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a>.</p>
+</section>
+<section id="post-api-queue-id-stop">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue/{id}/stop</span></code><a class="headerlink" href="#post-api-queue-id-stop" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cancelled&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty has been taken out of the queue.&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Keyed on the queue row and not on the book: a gid owns several rows over its
+life — every attempt that failed or was stopped stays as the record of itself —
+so stopping by gid could reach into last week’s.</p>
+<p>A job that was only waiting is <code class="docutils literal notranslate"><span class="pre">cancelled</span></code> by the time this answers. A job that
+is rendering is still <code class="docutils literal notranslate"><span class="pre">rendering</span></code>: nothing reaches into that process, it only
+raises a flag the render notices between sentences, so it stops at the end of
+the one it is reading, up to about twenty seconds later. Every chapter already
+finished stays playable.</p>
+<p>POST rather than DELETE, and the row does not go away — it becomes the record of
+a render somebody stopped.</p>
+<p>200 with <code class="docutils literal notranslate"><span class="pre">&quot;ok&quot;:</span> <span class="pre">false</span></code> for a job that has already ended, which is a button
+pressed a second too late. <strong>404</strong> only for a job that does not exist, which is a
+page holding an id from a database that has moved on; its body carries <code class="docutils literal notranslate"><span class="pre">said</span></code>
+too.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="configuration.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Configuration</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../_api/somnia.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title"><code class="docutils literal notranslate"><span class="pre">somnia</span></code></p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-books"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/books</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-book-gid"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-book-gid-open"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-audio-gid-idx"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-stream-gid-n"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-sentence-gid-ms"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-catalog"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-queue"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-ask"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-forget"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/forget</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-position"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/position</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-queue"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-queue-id-stop"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue/{id}/stop</span></code></a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/gilesknap/somnia/edit/0.6/docs/reference/http.md">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/reference/http.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
