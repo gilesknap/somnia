@@ -80,10 +80,14 @@ name = "Giles Knap"
 [tool.setuptools.package-data]
 # The PWA is served straight off the installed package.
 #
-# The second line is not redundant: these globs do not recurse, so `web/*`
-# ships the page and leaves `web/voice/` behind — and the failure is silent,
-# because a missing sample is a picker that still picks and simply never plays
-# anything. Any new directory under web/ needs a line of its own.
+# These globs do not recurse, so `web/voice/*` is named as well as `web/*`.
+# It is belt and braces rather than the thing that makes the samples ship:
+# `include-package-data` defaults to true here and setuptools_scm supplies the
+# file list, so everything tracked under the package goes into the wheel
+# whatever is written below — checked by building a wheel with only `web/*`
+# and finding all six clips in it. Named anyway, because that default is one
+# setting away from not being true, and a missing sample fails silently: the
+# picker still picks and simply never plays anything.
 somnia = ["web/*", "web/voice/*"]
 
 [tool.setuptools_scm]
