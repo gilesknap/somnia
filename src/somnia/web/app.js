@@ -3530,18 +3530,22 @@ if (!Recognition) {
 // second one, and it is a measurement.
 //
 // It is a named screen rather than a `keyboard-up` boolean because the keyboard
-// is a route in and not the thing itself: the design's dock pill is a portal to
-// this same screen, and the header is drawn differently on each of the two.
+// is a route in and not the thing itself: the design's dock is a portal to this
+// same screen, and the header is drawn differently on each of the two.
 //
-// Today the keyboard is the only route, and readKeyboard is the only caller of
-// showScreen — it recomputes the name from scratch on every resize, focus and
-// blur. So a press that wants the conversation cannot simply call
-// showScreen("chat") and stop there: the next resize, and Android sends them
-// whenever its address bar moves, would put the page back on the player with
-// nothing said. Whoever adds that press has to give readKeyboard something to
-// respect — a remembered "they asked for chat" that the measurement adds to
-// rather than overrules — and this comment is the warning that the one-line
-// version of it looks like it works.
+// The keyboard used to be the only route, and that was the second half of this
+// bug rather than the end of the first. A measurement is a fine way to notice
+// that somebody has arrived on the chat screen and a terrible way to decide
+// whether they may be there at all: a keyboard that overlays the page instead of
+// shrinking it, an `unobscured` height taken a moment too early, a phone turned
+// on its side mid-question — each of them is a night where the composer takes
+// letters and the conversation is on the other screen, and the reader is left
+// typing into a box whose answers they cannot see.
+//
+// So the press is the route now and the measurement only adds to it, which is
+// what the warning that used to be in this comment asked for. `asked` below is
+// the remembered "they want the conversation", it is set by a press on the dock
+// and cleared by a press on the way out, and no resize can overrule either.
 const SCREENS = ["player", "chat"];
 
 // The book and its controls, until something takes them off it.
@@ -3560,9 +3564,20 @@ let whichScreen = "player";
 // first class on <body>, and a page that only wrote when the screen changed
 // would spend the whole of its first night carrying neither of them.
 function showScreen(name) {
+  const arriving = name !== whichScreen;
   whichScreen = name;
   for (const each of SCREENS) {
     document.body.classList.toggle(`${each}-screen`, each === name);
+  }
+  // Arriving on the conversation puts you at the end of it, which is where the
+  // last thing said is. It used to come free: the only way here was a keyboard,
+  // and the resize that keyboard fired ran fit(), which scrolls. A press does
+  // not resize anything — and the turns that landed while this screen was off
+  // scrolled a box that was display:none, which scrolls nothing at all — so
+  // without this somebody pressing the dock after a long night would open the
+  // conversation at the top and have to scroll down to what they just asked.
+  if (arriving && name === "chat") {
+    transcript.scrollTop = transcript.scrollHeight;
   }
 }
 
@@ -3601,6 +3616,20 @@ const typingFields = [question, queueQuery];
 // it.
 let typing = null;
 
+// Somebody asked for the conversation, and the page stays on it until somebody
+// asks to leave. Nothing about the size of the window is allowed near this.
+let asked = false;
+
+// Whether a keyboard has been seen over the composer since they asked. It is the
+// one thing the measurement is still trusted with, and it buys the way out that
+// nobody presses: Android's back button closes the keyboard and leaves the box
+// focused, so there is no blur to hear and the only evidence that they are done
+// is the room coming back. A keyboard that was never up cannot go away again,
+// which is what keeps the microphone — and a desktop, and any phone whose
+// keyboard covers the page rather than shrinking it — on the screen they asked
+// for.
+let hadKeyboard = false;
+
 const viewport = window.visualViewport;
 
 // What the page is when nothing is over it, and the only number here that is
@@ -3629,7 +3658,17 @@ function readKeyboard() {
   // player rather than the chat behind it. So this is a separate fact from the
   // screen and not a second name for it.
   document.body.classList.toggle("keyboard-up", up);
-  showScreen(up && typing === question ? "chat" : "player");
+  // The keyboard closing under a finger that asked for this screen is the way
+  // back to the book, and it is the only way back that costs no press at all.
+  // It has to be a keyboard that was really up and has really gone — not simply
+  // one that is not up — or the press that opens this screen would be undone by
+  // the same measurement a beat later, on every engine slow to raise a keyboard
+  // and on every engine that never raises one.
+  if (asked && typing === question) {
+    if (up) hadKeyboard = true;
+    else if (hadKeyboard) stoppedAsking();
+  }
+  showScreen(asked || (up && typing === question) ? "chat" : "player");
 }
 
 viewport?.addEventListener("resize", () => {
@@ -3642,8 +3681,47 @@ viewport?.addEventListener("resize", () => {
   readKeyboard();
 });
 
+// The way ON to the chat screen, and the whole of it: a press on the dock.
+//
+// Both halves of the dock, because both of them are somebody starting to ask
+// something. The box is the obvious one. The microphone is the one that was
+// missing entirely — it takes no focus and raises no keyboard, so nothing about
+// it could ever be measured, and holding it dictated a question into a
+// transcript that was on the other screen. What that looked like was a
+// microphone that did nothing at all.
+//
+// `pointerdown` and not `click`: the finger going down is the moment the page
+// should have already changed, and it is before the focus and the keyboard that
+// follow it rather than after them, so there is no beat where the screen and
+// the finger disagree. It is also what keeps a focus nobody asked for out of
+// this — see the focus handler below.
+for (const way of [question, talk]) {
+  way.addEventListener("pointerdown", () => {
+    asked = true;
+    hadKeyboard = false;
+    readKeyboard();
+  });
+}
+
+// Nobody is asking any more, whoever said so, and the counterpart of the press
+// above. Kept apart from stoppedTyping(): the books panel's box losing focus is
+// a keyboard leaving and nothing to do with which screen the page is on.
+function stoppedAsking() {
+  asked = false;
+  hadKeyboard = false;
+}
+
 for (const field of typingFields) {
   field.addEventListener("focus", () => {
+    // A focus nobody asked for is not a request for anything. Chrome restores
+    // focus to a form field when it brings a discarded tab back, and an app
+    // reopened at 2am to a page that had been left mid-question would then come
+    // up on the chat screen with the book nowhere on it — which is one of the
+    // ways the reader lost the player. The press above is what says otherwise,
+    // and it happens before this: pointerdown is what makes a page activated in
+    // the first place. Engines that cannot say are taken at their word, because
+    // every one of them that runs this page has a thumb behind the focus.
+    if (navigator.userActivation?.hasBeenActive === false) return;
     typing = field;
     readKeyboard();
     // The keyboard animates in, so measure again after it has settled.
@@ -3659,6 +3737,11 @@ for (const field of typingFields) {
     // it wants — which is worth it, because a page that waited for a resize
     // that never came on an engine that does not send them would leave somebody
     // stranded on the chat screen, which is the whole of this issue.
+    //
+    // The composer only. Focus leaving the books panel's search box is a
+    // keyboard going down over an overlay, and the page was never on the chat
+    // screen for it to be taken off.
+    if (field === question) stoppedAsking();
     stoppedTyping();
     setTimeout(() => {
       fit();
@@ -3686,7 +3769,13 @@ function stoppedTyping() {
 // keyboard down still has a way back to the book. Both paths end in
 // stoppedTyping(), so pressing this and dismissing the keyboard by hand are the
 // same event twice and not two states.
+//
+// It also forgets that they asked, and that is the half that has to be said
+// here rather than left to the blur: the screen is a remembered press now, and a
+// way out that only gave the keyboard back would hand it straight to a page that
+// still believed it was wanted.
 toControls.addEventListener("click", () => {
+  stoppedAsking();
   question.blur?.();
   stoppedTyping();
 });

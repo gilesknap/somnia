@@ -91,6 +91,112 @@ test("the keyboard coming up moves nothing on the page but the screen", async (t
   );
 });
 
+// --------------------------------------------- asking for the conversation
+
+// The route in that is a press rather than a measurement, and the reason it
+// exists: a keyboard is evidence that somebody arrived on this screen and it is
+// no way at all of deciding whether they may be here. Every test in this block
+// is a night where the measurement said nothing useful and the conversation had
+// to be reachable anyway.
+
+// The dock, pressed. The finger going down, and then whatever the platform does
+// about focus after it — which on the microphone is nothing at all.
+function pressDock(page, id = "question") {
+  page.touch(id);
+  if (id === "question") page.focus(id);
+}
+
+test("a press on the composer is the chat screen before any keyboard", async (t) => {
+  const page = await boot(t);
+  pressDock(page);
+  assert.equal(page.probe().screen, "chat");
+  // And no keyboard has been claimed on the strength of a press: the overlays
+  // shrink their rows for that, and nothing is over this page yet.
+  assert.equal(page.probe().keyboardUp, false);
+});
+
+test("a keyboard that never shrinks the page still gets the conversation", async (t) => {
+  const page = await boot(t);
+  pressDock(page);
+  // A keyboard drawn over the page instead of shrinking it: the viewport says
+  // what it always said, and nothing that follows may take the screen back.
+  page.resize(VIEWPORT_HEIGHT);
+  assert.equal(page.wake(SETTLING_MS), true);
+  assert.equal(page.probe().screen, "chat");
+});
+
+// The microphone had no route to this screen at all. It takes no focus and
+// raises no keyboard, so there was nothing about it to measure — and holding it
+// dictated a question into a transcript that was on the other screen, which
+// looked like a microphone that did nothing.
+test("a press on the microphone is the chat screen", async (t) => {
+  const page = await boot(t);
+  pressDock(page, "talk");
+  assert.equal(page.probe().screen, "chat");
+  assert.equal(page.probe().keyboardUp, false);
+});
+
+// The measurement that used to decide this screen, wrong in the direction that
+// strands somebody: a height taken while a keyboard was already up teaches the
+// page that the short screen is the whole screen, and no keyboard is ever
+// visible again. It cost the conversation before; now it costs nothing.
+test("a height taken while a keyboard was up cannot keep the conversation off", async (t) => {
+  const page = await boot(t);
+  // Nobody typing, so this is what the page believes it has to work with.
+  page.resize(WITH_KEYBOARD);
+  pressDock(page);
+  assert.equal(page.probe().screen, "chat");
+});
+
+test("the keyboard closing under the finger that asked is the way back", async (t) => {
+  const page = await boot(t);
+  pressDock(page);
+  page.resize(WITH_KEYBOARD);
+  assert.equal(page.probe().screen, "chat");
+  // Android's back button: the keyboard goes and the box keeps its focus, so
+  // there is no blur to hear. The room coming back is the only thing said.
+  page.resize(VIEWPORT_HEIGHT);
+  assert.equal(page.probe().screen, "player");
+  assert.equal(page.probe().keyboardUp, false);
+});
+
+test("the way back off chat forgets that they asked", async (t) => {
+  const page = await boot(t);
+  pressDock(page);
+  page.resize(WITH_KEYBOARD);
+  page.click("to-controls");
+  assert.equal(page.probe().screen, "player");
+  // The keyboard finishing its way out afterwards, and the address bar moving
+  // on the next scroll. A page that still believed it was wanted here would put
+  // the conversation back over the book on either of them.
+  page.resize(VIEWPORT_HEIGHT);
+  assert.equal(page.wake(SETTLING_MS), true);
+  assert.equal(page.probe().screen, "player");
+  assert.deepEqual(classes(page), ["player-screen"]);
+});
+
+test("leaving the box forgets that they asked", async (t) => {
+  const page = await boot(t);
+  pressDock(page);
+  page.blur("question");
+  assert.equal(page.probe().screen, "player");
+  page.resize(WITH_KEYBOARD);
+  assert.equal(page.probe().screen, "player");
+});
+
+// The other half of the same promise, and the one that decides where the app
+// comes up. Chrome restores focus to the box that had it when it brings a
+// discarded tab back, and starts a keyboard with it — so a page that took focus
+// as a request would open on the chat screen, with the book nowhere on it, for
+// somebody who had done nothing but unlock their phone.
+test("a focus nobody asked for does not open the chat screen", async (t) => {
+  const page = await boot(t, { activated: false });
+  page.focus("question");
+  page.resize(WITH_KEYBOARD);
+  assert.equal(page.probe().screen, "player");
+  assert.deepEqual(classes(page), ["player-screen"]);
+});
+
 // ------------------------------------------------- a window is not a keyboard
 
 // The issue, in one line. A desktop window dragged shorter than 34rem used to
@@ -376,6 +482,16 @@ test("start over is drawn on the chat screen and nowhere else", async (t) => {
       `a media query is drawing start over: ${block.slice(0, 120)}`,
     );
   }
+});
+
+// The conversation is the whole of the chat screen, and the player's rhythm is
+// not on it. The three spacers are `flex: 1 1 0` siblings of #transcript in the
+// body's one column — which is what pools the slack into one gap on the player
+// — so left standing here they took 2:1:1 of the height a keyboard leaves and
+// pushed the words into a hundred-pixel box at the top of the screen with 320
+// pixels of nothing under them.
+test("the player's spacers are not on the chat screen", async (t) => {
+  assert.ok(RULES.includes("body.chat-screen .rhythm { display: none; }"));
 });
 
 // The other corner, which is one place holding one of two pills. `library ›`

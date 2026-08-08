@@ -1324,6 +1324,24 @@ body.chat-screen #now-playing {
   display: none;
 }
 
+/* And the rhythm the reading was the middle of goes with it.
+
+   The three spacers are `flex: 1 1 0` siblings of #transcript in the body's one
+   column — that is what makes them one pool on the player — so on this screen
+   they went on taking their share of a height with nothing left in them to
+   space. Against #transcript's single share they hold 2:1:1 of it and cap at
+   180, 70 and 70, which on the 470px a keyboard leaves came out as a
+   conversation in a box a hundred pixels tall at the top of the screen and 320
+   pixels of nothing under it, all the way down to the transport. The one screen
+   whose whole point is the words had the least room on the page for them.
+
+   `display: none` rather than a flex override, because what is wrong on this
+   screen is that they exist: an empty element with no share is still a row in
+   the column, and there is nothing here for it to hold apart. */
+body.chat-screen .rhythm {
+  display: none;
+}
+
 body.chat-screen .transport button {
   min-height: 3.5rem;
 }
