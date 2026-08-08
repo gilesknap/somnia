@@ -590,9 +590,16 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         """
         return JSONResponse(
             {"voices": [asdict(voice) for voice in VOICES]},
-            # A day. The roster changes when somnia is deployed and not
-            # otherwise, and the page asks for it every time Workshop opens.
-            headers={"cache-control": "max-age=86400"},
+            # `no-cache` means store it and ask before using it, which is what
+            # this wants: a 304 of a few hundred bytes on a tailnet, against a
+            # roster that can be a day out of date. A day was the wrong bargain
+            # for the same reason the shell above is not allowed to make it —
+            # somnia's roster changes when somnia is deployed, and the phone
+            # that has the old one cannot be told. Workshop then offers a voice
+            # the renderer has not got, or hides one it has, and the sample
+            # plays nothing; the deploy is on the box and the page disagrees
+            # with it until tomorrow.
+            headers={"cache-control": "no-cache"},
         )
 
     async def queue_view(request: Request) -> Response:
@@ -733,7 +740,13 @@ def _number(value: Any) -> int:
     """
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError because JSON has Infinity and python's json accepts it:
+        # `{"position_ms": Infinity}` reaches here as a float that int() will
+        # not convert, and the two exceptions caught before this let it out of
+        # the function and up through the route as a 500. Every other kind of
+        # nonsense the page could send is already the sentinel, and a request
+        # somnia cannot make sense of is a 400 by way of -1, not a traceback.
         return -1
 
 

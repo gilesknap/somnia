@@ -31,6 +31,7 @@ twenty minutes ago — a corrupt read in the middle of a sentence.
 
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -39,7 +40,7 @@ from pathlib import Path
 
 from .config import Config
 
-__all__ = ["build_stream", "concat_list", "stream_path"]
+__all__ = ["build_stream", "concat_list", "forget_streams", "stream_path"]
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,28 @@ def stream_path(cfg: Config, gid: int, n: int) -> Path:
     here because the server has no auth by design.
     """
     return cfg.data_dir / "streams" / str(gid) / f"{n}.m4a"
+
+
+def forget_streams(cfg: Config, gid: int) -> None:
+    """Throw away every joined file for a book, because its chapters moved.
+
+    A stream is named for how many chapters it holds and nothing else, so two
+    renders of the same book that both produce the same number of chapters
+    produce the same filename — and :func:`build_stream` returns the file it
+    finds there without looking inside it. Re-render a book in another voice
+    and the chapters on disk are the new narrator while the joined file, which
+    is what the page actually plays, is still the old one. Nothing ages it out:
+    it is served until the chapter count changes.
+
+    Called where a render begins rather than where one finishes, because the
+    chapters start being overwritten immediately and a stream built from a
+    half-replaced book would be worse than a stale one.
+
+    Unlinking a file somebody is streaming is safe here: the open descriptor
+    keeps reading the old bytes to the end of the request, and the next request
+    builds the file again.
+    """
+    shutil.rmtree(cfg.data_dir / "streams" / str(gid), ignore_errors=True)
 
 
 def concat_list(files: Sequence[Path]) -> str:

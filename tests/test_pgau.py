@@ -1,3 +1,6 @@
+import pytest
+
+from somnia import pgau
 from somnia.pgau import PGAU_GID_BASE, PgauEntry, is_australian, parse_index
 
 # The real index, in miniature: a preamble of prose, then entries of one line
@@ -126,3 +129,40 @@ def test_the_preamble_is_not_a_book():
 
 def test_an_empty_index_is_no_books_rather_than_an_error():
     assert parse_index("") == []
+
+
+def test_the_index_is_read_as_the_windows_page_it_is(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """It carries no charset, and the bytes in it are not UTF-8.
+
+    A page written on Windows in the nineties: no HTTP charset, no meta tag, and
+    single high bytes for the accents and dashes in its titles. httpx falls back
+    to UTF-8 on a file that says nothing, so eleven entries arrived with U+FFFD
+    where a character belonged — not a rendering blemish but a different string,
+    which is a book the author's own name no longer finds.
+
+    cp1252 and not latin-1: 0x96 is an undefined control code in latin-1 and is
+    the en dash this file means by it.
+    """
+    body = (
+        "Jan 2016 Le Compte de Janz\xe9, Anthony Trollope"
+        "           [160001xx.xxx] 3000A\n"
+        "http://gutenberg.net.au/ebooks16/1600011h.html\n"
+    ).encode("cp1252")
+
+    class Answered:
+        content = body
+
+        @staticmethod
+        def raise_for_status() -> None:
+            return None
+
+    monkeypatch.setattr(pgau.httpx, "get", lambda *a, **k: Answered())
+
+    text = pgau.fetch_index()
+
+    assert "�" not in text
+    assert "Janz\xe9" in text
+    # And through the parser, which is what the catalog actually stores.
+    assert parse_index(text)[0].title == "Le Compte de Janz\xe9"

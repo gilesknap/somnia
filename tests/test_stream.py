@@ -9,7 +9,7 @@ chapter's name is written down for ffmpeg.
 from pathlib import Path
 
 from somnia.config import Config
-from somnia.stream import concat_list, stream_path
+from somnia.stream import concat_list, forget_streams, stream_path
 
 
 def test_a_stream_is_named_by_how_much_of_the_book_it_covers(tmp_path: Path) -> None:
@@ -54,3 +54,37 @@ def test_every_chapter_gets_a_line_in_the_order_it_is_played() -> None:
         "file '/library/001 - One.m4a'",
         "file '/library/002 - Two.m4a'",
     ]
+
+
+def test_a_book_rendered_again_does_not_keep_its_old_joined_file(
+    tmp_path: Path,
+) -> None:
+    """The one thing a chapter count cannot tell you: which voice read it.
+
+    A stream is named by how many chapters it holds and by nothing else, and
+    `build_stream` serves whatever it finds under that name without looking
+    inside. Render the same book again in another narrator — same chapters,
+    same count — and the file the page actually plays is still the old voice,
+    for as long as the chapter count does not change. Which is for ever.
+    """
+    cfg = Config(data_dir=tmp_path)
+    old = stream_path(cfg, 271, 3)
+    old.parent.mkdir(parents=True)
+    old.write_bytes(b"three chapters, read by the old narrator")
+    # A second book, to prove this takes away one book's streams and not the
+    # whole directory: they share a parent.
+    other = stream_path(cfg, 120, 2)
+    other.parent.mkdir(parents=True)
+    other.write_bytes(b"nothing to do with 271")
+
+    forget_streams(cfg, 271)
+
+    assert not old.exists()
+    assert other.exists()
+
+
+def test_forgetting_the_streams_of_a_book_that_has_none_is_quiet(
+    tmp_path: Path,
+) -> None:
+    """It runs at the top of every render, including a book's first."""
+    forget_streams(Config(data_dir=tmp_path), 271)

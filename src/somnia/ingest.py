@@ -24,6 +24,7 @@ from .gutenberg import Chapter, fetch_book
 from .index import add_chunks
 from .pgau import is_australian
 from .segment import TimedSentence, sentences, windows
+from .stream import forget_streams
 from .tts import TTSEngine
 
 __all__ = ["RenderStopped", "ingest_book", "publish_chapters"]
@@ -310,6 +311,15 @@ def ingest_book(
             " chapters_total = excluded.chapters_total, status = 'rendering'",
             (gid, title, authors, engine.voice, total),
         )
+
+    # The joined files go before a chapter is written over. A stream is named by
+    # how many chapters it holds and by nothing else, and `build_stream` serves
+    # whatever it finds under that name without looking inside — so a book
+    # rendered again in another voice kept playing the old narrator, out of a
+    # file whose name had not changed, for as long as the chapter count did not.
+    # Chapters are overwritten one for one from here on, so this is the last
+    # moment the old joined file is still a truthful copy of anything.
+    forget_streams(cfg, gid)
 
     book_dir = (
         cfg.library_dir
