@@ -46,6 +46,7 @@ from .config import Config
 from .db import connect
 from .player import Player
 from .queue import LIVE, QueueRow, Stopped, Submission, stop, submit, view
+from .stream import build_stream, stream_path
 from .tools import Library
 
 __all__ = ["Conversations", "Found", "Queue", "create_app", "serve"]
@@ -399,6 +400,44 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         # them, so nothing here touches the request headers.
         return FileResponse(path, media_type="audio/mp4")
 
+    async def stream(request: Request) -> Response:
+        """The whole book as one file, so a chapter boundary touches nothing.
+
+        ``n`` is how many chapters the stream covers, which makes it a version:
+        a book that grew while somebody was listening is a different number and
+        a different file, and the one their phone has open is never rewritten.
+        See :mod:`somnia.stream`, which is where all of that is argued.
+
+        Built on the first ask rather than at the end of a render, because most
+        versions of a growing book are never played — measured on the real
+        library, a night costs one build, or none. It costs a second or two of
+        ffmpeg in front of the first byte, spent while the page is already
+        saying it is opening the book.
+
+        A build that cannot honestly be made is a 404, loudly in the journal
+        rather than quietly here. The manifest still carries a url per chapter,
+        so a book with no stream is one that blinks at every boundary the way
+        every book did before — which is a worse night, not a lost one.
+
+        Media type, Content-Disposition and the untouched request headers are
+        all for the reasons ``audio`` above gives; nothing about them is
+        different for being a whole book rather than a chapter.
+        """
+        gid = int(request.path_params["gid"])
+        n = int(request.path_params["n"])
+        path = stream_path(cfg, gid, n)
+        if not path.is_file():
+            source = await run_in_threadpool(player.stream_source, gid, n)
+            if source is None:
+                return JSONResponse({"error": "no such stream"}, 404)
+            built = await run_in_threadpool(
+                build_stream, cfg, gid, source.files, source.span_ms
+            )
+            if built is None:
+                return JSONResponse({"error": "the book would not join"}, 404)
+            path = built
+        return FileResponse(path, media_type="audio/mp4")
+
     async def position(request: Request) -> Response:
         """Where the page has got to — the only position write it makes.
 
@@ -542,6 +581,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/book/{gid:int}", book),
             Route("/api/book/{gid:int}/open", open_book, methods=["POST"]),
             Route("/api/audio/{gid:int}/{idx:int}", audio),
+            Route("/api/stream/{gid:int}/{n:int}", stream),
             Route("/api/sentence/{gid:int}/{ms:int}", sentence),
             Route("/api/position", position, methods=["POST"]),
             Route("/api/catalog", catalog),

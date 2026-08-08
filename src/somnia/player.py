@@ -34,6 +34,7 @@ __all__ = [
     "Opened",
     "Player",
     "Report",
+    "StreamSource",
 ]
 
 logger = logging.getLogger(__name__)
@@ -164,6 +165,21 @@ class Manifest:
     seq: int
     heard_to_ms: int
     chapters: list[Chapter]
+
+
+@dataclass
+class StreamSource:
+    """The chapters one version of a book's stream is joined from.
+
+    ``span_ms`` is how much book they hold, on the render clock. It travels with
+    the files because it is what the finished join is judged against: ffmpeg
+    will report an unreadable chapter and then exit zero with a short file, so
+    the only thing that says a stream is the whole of what was asked for is the
+    clock the rows already keep. See :mod:`somnia.stream`.
+    """
+
+    files: list[Path]
+    span_ms: int
 
 
 @dataclass
@@ -500,13 +516,6 @@ class Player:
         path comes from the row. That is the whole of the traversal defence,
         and it has to be, because the server has no auth by design — anything
         that took a path from the request would be a read of the entire VPS.
-
-        Containment is still checked after resolving, because the row is not
-        beyond suspicion either: a symlink in the library, or a database
-        carried over from a machine whose SOMNIA_LIBRARY_DIR was somewhere
-        else, can both point outside. That case is logged rather than silently
-        dropped — a library that has moved should be explicable from the
-        journal, not guessed at.
         """
         with self._lock:
             row = self._conn.execute(
@@ -515,12 +524,60 @@ class Player:
             ).fetchone()
         if row is None:
             return None
-        path = Path(row["audio_file"]).resolve()
+        return self._playable(row["audio_file"], f"chapter {gid}/{idx}")
+
+    def stream_source(self, gid: int, n: int) -> StreamSource | None:
+        """What a stream covering a book's first ``n`` chapters is made of.
+
+        A version is a prefix of the book, named by how many chapters it holds,
+        so this answers about a book as it was some number of chapters ago as
+        readily as about the book as it is now. That is what lets a page that
+        loaded version twelve at eleven o'clock keep playing it while the render
+        runs on ahead — and it is why the file for a given ``n`` can always be
+        made again from the same chapters, byte for byte, if it ever has to be.
+
+        None means there is nothing honest to join: fewer chapters than were
+        asked for, none at all, or one whose audio is missing or lies outside
+        the library. A stream with a hole in it is not this book, and it would
+        be one that stops in the night at the hole.
+        """
+        if n < 1:
+            return None
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT idx, start_ms, end_ms, audio_file FROM chapters"
+                " WHERE book_gid = ? ORDER BY idx",
+                (gid,),
+            ).fetchall()
+        if len(rows) < n:
+            return None
+        rows = rows[:n]
+        files: list[Path] = []
+        for row in rows:
+            path = self._playable(row["audio_file"], f"chapter {gid}/{row['idx']}")
+            if path is None:
+                return None
+            files.append(path)
+        return StreamSource(
+            files=files, span_ms=rows[-1]["end_ms"] - rows[0]["start_ms"]
+        )
+
+    def _playable(self, audio_file: str, what: str) -> Path | None:
+        """A row's path, if it is inside the library and really there.
+
+        Containment is checked after resolving, because the row is not beyond
+        suspicion either: a symlink in the library, or a database carried over
+        from a machine whose SOMNIA_LIBRARY_DIR was somewhere else, can both
+        point outside. That case is logged rather than silently dropped — a
+        library that has moved should be explicable from the journal, not
+        guessed at.
+        """
+        path = Path(audio_file).resolve()
         # expanduser as well as resolve: Config's default library_dir is the
         # literal "~/library/audiobooks", and only load_config expands it.
         library = self._cfg.library_dir.expanduser().resolve()
         if not path.is_relative_to(library):
-            logger.warning("chapter %d/%d lies outside %s: %s", gid, idx, library, path)
+            logger.warning("%s lies outside %s: %s", what, library, path)
             return None
         # A chapter that has been deleted, or has not finished rendering, is an
         # absence rather than a traceback.

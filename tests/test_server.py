@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 import subprocess
 import sys
 import threading
@@ -11,6 +12,7 @@ from starlette.testclient import TestClient
 
 from conftest import ToneBook
 from fakes import RecordingAbs
+from mp4 import duration_ms, payload
 from somnia import server
 from somnia.agent import OFFER_SENTENCE, Turn, open_library
 from somnia.catalog import update_catalog
@@ -18,7 +20,7 @@ from somnia.config import Config
 from somnia.db import connect
 from somnia.queue import claim, finish
 from somnia.tools import Library, Moved, Offer
-from tone_book import CHAPTERS, GID
+from tone_book import CHAPTERS, GID, TOTAL_MS
 
 TOKEN = "tab-1"
 
@@ -559,6 +561,248 @@ def test_the_manifest_gives_the_page_a_url_for_every_chapter(
         # Relative, because the app may be mounted under a path.
         assert not chapter["url"].startswith("/")
         assert tone_client.get(f"/{chapter['url']}").status_code == 200
+
+
+# ------------------------------------------- the book as one file
+#
+# Everything below joins real audio, so it needs ffmpeg, and the suite has
+# always been runnable without it (tests/tone_book.py). Skipping rather than
+# failing keeps that true — at the price that a machine with no ffmpeg proves
+# nothing about the stream, which is why the escaping rule these rest on is
+# also pinned without ffmpeg, in tests/test_stream.py.
+ffmpeg_only = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None, reason="joining chapters needs ffmpeg"
+)
+
+
+def stream_file(tone_book: ToneBook, n: int = len(CHAPTERS)) -> Path:
+    """Where the stream covering the book's first ``n`` chapters is written."""
+    return tone_book.cfg.data_dir / "streams" / str(GID) / f"{n}.m4a"
+
+
+@ffmpeg_only
+def test_the_whole_book_is_served_as_one_file_the_phone_will_play(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """One URL for the book, so a chapter boundary need touch nothing.
+
+    Assigning ``src`` runs the media element load algorithm, which empties the
+    element and takes the lock screen panel down with it. Over Bluetooth it
+    sometimes never comes back, and the night ends there. A book the element
+    loads once has no boundary to survive.
+
+    The duration is what says the whole book is in there: join two of three and
+    it reads sixteen seconds. It runs a shade over rather than exactly to the
+    book because ``-c copy`` drops the edit list that trims AAC encoder priming,
+    which leaves one frame of silence at the join — 42.667 ms, once, however
+    many chapters are joined.
+    """
+    response = tone_client.get(f"/api/stream/{GID}/3")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/mp4"
+    # A Content-Disposition would make the book a download instead.
+    assert "content-disposition" not in response.headers
+    assert response.content == stream_file(tone_book).read_bytes()
+    assert TOTAL_MS <= duration_ms(stream_file(tone_book)) < TOTAL_MS + 100
+
+
+@ffmpeg_only
+def test_the_stream_is_the_chapters_themselves_in_the_order_they_are_read(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """``-c copy`` re-wraps the audio; it must not re-encode or reorder it.
+
+    The joined ``mdat`` is the chapters' own ``mdat``s laid end to end, byte for
+    byte — measured that way across all forty-nine chapters of Black Beauty, and
+    true here of three. It is worth asserting rather than assuming because it is
+    what makes the render clock the manifest speaks a position in the stream:
+    the page will seek by arithmetic on it, and a book joined out of order would
+    land in the wrong chapter with nothing on the server to say it had.
+    """
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
+    laid_end_to_end = b"".join(
+        payload(tone_book.book_dir / chapter.file_name, "mdat") for chapter in CHAPTERS
+    )
+    assert payload(stream_file(tone_book), "mdat") == laid_end_to_end
+
+
+@ffmpeg_only
+def test_the_stream_is_written_beside_the_database_and_not_in_the_library(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """ADR 3 promises the Audiobookshelf app keeps working on the same files.
+
+    ``library_dir`` is ABS's own layout, and a second copy of every book
+    appearing inside it would be somnia scanning as a library of doubles. The
+    concatenation is somnia's own cache, so it lives with somnia's own data.
+    """
+    before = sorted(p.name for p in tone_book.book_dir.iterdir())
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
+
+    assert stream_file(tone_book).is_file()
+    assert sorted(p.name for p in tone_book.book_dir.iterdir()) == before
+    in_library = {p.name for p in tone_book.cfg.library_dir.rglob("*.m4a")}
+    assert in_library == {chapter.file_name for chapter in CHAPTERS}
+
+
+@ffmpeg_only
+def test_a_stream_can_be_fetched_a_piece_at_a_time(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """Seeking is ranged requests: without 206 the scrubber does nothing."""
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
+    whole = stream_file(tone_book).read_bytes()
+    response = tone_client.get(f"/api/stream/{GID}/3", headers={"Range": "bytes=0-99"})
+    assert response.status_code == 206
+    assert response.headers["content-range"] == f"bytes 0-99/{len(whole)}"
+    assert response.content == whole[:100]
+
+
+@ffmpeg_only
+def test_the_end_of_a_stream_can_be_asked_for_on_its_own(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """A five-hour book is seeked into far more often than it is read whole."""
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
+    whole = stream_file(tone_book).read_bytes()
+    response = tone_client.get(f"/api/stream/{GID}/3", headers={"Range": "bytes=-64"})
+    assert response.status_code == 206
+    assert response.headers["content-range"] == (
+        f"bytes {len(whole) - 64}-{len(whole) - 1}/{len(whole)}"
+    )
+    assert response.content == whole[-64:]
+
+
+@ffmpeg_only
+def test_an_unsatisfiable_range_into_a_stream_is_refused_rather_than_answered(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
+    size = stream_file(tone_book).stat().st_size
+    response = tone_client.get(
+        f"/api/stream/{GID}/3", headers={"Range": f"bytes={size + 10}-"}
+    )
+    assert response.status_code == 416
+    assert response.headers["content-range"] == f"bytes */{size}"
+
+
+@ffmpeg_only
+def test_the_size_of_a_stream_is_known_without_fetching_it(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """A media element HEADs a file to learn its length before ranging it.
+
+    The first thing the page ever asks for is this, so the HEAD has to build
+    the stream rather than answer about one that is not there yet.
+    """
+    response = tone_client.head(f"/api/stream/{GID}/3")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/mp4"
+    assert response.headers["content-length"] == str(
+        stream_file(tone_book).stat().st_size
+    )
+    assert response.content == b""
+
+
+@ffmpeg_only
+def test_a_stream_is_built_once_and_never_rewritten_underneath_a_reader(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The phone holds this file open for eight hours.
+
+    Rebuilding it while a Range request is in flight splices new bytes against
+    a header the element parsed twenty minutes ago, which is a corrupt read in
+    the middle of a sentence. So a version is written once: the marker planted
+    here comes back untouched, which it could not do if the second request had
+    rebuilt anything.
+    """
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
+    stream_file(tone_book).write_bytes(b"a version that is already being read")
+
+    again = tone_client.get(f"/api/stream/{GID}/3")
+    assert again.content == b"a version that is already being read"
+
+
+@ffmpeg_only
+def test_a_book_that_grew_gets_a_new_stream_rather_than_a_rewritten_one(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """Which is what makes the version number a chapter count.
+
+    A book is normally listened to while it is still rendering — nuc2 lands a
+    chapter every three and a quarter minutes for the best part of three hours.
+    Each new chapter makes a new version, and the one already loaded goes on
+    existing, so nothing a phone is reading is ever the file being written.
+    """
+    assert tone_client.get(f"/api/stream/{GID}/2").status_code == 200
+    assert duration_ms(stream_file(tone_book, 2)) < TOTAL_MS
+
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
+    assert duration_ms(stream_file(tone_book, 3)) >= TOTAL_MS
+    assert stream_file(tone_book, 2).is_file()
+
+
+@ffmpeg_only
+def test_a_chapter_whose_title_has_an_apostrophe_is_still_in_the_stream(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """``_safe_name`` keeps apostrophes, so the library really has these.
+
+    ``008 - 08 Ginger's Story Continued.m4a`` is the file that found this. In a
+    naively written concat list the line ends at the apostrophe; ffmpeg looks
+    for ``008 - 08 Ginger``, says "Impossible to open", **exits 0**, and writes
+    a book that stops there. Without this test that ships as a Black Beauty
+    which goes quiet eight chapters in.
+    """
+    named = tone_book.book_dir / "002 - 08 Ginger's Story Continued.m4a"
+    (tone_book.book_dir / CHAPTERS[1].file_name).rename(named)
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE chapters SET audio_file = ? WHERE book_gid = ? AND idx = 1",
+            (str(named), GID),
+        )
+
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
+    assert duration_ms(stream_file(tone_book)) >= TOTAL_MS
+
+
+@ffmpeg_only
+def test_a_chapter_that_will_not_open_stops_the_build_rather_than_the_book(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The refusal to serve a short book, which is the only honest answer.
+
+    ffmpeg's concat demuxer treats an input it cannot read as a reason to stop
+    rather than a reason to fail: it exits 0 and leaves a file covering
+    whatever it managed. Served, that is a book that plays eight seconds and
+    ends — and ``ended`` is precisely what takes the lock screen panel down.
+    Better a 404 the page can fall back from, loudly, into the journal.
+    """
+    (tone_book.book_dir / CHAPTERS[1].file_name).write_bytes(b"not audio" * 100)
+
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 404
+    assert not stream_file(tone_book).exists()
+    # And nothing half-written left behind to be picked up as a whole book.
+    assert list(stream_file(tone_book).parent.glob("*")) == []
+
+
+@ffmpeg_only
+def test_a_stream_is_never_offered_for_audio_that_is_not_all_there(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """404s that are all the same answer: there is no such stream to serve.
+
+    A version longer than the book is a page asking for chapters nobody has
+    rendered; a version of nothing is a book with no audio at all; a missing
+    file is a chapter the render never finished. None of them can be joined,
+    and none of them is a traceback.
+    """
+    assert tone_client.get(f"/api/stream/{GID}/4").status_code == 404
+    assert tone_client.get(f"/api/stream/{GID}/0").status_code == 404
+    assert tone_client.get("/api/stream/404404/3").status_code == 404
+
+    (tone_book.book_dir / CHAPTERS[2].file_name).unlink()
+    assert tone_client.get(f"/api/stream/{GID}/3").status_code == 404
 
 
 def test_a_book_still_being_read_says_so_and_grows_between_asks(
