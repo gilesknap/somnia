@@ -29,6 +29,17 @@ before the reading was beside the pill and nothing was under it. The miss that
 matters — onto the *next* row's `goto`, which moves the book somewhere nobody
 asked for — is still held off by the row's padding.
 
+Amended once more by
+[ADR 6](0006-answer-a-question-about-the-book.md), in one particular. The
+rejected alternative below rests part of its case on `find_passage` being both
+how the model seeks and how it answers — its docstring named "who Ginger is" as
+a use — and that is no longer so: a question about the book is `recall`'s, and
+`find_passage` finds places to be taken to. The conclusion is unchanged and
+rather stronger for it. The *server* still cannot tell a question from a request
+to be moved, so there is still no rule watching search results and raising a
+list; what is new is that the model says which kind of turn it is by which tool
+it calls, and the tools refuse a move or a list in a turn that answered.
+
 What was **not** taken from that revision is the per-row `strong match` /
 `possible match` / `faint match` line. It needs a distance threshold, which
 "A confidence threshold to decide when to offer" below rejects for reasons that
@@ -74,9 +85,10 @@ page is right there, it is already the player, and it can draw a list.
 ## The alternatives we rejected
 
 **A server-side rule: when a search comes back ambiguous, show the list.** The
-obvious version, and it cannot be built, because `find_passage` is not only how
-the model seeks — its own docstring names "who Ginger is" as a use, and
-questions about the book go through exactly the same call. A rule that
+obvious version, and it cannot be built, because `find_passage` was not only how
+the model seeks — its own docstring named "who Ginger is" as a use, and
+questions about the book went through exactly the same call (which is what ADR 6
+came back and undid). A rule that
 intercepted close-together hits would put a list of places to jump to in front
 of somebody who asked a question, and would blind the model on that turn so it
 could neither answer nor say it could not find it, which the prompt explicitly

@@ -7,6 +7,11 @@ structured data; turning that into prose is the caller's job.
 The spoiler guard lives here rather than in the agent's prompt: a question about
 a book is answered from the part the listener could have heard, because finding
 out how it ends is the one thing a bedtime reader must never do by accident.
+That is truer since the agent was allowed to answer out of what it already
+knows about a book (ADR 6) rather than only out of passages a tool returned:
+the retrieval is no longer the whole of the bound, so the number this layer
+computes is handed to the model in words as well as being used to cut the
+search.
 """
 
 import sqlite3
@@ -26,6 +31,7 @@ __all__ = [
     "Moved",
     "Offer",
     "Position",
+    "Recall",
     "Refused",
 ]
 
@@ -72,6 +78,32 @@ class Search:
     hits: list[Passage]
     searched_to_ms: int | None
     better_ahead: Passage | None
+
+
+@dataclass
+class Recall:
+    """Passages to answer a question from, and how far the answer may go.
+
+    Deliberately not a :class:`Search`, though it is built out of one. A search
+    is looking for somewhere to be taken; this is looking for something to say,
+    and the two want different things back. There is no ``better_ahead`` here at
+    all — see :meth:`Library.recall` for why dropping it is the point rather
+    than an omission — and nothing downstream is given a chunk id or a
+    ``position_ms``, because the answer to a question is a sentence and not a
+    place.
+
+    ``searched_to_ms`` is the same number :class:`Search` carries and means the
+    same thing: how far the passages were allowed to come from, or None on a
+    book they have finished, where there is nothing left to hold back. It is not
+    only a fact about the retrieval. It is the line the answer itself may not
+    cross, which is a wider job than it used to be: since ADR 6 what the agent
+    says is no longer confined to passages a tool handed it, so this number is
+    the whole of what stands between its own knowledge of the book and the part
+    of it nobody has heard.
+    """
+
+    passages: list[Passage]
+    searched_to_ms: int | None
 
 
 @dataclass
@@ -367,6 +399,38 @@ class Library:
             if ahead and ahead[0].distance < floor:
                 better_ahead = ahead[0]
         return Search(hits=hits, searched_to_ms=before_ms, better_ahead=better_ahead)
+
+    def recall(self, gid: int, question: str, k: int = 5) -> Recall:
+        """Read the book back, to answer a question about it in words.
+
+        The same search underneath — there is only one index, and a question and
+        a request to be moved genuinely do look for the same passages — but what
+        comes back is framed for saying rather than for going, and two things
+        are taken away on the way out.
+
+        ``better_ahead`` is dropped, and dropping it is the reason this method
+        exists rather than the agent simply ignoring the field. It is a nudge
+        towards offering a place further on, which is exactly right for "take me
+        there" and exactly wrong for "who is he": the answer to a question about
+        somebody who has not appeared yet is that they have not appeared yet,
+        and it must not be followed by a list of places, because the reason they
+        asked is that they wanted to carry on listening. It is also a spoiler in
+        its own right. "He hasn't come up yet in what you've heard" and "he
+        comes up an hour and a half from here" are different sentences, and the
+        second one tells them the character arrives — which is a thing about the
+        book they have not heard yet, and therefore not ours to say.
+
+        There is no ``allow_spoilers`` either, and there will not be one. A move
+        past the mark cannot be done spoiler-free — going there is hearing it —
+        so consent is the only way to serve "take me to the end", and the tool
+        takes it. An answer has no such necessity: whatever they are asking
+        about, listening on tells them, and a yes given at 2am by somebody half
+        asleep is the least deliberate consent in the whole system. So this one
+        never widens, and a question about what has not happened yet is answered
+        with the truth that it has not happened yet.
+        """
+        search = self.find_passage(gid, question, k=k, spoiler_free=True)
+        return Recall(passages=search.hits, searched_to_ms=search.searched_to_ms)
 
     def offer_positions(self, gid: int, chunk_ids: list[int]) -> Offer | Refused:
         """Build the list of places to put on screen, from passages that matched.
