@@ -932,6 +932,11 @@ export async function boot(t, options = {}) {
     // is here because what that arm decides is whether the conversation can be
     // reached at all on an engine that cannot be measured.
     canMeasure = true,
+    // Whether anybody has touched this page yet. False is a page nobody has
+    // pressed: a tab Chrome discarded and has just brought back, which restores
+    // focus to the box that had it and starts a keyboard with it, having asked
+    // nobody. Every other test here is a page with a thumb on it.
+    activated = true,
   } = options;
 
   // Everything the element and the media session did, in the order they did
@@ -1059,6 +1064,7 @@ export async function boot(t, options = {}) {
     Date: { now: () => clock.now() },
     navigator: {
       language: "en-GB",
+      userActivation: { hasBeenActive: activated },
       mediaSession: session,
       vibrate() {},
       sendBeacon(url, blob) {
@@ -1210,6 +1216,12 @@ export async function boot(t, options = {}) {
     // keyboard over an overlay with the player still behind it.
     focus: (id) => el(id).fire("focus"),
     blur: (id) => el(id).fire("blur"),
+    // A finger going down on something, which is where every press on this page
+    // really starts and is the whole of how the chat screen is asked for. It is
+    // not `click`: the two are a keyboard and a focus apart on a phone, and what
+    // the page promises is that the screen has already changed by the first of
+    // them.
+    touch: (id) => el(id).fire("pointerdown", { preventDefault() {} }),
     order,
     posts,
     beacons,
