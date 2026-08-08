@@ -151,6 +151,25 @@ html {
    not 16 is that the reader turned the OS scale up, and a page in px is a page
    that stops listening the next time they turn it up again.
 
+   The 20px root itself is a fiction of the render harness, and it is worth
+   knowing which half of it the phone actually has. On Chrome for Android the
+   scale the reader chose is NOT a root font size — it is a multiplier applied to
+   computed font sizes by the text autosizer, and the root stays 16. So every
+   number below, at the reader's 1.25, comes out at the size the design drew:
+   1.35rem is 21.6px x 1.25, which is the 27dp the harness gets from a 20px root.
+   The font sizes agree. The LENGTHS do not: the autosizer scales type and
+   nothing else, so a 1rem gutter is 16px on the phone where the render says 20,
+   and everything spatial on the page — gutters, gaps, radii, the transport
+   slabs, the three spacer floors — is a fifth tighter there than in any PNG we
+   check against.
+
+   Which is to say the renders are a picture of a page whose type is right and
+   whose spacing is roomier than the reader has. That is the safe direction — the
+   thing being overspent in the render is the thing the phone has less of, so a
+   layout that fits at 360x780 with a 20px root fits with more room to spare, not
+   less. It is still not a substitute for looking at the phone at the largest
+   setting, which is the only place this scale is real.
+
    Descending, so a size can be checked against the design without arithmetic:
    1.7 a page title · 1.45 a book · 1.35 what somnia says · 1.2 what you said ·
    1.1 what you are typing, and a chapter · 1.05 the way out, and a search
@@ -201,7 +220,21 @@ body {
   font: 400 1.35rem/1.45 "Newsreader", Georgia, ui-serif, serif;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
-  -webkit-text-size-adjust: 100%;
+  /* `auto`, and it is written out rather than left to the default because the
+     default is what every CSS reset overwrites on its way past. This line spent
+     the page's whole life reading `100%`, which is the same instruction with the
+     reader taken out of it: on Chrome for Android the font size chosen in
+     Android's settings arrives as a MULTIPLIER through the text-autosizing path,
+     and a percentage here replaces that multiplier with yours. `100%` means x1.0
+     — throw away whatever they asked for. For a page whose entire premise is
+     being read at 62 without glasses in the dark, that was the one accessibility
+     control that mattered, switched off by a line nobody wrote on purpose.
+
+     If you are here to add `100%` back because a lint rule or a reset asked for
+     it: no. See the comment on the scale above for what it costs and who pays
+     it. */
+  -webkit-text-size-adjust: auto;
+  text-size-adjust: auto;
 }
 
 button {
