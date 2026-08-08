@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Back it up, and move it &#8212; somnia 0.6.dev115+gc900044a0 documentation</title>
+    <title>Back it up, and move it &#8212; somnia 0.7.dev8+g8f711e62e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=d1e6a0fd"></script>
+    <script src="../_static/documentation_options.js?v=838345cf"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -494,7 +494,8 @@
 where you are in every book, how far you have heard, and the index that makes
 semantic seek possible. The library holds hours of rendered audio that cost
 hours of CPU. Everything else — the virtual environment, the settings file, the
-catalog — can be rebuilt in ten minutes.</p>
+catalog, and the joined-up copies under <code class="docutils literal notranslate"><span class="pre">streams</span></code> — can be rebuilt in ten
+minutes.</p>
 <section id="back-up-the-database-while-it-is-running">
 <h2>Back up the database while it is running<a class="headerlink" href="#back-up-the-database-while-it-is-running" title="Link to this heading">#</a></h2>
 <p>somnia runs in WAL mode, so copying the file with <code class="docutils literal notranslate"><span class="pre">cp</span></code> while the server is up
@@ -567,6 +568,23 @@ carried across, and seeding never lowers one anyway.</p>
 <p>The catalog is a download: <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code> on the new box rebuilds it.
 The virtual environment should be built fresh rather than copied, since it holds
 absolute paths of its own.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR/streams</span></code> is the other one, and it is the one that will tempt
+you, because it sits beside <code class="docutils literal notranslate"><span class="pre">somnia.db</span></code> and it is by far the largest thing in
+there — normally about the size of the library again, since it holds each book’s
+chapters joined into the one file the page plays
+(<a class="reference internal" href="../explanations/decisions/0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">ADR 7</span></a>).</p>
+<p>Normally, not always. A join is written as <code class="docutils literal notranslate"><span class="pre">streams/&lt;gid&gt;/&lt;n&gt;.m4a</span></code>, where <code class="docutils literal notranslate"><span class="pre">n</span></code> is
+how many chapters it covers, so a book opened while it was still being rendered
+can leave earlier and shorter joins behind it — and nothing deletes them, which
+ADR 7 argues for deliberately rather than having overlooked. A book rendered
+before anybody listened to it has exactly one. So size this by looking rather
+than by multiplying: <code class="docutils literal notranslate"><span class="pre">du</span> <span class="pre">-sh</span></code> the directory says what is actually there.</p>
+<p>It is a cache either way. Every file in it is rebuilt from the library in a
+second or two of <code class="docutils literal notranslate"><span class="pre">ffmpeg</span> <span class="pre">-c</span> <span class="pre">copy</span></code> the first time somebody opens that book, so
+back it up and you are paying to store a copy of audio you already backed up,
+and leave it behind and you lose nothing at all — including the stale joins,
+which is the tidiest moment there is to be rid of them. If you rsync the data
+directory rather than copying <code class="docutils literal notranslate"><span class="pre">somnia.db</span></code> on its own, exclude it.</p>
 </section>
 </section>
 <section id="moving-the-renders-somewhere-faster">

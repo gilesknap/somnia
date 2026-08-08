@@ -1,0 +1,915 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>7. Cross a chapter without letting go of the player &#8212; somnia 0.7.dev8+g8f711e62e documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../../_static/documentation_options.js?v=838345cf"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=30646c52"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'explanations/decisions/0007-cross-a-chapter-without-letting-go';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://gilesknap.github.io/somnia/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../_static/dls-logo.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Design decisions" href="../design.html" />
+    <link rel="prev" title="6. Answer a question about the book, out of what you know, as far as they have listened" href="0006-answer-a-question-about-the-book.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="main" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/dls-logo.svg" class="logo__image only-light" alt=""/>
+    <img src="../../_static/dls-logo.svg" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">somnia</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/gilesknap/somnia" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/gilesknap/somnia" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar">
+  <svg class="pst-icon" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../decisions.html">Architectural Decision Records</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="0001-record-architecture-decisions.html">1. Record architecture decisions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0002-switched-to-python-copier-template.html">2. Adopt python-copier-template for project structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0003-play-the-book-in-the-page.html">3. Play the book in the page, not in Audiobookshelf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">7. Cross a chapter without letting go of the player</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../design.html">Design decisions</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../explanations.html" class="nav-link">Explanations</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="../decisions.html" class="nav-link">Architectural Decision Records</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">7. Cross a chapter without letting go of the player</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="cross-a-chapter-without-letting-go-of-the-player">
+<h1>7. Cross a chapter without letting go of the player<a class="headerlink" href="#cross-a-chapter-without-letting-go-of-the-player" title="Link to this heading">#</a></h1>
+<section id="status">
+<h2>Status<a class="headerlink" href="#status" title="Link to this heading">#</a></h2>
+<p>Accepted, on a handset check that was made <strong>over Bluetooth</strong> — the route the
+teardown was reported on, and the one ADR 3’s check was never run on. The end of
+<em>Consequences</em> says exactly what was observed and what is still untested, and it
+should be read before anything here is quoted.</p>
+<p>This refines <a class="reference internal" href="0003-play-the-book-in-the-page.html"><span class="std std-doc">ADR 3</span></a> rather than reversing
+it. The page is still the player, the position is still somnia’s own, and every
+consequence that record lists is still the bill. What is new is that ADR 3
+assumed crossing a chapter was free, said so on the strength of one night’s
+check, and was wrong; its amendment of 2026-08-08 withdraws the claim, and this
+record is what the mechanism became instead.</p>
+</section>
+<section id="context">
+<h2>Context<a class="headerlink" href="#context" title="Link to this heading">#</a></h2>
+<p>The page held one <code class="docutils literal notranslate"><span class="pre">&lt;audio&gt;</span></code> element and stitched the per-chapter files into one
+timeline. Crossing a chapter therefore meant assigning <code class="docutils literal notranslate"><span class="pre">player.src</span></code>, and that
+assignment is not the small thing it reads as: it runs the media element load
+algorithm, which <strong>empties the element</strong>, and an element holding no media has
+nothing for Chrome to hang a platform media session on. The lock screen card
+comes down, and is rebuilt on the far side out of whatever the page says next.</p>
+<p>Over Bluetooth — audio focus taken again, the A2DP route re-established — that
+rebuild is slow enough to see, and on some nights it did not finish at all. What
+that leaves at 2am is a locked phone with no transport on it and a book that has
+stopped, and the only person who could do anything about it is asleep. On the
+phone’s own speaker it has not been seen, which issue 31 is careful to say “may
+only mean it is rarer there”; the obvious reading is that the rebuild is over
+before it can be noticed on the forgiving route, but that is an inference from
+one absence and nobody has watched for it.</p>
+<p>There is a second failure riding on the same line, and it is the one the handset
+actually reported. A boundary was not merely an element event; it was a <em>fetch</em>,
+forty-nine times a book, over a tailnet, at three in the morning. The two
+sentences that came back from the handset were “the book stopped arriving” and
+“still trying to reach the book” — both from the network retry ladder, neither
+from the autoplay path. So the boundary was also the page’s most frequent
+opportunity to need the network at the worst hour to need it. A mechanism that
+crosses a chapter without asking for anything removes that opportunity
+altogether, which is a larger win than the card staying up.</p>
+</section>
+<section id="the-alternatives-we-rejected">
+<h2>The alternatives we rejected<a class="headerlink" href="#the-alternatives-we-rejected" title="Link to this heading">#</a></h2>
+<p><strong>Two elements, ping-ponged.</strong> Load the next chapter into a second element while
+the first still plays, so the count of players in the tab goes 1 → 2 → 1 and
+never touches zero, and Chrome never has cause to drop the session. It is a
+cheap change and it might well work. It is rejected because nothing here can
+ever say whether it does: the fake media session the web tests are written
+against has no player set and no audio focus, so a page that blinks and a page
+that does not are byte-identical to it — the single claim the route rests on is
+outside the reach of the suite that would have to defend it, and a Chrome
+release can revoke it silently. It also invents a failure the current design
+cannot have. If the incoming element’s <code class="docutils literal notranslate"><span class="pre">playing</span></code> never arrives, two chapters
+play at once at full volume in a dark room, and the guard against that is a
+<code class="docutils literal notranslate"><span class="pre">setTimeout</span></code> in a page the phone throttles to roughly one wake a minute. And it
+makes the fade a per-element question for the first time: a boundary landing
+inside the twenty seconds of a sleep fade would return the book to full volume,
+which is the loudest thing that can happen at 2am and would happen silently.</p>
+<p><strong>Media Source Extensions.</strong> The only route that fixes the boundary <em>and</em> the
+render frontier by construction, and the most honest of the three about what it
+costs. It lost on cost per unit of proof. It cannot ship against the library as
+it stands, because ingest writes plain <code class="docutils literal notranslate"><span class="pre">+faststart</span></code> MP4 and MSE cannot append
+that, so it needs a second encoding of everything before it can play a note. It
+cannot land incrementally. Its riskiest component — a windowed, byte-ranged,
+quota-aware append-and-evict queue running unattended for eight hours with
+throttled wakes — has no analogue anywhere in this codebase. And a fake
+<code class="docutils literal notranslate"><span class="pre">SourceBuffer</span></code> accepts any bytes you hand it, so the one question worth
+answering, <em>do these fragments append on that phone</em>, is structurally outside
+the harness that would be written to answer it. It also converts a per-chapter
+fault into a session fault, and its recovery from one is a new blob URL, a <code class="docutils literal notranslate"><span class="pre">src</span></code>
+assignment and a gestureless <code class="docutils literal notranslate"><span class="pre">play()</span></code> — precisely the sequence the route exists
+to prevent. It is not dead: it is where to go if the handset ever says no to
+what is written below.</p>
+<p><strong>Accept the blink, and fix only “never comes back”.</strong> Rejected as the answer,
+kept as the floor. The per-chapter path is still in the page and is still what
+runs when there is no join to be had, so a night that cannot have the good
+mechanism has the old one rather than nothing. What made it wrong as <em>the</em>
+answer is that it treats a nightly teardown of the only control surface the
+listener has as weather.</p>
+</section>
+<section id="decision">
+<h2>Decision<a class="headerlink" href="#decision" title="Link to this heading">#</a></h2>
+<p><strong>A book is one file, served from one URL, and the element is loaded once.</strong></p>
+<p>The server joins a book’s chapters with ffmpeg’s concat demuxer and <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">copy</span></code>,
+so not a byte of audio is re-encoded; the joined <code class="docutils literal notranslate"><span class="pre">mdat</span></code> was measured, on all
+forty-nine chapters of Black Beauty, to be the exact concatenation of the
+chapters’ own, and the render clock the manifest speaks carries over as an
+identity. A join lives at <code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR/streams/{gid}/{n}.m4a</span></code> and <strong>never</strong>
+in the library, because the library is Audiobookshelf’s own layout and ADR 3
+promises the ABS app goes on working on it. <code class="docutils literal notranslate"><span class="pre">n</span></code> is a version rather than a
+length: it names how many chapters the file holds, so a book that grows while
+somebody is listening is offered a <em>new</em> file and the one their phone has open
+is never rewritten underneath an in-flight range request.</p>
+<p>The manifest gains <code class="docutils literal notranslate"><span class="pre">stream_url</span></code> and <code class="docutils literal notranslate"><span class="pre">stream_ms</span></code>. <code class="docutils literal notranslate"><span class="pre">stream_url</span></code> is advertised on
+the strength of the chapter rows and not of any file: the join is built by the
+first request that wants it, so at manifest time there is nothing to look at, and
+building one to find out would put a second or two of ffmpeg in front of every
+poll of a book that is still being read. It is omitted only for a book with no
+chapters at all. A join that then turns out to be impossible answers <strong>404</strong>, and
+the url per chapter stays beside it in every manifest, because a book with no
+join must be a book that blinks rather than a book that will not open. What turns
+that 404 into a blinking night rather than a lost one is the page’s own rule
+below, and nothing on the server.</p>
+<p>In the page, a chapter boundary becomes arithmetic. <code class="docutils literal notranslate"><span class="pre">enterChapter</span></code> sets which
+chapter is current, hands the platform new metadata and redraws the screen, and
+touches the element at nothing at all. There is no source to assign, no load
+algorithm to run, nothing to empty, and therefore nothing for the platform to
+take the session down with.</p>
+<p><strong>The frontier is a pause, not an end.</strong> A book being listened to while it
+renders is a book whose element holds a join built before the chapters it is now
+being asked for. The comparison is between what the element was given and what
+the manifest says <em>now</em>, and never inside one manifest: the server writes
+<code class="docutils literal notranslate"><span class="pre">stream_ms</span></code> as the last chapter’s end and <code class="docutils literal notranslate"><span class="pre">total_ms</span></code> is bumped to the same number
+as each chapter lands, so those two are equal in every manifest it can produce. A
+page that watched for <code class="docutils literal notranslate"><span class="pre">stream_ms</span> <span class="pre">&lt;</span> <span class="pre">total_ms</span></code> would watch for something that never
+happens, run off the end of the join, and lose the card for the whole wait.</p>
+<p>So the source is short of the book when either the manifest names audio this
+source does not hold, or the render is still running and will make some. The
+first of those is loaded through at once and the sound never stops. Only the
+second is the pause: the element must not be allowed to reach <code class="docutils literal notranslate"><span class="pre">ended</span></code> — <code class="docutils literal notranslate"><span class="pre">ended</span></code>
+removes the player from the session and destroys the card for the whole of a
+render wait, which is the same loss by another road — so the page stops the sound
+a fraction before the end of what it holds, asks the server for the rest of the
+book from inside the same handler, and waits. A pause <em>suspends</em> a session rather
+than ending it: the card stays up, with a play button on it, for as long as the
+wait lasts, and the book resumes from where the sound stopped once the next
+chapter has landed.</p>
+<p>That first ask is immediate rather than on the ladder’s first rung because with
+the screen off nothing else refreshes the manifest — <code class="docutils literal notranslate"><span class="pre">visibilitychange</span></code> is the
+only caller a night has, and a phone in a pocket never fires one — and because
+the page has just made itself inaudible by pausing, after which its timers are
+throttled to roughly one wake a minute.</p>
+<p><strong>A join that is not there is abandoned, once, per book.</strong> A url that has been
+loaded even once is a file that exists, so every later failure of it is the wire
+and the answer is to go on trying until morning. A url that has never yielded a
+duration and goes on not yielding one is a join that is not coming, and the night
+drops back to a file at a time — blinking, but playing — for the rest of that
+book, because a concatenation that could not be made is a fact about the book it
+was made from.</p>
+<p>What decides “goes on” is the spacing and not the count, and the frontier is why.
+The join asked for there is new by construction and has never loaded by
+definition, so two failures two seconds apart — one tailscale re-key — would
+condemn a file that was there the whole time and cost the night its card to fix a
+network problem. So two failures count as two answers only when they are
+<code class="docutils literal notranslate"><span class="pre">RETRY_MAX_MS</span></code> apart, which is the point at which the retry ladder itself stops
+waiting any longer for a network it cannot see; and they are counted against the
+url they were about, since what is known of the five-chapter join is not evidence
+about the six-chapter one. A join that is really missing costs half a minute of
+silence before the per-chapter path comes back under the listener, and no outage
+shorter than that can cost a book its join.</p>
+</section>
+<section id="consequences">
+<h2>Consequences<a class="headerlink" href="#consequences" title="Link to this heading">#</a></h2>
+<p><strong>A second copy of every book on disk.</strong> About 161 MB for a five-hour book;
+somnia’s library goes from 730 MB to roughly 1.46 GB against 859 G free on
+nuc2, so the disk cost is real and currently irrelevant. It is deliberately in
+<code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR</span></code> and not in <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code>: a second copy of every book
+appearing among ABS’s own files would break ADR 3’s promise quietly, in a scan
+nobody was watching. The joins are a cache and nothing else — deleting the
+<code class="docutils literal notranslate"><span class="pre">streams</span></code> directory costs a second or two of ffmpeg per book the next time each
+is opened, and costs no data at all — but <strong>nothing reaps them yet</strong>, and that
+is deliberate too.</p>
+<p>One book is not necessarily one copy, and the worst case is much worse than
+161 MB. A version is named by how many chapters it holds, and a book listened to
+while it renders reaches a new version every time the listener catches up with
+the frontier, so on a box slow enough for that to happen at nearly every
+boundary the disk ends up holding a join of the first chapter, of the first two,
+of the first three, and so on. That is arithmetic rather than a measurement: for
+a forty-nine chapter book it sums to about twenty-five times the book, some four
+gigabytes for a five-hour Black Beauty, none of which is deleted by anything. In
+practice it does not arise, because steady listening does not reach the frontier
+at all — see the paragraph below, which is this one wearing the other hat. It
+would take a render repeatedly stopped and restarted under a listener, which is
+the same short list of ways the frontier is met in the first place.</p>
+<p><strong>Nothing reaps any of that, and the omission is deliberate rather than
+outstanding.</strong> The safe half of a reaper is easy and buys nothing on a box with
+859 G free. The dangerous half needs a fact the server does not have: which
+version some phone still has open. A version deleted under a playing element is
+a 404 in the middle of a sentence at 3am, which is the exact failure this record
+exists to end — and the fallback does not save it, because a url that has played
+is a url the page has proved and will go on retrying until morning rather than
+abandoning. So the reaper waits for its own issue and its own rules: only a
+version the manifest no longer names, only with no render in flight, and never
+inside twenty-four hours.</p>
+<p><strong>A book cannot be served from one URL while it is still being written.</strong> The
+join holds the chapters that existed when it was built, so a book added at
+eleven and listened to at midnight will run out of file before it runs out of
+book. That is what the frontier pause exists to survive, and the cost is
+honest: the sound really does stop, and the listener really is waiting on a
+render, with a card on the lock screen saying paused. What they get in exchange
+is that the card is still there when the chapter lands.</p>
+<p><strong>Per-chapter error isolation is given up in the ordinary case.</strong> The page’s
+<code class="docutils literal notranslate"><span class="pre">ended</span></code> handler used to carry an explicit promise: a chapter whose encode was
+truncated became a skip rather than a book that hangs at 2am. In one file there
+is nothing to skip to, and the element’s error is now about the book rather than
+about a chapter. Two things keep this survivable and neither restores what was
+lost. The build is judged against the clock the chapter rows keep rather than
+against ffmpeg’s exit code — the concat demuxer prints “Impossible to open”,
+exits <strong>zero</strong>, and hands back however much it managed, measured on a
+three-chapter book that came out eight seconds long — so a join that came out
+short is refused and answers 404 rather than being served as a book with chapters
+missing out of the middle of it. The manifest advertises <code class="docutils literal notranslate"><span class="pre">stream_url</span></code> all the
+same, on the strength of the rows, so the page finds out by loading it; and it is
+the page’s give-up rule that turns that into a night which blinks its way through
+a book instead of ending early. That rule is the second thing keeping this
+survivable: a join that never loads is abandoned after two failures half a minute
+apart, which puts the per-chapter path and its skip back under the listener at
+the cost of half a minute of silence. What is genuinely gone is granularity: one
+unreadable chapter file now costs the whole book its join.</p>
+<p><strong>A longer time to first sound, and nobody has measured what it costs.</strong> The
+whole <code class="docutils literal notranslate"><span class="pre">moov</span></code> is fetched before a single frame decodes — about 1.73 MB for a
+five-hour book, extrapolating to something near 4.1 MB for twelve hours. The
+bytes are not new (the joined header is about 2% smaller than the forty-nine
+per-chapter headers it replaces) but they are all up front, at boot and again on
+every reload, where they used to be spread over a night. This is the first thing
+to look at if a press of play starts to feel slow.</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">publishPosition</span></code> is now the only thing keeping the lock screen scrubber
+chapter-scale, and it used to have help.</strong> It used to be the loaded file’s own
+duration that made the scrubber a chapter wide; the page’s position state agreed
+with it. Now the element is five hours long and the position state is the sole
+source of the smaller number. <code class="docutils literal notranslate"><span class="pre">setPositionState</span></code> throws when the position
+exceeds the duration it is given, and a page that supplies no position state at
+all does not get nothing — it gets the platform’s fallback, which is the
+element’s duration. So a throw that used to degrade to roughly the right size
+now degrades to exactly the wrong one: five hours of scrubber where twelve
+minutes belong. That is
+<a class="reference internal" href="../design.html"><span class="std std-doc">design.md</span></a>’s own objection to a whole-book scrubber — <em>one sleepy
+thumb would fling them past the spoiler guard into the ending</em> — arriving by a
+route nobody chose, and arriving silently, since a page whose position state
+threw looks exactly like a page whose position state did not. This is why
+the web harness’s fake <code class="docutils literal notranslate"><span class="pre">setPositionState</span></code> throws on a bad position rather than
+quietly accepting it, and why the clamp inside <code class="docutils literal notranslate"><span class="pre">publishPosition</span></code> is now
+load-bearing in a way it was not when it was written.</p>
+<p><strong>The frontier pause rests on an assumption about a throttled page.</strong> It is
+KNOWN that <code class="docutils literal notranslate"><span class="pre">ended</span></code> destroys the session and that a pause does not. It is ASSUMED
+that <code class="docutils literal notranslate"><span class="pre">timeupdate</span></code> keeps firing at something near 4 Hz with the screen off, which
+is what makes it possible to stop a fraction short of the end rather than at it.
+The code says so where the check is made, and the <code class="docutils literal notranslate"><span class="pre">ended</span></code> handler is the
+backstop: if the pause is missed the element ends, the card goes, and the book
+still comes back when the chapter lands. That loses the panel and not the night.</p>
+<p><strong>A night that starts with the tailnet down falls back and blinks.</strong> The page
+cannot tell a join that does not exist from a join it could not reach, because
+in both cases nothing has been proved by nothing having been reached. Such a
+night spends itself on the per-chapter path. It is the right way to be wrong —
+falling back on a good join costs a blink at every boundary, and failing to fall
+back on a missing one costs the whole night — but it is a real cost and it is
+written here rather than discovered later.</p>
+<p><strong>A listener does not normally reach the frontier at all, and this should be
+said plainly because the machinery for it reads as though they would.</strong> Measured
+on 2026-08-07 with <code class="docutils literal notranslate"><span class="pre">scripts/somnia-bench.py</span></code>: nuc2 renders at 3.87× realtime and
+the VPS at 1.06×. Both outrun 1× listening. A book is opened when its first
+chapter exists, so the listener begins one whole chapter behind the frontier and
+the gap only widens — on nuc2 quickly, on the VPS by six percent an hour, but in
+neither case does it close. Steady listening never catches a running render.</p>
+<p>What reaches the frontier is a render that is <strong>not running</strong>: one that was
+stopped, or died, or that a deploy shot in the head, or — this being the
+ordinary case rather than the exotic one — a book queued behind another, because
+<a class="reference internal" href="0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a> renders one book at a time and the
+second book’s frontier does not move until the first is finished. A listener
+pressing through chapters faster than they play reaches it too.</p>
+<p>So the frontier is an edge, not the path. The reason it is worth the machinery
+anyway is what it costs when it is met: <code class="docutils literal notranslate"><span class="pre">ended</span></code> fires, the platform drops the
+player, and the panel goes — leaving a locked phone with no transport on it and
+somebody asleep in front of it. Stopping a fraction short turns that into a
+paused card with a play button, which is a night that can be resumed.</p>
+<p><strong>What the 1.06× measurement does mean</strong> is that the VPS has no cushion. The
+margin is the one chapter of head start plus six percent, so any interruption to
+the render is recovered from slowly, and a frontier met on that box is met for
+much longer. That is the second reason <strong>moving to a slower box reopens this
+decision</strong>, and it is the condition this was accepted under.</p>
+<p><strong>Finally, and in ADR 3’s own words, this rests on an assumption that could only
+be checked on the handset</strong>: that Chrome, given one progressive <code class="docutils literal notranslate"><span class="pre">audio/mp4</span></code> of
+about 161 MB and left playing with the screen locked for hours, keeps a single
+platform media session up throughout, and that assigning
+<code class="docutils literal notranslate"><span class="pre">navigator.mediaSession.metadata</span></code> on a <em>playing</em> element renames the card
+without disturbing the session underneath it.</p>
+<p>What is known is this. <strong>On 2026-08-08 a chapter boundary was crossed on the
+lock screen of the handset, over Bluetooth, and the card stayed up throughout.</strong></p>
+<p>The route is the whole reason that sentence is worth writing. ADR 3’s check was
+run on 2026-08-06 and passed, and its route was never written down; the
+teardown was then reported over Bluetooth and only over Bluetooth. So the
+speaker is the forgiving route — it rebuilds the notification fast enough to
+hide the fault — and a check run there could not have told this design apart
+from the one it replaces. This one was run on the route that was failing, which
+is what makes it evidence rather than a repetition of the mistake being amended.</p>
+<p>It is still one boundary on one night, and three things it did not cover are
+worth naming so that nobody reads more into it than it holds. It did not run
+long enough to say whether Chrome keeps the session up across <strong>hours</strong> of a
+161 MB progressive resource. It did not include a <strong>frontier wait</strong>, which
+could not have been tested then because the machinery for it did not exist
+until this record was written. And it says nothing about the <strong>fallback to the
+per-chapter path</strong>, which by design is the blinking behaviour anyway.</p>
+<p>So this holds a confirmation of the mechanism and not yet of the night. The
+spike page stays served for the reason ADR 3 gave for keeping it — the property
+belongs to the handset and not to this code — and that reason has earned itself
+twice over: it is what made this mechanism cheap to try, and it is what will
+make the remaining checks cheap to run.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="0006-answer-a-question-about-the-book.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">6. Answer a question about the book, out of what you know, as far as they have listened</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../design.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Design decisions</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#status">Status</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#context">Context</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-alternatives-we-rejected">The alternatives we rejected</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#decision">Decision</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#consequences">Consequences</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/gilesknap/somnia/edit/main/docs/explanations/decisions/0007-cross-a-chapter-without-letting-go.md">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../../_sources/explanations/decisions/0007-cross-a-chapter-without-letting-go.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

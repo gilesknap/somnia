@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; somnia 0.6.dev115+gc900044a0 documentation</title>
+    <title>Architecture &#8212; somnia 0.7.dev8+g8f711e62e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=d1e6a0fd"></script>
+    <script src="../_static/documentation_options.js?v=838345cf"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -786,6 +786,7 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="design.html">Design decisions</a></li>
@@ -889,6 +890,7 @@ render, and Kokoro must never compete with a seek for two cores.</p>
     ingest[&quot;somnia worker --once&lt;br&gt;renderer, one book&quot;]
     db[(&quot;somnia.db&quot;)]
     files[/&quot;library dir&lt;br&gt;.m4a per chapter&quot;/]
+    joins[/&quot;data dir&lt;br&gt;chapters joined,&lt;br&gt;one .m4a per book&quot;/]
   end
 
   api[&quot;Anthropic API&quot;]
@@ -904,6 +906,8 @@ render, and Kokoro must never compete with a seek for two cores.</p>
   worker --&gt; db
   gut --&gt;|&quot;book HTML&quot;| ingest
   player --&gt; db &amp; files
+  files --&gt;|&quot;joined on the first ask,&lt;br&gt;-c copy&quot;| joins
+  player --&gt; joins
   agent --&gt; db
   ingest --&gt; db &amp; files
   player -.-&gt;|&quot;only when they stop&quot;| abs
@@ -932,10 +936,16 @@ page shows, what ABS is told — is <strong>global milliseconds from the start o
 book</strong>. It is the render clock, counted in PCM samples before encoding, and
 never what a decoder reports: summing durations off the files drifts tens of
 milliseconds a chapter and is a second out by chapter forty.</p>
-<p>Chapters are separate files, so the page converts between the global clock and
-<code class="docutils literal notranslate"><span class="pre">(chapter</span> <span class="pre">index,</span> <span class="pre">seconds</span> <span class="pre">into</span> <span class="pre">this</span> <span class="pre">file)</span></code> in three small functions. That is the
-only place the split exists. “Back a bit” from the start of chapter five lands
-in chapter four, the way a listener means it.</p>
+<p>The page converts between that clock and the clock of whatever the audio element
+is actually holding, in three small functions, and that is the only place the
+split exists. When the element holds the whole book joined into one file — the
+ordinary case, and the reason a chapter boundary no longer takes the lock screen
+down (<a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">ADR 7</span></a>) — the
+conversion is the identity, measured on the real forty-nine chapter book rather
+than assumed. When it holds a single chapter, which is the fallback, the
+conversion is <code class="docutils literal notranslate"><span class="pre">(chapter</span> <span class="pre">index,</span> <span class="pre">seconds</span> <span class="pre">into</span> <span class="pre">this</span> <span class="pre">file)</span></code>. Either way “back a bit”
+from the start of chapter five lands in chapter four, the way a listener means
+it.</p>
 </section>
 <section id="making-a-book">
 <h2>Making a book<a class="headerlink" href="#making-a-book" title="Link to this heading">#</a></h2>

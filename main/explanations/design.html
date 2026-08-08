@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design decisions &#8212; somnia 0.6.dev115+gc900044a0 documentation</title>
+    <title>Design decisions &#8212; somnia 0.7.dev8+g8f711e62e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=d1e6a0fd"></script>
+    <script src="../_static/documentation_options.js?v=838345cf"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -60,7 +60,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Reference" href="../reference.html" />
-    <link rel="prev" title="6. Answer a question about the book, out of what you know, as far as they have listened" href="decisions/0006-answer-a-question-about-the-book.html" />
+    <link rel="prev" title="7. Cross a chapter without letting go of the player" href="decisions/0007-cross-a-chapter-without-letting-go.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -430,6 +430,7 @@
 <li class="toctree-l2"><a class="reference internal" href="decisions/0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Design decisions</a></li>
@@ -627,21 +628,35 @@ API and the app has no deep link. The argument, and the four ways of pressing
 that button remotely that we turned down, are in
 <a class="reference internal" href="decisions/0003-play-the-book-in-the-page.html"><span class="std std-doc">ADR 3</span></a>; the losses are there too,
 offline downloads chief among them.</p>
-<p><strong>The page plays the book.</strong> somnia rendered the audio, so serving it is one
-route per chapter (<code class="docutils literal notranslate"><span class="pre">/api/audio/{gid}/{idx}</span></code>) resolved from the <code class="docutils literal notranslate"><span class="pre">chapters</span></code> row,
-never from a path in the request; Range, <code class="docutils literal notranslate"><span class="pre">If-Range</span></code> and 416 — and therefore
-seeking — are Starlette’s own. The page holds one <code class="docutils literal notranslate"><span class="pre">&lt;audio&gt;</span></code> element for its
-whole life and stitches the per-chapter files into a single timeline counted in
-<strong>global milliseconds</strong>, the clock the index, the chapter marks and the agent
-already speak. Which file a position falls in is an implementation detail of
+<p><strong>The page plays the book.</strong> somnia rendered the audio, so serving it is a
+route resolved from the <code class="docutils literal notranslate"><span class="pre">chapters</span></code> rows and never from a path in the request;
+Range, <code class="docutils literal notranslate"><span class="pre">If-Range</span></code> and 416 — and therefore seeking — are Starlette’s own. The
+page holds one <code class="docutils literal notranslate"><span class="pre">&lt;audio&gt;</span></code> element for its whole life, and everything it plays is
+counted in <strong>global milliseconds</strong>, the clock the index, the chapter marks and
+the agent already speak. Where a position falls is an implementation detail of
 three conversion functions, so “back a bit” from the start of chapter five
 lands in chapter four, the way a listener means it.</p>
+<p>What that element is given used to be a chapter at a time
+(<code class="docutils literal notranslate"><span class="pre">/api/audio/{gid}/{idx}</span></code>), swapped at every boundary. It is now the whole book
+joined into one file (<code class="docutils literal notranslate"><span class="pre">/api/stream/{gid}/{n}</span></code>), loaded once, and a boundary is
+arithmetic that never touches the element — because the swap was emptying the
+element, and an empty element is one Android takes the lock screen card away
+from.
+<a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">ADR 7</span></a> has the argument
+and the bill, including what it costs on disk and what is still only assumed.
+The per-chapter route is still there and is still what plays when there is no
+join to be had.</p>
 <p><strong>Most of the transport is not on the page.</strong> With the screen off the book is
 driven from the lock screen, the notification shade and whatever is paired over
 Bluetooth, all of which arrive through the Media Session API. The scrubber
 published there is chapter-scale on purpose: a whole-book scrubber on a
 twelve-hour novel gives three minutes to the pixel, and one sleepy thumb would
-fling them past the spoiler guard into the ending.</p>
+fling them past the spoiler guard into the ending. That used to be belt and
+braces — the loaded file was a chapter long, so the platform’s own idea of the
+duration agreed with what the page published. Now the element holds the whole
+book and the page’s <code class="docutils literal notranslate"><span class="pre">setPositionState</span></code> is the only thing saying otherwise, so
+the chapter-scale scrubber is one uncaught exception away from being the
+whole-book one this paragraph refuses.</p>
 <p><strong>Stopping the book is as much of the job as starting it.</strong> The two things the
 ABS app did that a bedtime player cannot do without: a sleep timer — fifteen,
 thirty, forty-five or sixty minutes, or the end of the chapter — counted in
@@ -948,12 +963,12 @@ query (“there are three horses that die in this — which one?”).</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="decisions/0006-answer-a-question-about-the-book.html"
+       href="decisions/0007-cross-a-chapter-without-letting-go.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">6. Answer a question about the book, out of what you know, as far as they have listened</p>
+        <p class="prev-next-title">7. Cross a chapter without letting go of the player</p>
       </div>
     </a>
     <a class="right-next"

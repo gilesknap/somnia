@@ -118,22 +118,37 @@ that button remotely that we turned down, are in
 [ADR 3](decisions/0003-play-the-book-in-the-page.md); the losses are there too,
 offline downloads chief among them.
 
-**The page plays the book.** somnia rendered the audio, so serving it is one
-route per chapter (`/api/audio/{gid}/{idx}`) resolved from the `chapters` row,
-never from a path in the request; Range, `If-Range` and 416 — and therefore
-seeking — are Starlette's own. The page holds one `<audio>` element for its
-whole life and stitches the per-chapter files into a single timeline counted in
-**global milliseconds**, the clock the index, the chapter marks and the agent
-already speak. Which file a position falls in is an implementation detail of
+**The page plays the book.** somnia rendered the audio, so serving it is a
+route resolved from the `chapters` rows and never from a path in the request;
+Range, `If-Range` and 416 — and therefore seeking — are Starlette's own. The
+page holds one `<audio>` element for its whole life, and everything it plays is
+counted in **global milliseconds**, the clock the index, the chapter marks and
+the agent already speak. Where a position falls is an implementation detail of
 three conversion functions, so "back a bit" from the start of chapter five
 lands in chapter four, the way a listener means it.
+
+What that element is given used to be a chapter at a time
+(`/api/audio/{gid}/{idx}`), swapped at every boundary. It is now the whole book
+joined into one file (`/api/stream/{gid}/{n}`), loaded once, and a boundary is
+arithmetic that never touches the element — because the swap was emptying the
+element, and an empty element is one Android takes the lock screen card away
+from.
+[ADR 7](decisions/0007-cross-a-chapter-without-letting-go.md) has the argument
+and the bill, including what it costs on disk and what is still only assumed.
+The per-chapter route is still there and is still what plays when there is no
+join to be had.
 
 **Most of the transport is not on the page.** With the screen off the book is
 driven from the lock screen, the notification shade and whatever is paired over
 Bluetooth, all of which arrive through the Media Session API. The scrubber
 published there is chapter-scale on purpose: a whole-book scrubber on a
 twelve-hour novel gives three minutes to the pixel, and one sleepy thumb would
-fling them past the spoiler guard into the ending.
+fling them past the spoiler guard into the ending. That used to be belt and
+braces — the loaded file was a chapter long, so the platform's own idea of the
+duration agreed with what the page published. Now the element holds the whole
+book and the page's `setPositionState` is the only thing saying otherwise, so
+the chapter-scale scrubber is one uncaught exception away from being the
+whole-book one this paragraph refuses.
 
 **Stopping the book is as much of the job as starting it.** The two things the
 ABS app did that a bedtime player cannot do without: a sleep timer — fifteen,

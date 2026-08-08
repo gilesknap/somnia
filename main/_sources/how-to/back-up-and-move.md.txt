@@ -4,7 +4,8 @@ Two things are irreplaceable, and neither is the software. `somnia.db` holds
 where you are in every book, how far you have heard, and the index that makes
 semantic seek possible. The library holds hours of rendered audio that cost
 hours of CPU. Everything else — the virtual environment, the settings file, the
-catalog — can be rebuilt in ten minutes.
+catalog, and the joined-up copies under `streams` — can be rebuilt in ten
+minutes.
 
 ## Back up the database while it is running
 
@@ -90,6 +91,26 @@ carried across, and seeding never lowers one anyway.
 The catalog is a download: `somnia catalog-update` on the new box rebuilds it.
 The virtual environment should be built fresh rather than copied, since it holds
 absolute paths of its own.
+
+`SOMNIA_DATA_DIR/streams` is the other one, and it is the one that will tempt
+you, because it sits beside `somnia.db` and it is by far the largest thing in
+there — normally about the size of the library again, since it holds each book's
+chapters joined into the one file the page plays
+([ADR 7](../explanations/decisions/0007-cross-a-chapter-without-letting-go.md)).
+
+Normally, not always. A join is written as `streams/<gid>/<n>.m4a`, where `n` is
+how many chapters it covers, so a book opened while it was still being rendered
+can leave earlier and shorter joins behind it — and nothing deletes them, which
+ADR 7 argues for deliberately rather than having overlooked. A book rendered
+before anybody listened to it has exactly one. So size this by looking rather
+than by multiplying: `du -sh` the directory says what is actually there.
+
+It is a cache either way. Every file in it is rebuilt from the library in a
+second or two of `ffmpeg -c copy` the first time somebody opens that book, so
+back it up and you are paying to store a copy of audio you already backed up,
+and leave it behind and you lose nothing at all — including the stale joins,
+which is the tidiest moment there is to be rid of them. If you rsync the data
+directory rather than copying `somnia.db` on its own, exclude it.
 
 ## Moving the renders somewhere faster
 

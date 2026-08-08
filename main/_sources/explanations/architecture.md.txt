@@ -41,6 +41,7 @@ flowchart TB
     ingest["somnia worker --once<br>renderer, one book"]
     db[("somnia.db")]
     files[/"library dir<br>.m4a per chapter"/]
+    joins[/"data dir<br>chapters joined,<br>one .m4a per book"/]
   end
 
   api["Anthropic API"]
@@ -56,6 +57,8 @@ flowchart TB
   worker --> db
   gut -->|"book HTML"| ingest
   player --> db & files
+  files -->|"joined on the first ask,<br>-c copy"| joins
+  player --> joins
   agent --> db
   ingest --> db & files
   player -.->|"only when they stop"| abs
@@ -88,10 +91,16 @@ book**. It is the render clock, counted in PCM samples before encoding, and
 never what a decoder reports: summing durations off the files drifts tens of
 milliseconds a chapter and is a second out by chapter forty.
 
-Chapters are separate files, so the page converts between the global clock and
-`(chapter index, seconds into this file)` in three small functions. That is the
-only place the split exists. "Back a bit" from the start of chapter five lands
-in chapter four, the way a listener means it.
+The page converts between that clock and the clock of whatever the audio element
+is actually holding, in three small functions, and that is the only place the
+split exists. When the element holds the whole book joined into one file — the
+ordinary case, and the reason a chapter boundary no longer takes the lock screen
+down ([ADR 7](decisions/0007-cross-a-chapter-without-letting-go.md)) — the
+conversion is the identity, measured on the real forty-nine chapter book rather
+than assumed. When it holds a single chapter, which is the fallback, the
+conversion is `(chapter index, seconds into this file)`. Either way "back a bit"
+from the start of chapter five lands in chapter four, the way a listener means
+it.
 
 ## Making a book
 
