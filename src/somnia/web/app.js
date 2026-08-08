@@ -3713,14 +3713,25 @@ function stoppedAsking() {
 
 for (const field of typingFields) {
   field.addEventListener("focus", () => {
-    // A focus nobody asked for is not a request for anything. Chrome restores
-    // focus to a form field when it brings a discarded tab back, and an app
-    // reopened at 2am to a page that had been left mid-question would then come
-    // up on the chat screen with the book nowhere on it — which is one of the
-    // ways the reader lost the player. The press above is what says otherwise,
-    // and it happens before this: pointerdown is what makes a page activated in
-    // the first place. Engines that cannot say are taken at their word, because
-    // every one of them that runs this page has a thumb behind the focus.
+    // A focus nobody asked for is not a request for anything, which is the same
+    // rule the press above is: only somebody's own press means they want this
+    // screen. A box can take focus without anybody having touched the page —
+    // a browser restoring a document it had put away is the usual way — and the
+    // page that carried the book off the screen in that case would be a page
+    // that came up on the conversation for somebody who had done nothing but
+    // unlock their phone. Nothing here has to be believed about any particular
+    // engine for that to be the wrong page to open on.
+    //
+    // It costs nothing on the way in: pointerdown is what makes a page
+    // activated, and it lands before the focus it causes. Engines that cannot
+    // say are taken at their word.
+    //
+    // (This is a guard and not a diagnosis. The reader really did lose the
+    // player this way — see the top of this section — but that was a page still
+    // deciding the screen from `@media (max-height: 34rem)`, served from a phone
+    // cache long after the fix for it had shipped. No restored focus was ever
+    // observed doing it, and the way to see whether a page is old rather than
+    // wrong is whether the serve log shows it fetching app.js at boot.)
     if (navigator.userActivation?.hasBeenActive === false) return;
     typing = field;
     readKeyboard();

@@ -184,11 +184,15 @@ test("leaving the box forgets that they asked", async (t) => {
   assert.equal(page.probe().screen, "player");
 });
 
-// The other half of the same promise, and the one that decides where the app
-// comes up. Chrome restores focus to the box that had it when it brings a
-// discarded tab back, and starts a keyboard with it — so a page that took focus
-// as a request would open on the chat screen, with the book nowhere on it, for
-// somebody who had done nothing but unlock their phone.
+// The other half of the same rule, and the one that decides where the app comes
+// up. A box can take focus with nobody having touched the page — a browser
+// restoring a document it had put away is the usual way — and a page that read
+// that as a request would open on the conversation, with the book nowhere on it,
+// for somebody who had done nothing but unlock their phone.
+//
+// A guard rather than a reproduction: the reader really did lose the player at
+// boot, but to an old page served from a phone cache, not to this. It is here
+// because the press is what the screen means, and a focus is not a press.
 test("a focus nobody asked for does not open the chat screen", async (t) => {
   const page = await boot(t, { activated: false });
   page.focus("question");

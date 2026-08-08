@@ -933,9 +933,12 @@ export async function boot(t, options = {}) {
     // reached at all on an engine that cannot be measured.
     canMeasure = true,
     // Whether anybody has touched this page yet. False is a page nobody has
-    // pressed: a tab Chrome discarded and has just brought back, which restores
-    // focus to the box that had it and starts a keyboard with it, having asked
-    // nobody. Every other test here is a page with a thumb on it.
+    // pressed — a document some browser has restored, where a box can end up
+    // focused and a keyboard can come up having asked nobody. Which browser and
+    // by what route is deliberately not said here: the page's rule is that a
+    // press is what wants the chat screen and a focus is not one, and it holds
+    // whatever engines turn out to do. Every other test here is a page with a
+    // thumb on it.
     activated = true,
   } = options;
 
