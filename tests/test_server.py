@@ -231,6 +231,31 @@ def test_the_chat_page_is_served_from_the_package(client: TestClient) -> None:
     assert client.get("/sw.js").status_code == 200
 
 
+def test_the_page_is_asked_about_before_it_is_reused(client: TestClient) -> None:
+    """A deploy has to be on the phone at the next launch, and without this it
+    was not.
+
+    Served with an ETag and no cache policy, the browser invents one: Chrome
+    keeps a file for a tenth of its age, so a day-old ``app.js`` was good for
+    another two hours and the page never asked. The units restart, the bytes on
+    disk change, every request in the log is answered, and the phone runs last
+    week's page — which reads as a deploy that silently did not happen.
+
+    Every file in the shell, not just the ones that change often: the two that
+    made this hard to see were ``app.js`` and ``style.css``, and the one anybody
+    would have checked by hand is ``/``.
+    """
+    for path in ("/", "/app.js", "/style.css", "/sw.js", "/manifest.webmanifest"):
+        page = client.get(path)
+        assert page.status_code == 200, path
+        assert page.headers["cache-control"] == "no-cache", path
+        # And the ETag is still what answers the asking, so the cost of this is
+        # a 304 and not the file again.
+        again = client.get(path, headers={"if-none-match": page.headers["etag"]})
+        assert again.status_code == 304, path
+        assert again.headers["cache-control"] == "no-cache", path
+
+
 def test_a_turn_that_moved_the_book_tells_the_page_where_to_go(
     tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
 ) -> None:

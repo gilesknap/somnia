@@ -54,6 +54,45 @@ logger = logging.getLogger(__name__)
 
 WEB_DIR = Path(__file__).parent / "web"
 
+
+class Shell(StaticFiles):
+    """The page, served so that a deploy is on the phone at the next launch.
+
+    Starlette sends the shell with an ETag and a Last-Modified and no
+    ``Cache-Control`` at all, and a response with no cache policy is not a
+    response nobody caches — it is one the browser makes a policy up for.
+    Chrome's heuristic is a tenth of the age of the file, so an ``app.js`` that
+    had been sitting there a day was considered good for another two hours, and
+    the page never so much as asked. What that looks like from the sofa is a
+    deploy that did not happen: the units restarted, the bytes on disk are new,
+    every request in the log is answered, and the phone goes on running last
+    week's page. It cost an hour to find, twice, and the second time it looked
+    exactly like the bug that had just been fixed.
+
+    ``no-cache`` does not mean "do not store it". It means "ask before you use
+    it", which is what the ETag was already there for: unchanged, the answer is
+    a 304 of a few hundred bytes; changed, the new file arrives on the next
+    launch. This is a shell of a few kilobytes on a tailnet, and the round trip
+    it costs is not the slow part of anything — the service worker's own comment
+    makes the same argument about the same files.
+
+    It is also what makes that service worker's network-first policy mean
+    anything. The worker asks the network first on purpose, but its ``fetch()``
+    goes through the same HTTP cache as everybody else's, so a heuristically
+    fresh copy was answered from inside the browser with no network trip at all
+    and no way for the worker to know.
+
+    ``/api/`` is not covered by this and must not be: the audio is served
+    ranged, from another route, and the one thing here that really is immutable
+    is the one file this class never sees.
+    """
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["cache-control"] = "no-cache"
+        return response
+
+
 # One listener, one phone — but a reloaded page mints a fresh token, so a few
 # nights of tabs can accumulate. Old ones are dropped, not remembered.
 MAX_CONVERSATIONS = 8
@@ -514,7 +553,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/queue", queue_view),
             Route("/api/queue", queue_add, methods=["POST"]),
             Route("/api/queue/{id:int}/stop", queue_stop, methods=["POST"]),
-            Mount("/", StaticFiles(directory=WEB_DIR, html=True)),
+            Mount("/", Shell(directory=WEB_DIR, html=True)),
         ],
         lifespan=lifespan,
     )
