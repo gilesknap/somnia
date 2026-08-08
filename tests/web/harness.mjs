@@ -604,6 +604,11 @@ const BORN_HIDDEN = new Set([
   // does: a somnia with one book has nothing to put under it.
   "shelf-label",
   "toast",
+  // The way back inside it, which ships hidden separately: the box comes up for
+  // every sentence the page says and this is on the one that has something to
+  // undo. A fake that handed it back visible would let a page offering an undo
+  // on every toast pass.
+  "toast-undo",
   // The count under the position line. The line is a plain readout until there
   // are places to open from it, so the document ships the count with nothing in
   // it and out of the way.
@@ -999,7 +1004,18 @@ globalThis.__page = {
     // stands, and a change in one of them that moved the other is the bug.
     // Empty when nothing is being said — the box is emptied as well as hidden
     // so this cannot report a sentence nobody can see.
-    toast: toastLine.textContent,
+    //
+    // Off the sentence rather than off the box, because the box now holds a
+    // button as well: read from the outside, a toast with a way back on it
+    // would report as "moved to 1:20:20undo" in a browser and as the sentence
+    // alone here, which is a harness that agrees with the page about everything
+    // except the one thing it was added to watch.
+    toast: toastSaid.textContent,
+    // Whether that sentence is standing beside a way back. The pair is the
+    // whole of what this control is: an undo offered on a press that cannot be
+    // undone, or missing from the one that can, are both bugs no reading of the
+    // sentence alone would catch.
+    undo: !toastUndo.hidden,
     // How much of the light the page is taking off the room, as a number. Set
     // once at boot from storage and by nothing else yet.
     dim: Number(dimLayer.style.opacity),

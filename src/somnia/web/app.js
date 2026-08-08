@@ -113,8 +113,12 @@ const shelfNote = document.getElementById("shelf-note");
 const settingsPanel = document.getElementById("settings");
 const settingsClose = document.getElementById("settings-close");
 const toSettings = document.getElementById("to-settings");
-// The page's second voice, and the sheet of black over the whole of it.
+// The page's second voice, and the sheet of black over the whole of it. The
+// voice is three nodes: the box, the sentence in it, and the one press it is
+// ever allowed to carry.
 const toastLine = document.getElementById("toast");
+const toastSaid = document.getElementById("toast-said");
+const toastUndo = document.getElementById("toast-undo");
 const dimLayer = document.getElementById("dim");
 // The two presses that move that sheet, and the readout between them. On a
 // night screen, which is the whole of what makes a settings surface safe to set
@@ -195,23 +199,70 @@ function setStatus(text, failed) {
 // page whose whole argument is that nothing moves unless it has to.
 const TOAST_MS = 2800;
 
-let toastTimer = 0;
+// Longer, for the one sentence that is not only a sentence. 2.8 seconds is how
+// long it takes to read what a press did; a way back has to outlast the moment
+// somebody realises they wanted it, which is after they have read the sentence
+// and not during. Six is the design's number and it is the right shape: long
+// enough that the realisation still has somewhere to land, short enough that
+// the microphone is not covered for a meaningful part of the night.
+const TOAST_UNDO_MS = 6000;
 
-function toast(text) {
+let toastTimer = 0;
+// What the way back does, or null on every other sentence the page says. It is
+// held here rather than left on the button so that "is there a way back on
+// offer?" has one answer: the handler below is hung on the element once, at
+// boot, and it is this that decides whether a press means anything.
+let toastAction = null;
+
+function toast(text, undo = null) {
   clearTimeout(toastTimer);
-  toastLine.textContent = text;
+  toastSaid.textContent = text;
+  toastAction = undo;
+  toastUndo.hidden = !undo;
   toastLine.hidden = false;
-  toastTimer = setTimeout(forgetToast, TOAST_MS);
+  toastTimer = setTimeout(forgetToast, undo ? TOAST_UNDO_MS : TOAST_MS);
 }
 
 // Emptied as well as hidden, so that "is anything being said?" has one answer
-// and not two that can disagree.
+// and not two that can disagree. The way back goes with it, for the same
+// reason: a handler still holding a position after the box has gone is a press
+// that could land on a sentence nobody can see.
 function forgetToast() {
   clearTimeout(toastTimer);
   toastTimer = 0;
   toastLine.hidden = true;
-  toastLine.textContent = "";
+  toastSaid.textContent = "";
+  toastAction = null;
+  toastUndo.hidden = true;
 }
+
+// The way back is withdrawn the moment anything else moves the book, and the
+// sentence it was offered beside is left standing.
+//
+// It has to be, because what it holds is a position and not an intention: the
+// book can move again inside those six seconds by three routes that have
+// nothing to do with this press — a thumb on −30, a chapter skip, the agent
+// answering the next question — and an undo pressed afterwards would take them
+// somewhere they had already chosen to leave. That is not a way back, it is a
+// fourth move.
+//
+// The sentence stays because it is still true. "moved to 1:20:20" is a receipt
+// for something that really happened, and it reads no worse for the fact that
+// the offer beside it has expired.
+function withdrawUndo() {
+  if (!toastAction) return;
+  toastAction = null;
+  toastUndo.hidden = true;
+}
+
+// Taken down before it is acted on, so that whatever the way back says about
+// itself is not overwritten by the box it was offered in taking itself off.
+toastUndo.addEventListener("click", () => {
+  const back = toastAction;
+  if (!back) return;
+  forgetToast();
+  back();
+});
 
 // How dark the page takes the room, over and above what the phone will do.
 // Android holds its own backlight above a floor and this room is below it, so
@@ -1131,6 +1182,15 @@ function seekGlobal(ms, { play = null } = {}) {
   // left up over a book that has since moved offers rows whose "you are here"
   // is a lie, and the next press acts on it.
   closeCandidates();
+  // And for the same reason one line up: a way back to where the book was
+  // before the last `goto` is a lie the moment the book has been somewhere
+  // else since. Every seek on this page comes through here, whoever made it,
+  // which is what makes this the one place that has to say so.
+  //
+  // Before the seek rather than after, which is what lets `goto` itself use
+  // this function and then offer a fresh way back on the line below: the old
+  // offer is gone by the time the new one is written.
+  withdrawUndo();
   // Somebody meant this — a thumb, a lock screen, or the agent. Whatever
   // happens next is worth recording, even if they never press play.
   untouched = false;
@@ -3041,9 +3101,15 @@ async function hereWords(list) {
 // frontier the manifest has not caught up with, and there is no other book to
 // open.
 //
-// The toast says what happened rather than that something did. "moved · playing"
-// is true of every other press here and would be a strange thing to read after
-// a press whose whole promise is that nothing has changed.
+// The toast says what happened rather than where it went. A time is what every
+// other press here reports, and it would be a strange thing to read after a
+// press whose whole promise is that nothing has changed.
+//
+// It is the same sentence stepBack says, because they are the same act reached
+// two ways: this one is the way back that is still there in the morning, found
+// by opening the list again, and stepBack is the one offered for six seconds
+// beside the press it undoes. The row can undo a `goto` made an hour ago; the
+// toast can undo one made while the thumb is still on the screen.
 function returnHere(ms) {
   if (!offered || offered.gid !== gid || !manifest) return;
   closeCandidates();
@@ -3207,6 +3273,12 @@ async function chooseCandidate(place) {
   // frames — the book moving on one and the screen catching up on the next.
   backToTheBook();
   if (list.gid === gid && manifest) {
+    // Where they are, read before anything is done about where they asked to
+    // be. This is the whole of what `goto` throws away and the whole of what
+    // the way back restores — taken here rather than after the refresh below,
+    // because the book goes on playing across that await and what somebody
+    // means by "back" is where they were when they pressed.
+    const from = positionMs;
     if (place.start_ms > manifest.total_ms) {
       // The manifest is older than the render: this book grew while the page
       // was holding a photograph of it, and seeking would clamp them to the
@@ -3225,7 +3297,15 @@ async function chooseCandidate(place) {
     // fired afterwards would be telling them about a press whose effect has
     // been overwritten. Said here it is true when it is written, or it is not
     // written.
-    toast("moved · playing");
+    //
+    // A receipt now, rather than the old "moved · playing". Both sentences are
+    // true and only one of them is worth keeping: what the reader cannot see
+    // is where nine hours of book have gone, and what they can already hear is
+    // that it is playing. It names where it landed and not the row's own
+    // `start_ms`, which are the same number except at the end of a book that
+    // has grown — seekGlobal clamps, and a toast must not report a millisecond
+    // the book was not taken to.
+    toast(`moved to ${timestamp(positionMs)}`, () => stepBack(from, list.gid));
     return;
   }
   // Another book, which has had nothing written to it: `at` is what carries the
@@ -3244,9 +3324,38 @@ async function chooseCandidate(place) {
   // Hung off the book having really opened, for the same reason as above, and it
   // really can not happen: a book whose first chapter has not been rendered yet
   // comes back from openBook having changed nothing but the status line, and
-  // the page is still on the book it was on. "moved · playing" over a book that
-  // did not move is the one thing a toast must never say.
-  if (gid === list.gid) toast("moved · playing");
+  // the page is still on the book it was on. A time over a book that did not
+  // move is the one thing a toast must never say.
+  //
+  // The same receipt and no way back. What this press overwrote is the other
+  // book's own stored position, which openBook read and did not keep, so undoing
+  // it means restoring a number this function was never handed — a different
+  // piece of work from the one above, and one that has to reach into openBook to
+  // get it. It is not built. Left as it is, this press is still recoverable the
+  // way it always was: the position it replaced is a per-book number, and the
+  // book they came from kept its own.
+  if (gid === list.gid) toast(`moved to ${timestamp(positionMs)}`);
+}
+
+// The way back from a `goto`, and the shortest-lived control on the page.
+//
+// It is the same seek the row made, in reverse, and it needs none of what that
+// one guards against: `ms` is a position this page was sitting at moments ago,
+// so it is inside a manifest this page already holds and cannot be past a
+// frontier the render has not reached.
+//
+// The book is checked anyway. Nothing should be able to reach this press after
+// the page has changed books — openBook withdraws the offer — but the cost of
+// being wrong about that is a seek to a millisecond that means nothing in the
+// book it lands in, and the cost of the check is a line.
+function stepBack(ms, book) {
+  if (gid !== book || !manifest) return;
+  seekGlobal(ms, { play: true });
+  // What it did, rather than where it went. A second time on the screen would
+  // read as a third move; this press is the one thing on the page whose promise
+  // is that nothing has changed, and it is the same sentence the `here` row says
+  // for the same reason.
+  toast("back where you were");
 }
 
 // Told once, as the page dies. fetch does not survive teardown — the document
@@ -3362,6 +3471,12 @@ async function openBook(id, { play = false, at = null } = {}) {
   // that adopts nothing must leave the screen alone, and a fetch that failed
   // must too.
   closeCandidates();
+  // The way back goes too, and here rather than in seekGlobal below, because a
+  // book switch does not always reach it: openBook sets the position itself and
+  // hands it to loadSource. A position in the book they have just left is not
+  // somewhere the undo can take them, and pressing it would move the wrong
+  // book to a millisecond that means nothing in it.
+  withdrawUndo();
   if (gid !== null && gid !== opening.gid) sendPartingPosition();
   // Another book, so another join, and it gets its own chance at it. Giving up
   // is a judgement about one concatenation; carried across, one book whose build

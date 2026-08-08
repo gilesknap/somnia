@@ -228,6 +228,31 @@ one module-scope variable. They are never written into the DOM until the reveal
 press, never put in storage, never logged, never passed to the transcript, and
 dropped on any close.
 
+**`goto` is the one press here that is not inert, so it carries a way back.**
+Cancel changes nothing and reveal changes nothing; `goto` discards a position
+nobody wrote down, and before this the only route back was another semantic
+search — a model call and a question composed by somebody half asleep, which is
+the expensive thing this whole feature exists to avoid. The toast that confirms
+it names where it landed, *moved to 1:20:20*, and stands for six seconds rather
+than the usual 2.8 with *undo* beside it.
+
+The offer holds a position, not an intention, so it is withdrawn the moment
+anything else moves the book — a thumb on *+30*, a chapter, the agent answering
+the next question — and the sentence is left standing, because a receipt for
+something that really happened reads no worse for the offer beside it having
+gone. Pressed after that it would be a fourth move wearing the word *undo*.
+
+It is a second way back and not the only one. The *you are here* row is the
+first: it is frozen at the moment the question was asked, so opening the list
+again an hour later still offers the place the `goto` left. The toast is for the
+press that has just happened and the row is for the one somebody has had time to
+regret, which is why both exist and why they say the same sentence.
+
+Only for a `goto` inside the book that is playing. A row in another book
+overwrites *that* book's stored position, which `openBook` reads and does not
+keep, so undoing it would mean restoring a number the chooser was never handed.
+Not built; the receipt is drawn without the offer.
+
 ## Consequences
 
 **The spoiler guard is not weakened, and one hole in it is closed.** Whether a

@@ -1029,8 +1029,10 @@ test("a row goes to the millisecond it names and plays it", async (t) => {
   assert.equal(page.audio.paused, false);
   // And it says so once, at the bottom of the screen near the thumb that did
   // it. The screen it was said on has gone, so there is nowhere else it could
-  // be said.
-  assert.equal(page.probe().toast, "moved · playing");
+  // be said — and it says where, because where nine hours of book have gone is
+  // the one thing the reader cannot see and the fact that it is playing is the
+  // one thing they can already hear.
+  assert.equal(page.probe().toast, "moved to 0:20:34");
 });
 
 test("the move is announced on the seek and not on a timer", async (t) => {
@@ -1043,10 +1045,143 @@ test("the move is announced on the seek and not on a timer", async (t) => {
   // ~900ms and then says this, and on a real page that window is long enough
   // for the agent to move the book by the other route — the refusal of the next
   // report — after which the sentence would be about a press whose effect had
-  // been overwritten. The only wake asked for is the toast taking itself off.
-  assert.deepEqual(page.waits().slice(waits), [2800]);
+  // been overwritten. The only wake asked for is the toast taking itself off,
+  // and it is the long one: this sentence carries a way back, and six seconds
+  // rather than 2.8 is what gives the realisation somewhere to land.
+  assert.deepEqual(page.waits().slice(waits), [6000]);
   assert.equal(page.probe().positionMs, 1_234_567);
-  assert.equal(page.probe().toast, "moved · playing");
+  assert.equal(page.probe().toast, "moved to 0:20:34");
+});
+
+// ------------------------------------------------------------- the way back
+//
+// `goto` is the last destructive press in the app. Everything else that moves
+// the book is undone by pressing the opposite thing — a skip forward by a skip
+// back, a chapter by the chapter before it — and this one discards a position
+// nobody wrote down, after which the only route back is another semantic
+// search: a model call, a phone that has to stay awake for it, and a question
+// somebody half asleep has to compose. Six seconds of a smaller microphone is
+// the price of not spending that.
+
+test("the way back on a goto puts them exactly where it found them", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidate-go-12");
+  await page.settle();
+  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().undo, true);
+
+  page.click("toast-undo");
+  await page.settle();
+  // The millisecond the book was at when the row was pressed, and not the
+  // second it was drawn as anywhere on the screen it was pressed from.
+  assert.equal(page.probe().positionMs, HALF_HEARD.position_ms);
+  // And still playing. A way back that left the room silent would be a second
+  // thing to undo.
+  assert.equal(page.audio.paused, false);
+  // What it did, rather than where it went: this is the one press on the page
+  // whose promise is that nothing has changed, and a second time on the screen
+  // would read as a third move.
+  assert.equal(page.probe().toast, "back where you were");
+  // Offered once. Pressing it again is a press with nothing left to undo, and
+  // the sentence it would be offered beside is already the sentence about
+  // having undone something.
+  assert.equal(page.probe().undo, false);
+});
+
+test("the way back stands for six seconds and then is not there", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidate-go-12");
+  await page.settle();
+
+  // Past the length of every other sentence the page says, and still up. 2.8
+  // seconds is how long it takes to read what a press did; a way back has to
+  // outlast the moment somebody realises they wanted it, which is after they
+  // have read the sentence and not during.
+  assert.equal(page.wake(2800), false);
+  assert.equal(page.probe().toast, "moved to 0:20:34");
+  assert.equal(page.probe().undo, true);
+
+  assert.equal(page.wake(6000), true);
+  assert.equal(page.probe().toast, "");
+  assert.equal(page.probe().undo, false);
+  // Nothing left running. The page is in a pocket for the rest of the night and
+  // every pending timer is a radio wake beside somebody asleep.
+  assert.deepEqual(page.waits(), []);
+});
+
+test("a way back that has expired is a press that does nothing", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidate-go-12");
+  await page.settle();
+  page.wake(6000);
+
+  // In a browser it is display:none by then and no thumb can reach it. The
+  // handler is hung on the element once at boot and lives as long as the page,
+  // so what stops it is the page having put the position down — and that is
+  // worth asserting here, because a stale position held on a live listener is a
+  // seek waiting for the one night the sheet loads wrong.
+  page.click("toast-undo");
+  await page.settle();
+  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().toast, "");
+});
+
+test("a book that moved since keeps the receipt and loses the way back", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidate-go-12");
+  await page.settle();
+  assert.equal(page.probe().undo, true);
+
+  // Inside the six seconds, and by a route that has nothing to do with the row:
+  // a thumb on the skip. What the way back holds is a position and not an
+  // intention, so pressing it now would take them somewhere they had already
+  // chosen to leave — a fourth move, offered as a way back.
+  page.click("fwd30");
+  await page.settle();
+  assert.equal(page.probe().positionMs, 1_264_567);
+  assert.equal(page.probe().undo, false);
+  // The sentence stands, because it is still true. "moved to 0:20:34" is a
+  // receipt for something that really happened, and it reads no worse for the
+  // offer beside it having gone.
+  assert.equal(page.probe().toast, "moved to 0:20:34");
+});
+
+test("the way back does not survive a change of book", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidate-go-12");
+  await page.settle();
+  assert.equal(page.probe().undo, true);
+
+  // Another book, inside the six seconds, and by the one route that changes
+  // books without saying anything: a second question, which this time the agent
+  // knew the answer to, so it moved the book itself and raised no list. Nothing
+  // writes a new sentence on that path, so nothing would have cleared the old
+  // offer by accident — which is what makes this the case worth asserting.
+  page.answers({
+    reply: "Taking you there.",
+    move: {
+      gid: OTHER_BOOK.gid,
+      seq: OTHER_BOOK.seq,
+      position_ms: OTHER_BOOK.position_ms,
+    },
+  });
+  await page.ask("the bit in the other book");
+  for (let turn = 0; turn < 3; turn++) await page.settle();
+  assert.equal(page.probe().gid, OTHER_BOOK.gid);
+  // A position in the book they have just left is not somewhere this press can
+  // take them: 0:20:34 is past the end of a sixteen-second book, and in a book
+  // that was long enough it would be a millisecond measured in the wrong one.
+  assert.equal(page.probe().undo, false);
 });
 
 test("a move that arrived by the other route says nothing about a press", async (t) => {
@@ -1162,7 +1297,14 @@ test("a row in another book opens that book and lands in the right place", async
     ["metadata:Elsewhere Two"],
   );
   assert.equal(page.audio.paused, false);
-  assert.equal(page.probe().toast, "moved · playing");
+  // The same receipt as a row in this book, naming where the other book was
+  // opened at.
+  assert.equal(page.probe().toast, "moved to 0:00:12");
+  // And no way back on it. What this press overwrote is the other book's own
+  // stored position — 0:00:04, which openBook read and did not keep — so an
+  // undo here would have to restore a number chooseCandidate was never handed.
+  // Not built, and the sentence says nothing that implies it was.
+  assert.equal(page.probe().undo, false);
 });
 
 test("a row in a book that has not been read yet moves nothing and says so", async (t) => {
@@ -1643,7 +1785,7 @@ test("a place restored from storage is one a thumb can act on", async (t) => {
   assert.equal(page.probe().candidatesUp, false);
   assert.equal(page.probe().positionMs, 1_234_567);
   assert.equal(page.audio.paused, false);
-  assert.equal(page.probe().toast, "moved · playing");
+  assert.equal(page.probe().toast, "moved to 0:20:34");
 });
 
 test("places kept overnight still keep their words back until the press", async (t) => {
