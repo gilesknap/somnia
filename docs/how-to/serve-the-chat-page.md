@@ -149,9 +149,14 @@ under it saying how many there are and what they span, and each row is a
 time, a chapter and the book's own words — its own, never a description of
 them, so you recognise the moment rather than take somnia's word for it, and
 never the words of a place you have not reached yet, which is the paragraph
-after this one. There is a *you are here* marker sitting
-between them in book order so you can see which are behind you and which are
-ahead. Press *goto* on a row and the book goes there and plays, and the list
+after this one. Every row starts covered: press its reading and the words come
+up, press it again and they go away, so the list can be read down without ending
+up as four paragraphs of book on a phone at 2am. Sitting between the rows in
+book order, so you can see which places are behind you and which are ahead,
+there is a *you are here* line — and under it, in amber, where you actually are:
+the time, the words being spoken there behind the same press, and a *here*
+button that takes you back to it if you have gone somewhere and it was wrong.
+Press *goto* on a row and the book goes there and plays, and the list
 goes with it, leaving you on the player looking at where you have arrived. Press
 *‹ controls* in the top left — the same corner and the same word as the way out
 of everything else — and nothing whatever happens: the book carries on exactly
@@ -176,7 +181,8 @@ and its chapter number and nothing else — no words, and not even the chapter's
 name, since a chapter called *How Ginger Died* gives away as much as the
 sentence under it. What it says instead is *tap to reveal · may spoil*: press
 anywhere on the row's reading and it uncovers, and you decide having read it;
-press *goto* and you go there without reading it at all. Two
+press it again and it goes back under, name and all; press *goto* and you go
+there without reading it at all. Two
 things follow from measuring it that way. A book
 somnia has never played is bounded at its opening minute, so if a book you have
 been listening to for a fortnight puts everything on the list as *ahead*, the

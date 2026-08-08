@@ -47,7 +47,7 @@ from .db import connect
 from .player import Player
 from .queue import LIVE, QueueRow, Stopped, Submission, stop, submit, view
 from .stream import build_stream, stream_path
-from .tools import Library
+from .tools import CANDIDATE_TEXT_CHARS, Library, shorten
 
 __all__ = ["Conversations", "Found", "Queue", "create_app", "serve"]
 
@@ -393,6 +393,31 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         start_ms = await run_in_threadpool(player.sentence_start, gid, ms)
         return JSONResponse({"gid": gid, "ms": ms, "start_ms": start_ms})
 
+    async def passage(request: Request) -> Response:
+        """What is being said at a point, for the "you are here" row.
+
+        The only route in somnia that hands back the book's own words, and it
+        can only ever hand back words that have already been played out loud —
+        see :meth:`Player.passage_at`, where that bound is part of the same
+        statement that finds the row. A general "give me the text of chunk N"
+        would be a spoiler oracle one guessed integer wide; this is bounded by
+        the same number the search has always been bounded by.
+
+        Cut to the length a row on that screen can hold, by the same rule and to
+        the same limit as the places it sits among: the words are there to
+        recognise a moment by, not to read the book off a list.
+        """
+        gid = int(request.path_params["gid"])
+        ms = int(request.path_params["ms"])
+        text = await run_in_threadpool(player.passage_at, gid, ms)
+        return JSONResponse(
+            {
+                "gid": gid,
+                "ms": ms,
+                "text": shorten(text, CANDIDATE_TEXT_CHARS) if text else None,
+            }
+        )
+
     async def audio(request: Request) -> Response:
         gid = int(request.path_params["gid"])
         idx = int(request.path_params["idx"])
@@ -591,6 +616,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/audio/{gid:int}/{idx:int}", audio),
             Route("/api/stream/{gid:int}/{n:int}", stream),
             Route("/api/sentence/{gid:int}/{ms:int}", sentence),
+            Route("/api/passage/{gid:int}/{ms:int}", passage),
             Route("/api/position", position, methods=["POST"]),
             Route("/api/catalog", catalog),
             # One path, two methods, two handlers. Starlette scans the whole

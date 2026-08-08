@@ -181,9 +181,18 @@ PANELS = {
             ["2:11:40", "Ch 6", "", True, False],
         ],
         # Where the rule goes: after the second row, which is the last one at or
-        # before the position the rest of the fixture is set at. It carries the
-        # way back now, so the picture has to hold the pill as well as the line.
-        "here": {"at": "1:12:08", "after": 2, "more": True, "back": True},
+        # before the position the rest of the fixture is set at. It is a place
+        # like the rest now — a time, words behind a press, and the way back —
+        # so the picture has to hold all three.
+        "here": {
+            "at": "1:12:08",
+            "after": 2,
+            "more": True,
+            "back": True,
+            "text": "and the tide had gone a long way out, further than he "
+            "had ever seen it go.",
+            "revealed": False,
+        },
     },
     "workshop": {
         "unhide": ["queue", "workshop", "queue-working", "queue-ended"],
@@ -413,31 +422,51 @@ FILL = """
         const what = p("candidate-what", revealed ? text : "");
         if (!revealed) what.hidden = true;
         show.append(what);
-        // Gone once the press has been made, and two different sentences in two
-        // different colours before it — which after this change is the whole of
-        // what marks a row somebody has not listened past.
+        // Three sentences in two colours. Before the press it is an invitation
+        // and, on a row they have not listened past, a warning — which is the
+        // whole of what marks such a row out. After it, the way to undo it.
         const hint = p(
           "candidate-hint",
-          ahead ? "tap to reveal · may spoil" : "tap to reveal",
+          revealed
+            ? "tap to hide"
+            : ahead
+              ? "tap to reveal · may spoil"
+              : "tap to reveal",
         );
-        hint.hidden = Boolean(revealed);
         show.append(hint);
         li.append(show, pill("candidate-go", "goto"));
         rows.push(li);
         const here = PANEL.here;
         if (here && here.after === i + 1) {
+          // A place like the others now: the rule with its name on it, then a
+          // time at the size the list states times, the words one press away,
+          // and the way back at the foot. Only the amber is its own.
           const rule = document.createElement("li");
           rule.className = "candidate here";
           rule.setAttribute("aria-current", "true");
-          rule.append(p("section-label here-mark", "you are here · " + here.at));
+          if (here.revealed) rule.classList.add("revealed");
+          rule.append(p("section-label here-mark", "you are here"));
+          const ask = document.createElement("button");
+          ask.type = "button";
+          ask.className = "candidate-show";
+          ask.append(p("candidate-when here-when", here.at));
+          const said = p("candidate-what", here.revealed ? here.text : "");
+          if (!here.revealed) said.hidden = true;
+          ask.append(said);
+          // Absent until the words are in hand: this row's passage is the one
+          // thing on the screen the page has to go and ask for.
+          if (here.text) {
+            const word = here.revealed ? "tap to hide" : "tap to reveal";
+            ask.append(p("candidate-hint", word));
+          }
+          rule.append(ask);
+          if (here.back) rule.append(pill("candidate-go here-go", "here"));
+          // Last in the row, immediately above the first row it is true of.
           if (here.more) {
             rule.append(
               p("here-caveat", "anything below this line you may not have heard"),
             );
           }
-          // The way back, on the rule and only where the list is about the book
-          // that is playing.
-          if (here.back) rule.append(pill("candidate-go here-go", "here"));
           rows.push(rule);
         }
       });

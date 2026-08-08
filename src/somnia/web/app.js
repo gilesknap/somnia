@@ -2646,6 +2646,56 @@ function candidatesSummary(places) {
   return `${places.length} places between ${first} and ${last}`;
 }
 
+// The press that uncovers a row's words, and the press that puts them back.
+// One function because both rows on this screen that have words to hide have
+// to hide them the same way: the invitation is worded here, the state lives in
+// one class, and a row that drifted from the other would be two controls that
+// look identical and answer differently.
+//
+// It used to be a one-way door, and the argument was that a reveal which
+// toggled is a control whose meaning depends on how many times it has been
+// pressed, read by somebody who is not counting. What that argument missed is
+// that the row itself says which press it is about to be — the line under the
+// words reads "tap to hide" once they are up — so nobody has to count anything;
+// they read it. And a screen that can only ever grow is the wrong shape for
+// this one: four places with their passages open is the column of book at 2am
+// that this list exists to spare somebody, and until now the only way to fold
+// one back was to close the whole screen and open it again.
+//
+// `shut` is remembered from the hint the row arrived wearing rather than
+// recomputed, so the row that warns goes back to warning and the row that does
+// not goes back to not — the guard is never re-derived at the moment it is
+// being put back, which is the one moment it could be got wrong.
+//
+// `words` is a function and not a string because the "you are here" row learns
+// its words after it is built: the press has to read whatever is in hand when
+// it happens, and a row with nothing in hand does not get a press at all.
+function reveals(li, show, what, hint, { words, open, shut }) {
+  const closed = hint.textContent;
+  show.addEventListener("click", () => {
+    if (li.classList.contains("revealed")) {
+      // Not merely hidden. The words go out of the document the way they came
+      // in, which is what the covered state has always meant on this screen —
+      // see candidateRow: text a screen reader, a selection or a screenshot can
+      // still reach is text that was never really put away.
+      what.textContent = "";
+      what.hidden = true;
+      hint.textContent = closed;
+      li.classList.remove("revealed");
+      shut?.();
+      return;
+    }
+    what.textContent = words();
+    what.hidden = false;
+    // The offer has been taken. What the line says now is how to undo it, in
+    // the same place the invitation was — and never the warning again, because
+    // whatever it was going to cost has already been spent.
+    hint.textContent = "tap to hide";
+    li.classList.add("revealed");
+    open?.();
+  });
+}
+
 function candidateRow(place) {
   const li = document.createElement("li");
   li.className = place.ahead ? "candidate ahead" : "candidate";
@@ -2721,7 +2771,7 @@ function candidateRow(place) {
   hint.className = "candidate-hint";
   hint.textContent = place.ahead ? "tap to reveal · may spoil" : "tap to reveal";
   show.append(hint);
-  // Five writes to this row's own DOM and nothing else in the whole page: no
+  // Six writes to this row's own DOM and nothing else in the whole page: no
   // request, no seek, no report, nothing touched that the spoiler guard
   // measures. The words came down with the answer and were already in hand,
   // which is why there is no endpoint here to fetch them from — a general
@@ -2730,25 +2780,23 @@ function candidateRow(place) {
   // the deployment, and it would put a tailnet round trip on the one press
   // where a control that does nothing for three seconds reads as broken and
   // gets pressed again — with a list on screen, into a row.
-  show.addEventListener("click", () => {
-    // Once. A second press on a revealed row is a thumb that has already got
-    // what it asked for, and the one thing it must never do is put the words
-    // back — a reveal that toggled would be a control whose meaning depends
-    // on how many times it has been pressed, read by somebody who is not
-    // counting.
-    if (li.classList.contains("revealed")) return;
-    what.textContent = place.text;
-    what.hidden = false;
+  reveals(li, show, what, hint, {
+    words: () => place.text,
     // The title arrives at the same press and never before it on a row ahead of
     // them, where the chapter's own name is itself a spoiler. On a row behind
     // them it was already there and this writes it again unchanged: one path
     // through the reveal rather than two, because the branch would be a branch
     // on the guard.
-    where.textContent = chapterLabel(place, { title: true });
-    // The offer has been taken and is over. What is left saying the row is
-    // ahead of them is the word in the chapter line, which stays.
-    hint.hidden = true;
-    li.classList.add("revealed");
+    //
+    // And it goes back with the words. A hide that left the chapter's own name
+    // standing would be a row that had been half un-revealed — the press says
+    // "put that away", and half of what it was asked to put away is the name.
+    open: () => {
+      where.textContent = chapterLabel(place, { title: true });
+    },
+    shut: () => {
+      where.textContent = chapterLabel(place, { title: !place.ahead });
+    },
   });
   li.append(show);
 
@@ -2780,16 +2828,25 @@ function candidateRow(place) {
   return li;
 }
 
-// The rule drawn across the list at the point they have got to — and now
-// somewhere to go, which is the one row on this screen that goes nowhere new.
+// The rule drawn across the list at the point they have got to — and a place
+// now, which is the one place on this screen that goes nowhere new.
 //
-// It stays a rule and not a place. The listener's position is not a mark in
-// this list: the places are search hits, so where they are is normally between
-// two rows and inside none, and the design's `here` pill — a row of the list
-// wearing the word — assumes a partition that somnia's four results do not
-// make. So the rule keeps its own line, and what it gains is a press.
+// It was a rule and nothing else for a long time, and the argument was that the
+// listener's position is not a mark in this list: the places are search hits,
+// so where they are is normally between two rows and inside none, and the
+// design's `here` — a row of the list wearing the word — assumes a partition
+// that somnia's four results do not make. That is still true of the *ordering*
+// and it is why the rule keeps a line of its own. It was never a reason for the
+// row under the rule to be shaped differently from every other row on the
+// screen, which is what it had become: a list of times you can read down, and
+// then the one entry that is about you, in type too small to read.
 //
-// What the press is for is the move before it. Press a place, hear it is the
+// So it is a place now, drawn the way places are drawn — the time large and
+// first, the words one press away, the pill at the foot ranged right — and the
+// only things that mark it out are its own: the label on the rule above it, and
+// amber on the two things a thumb goes for.
+//
+// What the pill is for is the move before it. Press a place, hear it is the
 // wrong one, press `here`: it is the way back, and the only one there is, since
 // the position it discarded is not written down anywhere else and finding it
 // again means asking a model the same question over a tailnet. That is the
@@ -2800,22 +2857,67 @@ function candidateRow(place) {
 // `more` is whether there is anything under the rule. The sentence beneath it
 // is about what follows it, and printed with nothing following, it would be a
 // warning about an empty screen.
-function hereRow(ms, { more, back }) {
+function hereRow(list, ms, { more, back }) {
   const li = document.createElement("li");
   li.className = "candidate here";
   li.setAttribute("aria-current", "true");
-  // One string, mono and small: it is a label on a rule rather than something
-  // to read, and it is the only place on this screen that is not a place.
+  // The label on the rule, and only the label now. The time came out of it in
+  // the same change that gave this row a time of its own at the size every
+  // other row states its time in — one line saying it twice, once at 9px, was
+  // the old row's whole problem in one string.
   const mark = document.createElement("p");
   mark.className = "section-label here-mark";
-  mark.textContent = `you are here · ${timestamp(ms)}`;
+  mark.textContent = "you are here";
   li.append(mark);
-  if (more) {
-    const caveat = document.createElement("p");
-    caveat.className = "here-caveat";
-    caveat.textContent = "anything below this line you may not have heard";
-    li.append(caveat);
-  }
+
+  // The reading, in the shape candidateRow builds it: the same classes, so the
+  // sheet has one rule for a time on this screen and one for a passage, and the
+  // wash under a press is the same wash.
+  const show = document.createElement("button");
+  show.type = "button";
+  show.className = "candidate-show";
+  show.id = "candidate-show-here";
+
+  const when = document.createElement("p");
+  when.className = "candidate-when here-when";
+  when.textContent = timestamp(ms);
+
+  const what = document.createElement("p");
+  what.className = "candidate-what";
+  what.hidden = true;
+  show.append(when);
+  show.append(what);
+
+  // The invitation, and it arrives late or not at all — which is why it starts
+  // hidden and why the press is wired at the same moment it appears.
+  //
+  // Every other row on this screen carries its words down with the answer that
+  // named it. This one names no passage, so its words have to be asked for, and
+  // a control that is on the screen before there is anything behind it is a
+  // control that does nothing at 2am — pressed again, and again, into a list.
+  // So there is no offer until the words are in hand: until then this row is
+  // exactly what it was before any of this, a time and a way back.
+  //
+  // Never the warning wording. What is at `here` is by definition the last
+  // thing they heard, and /api/passage cannot hand back anything further on
+  // than that however it is asked — see Player.passage_at.
+  const hint = document.createElement("p");
+  hint.className = "candidate-hint";
+  hint.textContent = "tap to reveal";
+  hint.hidden = true;
+  show.append(hint);
+  li.append(show);
+
+  // Asked for now, read at the press. The round trip happens while the list is
+  // being looked at rather than while a thumb is waiting on it, which is the
+  // same trade the smart-rewind sentence makes: fetch it while the connection
+  // is warm and hold it for later.
+  hereWords(list).then((text) => {
+    if (!text) return;
+    hint.hidden = false;
+    reveals(li, show, what, hint, { words: () => text });
+  });
+
   // Drawn as a `goto` and not as anything of its own: it sits in a list where
   // every other row's press is a seek, and a press that seeks has one shape on
   // this screen. What is different is the word and the colour — `here` in
@@ -2836,7 +2938,63 @@ function hereRow(ms, { more, back }) {
     go.addEventListener("click", () => returnHere(ms));
     li.append(go);
   }
+
+  // The sentence the whole screen is arranged around, and the last thing in
+  // this row rather than the first.
+  //
+  // It sat directly under the mark until the rule became a place, which is
+  // where the design puts it and where it belonged while there was nothing
+  // between it and the rows it warns about. There is now: a time, an offer of
+  // words and a pill, all of them about a moment they have certainly heard. A
+  // warning with its own counter-example printed underneath it is a warning
+  // read wrongly at 2am — the amber time directly beneath it is precisely the
+  // one thing on this screen it is not about.
+  //
+  // Last, it is the line immediately above the first row it is true of, which
+  // is what it always meant.
+  if (more) {
+    const caveat = document.createElement("p");
+    caveat.className = "here-caveat";
+    caveat.textContent = "anything below this line you may not have heard";
+    li.append(caveat);
+  }
   return li;
+}
+
+// The words at the point the rule is drawn, fetched once per list and then kept
+// in it.
+//
+// Kept in the list rather than in a variable beside it because the list is what
+// outlives the screen: it goes into localStorage with everything else the last
+// question turned up, so a second opening of the same places — after the phone
+// has thrown the tab away, on a tailnet that is now asleep — has the words
+// already and asks nothing. That is the same promise every other row on this
+// screen makes, arrived at a different way.
+//
+// Storing them is not a new exposure. These are words the sound has already
+// said out loud in this room; the route cannot return any others.
+//
+// Null on anything that is not a passage: no such book, a book whose text was
+// never indexed, a book nobody has played a second of, or a tailnet that did
+// not answer. Every one of those is the same answer to the row — there is
+// nothing to offer — and none of them is worth a message on a screen somebody
+// opened to find their place.
+async function hereWords(list) {
+  if (typeof list.here_text === "string") return list.here_text;
+  try {
+    const response = await fetch(`api/passage/${list.gid}/${list.here_ms}`);
+    if (!response.ok) return null;
+    const body = await response.json();
+    if (typeof body.text !== "string" || !body.text) return null;
+    list.here_text = body.text;
+    // Written down where the rest of the answer already is, so the next opening
+    // of these places is as offline as this one was not.
+    if (remembered === list) rememberPlaces(list);
+    return body.text;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
 }
 
 // The way back, and the only press on this screen that ends where it started.
@@ -2915,7 +3073,7 @@ function showCandidates(list) {
     rows.splice(
       mark,
       0,
-      hereRow(here, {
+      hereRow(list, here, {
         more: mark < rows.length,
         // Pressable only where going there means anything: the book this list
         // is about is the book making the sound. See hereRow.

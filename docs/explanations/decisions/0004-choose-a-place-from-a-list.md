@@ -29,6 +29,34 @@ before the reading was beside the pill and nothing was under it. The miss that
 matters — onto the *next* row's `goto`, which moves the book somewhere nobody
 asked for — is still held off by the row's padding.
 
+Amended again, in two particulars, and both of them are about the reveal.
+
+**The reveal toggles.** A second press on a row that has been opened puts its
+words away again, and its chapter title with them, and the line under the words
+says so — *tap to hide*. It was deliberately one-way before, on the grounds that
+a control whose meaning depends on how many times it has been pressed is the
+wrong thing to hand somebody who is not counting. What that missed is that the
+row states which press it is about to be, so nobody has to count; and that a
+screen which can only ever grow is the wrong shape for this one, because four
+places with their passages open is the column of book at 2am that the list
+exists to spare somebody. Until now the only way to fold one back was to close
+the screen and open it again.
+
+**The "you are here" marker is a place, not just a rule.** It keeps its own
+line across the list — the listener's position falls between two search hits and
+inside none, so it is not a row of the result set — but under that line it now
+holds what every other row holds: its time, stated at the size the list states
+times, and the words being spoken there, one press away. Amber marks it out, and
+the pill under it still says `here` rather than `goto`. Its words are the one
+thing on that screen no answer carries down, so the page fetches them, once, when
+the list is drawn: `/api/passage/{gid}/{ms}`, which is bounded by `heard_to_ms`
+in the same statement that finds the row and is addressed by a point on the clock
+rather than by an id. That is not the oracle the rejected alternative below
+argues against — there is no identifier to guess and no way of asking that
+returns anything the sound has not already said out loud. If the request fails or
+the book has nothing indexed, the row offers no press at all, which is what it
+was before.
+
 Amended once more by
 [ADR 6](0006-answer-a-question-about-the-book.md), in one particular. The
 rejected alternative below rests part of its case on `find_passage` being both

@@ -386,6 +386,75 @@ def test_a_book_with_nothing_indexed_has_no_sentence_to_offer(
     assert player.sentence_start(GID, -1) is None
 
 
+# ------------------------------------------- what is being said where they are
+
+
+def test_the_words_at_a_point_are_the_ones_last_spoken_before_it(
+    player: Player,
+) -> None:
+    """The "you are here" row's words, which no answer carries down for it."""
+    assert player.passage_at(GID, 5_000) == (
+        "the low tone holds to the end of the first chapter"
+    )
+    # On a boundary: the passage that starts there is the one being spoken.
+    assert player.passage_at(GID, 4_000) == (
+        "the low tone holds to the end of the first chapter"
+    )
+
+
+def test_a_point_past_the_mark_is_answered_from_behind_it(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """The bound is on the row, not on the question — see Player.passage_at.
+
+    This is the whole security argument for the route. Ask about a point an hour
+    past anything anybody has listened to and the answer is still the last thing
+    that was really spoken: there is no id to guess, and no refusal to read a
+    frontier off either.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET heard_to_ms = 12000 WHERE gid = ?", (GID,)
+        )
+    spoken = "the second tone, a fifth above the first"
+    assert player.passage_at(GID, TOTAL_MS) == spoken
+    # And nothing from beyond it, however the question is put.
+    assert player.passage_at(GID, 20_000) == "the second tone, a fifth above the first"
+
+
+def test_a_passage_beginning_exactly_at_the_mark_has_not_been_spoken(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """`start_ms < heard_to_ms`, which is the guard's own predicate negated.
+
+    A passage that begins where the sound stopped is a passage nobody has heard
+    a word of — :class:`somnia.tools.Candidate` calls exactly that one `ahead` —
+    and the two ends of somnia must not disagree about a boundary case on the
+    one screen that shows both.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET heard_to_ms = 8000 WHERE gid = ?", (GID,)
+        )
+    assert player.passage_at(GID, 8_000) == (
+        "the low tone holds to the end of the first chapter"
+    )
+
+
+def test_a_book_nobody_has_played_has_no_words_to_offer(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """No such book, nothing indexed, and nothing heard all answer the same.
+
+    The row offers no reveal, which is what it did before the route existed.
+    """
+    assert player.passage_at(GID + 1, 5_000) is None
+    assert player.passage_at(GID, -1) is None
+    with tone_book.conn:
+        tone_book.conn.execute("UPDATE books SET heard_to_ms = 0 WHERE gid = ?", (GID,))
+    assert player.passage_at(GID, 5_000) is None
+
+
 # ------------------------------------------------- what the page reports back
 
 
