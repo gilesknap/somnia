@@ -5,14 +5,14 @@ author_email: gilesknap@gmail.com
 author_name: Giles Knap
 description: 'Bedtime audiobook reader with semantic seek: TTS-rendered public-domain
     books plus a conversational agent that finds your place again'
-distribution_name: somnia
+distribution_name: somnia-reader
 docker: true
 docker_debug: false
 docs_type: sphinx
 git_platform: github.com
 github_org: gilesknap
 package_name: somnia
-pypi: false
+pypi: true
 repo_name: somnia
 strict_typing: true
 type_checker: pyright

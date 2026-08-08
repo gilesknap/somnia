@@ -27,11 +27,16 @@ except the one that has no default, and pulls the Gutenberg catalog. Run it
 twice and nothing is harmed: an existing environment is reused, and an existing
 settings file is never touched.
 
+It installs from `main` by default, not from the last release — this is the
+project's own box-builder, and the box it builds is expected to be ahead. Pass
+`--pypi` for the released `somnia-reader` instead.
+
 | Flag | When |
 |---|---|
 | `--serve-only` | this machine only plays books: no Kokoro, no torch |
 | `--venv DIR` | build it somewhere other than `~/somnia-venv` |
 | `--ref REF` | install a branch, tag or commit rather than `main` |
+| `--pypi` | install the last release from PyPI rather than a git ref |
 | `--cuda` | you really do have a GPU |
 | `--no-catalog` | skip the ~20MB catalog download |
 
@@ -39,6 +44,15 @@ settings file is never touched.
 installer will not fetch for you: it checks, and prints the command for your
 package manager if either is missing. Nothing else stops, because an
 environment without them is still worth having on a machine that only serves.
+
+On Debian and Ubuntu there is a third, and it is not optional: **`python3-venv`
+is a separate package**, so a stock box has a Python that runs but cannot build
+a virtual environment. The installer checks for it and names it, but if you are
+installing by hand, get it first — matched to your interpreter:
+
+```bash
+sudo apt install ffmpeg espeak-ng python3.12-venv    # or python3.13-venv
+```
 
 ## Or by hand
 
@@ -48,7 +62,7 @@ Four commands, and the order of the middle two matters:
 python3 -m venv ~/somnia-venv
 source ~/somnia-venv/bin/activate
 python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-python3 -m pip install "somnia[ml] @ git+https://github.com/gilesknap/somnia.git"
+python3 -m pip install "somnia-reader[ml]"
 ```
 
 Install torch first, from the CPU index and nothing else. `--extra-index-url` is
@@ -57,10 +71,32 @@ finds, so on the day PyPI carries a newer torch than the CPU index does you get
 two gigabytes of CUDA runtime to render a book with. Leave `[ml]` off on any
 machine that only serves.
 
-The git URL is not a preference. **somnia is not on PyPI**: that name belongs to
-an unrelated project, so `pip install somnia` installs a stranger's package.
-Publishing this one as `somnia-reader` is
-[issue #9](https://github.com/gilesknap/somnia/issues/9).
+**The package is `somnia-reader`, not `somnia`.** That name was taken on PyPI
+before this project existed, by an unrelated AI-agent CLI, so `pip install
+somnia` gets you a stranger's package that will not answer to any command on
+this site. The extra name is the only thing that changed: `import somnia` and
+the `somnia` command are untouched.
+
+If pip answers *No matching distribution found for somnia-reader*, there is no
+release on PyPI for it to find — the first one may not have gone out yet. The
+repository has the code either way, and that is the next section.
+
+## Ahead of the last release
+
+A tagged release is a snapshot, and `main` moves. If you are chasing a fix that
+has landed but not been tagged — which the issue will normally say — install
+from the repository instead:
+
+```bash
+python3 -m pip install "somnia-reader[ml] @ git+https://github.com/gilesknap/somnia.git"
+```
+
+or plain `bash somnia-install.sh`, which is already what it does. Torch still
+goes in first, from the CPU index; nothing about that changes.
+
+Into an environment that already has somnia in it, that command does nothing at
+all and says so cheerfully — see [Upgrade to a new version](../how-to/upgrade.md)
+for the uninstall that makes it stick.
 
 (configure)=
 ## Configure

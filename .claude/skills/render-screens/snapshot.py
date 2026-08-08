@@ -59,6 +59,13 @@ FIXTURE = {
     # Shown as if a book were playing: without this the page renders its
     # opening state, which is not the one anybody is designing.
     "unhide": ["player-bar", "places-found"],
+    # Which screen the page is on. app.js measures the keyboard and writes this
+    # onto <body>, and the sheet reads it for everything that differs between
+    # the player and the chat — so in a snapshot, which has no app.js, a body
+    # with no class on it is a page on neither screen: no player arrangement, no
+    # chat, and a height that changes nothing. The player is the default because
+    # it is what the page boots on; `render.py --screen chat` swaps it.
+    "body": ["player-screen"],
     # `openable` is drawPlaces' class and it carries the dotted rule and the
     # 44dp target, so without it the render would show the count under a line
     # that does not look pressable — which is a different screen from the one
@@ -103,6 +110,8 @@ FILL = """
     const el = need(id);
     if (el) el.hidden = false;
   }
+
+  document.body.classList.add(...FIXTURE.body);
 
   for (const [id, classes] of Object.entries(FIXTURE.classes)) {
     const el = document.getElementById(id);

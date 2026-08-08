@@ -318,6 +318,16 @@ unbounded — so on night one the agent has to say the passage is further on tha
 they have got. Failing that way costs a question in the dark; failing the other
 way costs them the book.
 
+The mark bounds what is *said* as well as what is searched, and those are two
+different distances. The agent may answer a question about a book out of what it
+already knows of it, as far as that line and no further
+([ADR 6](decisions/0006-answer-a-question-about-the-book.md)); `allow_spoilers`
+lets it read past the line to pick the right place to send somebody, and never
+lets it describe what it read. The question tool, `recall`, is bounded by the
+same code as a search, has no `allow_spoilers`, reports nothing about a closer
+match lying ahead, and marks the turn so that `move_to` and `offer_positions`
+refuse — a question must not cost the listener their place.
+
 ## What the page has to survive
 
 Three things the Audiobookshelf app used to absorb, which nothing absorbs any

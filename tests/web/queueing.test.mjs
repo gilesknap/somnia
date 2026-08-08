@@ -1446,5 +1446,7 @@ test("an empty library says where to add one", async (t) => {
   const page = await boot(t, { lastGid: null, library: [] });
   // The one state that most needs the panel, and the one with no book, no
   // manifest and no gid to press anything about.
-  assert.equal(page.probe().status, "nothing yet — press books to add one");
+  // It names the control by the word on it, so the sentence and the header have
+  // to be changed together — which is why `library` is here as well.
+  assert.equal(page.probe().status, "nothing yet — press library to add one");
 });

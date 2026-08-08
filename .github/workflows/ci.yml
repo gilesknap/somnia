@@ -46,7 +46,16 @@ jobs:
 
   dist:
     uses: ./.github/workflows/_dist.yml
-  
+
+  pypi:
+    needs: [dist, test]
+    if: github.ref_type == 'tag'
+    uses: ./.github/workflows/_pypi.yml
+    # The only permission the publish needs: an OIDC token to prove to PyPI
+    # that this workflow, in this repository, is who it says it is.
+    permissions:
+      id-token: write
+
   release:
     needs: [dist, test, docs]
     if: github.ref_type == 'tag'

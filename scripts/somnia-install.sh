@@ -12,6 +12,7 @@
 #   --venv DIR       build the environment here (default ~/somnia-venv)
 #   --env-file FILE  seed this settings file if it is absent (default ~/somnia.env)
 #   --ref REF        install this branch, tag or commit (default main)
+#   --pypi           install the last release from PyPI instead of a git ref
 #   --source SPEC    install from a checkout instead of GitHub
 #   --serve-only     no Kokoro and no torch: this machine only plays books
 #   --cuda           take the CUDA torch wheel; the default is CPU-only
@@ -23,14 +24,20 @@
 
 set -euo pipefail
 
-# somnia is not on PyPI. The name is taken there by an unrelated project, so
-# installing it by name gets you somebody else's package — always the git URL.
+# On PyPI this is somnia-reader, never somnia: that name belongs to an
+# unrelated project, and `pip install somnia` gets you somebody else's package
+# with no error to warn you. The import package and the command are still
+# plain somnia — only the name pip is given changes.
+DIST_NAME=somnia-reader
 REPO_URL=${SOMNIA_REPO_URL:-https://github.com/gilesknap/somnia.git}
 CPU_TORCH_INDEX=https://download.pytorch.org/whl/cpu
 
 venv=$HOME/somnia-venv
 env_file=$HOME/somnia.env
+# main, not the last release, because this is the project's own box-builder and
+# the box is expected to be ahead of the tags. --pypi is the released package.
 ref=main
+from_pypi=no
 source_spec=""
 render=yes
 cpu_torch=yes
@@ -50,7 +57,10 @@ die() {
     printf 'xx %s\n' "$*" >&2
     exit 1
 }
-usage() { sed -n '3,25p' "$0" | sed 's/^# \{0,1\}//'; }
+# The end of the header comment, by line number, so --help is the header. It
+# was 25 and printed two lines too many, which is how `set -euo pipefail` used
+# to turn up in the help text. Move it if you add a line above.
+usage() { sed -n '3,23p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -64,7 +74,12 @@ while [ $# -gt 0 ]; do
         ;;
     --ref)
         ref=${2:?--ref needs a branch, tag or commit}
+        from_pypi=no
         shift 2
+        ;;
+    --pypi)
+        from_pypi=yes
+        shift
         ;;
     --source)
         source_spec=${2:?--source needs a path}
@@ -96,12 +111,35 @@ done
 # sequences are a hard SyntaxError there. Prefer the newest version we can use
 # rather than whatever `python3` happens to be.
 
+# An interpreter has to be able to *build* a virtual environment, not merely to
+# run — on Debian and Ubuntu `python3-venv` is a separate package, and without
+# it `python3 -m venv` gets all the way to writing the directory before failing
+# with a message about ensurepip that names no part of somnia. Checking here
+# costs one subprocess and turns that into a sentence saying what to install.
+# `venv_package_hint` carries the name of the one that was so nearly right, so
+# the error can name a package rather than a category.
+venv_package_hint=""
+
+usable_python() {
+    "$1" -c 'import sys; raise SystemExit(not ((3, 11) <= sys.version_info < (3, 14)))' 2>/dev/null || return 1
+    if ! "$1" -c 'import ensurepip' 2>/dev/null; then
+        venv_package_hint="python$("$1" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)-venv"
+        return 1
+    fi
+    return 0
+}
+
+# The answer comes back in `found_python` rather than on stdout, because the
+# caller would have to write `$(find_python)` to read stdout and that runs the
+# whole search in a subshell — where `venv_package_hint` is set, and where it
+# dies along with the subshell. The diagnosis has to outlive the search.
+found_python=""
+
 find_python() {
     local candidate
     for candidate in python3.13 python3.12 python3.11 python3; do
-        if command -v "$candidate" >/dev/null 2>&1 &&
-            "$candidate" -c 'import sys; raise SystemExit(not ((3, 11) <= sys.version_info < (3, 14)))' 2>/dev/null; then
-            command -v "$candidate"
+        if command -v "$candidate" >/dev/null 2>&1 && usable_python "$candidate"; then
+            found_python=$(command -v "$candidate")
             return 0
         fi
     done
@@ -109,13 +147,23 @@ find_python() {
     # odd one. uv keeps interpreters of its own, off PATH, and any of those
     # will do. --system so that running this from inside a checkout finds a
     # real interpreter rather than that checkout's own virtual environment.
+    # These always carry ensurepip, so they skip the check above — and must,
+    # since no apt package would fix one of them anyway.
     if command -v uv >/dev/null 2>&1; then
-        uv python find --system '>=3.11,<3.14' 2>/dev/null && return 0
+        found_python=$(uv python find --system '>=3.11,<3.14' 2>/dev/null) &&
+            [ -n "$found_python" ] && return 0
     fi
+    found_python=""
     return 1
 }
 
-if ! python=$(find_python); then
+if find_python; then
+    python=$found_python
+else
+    if [ -n "$venv_package_hint" ]; then
+        die "somnia found a Python it can use but it cannot build a virtual" \
+            "environment — run: sudo apt install $venv_package_hint"
+    fi
     hint="install one with your package manager"
     command -v uv >/dev/null 2>&1 && hint="run: uv python install 3.13"
     die "somnia needs Python 3.11, 3.12 or 3.13, and none of those was found — $hint"
@@ -173,7 +221,7 @@ say "updating pip"
 # carries a newer torch than the CPU index does, you get two gigabytes of CUDA
 # runtime to render a book with. Installing torch first, from the CPU index
 # alone, is the only form that cannot pick the wrong wheel — after which
-# somnia[ml] finds its torch requirement already satisfied.
+# somnia-reader[ml] finds its torch requirement already satisfied.
 
 if [ "$render" = yes ] && [ "$cpu_torch" = yes ]; then
     say "installing CPU torch from $CPU_TORCH_INDEX"
@@ -188,9 +236,29 @@ extras=""
 if [ -n "$source_spec" ]; then
     [ -f "$source_spec/pyproject.toml" ] || die "no pyproject.toml under $source_spec"
     spec="$source_spec$extras"
+elif [ "$from_pypi" = yes ]; then
+    spec="$DIST_NAME$extras"
 else
-    spec="somnia$extras @ git+$REPO_URL@$ref"
+    # The name in front of @ has to be the distribution name, not the import
+    # package. Say somnia here and pip clones, builds the metadata, sees it
+    # says somnia-reader, discards the whole thing as "inconsistent name" —
+    # and then goes looking for somnia on PyPI, where the other project is
+    # waiting. What you get is either a confusing failure or a stranger.
+    # The same trap runs backwards: --ref 0.5, or any ref from before the
+    # rename, builds metadata saying somnia and is discarded the same way —
+    # docs/how-to/upgrade.md says what to type instead.
+    spec="$DIST_NAME$extras @ git+$REPO_URL@$ref"
 fi
+
+# An environment built before the rename has the old distribution `somnia` in
+# it, and it owns every file somnia-reader is about to write. Installing over
+# the top leaves both listed, sharing one set of files, and then the first
+# `pip uninstall somnia` — which is what the docs used to tell you to type —
+# deletes those files while pip goes on reporting somnia-reader as installed.
+# What is left imports as an empty namespace package, so it looks fine until
+# something asks it for a book. Take the old name out first, while it is still
+# the only thing that owns them. Nothing to remove is the normal case.
+"$vpy" -m pip uninstall --quiet --yes somnia >/dev/null 2>&1 || true
 
 # Two passes, because pip will not reinstall a package whose name and version
 # it already has: a plain install of a new --ref into an existing environment

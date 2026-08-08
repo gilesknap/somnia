@@ -130,6 +130,14 @@ Ask to be taken somewhere and the book goes there and plays from there. If the
 passage is in a book that was not even open, that book opens. Nothing has to be
 pressed afterwards.
 
+Ask it a *question* instead — who Rob Roy is, what became of Ginger, why they
+went to London — and it answers in a sentence and leaves the book exactly where
+it is. Nothing moves, no list goes up, and the book carries on playing
+underneath. It is worth saying because it did not use to be true: every question
+was read as *take me somewhere*, so asking who somebody was either put a list of
+places on the screen or moved the book to one of them, and cost you the hour you
+were in.
+
 When more than one place could be what you meant, it does not ask — it puts
 them on the screen. The screen is headed *Places you might be*, with a line
 under it saying how many there are and what they span, and each row is a
@@ -138,14 +146,20 @@ them, so you recognise the moment rather than take somnia's word for it, and
 never the words of a place you have not reached yet, which is the paragraph
 after this one. There is a *you are here* marker sitting
 between them in book order so you can see which are behind you and which are
-ahead. Press *goto* on a row and the book goes there and plays. Press *close* at
-the bottom and nothing whatever happens: the book carries on exactly as it was, in
-the same place, with the same sleep timer running. Nothing has moved while the
-list is up, so there is nothing to undo. The book keeps playing underneath it
-the whole time, which also means a sleep timer left to run out under a list
-still ends the night — the list is not a reason to keep the book going.
+ahead. Press *goto* on a row and the book goes there and plays. Press
+*‹ controls* in the top left — the same corner and the same word as the way out
+of everything else — and nothing whatever happens: the book carries on exactly
+as it was, in the same place, with the same sleep timer running. Nothing has
+moved while the list is up, so there is nothing to undo. The book keeps playing
+underneath it the whole time, which also means a sleep timer left to run out
+under a list still ends the night — the list is not a reason to keep the book
+going.
 
-It will not answer about a part of the book you have not heard. The bound is
+It will not answer about a part of the book you have not heard. An answer can
+come out of somnia's own reading of the book rather than only out of the passage
+it just looked up, and that line is the whole of what bounds it: somebody who
+has not turned up yet gets *he hasn't come up yet in what you've heard*, and
+nothing after that — not who he is, and not that he arrives later. The bound is
 the furthest point the page has actually *played through*, not where you are
 now — so being taken back to chapter two does not un-hear chapter twenty, and
 being taken forward does not unlock what you were carried over. What you get
@@ -174,10 +188,11 @@ The page opens the book you were last listening to, at the place you left it,
 and does not start it — opening the app at 2am to ask a question is not the
 same as asking for the book. Press play when you want it.
 
-To read something else, open *books* and press it on the shelf — or ask, which
-still works and is still the shortest way to say it. There is no library of
-things you do not have to browse: the search at the foot of that panel is for
-*adding* a book, and it goes to Gutenberg's catalog rather than to your shelf.
+To read something else, open *library* and press the book on the shelf — or ask,
+which still works and is still the shortest way to say it. There is still no
+library of things you do not have to browse: the search at the foot of that
+panel is for *adding* a book, and it goes to Gutenberg's catalog rather than to
+your shelf.
 
 On the page there are three buttons: back thirty seconds, play/pause, forward
 thirty seconds. Most nights you will use none of them, because the screen is
@@ -218,8 +233,8 @@ on when chapter four arrives. A book with nothing rendered at all says *the
 first chapter is still being read*, and the player appears when that chapter
 lands — already playing if the agent took you to that book, waiting to be
 pressed if you only opened the app. A book whose render is not running and has
-no audio at all says *nothing yet — press books to add one*, which is also what
-a somnia with no books in it says.
+no audio at all says *nothing yet — press library to add one*, which is also
+what a somnia with no books in it says.
 
 When a render stopped part way — you stopped it, or a reboot did — the audio
 runs out mid-book, and the page says *the rest of this book hasn't been read
@@ -227,7 +242,7 @@ yet* rather than *that is the end of the book*. It knows the difference because
 the parse writes down how many chapters the book has, so a book three chapters
 into thirty-nine is tellable from one that is over. Nothing ends: the sleep
 timer keeps counting and the page keeps wanting the sound. Queue the book
-again — from *books*, or by asking — and it picks up at the chapter after the
+again — from *library*, or by asking — and it picks up at the chapter after the
 last finished one.
 
 When the tailnet goes — wifi power save and a tailscale re-key both do it for a
@@ -241,11 +256,11 @@ again at once, so there is nothing to press.
 
 ## Choosing and adding books from the page
 
-*books*, in the corner beside *start over*, opens a panel over the page. The
-book keeps playing underneath it, nothing on it moves the book you are in, and
-*‹ controls* puts it away having changed nothing at all. Two presses on it do
-change something, and both are presses on a book: *pick it up*, which starts the
-book already open, and a book on the shelf, which opens that one.
+*library*, in the top left corner, opens a panel over the page. The book keeps
+playing underneath it, and *‹ controls* puts it away having changed nothing at
+all. Two presses on it do change something, and both are presses on a book:
+*pick it up*, which starts the book already open, and a book on the shelf, which
+opens that one.
 
 At the top, under *reading now*, is the book that is playing underneath the
 panel — *The Moonstone — Collins, Wilkie, 1824-1889*, and under it *chapter 4

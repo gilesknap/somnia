@@ -755,6 +755,12 @@ class FakeAudio extends FakeElement {
 // earlier page can be given a time that is neither in the future nor stale.
 export const START_MS = 1_700_000_000_000;
 
+// The page with nothing over it, on the phone it is drawn for: 360x780 with a
+// 20px root, which is a Pixel 6 Pro with Android's text scaling turned up. Every
+// height a test hands to `resize` is measured against this one, so it is the
+// phone's own height and not a number chosen to make the arithmetic tidy.
+export const VIEWPORT_HEIGHT = 780;
+
 class FakeClock {
   constructor() {
     this.ms = START_MS;
@@ -828,10 +834,6 @@ globalThis.__page = {
     // width string so a test can tell "0%" — nobody wrote down how long the
     // book is — apart from a fill that was never set at all.
     through: wholePlayed.style.width,
-    // What the corner is offering. It is a label and not a state because that
-    // is the whole of the confirm: the first press changes this word and
-    // nothing else in this object.
-    restart: restart.textContent,
     // The chapter's own clock, and whether there is anywhere left to skip to.
     // Both are drawn from the chapter row rather than from the element, so a
     // test that watches them is watching the book's clock and not the
@@ -872,6 +874,15 @@ globalThis.__page = {
     // a radio wake every five seconds, all night, beside somebody asleep.
     queueUp: !queuePanel.hidden,
     queuePolling: queuePoll !== 0,
+    // Which of the two screens the page is on, and whether there is a keyboard
+    // over whatever is showing. Two facts and not one: a keyboard over the books
+    // panel is a keyboard with the player still behind it, and an overlay that
+    // shrank its rows for a screen nobody is on would be the same bug this pair
+    // replaced. Both are in the probe rather than beside it because cancel and
+    // close promise that everything in this object is unchanged, and a press
+    // that quietly moved the page to another screen is that promise broken.
+    screen: whichScreen,
+    keyboardUp: document.body.classList.contains("keyboard-up"),
   }),
   seekGlobal,
   openBook,
@@ -916,6 +927,11 @@ export async function boot(t, options = {}) {
     // a gid, as this one did while nothing read the rest, would let a page pass
     // that cannot say where any book was left.
     library = null,
+    // Whether this browser has a visual viewport at all. Every engine that can
+    // run this page does, so `false` is the arm and not the ordinary case — it
+    // is here because what that arm decides is whether the conversation can be
+    // reached at all on an engine that cannot be measured.
+    canMeasure = true,
   } = options;
 
   // Everything the element and the media session did, in the order they did
@@ -987,6 +1003,18 @@ export async function boot(t, options = {}) {
 
   const fakeWindow = new FakeElement("window");
   const fakeDocument = new FakeElement("document");
+  // What is left of the page after whatever the platform has put over it, which
+  // is the one thing that can tell a keyboard from a window somebody dragged
+  // shorter. A FakeElement because all the page asks of it is a height and a
+  // resize listener, and the listener half is already here.
+  const visualViewport = new FakeElement("visual-viewport");
+  visualViewport.height = VIEWPORT_HEIGHT;
+  if (canMeasure) fakeWindow.visualViewport = visualViewport;
+  // <body>, which the page writes both of its two states onto: which screen it
+  // is on, and whether there is a keyboard over it. It is not in the id
+  // registry because nothing ever asks the document for it — the page reaches it
+  // through document.body, as a browser hands it over.
+  fakeDocument.body = new FakeElement("body");
   fakeDocument.getElementById = el;
   fakeDocument.visibilityState = "visible";
   // Made without an id, so nothing is registered until the page gives it one —
@@ -1162,7 +1190,26 @@ export async function boot(t, options = {}) {
     // being backgrounded, and the page dying. Both are events on these.
     window: fakeWindow,
     document: fakeDocument,
+    // Where the page says which screen it is on and whether a keyboard is over
+    // it. The classes are what the stylesheet reads, so they are what a test
+    // about a screen has to look at — the probe reports the same two facts, and
+    // a page that set the variable without writing the class would pass one and
+    // fail the other.
+    body: fakeDocument.body,
     el,
+    // The viewport coming up short, which is what a keyboard arriving looks like
+    // from inside the page — and, with nothing focused, what a window being
+    // dragged looks like. The two are the same event and telling them apart is
+    // the whole of what these tests are about.
+    resize: (height) => {
+      visualViewport.height = height;
+      visualViewport.fire("resize");
+    },
+    // Focus, said by hand as a browser says it. Which box matters: the
+    // composer's keyboard is the chat screen and the books panel's is a
+    // keyboard over an overlay with the player still behind it.
+    focus: (id) => el(id).fire("focus"),
+    blur: (id) => el(id).fire("blur"),
     order,
     posts,
     beacons,

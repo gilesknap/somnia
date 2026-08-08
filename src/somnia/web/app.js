@@ -20,6 +20,12 @@ const composer = document.getElementById("composer");
 const question = document.getElementById("question");
 const talk = document.getElementById("talk");
 const restart = document.getElementById("restart");
+// The header's other left-hand pill: the way back off the chat screen. It is a
+// second button rather than `books` relabelled because the two do different
+// things, and a control whose action is held in a variable is one the sheet
+// cannot draw and a reader cannot trust. Which of them is in the corner is the
+// screen's business, and the screen is a class on <body>.
+const toControls = document.getElementById("to-controls");
 const statusLine = document.getElementById("status");
 const player = document.getElementById("player");
 const playerBar = document.getElementById("player-bar");
@@ -257,40 +263,28 @@ composer.addEventListener("submit", (event) => {
   ask(question.value.trim());
 });
 
-// How long `start over` stands asked before the corner forgets it. Long enough
-// to read four words and decide, short enough that a phone put down face up
-// with the question still on it is not one press from an empty screen. The
-// queue's `stop reading this` is the same pattern with a longer fuse, because
-// that press ends hours of rendering and this one ends a conversation.
-const RESTART_CONFIRM_MS = 3200;
-
-// The wake that will put the label back, or 0 for a corner that is not asking.
-// One variable and not two: the label is drawn from it, so "is it armed?" and
-// "what does it say?" cannot come apart.
-let restartTimer = 0;
-
-function forgetRestart() {
-  clearTimeout(restartTimer);
-  restartTimer = 0;
-  restart.textContent = "start over";
-  restart.classList.remove("armed");
-}
-
-// Two presses, and the button itself is the question — the same answer the
-// queue panel gives, so that the page has one way of asking rather than two.
-// Not a confirm dialog: that would be the first thing on this page to take
-// focus from anybody, and an overlay over a conversation somebody is about to
-// throw away is one more thing to get out of.
-restart.addEventListener("click", () => {
-  if (!restartTimer) {
-    restart.textContent = "sure? tap again";
-    restart.classList.add("armed");
-    restartTimer = setTimeout(forgetRestart, RESTART_CONFIRM_MS);
-    return;
-  }
-  forgetRestart();
-  startOver();
-});
+// One press, and there is no second one to wait for.
+//
+// It took two until this corner learned which screen it was on, and the button
+// itself was the question: `sure? tap again` where the label had been, on a
+// three-second fuse. That was the right answer to the wrong control. `start
+// over` was in the top corner of the *player* then, which is the screen a hand
+// reaches for in the dark with the room black and the eyes shut, and a press
+// that throws something away sitting there wants asking about twice.
+//
+// It is not there any more. The only screen it is on is the one somebody is
+// typing into, looking at, with a keyboard up under it — and on that screen
+// what the press costs is questions that can be asked again in the same words.
+// So the confirm was guarding a risk that has been designed out of the corner
+// rather than talked out of it, and a page that still asked would be charging
+// two presses for the cheapest thing on it. The queue's `stop reading this`
+// keeps its two presses and its longer fuse, because that one ends hours of
+// rendering and lives on a panel anybody can wander into.
+//
+// It is a press at all only because of the guard at the foot of this file: a
+// pill the sheet draws only while the composer has focus must not be allowed
+// to take that focus away from it.
+restart.addEventListener("click", startOver);
 
 // What is thrown away is the conversation, and only the conversation. The book
 // keeps playing, keeps its position and keeps its sleep timer: "start over"
@@ -2338,7 +2332,7 @@ async function openTheBook() {
       // The state that most needs the panel, and the one with no book, no
       // manifest and no gid — so the nudge has to name the control rather than
       // relying on anything on the screen to be about a book.
-      setStatus("nothing yet — press books to add one");
+      setStatus("nothing yet — press library to add one");
       return;
     }
     await openBook(chosen);
@@ -3514,21 +3508,212 @@ if (!Recognition) {
   talk.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 
+// ------------------------------------------------------------------- screens
+
+// Which of the two screens the page is on, said out loud on <body> so the sheet
+// can ask.
+//
+// There is one document and there always was. The player and the chat are the
+// same elements shown and hidden — no route, no history, nothing to come back
+// from — and what is new here is only that the page *knows* which of the two it
+// is showing instead of the sheet working it out from the height of the window.
+//
+// The sheet used to ask `@media (max-height: 34rem)` and mean two things at
+// once: "is there room to draw the reading?", which is a fair question to ask a
+// height, and "is the keyboard up?", which is not. The second guess was wrong
+// twice over. A window dragged short has no keyboard in it, and 34rem is 34
+// times a root that is the OS text scale on purpose — so turning the text up,
+// which is the one setting this whole page is sized around, eventually put the
+// threshold above the height of the phone and left the player unreachable for
+// the rest of the night. The larger the reader's type, the sooner they lost the
+// book. The first question is still a height query in the sheet; this is the
+// second one, and it is a measurement.
+//
+// It is a named screen rather than a `keyboard-up` boolean because the keyboard
+// is a route in and not the thing itself: the design's dock pill is a portal to
+// this same screen, and the header is drawn differently on each of the two.
+//
+// Today the keyboard is the only route, and readKeyboard is the only caller of
+// showScreen — it recomputes the name from scratch on every resize, focus and
+// blur. So a press that wants the conversation cannot simply call
+// showScreen("chat") and stop there: the next resize, and Android sends them
+// whenever its address bar moves, would put the page back on the player with
+// nothing said. Whoever adds that press has to give readKeyboard something to
+// respect — a remembered "they asked for chat" that the measurement adds to
+// rather than overrules — and this comment is the warning that the one-line
+// version of it looks like it works.
+const SCREENS = ["player", "chat"];
+
+// The book and its controls, until something takes them off it.
+//
+// This is the page's own answer to "which screen?"; the class below is only how
+// the sheet gets told. Nothing in here reads it back yet — the first press that
+// will is the header, which the design draws differently on each of the two —
+// and it is a name rather than a boolean so that the third screen the design
+// already describes has somewhere to be.
+//
+// `whichScreen` and not `screen`: `screen` is a browser global, and a top-level
+// `let screen` would quietly shadow it for the whole file.
+let whichScreen = "player";
+
+// Written every time rather than only on a change: this is also what puts the
+// first class on <body>, and a page that only wrote when the screen changed
+// would spend the whole of its first night carrying neither of them.
+function showScreen(name) {
+  whichScreen = name;
+  for (const each of SCREENS) {
+    document.body.classList.toggle(`${each}-screen`, each === name);
+  }
+}
+
+// Said before anything can ask, and before a keyboard can have an opinion.
+showScreen(whichScreen);
+
 // ------------------------------------------------------------------ keyboard
 
 // Not every browser shrinks the page for the on-screen keyboard, and the ones
 // that do disagree about when. Following the visual viewport keeps the
 // composer above the keyboard and the transcript scrollable to both ends.
+//
+// It is also where the keyboard is *measured*, which is the whole of how the
+// screen above is decided. `visualViewport.height` is what is left of the page
+// after whatever the platform has put over it; the same page's height with
+// nothing over it is the other half of the sum, and the difference between them
+// is the keyboard. Nothing there has to be inferred from anything.
+
+// How much of the page something has to take before it counts as a keyboard
+// rather than the address bar sliding in. A keyboard is between a third and a
+// half of a phone; the chrome that comes and goes is a tenth of it at most. A
+// fraction and not a number of pixels, because what it has to clear scales with
+// the screen — a tablet's keyboard is a smaller share of a taller page.
+const KEYBOARD_TAKES = 0.25;
+
+// The two boxes on this page anybody types into. A keyboard cannot be up over a
+// page with focus in neither of them, and that is what tells a window dragged
+// short from a keyboard arriving: nothing about a desktop resize implies
+// somebody is typing. A third field added to this page has to be added here as
+// well, or its keyboard is the one the page cannot see.
+const typingFields = [question, queueQuery];
+
+// Which of them is being typed into, or null. The element rather than a
+// boolean, because the composer's keyboard is the chat screen while the books
+// panel's keyboard is a keyboard over an overlay with the player still behind
+// it.
+let typing = null;
+
 const viewport = window.visualViewport;
-if (viewport) {
-  const fit = () => {
-    document.body.style.height = `${viewport.height}px`;
-    transcript.scrollTop = transcript.scrollHeight;
-  };
-  viewport.addEventListener("resize", fit);
-  // The keyboard animates in, so measure after it has settled.
-  question.addEventListener("focus", () => setTimeout(fit, 250));
-  question.addEventListener("blur", () => setTimeout(fit, 250));
+
+// What the page is when nothing is over it, and the only number here that is
+// remembered rather than read. It can only be taken while nothing has focus:
+// measured with a keyboard up it would teach the page that the short screen is
+// the whole screen, and the keyboard would never be seen again.
+let unobscured = viewport ? viewport.height : 0;
+
+const fit = () => {
+  if (!viewport) return;
+  document.body.style.height = `${viewport.height}px`;
+  transcript.scrollTop = transcript.scrollHeight;
+};
+
+// The two facts the sheet reads, from the two above.
+function readKeyboard() {
+  // Without a visual viewport there is nothing to measure, so focus has to be
+  // taken at its word. Every engine that can run this page has one; the arm is
+  // here so that an engine that does not can still reach the conversation,
+  // which is what the height query used to give it.
+  const shrunk =
+    !viewport || viewport.height < unobscured * (1 - KEYBOARD_TAKES);
+  const up = Boolean(typing) && shrunk;
+  // A keyboard over an overlay is still a keyboard: the list of places and the
+  // books panel both shrink their rows for one, and either can be up with the
+  // player rather than the chat behind it. So this is a separate fact from the
+  // screen and not a second name for it.
+  document.body.classList.toggle("keyboard-up", up);
+  showScreen(up && typing === question ? "chat" : "player");
+}
+
+viewport?.addEventListener("resize", () => {
+  // With nothing focused, nothing is over the page: whatever it is now is what
+  // "not obscured" means from here on. A window dragged shorter, a phone turned
+  // on its side, a text scale changed under a page left open all night — all of
+  // them arrive here, and none of them is a keyboard.
+  if (!typing) unobscured = viewport.height;
+  fit();
+  readKeyboard();
+});
+
+for (const field of typingFields) {
+  field.addEventListener("focus", () => {
+    typing = field;
+    readKeyboard();
+    // The keyboard animates in, so measure again after it has settled.
+    setTimeout(() => {
+      fit();
+      readKeyboard();
+    }, 250);
+  });
+  field.addEventListener("blur", () => {
+    // Decided at once rather than waited on. The keyboard animates out over the
+    // next fifth of a second and the viewport does not come back until it has,
+    // so the player is drawn for that long in a window still short of the room
+    // it wants — which is worth it, because a page that waited for a resize
+    // that never came on an engine that does not send them would leave somebody
+    // stranded on the chat screen, which is the whole of this issue.
+    stoppedTyping();
+    setTimeout(() => {
+      fit();
+      readKeyboard();
+    }, 250);
+  });
+}
+
+// Nobody is typing any more, whoever said so. The box losing focus is one way
+// of saying it and the header's `‹ controls` pill is the other, and they have to
+// mean the same thing or the page has two ideas of which screen it is on.
+function stoppedTyping() {
+  typing = null;
+  readKeyboard();
+}
+
+// The way off the chat screen that is a press rather than a keyboard leaving.
+//
+// Giving the keyboard back is most of it: on the phone, blurring the composer
+// is what takes those letters off the bottom half of the screen, and there is
+// no other way to ask for that. But the screen is set here as well rather than
+// left to the blur that follows, because a press whose result waits on the
+// platform answering is a press that does nothing on the platform that does
+// not — and this is the press that exists so that somebody who cannot get the
+// keyboard down still has a way back to the book. Both paths end in
+// stoppedTyping(), so pressing this and dismissing the keyboard by hand are the
+// same event twice and not two states.
+toControls.addEventListener("click", () => {
+  question.blur?.();
+  stoppedTyping();
+});
+
+// And neither corner of that screen may take the composer's focus, which is the
+// one thing standing between both of them and being pressable at all.
+//
+// The chain is short and it runs entirely downhill. Focus leaving the box is a
+// blur; a blur is stoppedTyping(); stoppedTyping() is the player screen; and the
+// player screen is the one the sheet draws neither of these pills on. So a press
+// that let the focus move would take the button out of the page between the
+// finger going down and the click coming out, and a browser with nothing left
+// under the finger hands that click to whatever is behind it. Chrome does
+// exactly this, by mouse and by finger alike, and what it looked like was `start
+// over` putting the keyboard away and throwing no conversation away at all —
+// while every test of it passed, because a test fires the click at the element
+// itself and cannot lose it on the way.
+//
+// Cancelling the mousedown is the whole of the cure: moving the focus is that
+// event's default action, on the touch path as well, since the tap's focus
+// arrives with the mouse events the phone synthesises after the finger lifts.
+// `‹ controls` then blurs the box itself, above, in the order it chooses.
+// `start over` leaves the keyboard up and the screen where it was, which is what
+// it should do anyway — a thread cleared is a thread about to be asked something
+// else.
+for (const corner of [toControls, restart]) {
+  corner.addEventListener("mousedown", (event) => event.preventDefault());
 }
 
 if ("serviceWorker" in navigator) {
