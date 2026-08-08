@@ -42,7 +42,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from .abs import AbsClient
-from .agent import Conversation, Turn, open_library
+from .agent import Conversation, Turn, effort_for, open_library
 from .catalog import search_catalog
 from .config import Config
 from .db import connect
@@ -140,9 +140,14 @@ class Conversations:
         self._client = Anthropic(api_key=cfg.anthropic_api_key or None)
 
     def warm(self) -> None:
-        """Load the embedding model before anybody waits on it.
+        """Get the slow lookups out of the way before anybody waits on them.
 
-        It is torch and a sentence-transformer, and it takes twelve seconds on
+        Two of them. The small one first: whether this model takes an effort
+        level is a question for the API, and asking it inside the first turn
+        would put a round trip in front of the first answer of the night.
+
+        The large one is the embedder. It is torch and a sentence-transformer,
+        and it takes twelve seconds on
         nuc2. Loaded lazily, that wait lands on the first question of the night
         that searches anything — every time the unit restarts, which is every
         deploy — and it lands *inside* the turn, so what it looks like is the
@@ -158,6 +163,7 @@ class Conversations:
         which is exactly what it did before this existed, and the last time it
         will have to.
         """
+        effort_for(self._client, self._cfg)
         with self._lock:
             _ = self._library.embedder
 
