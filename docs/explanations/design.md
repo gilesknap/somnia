@@ -386,17 +386,19 @@ process to deploy must not kill a render that is four hours in.
   the agent loop (Anthropic Python SDK tool runner) with an API key held
   server-side — no OAuth. Voice input via the browser's Web Speech API
   (push-to-talk button); Android keyboard dictation as fallback.
-- Model: **Sonnet 5** default, `SOMNIA_AGENT_MODEL` to change it. Haiku 4.5 was
-  the original choice on cost, and mostly held up, but it read a character's
-  name as the title of a book somnia does not have and said so — a spoken
-  half-sentence at 2am is exactly the disambiguation this is here to do. The
-  difference is a few cents a night. **That reason has since expired.** Over 85
-  turns per model on nuc2 (2026-08-08), against the real book and the prompt as
-  it now stands, Haiku 4.5 routed 85/85 against Sonnet's 84/85, was judged
-  spoiler-safe on 83/85 against Sonnet's 82/85, and answered in a median 2.46s
-  against 4.89s. It did not reproduce the Rob Roy failure in five tries. The
-  default stays Sonnet on habit rather than evidence; the change is one
-  environment variable. See `somnia/config.py` for the table.
+- Model: **Haiku 4.5** default, `SOMNIA_AGENT_MODEL` to change it. It was the
+  original choice on cost, lost the job for reading a character's name as the
+  title of a book somnia does not have and saying so — a spoken half-sentence
+  at 2am is exactly the disambiguation this is here to do — and Sonnet 5 held
+  it for two months. **It has the job back, on measurement.** Over 85 turns per
+  model on nuc2 (2026-08-08), against the real book and this prompt rather than
+  the much softer one it was judged against then, Haiku routed 85/85 against
+  Sonnet's 84/85, was judged spoiler-safe on 83/85 against Sonnet's 82/85, and
+  answered in a median 2.46s against 4.89s — half the time, a fifth of the
+  cost, on a screen where every second of the wait is felt. It did not
+  reproduce the Rob Roy failure in five tries, which is not proof the failure
+  is gone: if a name is ever read as a book title again, Sonnet is one
+  environment variable away. See `somnia/config.py` for the table.
 - **The spoiler guard is two things and only one of them is sound.** In that
   same run, retrieval never once crossed the line — checked mechanically, every
   passage handed to the model began before the mark. What leaked, on both
@@ -406,17 +408,19 @@ process to deploy must not kill a render that is four hours in.
   instruction, not a mechanism, and prompt instructions are followed most of
   the time. Worth knowing before trusting the guard absolutely, and not a
   reason to prefer either model.
-- **How long a turn takes is mostly the model deciding how hard to think.**
-  Retrieval is around a tenth of a second — the two searches, the sqlite-vec
-  lookup and the embedding of the question all together — and the rest of a
-  five-to-eight second answer is round trips to Anthropic. So the levers are
-  all on that side: `SOMNIA_AGENT_EFFORT` (default `medium`, down from the
-  API's `high`, worth about two seconds a turn), the constant half of the
-  system prompt cached across hops, and loading the embedding model at startup
-  rather than inside whichever question needs it first. Turning thinking off
-  altogether is faster again and is not done: a Sonnet 5 turn with no thinking
-  can write its tool call into the reply as prose instead of calling the tool,
-  which does not read as a failure — it reads as an answer.
+- **How long a turn takes is almost entirely the model.** Retrieval is around a
+  tenth of a second — the two searches, the sqlite-vec lookup and the embedding
+  of the question all together — and the rest is round trips to Anthropic. So
+  the levers are all on that side, in the order they are worth: the model
+  itself (above), the constant half of the system prompt cached across hops,
+  loading the embedding model at startup rather than inside whichever question
+  needs it first, and `SOMNIA_AGENT_EFFORT` for the models that have such a
+  dial. Haiku has not got one, so on the default that setting is not sent and
+  changes nothing; on Sonnet it defaults to `medium` against the API's `high`
+  and is worth about two seconds a turn. Turning thinking off altogether is
+  faster again and is not done: a Sonnet 5 turn with no thinking can write its
+  tool call into the reply as prose instead of calling the tool, which does not
+  read as a failure — it reads as an answer.
 - MCP server: designed for, never built, and nothing needs it. A FastMCP
   wrapper over the tool layer would be a dev-time convenience only — the 2am
   surface is the page, and the tools are a library any test can call directly.

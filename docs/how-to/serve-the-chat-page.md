@@ -25,8 +25,8 @@ the ones a served night depends on:
 | `SOMNIA_LIBRARY_DIR` | where the rendered chapters are; the page streams them |
 | `SOMNIA_DATA_DIR` | where `somnia.db` lives, and where the joined-up copy of each book the page plays is written — sometimes more than one for a book opened mid-render; needs room, not just a path |
 | `SOMNIA_ABS_URL`, `SOMNIA_ABS_TOKEN` | optional: keeping Audiobookshelf roughly in step, and the one-off below |
-| `SOMNIA_AGENT_MODEL` | another model; the default is Sonnet 5 |
-| `SOMNIA_AGENT_EFFORT` | how hard it may think before answering; the default is `medium` |
+| `SOMNIA_AGENT_MODEL` | another model; the default is Haiku 4.5 |
+| `SOMNIA_AGENT_EFFORT` | how hard it may think before answering, on the models that have such a dial; Haiku has not |
 
 `SOMNIA_LIBRARY_DIR` is the one that has become load-bearing since the page
 became the player, and it fails quietly if it is wrong. Chapters are never
@@ -52,26 +52,26 @@ than the one added most recently, at the beginning. It says what it did for
 every book, it never moves a position backwards, and running it again changes
 nothing — so if you are unsure whether it worked, run it again.
 
-`SOMNIA_AGENT_MODEL` overrides Sonnet 5. Haiku was the first choice, on cost,
-and was dropped for one specific mistake it did not make once in five tries at
-the same question, against a prompt hardened a great deal since: set
-`SOMNIA_AGENT_MODEL=claude-haiku-4-5` to go back to it. Over 85 trial questions
-on nuc2 it matched Sonnet on every routing case and answered in half the time,
-for a fifth of the cost. If the wait is what is bothering you, this is the
-change worth making.
+`SOMNIA_AGENT_MODEL` overrides Haiku 4.5. Haiku is the default because over 85
+trial questions on nuc2 it matched Sonnet 5 on every routing case, answered in
+half the time and cost a fifth as much. It lost the job once, for reading a
+character's name as the title of a book somnia does not have — it did not do
+that once in five tries at the same question, but five tries is not proof, and
+`SOMNIA_AGENT_MODEL=claude-sonnet-5` is the way back if it ever does it again.
 
 ### If a question takes too long to come back
 
-Almost none of the wait is somnia: a search of the book is a tenth of a second,
-and the rest is the model. Two things to try, in this order.
+Almost none of the wait is somnia: a search of the book is a tenth of a second
+and the rest is the model, so this is the one setting that really moves it. If
+you are on Sonnet, going back to the default Haiku roughly halves the wait.
 
-`SOMNIA_AGENT_MODEL=claude-haiku-4-5` is the big one — half the time, on the
-evidence above. Then `SOMNIA_AGENT_EFFORT=low`, which tells the model to think
-less before answering; the default is `medium`, already below what the API
-would do on its own, and `low` takes off perhaps another second. Note that the
-two do not stack: Haiku has no effort dial at all, so somnia does not send it
-one and the setting is simply ignored there. Restart `somnia-serve` after
-either.
+On Sonnet there is a second, smaller dial: `SOMNIA_AGENT_EFFORT=low` tells it
+to think less before answering, against a default of `medium` that is already
+below what the API would do on its own, and is worth perhaps another second.
+It does nothing on Haiku, which has no such dial — somnia asks the API which
+models take one and simply does not send it where it would be refused.
+
+Restart `somnia-serve` after either.
 
 One wait is not the model and does not respond to any of that: the **first**
 question of the night that searches a book used to sit for twelve seconds while
