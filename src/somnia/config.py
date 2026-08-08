@@ -1,10 +1,19 @@
 """Runtime configuration, sourced from environment variables."""
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal, cast, get_args
 
-__all__ = ["Config", "load_config"]
+__all__ = ["AgentEffort", "Config", "load_config"]
+
+logger = logging.getLogger(__name__)
+
+# What the API will accept for how hard to think. Spelled out here so a typo in
+# a systemd unit is caught on the way up, with a line in the journal, rather
+# than at 2am as a 400 on the first question of the night.
+AgentEffort = Literal["low", "medium", "high", "xhigh", "max"]
 
 
 def _default_data_dir() -> Path:
@@ -34,8 +43,23 @@ class Config:
     # to turn a mumbled description into a timestamp. It went back on that by
     # reading a character's name as the title of a book somnia does not have
     # and saying so. Sonnet is a few cents more a night and does not, which is
-    # the whole job. Set SOMNIA_AGENT_MODEL=claude-haiku-4-5 to go back.
+    # the whole job. Set SOMNIA_AGENT_MODEL=claude-haiku-4-5 to go back — and
+    # it is worth a night: measured on nuc2, Haiku 4.5 answers in around a
+    # third of the time, and no longer fails the Rob Roy case that demoted it,
+    # against a prompt that has been hardened a great deal since.
     agent_model: str = "claude-sonnet-5"
+    # How hard the model is allowed to think before it answers. Sonnet 5 thinks
+    # by default and defaults this to "high", which is what a question at 2am
+    # was waiting on: measured on nuc2, "medium" takes about two seconds off
+    # every turn and answers the same way on every case there is a test for.
+    #
+    # Lowering it is the safe half of that trade. Turning thinking off outright
+    # is faster still and is deliberately not done: on Sonnet 5 a turn with no
+    # thinking can write its tool call into the reply as prose instead of
+    # calling the tool, which does not fail — it comes back as a sentence about
+    # a search that never ran, and at 2am that is indistinguishable from an
+    # answer. Two seconds is not worth a lie.
+    agent_effort: AgentEffort = "medium"
     agent_max_tokens: int = 4096
     anthropic_api_key: str = ""
     sentence_silence_ms: int = 120
@@ -68,6 +92,20 @@ def load_config() -> Config:
         cfg.embed_model = v
     if v := os.environ.get("SOMNIA_AGENT_MODEL"):
         cfg.agent_model = v
+    if v := os.environ.get("SOMNIA_AGENT_EFFORT"):
+        if v in get_args(AgentEffort):
+            cfg.agent_effort = cast(AgentEffort, v)
+        else:
+            # Kept rather than raised: an unusable effort level is not worth
+            # refusing to serve the page over, and the default is a working
+            # answer. It is said out loud so that "I set it to low and nothing
+            # got faster" has somewhere to be looked up.
+            logger.warning(
+                "ignoring SOMNIA_AGENT_EFFORT=%r; expected one of %s. Using %r.",
+                v,
+                ", ".join(get_args(AgentEffort)),
+                cfg.agent_effort,
+            )
     # ANTHROPIC_API_KEY is the SDK's own variable; honour it so the key can be
     # set the way every other Anthropic tool expects.
     if v := os.environ.get("ANTHROPIC_API_KEY"):

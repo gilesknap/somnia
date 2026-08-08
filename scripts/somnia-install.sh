@@ -299,8 +299,13 @@ ANTHROPIC_API_KEY=
 # The Kokoro voice. Never change this for a book already rendered.
 #SOMNIA_VOICE=af_heart
 
-# The model behind the conversation.
+# The model behind the conversation. claude-haiku-4-5 answers in about a third
+# of the time for a fraction of the cost.
 #SOMNIA_AGENT_MODEL=claude-sonnet-5
+
+# How hard it may think before answering: low, medium, high, xhigh or max.
+# The main dial on how long a question waits.
+#SOMNIA_AGENT_EFFORT=medium
 
 # Must be 384-dimensional.
 #SOMNIA_EMBED_MODEL=intfloat/e5-small-v2

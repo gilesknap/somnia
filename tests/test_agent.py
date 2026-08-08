@@ -13,7 +13,7 @@ from black_beauty import CHAPTERS, PASSAGES, build_black_beauty
 from fakes import FakeAbs, FakeEmbedder
 from somnia.abs import AbsClient
 from somnia.agent import OFFER_SENTENCE, SYSTEM_PROMPT, Conversation, build_tools
-from somnia.config import Config
+from somnia.config import Config, load_config
 from somnia.db import connect
 from somnia.embed import Embedder
 from somnia.queue import claim
@@ -442,11 +442,36 @@ def test_the_sentence_beside_a_list_says_nothing_about_what_is_on_it(
     assert OFFER_SENTENCE in SYSTEM_PROMPT
 
 
-def client_recording_system(systems: list[str]) -> Anthropic:
-    """A client that keeps the system prompt it was handed, per turn."""
+def client_recording_system(
+    systems: list[str], blocks: list[list[dict[str, Any]]] | None = None
+) -> Anthropic:
+    """A client that keeps the system prompt it was handed, per turn.
+
+    Recorded twice, because the prompt is two things at once. ``systems`` gets
+    the whole of what the model reads, joined back into one string — that is
+    what every test about *wording* wants, and none of them should have to know
+    the prompt is split for the cache. ``blocks`` gets the split itself, for the
+    one test that is about exactly that.
+    """
 
     def tool_runner(**kwargs: Any) -> FakeRunner:
-        systems.append(kwargs["system"])
+        system = kwargs["system"]
+        systems.append("".join(block["text"] for block in system))
+        if blocks is not None:
+            blocks.append(system)
+        return FakeRunner([SimpleNamespace(content=[text("Right you are.")])])
+
+    fake = SimpleNamespace(
+        beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner))
+    )
+    return cast(Anthropic, fake)
+
+
+def client_recording_calls(calls: list[dict[str, Any]]) -> Anthropic:
+    """A client that keeps every argument the runner was built with."""
+
+    def tool_runner(**kwargs: Any) -> FakeRunner:
+        calls.append(kwargs)
         return FakeRunner([SimpleNamespace(content=[text("Right you are.")])])
 
     fake = SimpleNamespace(
@@ -481,6 +506,80 @@ def test_the_open_book_is_named_to_the_model_on_every_turn(
     # ...and nowhere in the conversation itself, which is what stops a stale
     # copy of it outliving the book it was about.
     assert all("gid 271" not in str(m.get("content")) for m in conversation.messages)
+
+
+def test_how_hard_to_think_is_settable_and_reaches_the_model(
+    library_with_book: Library,
+) -> None:
+    """The setting that decides how long a question waits.
+
+    Sonnet thinks before it answers and, left alone, thinks as hard as it can:
+    that is where most of a turn goes, and it is the one part of the wait that
+    is a dial rather than a fact. It has to arrive with the request to be worth
+    anything, so this checks that it does.
+    """
+    calls: list[dict[str, Any]] = []
+    cfg = Config()
+    cfg.agent_effort = "low"
+    Conversation(cfg, library_with_book, client_recording_calls(calls)).ask("hi", 271)
+
+    assert calls[-1]["output_config"] == {"effort": "low"}
+
+
+def test_an_effort_level_that_is_not_one_is_ignored_rather_than_obeyed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A typo in a systemd unit must not become a 400 at 2am.
+
+    The value goes straight to the API, which accepts five words and rejects
+    everything else — and the rejection would land on the first question of the
+    night, as a turn that failed for no visible reason. So it is checked on the
+    way up instead, where the answer is a line in the journal and a working
+    default.
+    """
+    monkey = pytest.MonkeyPatch()
+    monkey.setenv("SOMNIA_AGENT_EFFORT", "meduim")
+    try:
+        cfg = load_config()
+    finally:
+        monkey.undo()
+
+    assert cfg.agent_effort == Config().agent_effort
+    assert "meduim" in caplog.text
+
+
+def test_the_cached_half_of_the_prompt_is_the_half_that_never_changes(
+    library_with_book: Library,
+) -> None:
+    """A prompt cache is a prefix match, so the order is the whole of it.
+
+    The constant prompt goes first with the breakpoint on it, and the line
+    naming the open book goes after. Swap them — or put a second breakpoint on
+    the volatile line — and the prefix changes every time the book does, which
+    is to say it is never read back and the cache silently costs money instead
+    of saving it. Nothing about a turn would look wrong; it would just be slow
+    again.
+    """
+    systems: list[str] = []
+    blocks: list[list[dict[str, Any]]] = []
+    conversation = Conversation(
+        Config(), library_with_book, client_recording_system(systems, blocks)
+    )
+
+    conversation.ask("where was I?", 271)
+    conversation.ask("and this one?", 999)
+
+    for system in blocks:
+        assert system[0]["text"] == SYSTEM_PROMPT
+        assert system[0]["cache_control"] == {"type": "ephemeral"}
+        # Nothing after the breakpoint may be cached: those are the bytes that
+        # differ between two books, and a breakpoint there is a cache of one.
+        assert all("cache_control" not in block for block in system[1:])
+
+    # And the proof that the split was worth making: the cached block is
+    # byte-identical across two turns about two different books.
+    assert blocks[0][0]["text"] == blocks[1][0]["text"]
+    assert blocks[0][1]["text"] != blocks[1][1]["text"]
 
 
 def test_a_page_with_no_book_open_says_so_rather_than_leaving_it_out(
