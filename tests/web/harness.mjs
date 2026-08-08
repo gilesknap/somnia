@@ -950,6 +950,13 @@ globalThis.__page = {
     // says now, and a test that wants to know whether a boundary will load
     // anything is asking this.
     perChapter: holdingOneChapter,
+    // Whether the page has given up on this book's join and will play it a file
+    // at a time from here. Beside perChapter rather than folded into it: the
+    // decision and its effect are a rung of the ladder apart — the flag is set
+    // on an error and the element only finds out at the next load — and a test
+    // that could see the effect alone could not tell a page that decided late
+    // from one that never decided at all.
+    fellBack: fellBackToChapters,
     // How much book the source it is holding covers, and whether the sound is
     // stopped a fraction short of the end of that. The pair is the render
     // frontier as the page sees it: streamMs stays where it was while the

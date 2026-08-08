@@ -558,6 +558,14 @@ const STALL_GRACE_MS = 8_000;
 const RETRY_MIN_MS = 2_000;
 const RETRY_MAX_MS = 30_000;
 
+// How many times a join that has never played is asked for before the page
+// stops asking for it and reads the book a file at a time instead.
+//
+// Two, because one is a coincidence — the first request of the night caught by
+// a re-key, a proxy that dropped a connection — and finding out costs one rung
+// of the ladder above, which is two seconds. Three would be four more.
+const JOIN_TRIES = 2;
+
 // The lock screen, the notification shade and whatever is paired over
 // Bluetooth all reach the page through this one object, so it is the whole of
 // what somnia can be controlled by while the phone is face down. It is still
@@ -699,11 +707,58 @@ function toBookMs(currentTime) {
   return Math.max(0, Math.min(t, manifest.total_ms));
 }
 
+// This book's join has been given up on: it was asked for and it did not come,
+// twice, from a box that was answering. From here the book is played a file at
+// a time for as long as it stays open, which blinks at every boundary and is
+// the failure this whole change was made to end.
+//
+// It is still the right answer. Once the one URL the book comes down is not
+// there, the only two nights on offer are one that blinks and one that goes
+// silent, and a night that blinks is a night. The manifest keeps a url per
+// chapter for exactly this.
+//
+// Per book, not per night. A concatenation that could not be made is a fact
+// about the book it was made from — one unreadable chapter file, one ffmpeg run
+// that gave up — and letting it decide how the next book is played would spread
+// one bad join across the whole shelf.
+let fellBackToChapters = false;
+
+// The URL the element was last given. Remembered here rather than read back off
+// `player.src`, because the element answers with the address resolved against
+// the page and everything below compares it with the relative one the manifest
+// wrote.
+let sourceUrl = "";
+
+// The last join that got as far as handing this page a duration, and how many
+// times the one being asked for now has failed without doing so.
+//
+// The pair is the whole of how "this join is not coming" is told from "the
+// tailnet went away for five seconds", and telling them apart is the difficulty
+// here because the two want opposite things: the second wants the ladder's
+// patience, and the first wants the page to stop asking.
+//
+// KNOWN: a media element does not get a duration out of a 404. So a URL that
+// has once been loaded is a file that exists on the box, and every later failure
+// of it is the wire — wifi power save, a DHCP renewal, a tailscale re-key — for
+// which the answer is to go on trying until morning and never to fall back. A
+// URL that has never loaded and has now failed JOIN_TRIES times is a join that
+// is not there.
+//
+// What this cannot tell apart is a book opened while the tailnet is down, where
+// nothing has been proved because nothing has been reached. Its manifest did
+// arrive seconds earlier, which is most of an answer and not all of one, so such
+// a night falls back and blinks. That is the right way to be wrong: falling back
+// on a join that was fine costs a blink at every boundary, and not falling back
+// on a join that is missing costs the night.
+let joinThatArrived = "";
+let joinsThatFailed = 0;
+
 // Whether the next thing loaded would be a file at a time. True when the server
 // offered no stream for this book — a join that could not be made, a book with
-// no audio yet, a somnia older than the field — and when the address said to.
+// no audio yet, a somnia older than the field — when the page has given up on
+// the one it was offered, and when the address said to.
 function chapterAtATime() {
-  return PER_CHAPTER || !manifest?.stream_url;
+  return PER_CHAPTER || fellBackToChapters || !manifest?.stream_url;
 }
 
 // Whether the element is holding one chapter or the whole book. A fact about
@@ -975,7 +1030,11 @@ function loadSource({ idx, chapter, offset_ms }, { play }) {
   // starts at the chapter, the whole book starts at the beginning of the book.
   // Applied at loadedmetadata, when there is a duration to clamp it against.
   pendingOffsetMs = holdingOneChapter ? offset_ms : chapter.start_ms + offset_ms;
-  player.src = holdingOneChapter ? chapter.url : manifest.stream_url;
+  // Written down before it is handed over, because what happens to it after
+  // that is the only evidence the page ever gets about whether the URL is real
+  // — see joinThatArrived.
+  sourceUrl = holdingOneChapter ? chapter.url : manifest.stream_url;
+  player.src = sourceUrl;
   if (play) player.play().catch(onPlayRejected);
   drawPlayer();
 }
@@ -1491,6 +1550,44 @@ function outOfTrouble() {
   troubled = false;
 }
 
+// A source failed to load. Whether that says anything about the source itself,
+// as against about the network underneath it, is what this decides — and after
+// JOIN_TRIES failures of a join nobody has ever heard, the page stops asking for
+// it and reads the book a file at a time instead.
+//
+// This is the half of issue 31 that the blink was not. Both sentences reported
+// off the handset came from the ladder below, and under the design this branch
+// replaced every rung of it assigned src again: each attempt to get the book
+// back first threw away the notification that was the only thing on the locked
+// screen saying anything about the book at all. A boundary does not come down
+// here any more, so what is left is a network that really went — and a URL that
+// is never going to answer, which is what this is for. Left unbounded, that one
+// is a night that never comes back.
+//
+// Nothing counts against a chapter file. That is already the fallback and there
+// is nowhere further to fall: a page that gave up on those would be a page with
+// nothing left to play.
+function countAgainstTheJoin() {
+  if (holdingOneChapter || fellBackToChapters) return;
+  // The one that does the work: this URL has played, so the file is there and
+  // what failed is the wire. See joinThatArrived for why that is the whole of
+  // the distinction the fallback rests on.
+  if (sourceUrl === joinThatArrived) return;
+  joinsThatFailed += 1;
+  if (joinsThatFailed < JOIN_TRIES) return;
+  fellBackToChapters = true;
+  // Nothing is said about it. The listener cannot act on which URL the sound is
+  // arriving down, the ladder's own sentence is already on the screen, and it
+  // comes off the moment the first chapter file loads — which is the only thing
+  // about any of this they can hear.
+  //
+  // The wait the ladder has climbed was earned by a question nobody is asking
+  // any more, so it is given back: the next attempt is a different URL on a box
+  // that is answering. It can only climb again if the chapters fail too, which
+  // is the network, which is what the climbing is for.
+  retryDelay = RETRY_MIN_MS;
+}
+
 // Put the book back under them, from where they had got to rather than from the
 // top of what was loaded. Reloading is the whole of the way back — assigning
 // src is what makes an element try the network again — and going through
@@ -1606,6 +1703,15 @@ player.addEventListener("loadedmetadata", () => {
   // The server answered with audio, which is as much as this page ever knows
   // about the network being back.
   outOfTrouble();
+  // And this particular URL is really there, which is a longer-lived fact than
+  // that and a different one. It is what keeps an outage on a good join off the
+  // fallback path however long the outage lasts — see joinThatArrived. Only for
+  // a join: a chapter file is already the fallback and nothing is decided by
+  // whether one of those arrives.
+  if (!holdingOneChapter) {
+    joinThatArrived = sourceUrl;
+    joinsThatFailed = 0;
+  }
   if (pendingOffsetMs !== null) {
     player.currentTime = toElementSeconds(pendingOffsetMs, player.duration);
     pendingOffsetMs = null;
@@ -1912,6 +2018,11 @@ player.addEventListener("error", () => {
   reportPlaybackState("paused");
   drawPlayer();
   console.error(player.error);
+  // Counted before anything below decides what to do about it. Whether this URL
+  // is ever going to answer is true whether or not there is somebody listening
+  // for it, and a book that was put down is exactly where a bad join sits
+  // quietly until it is pressed at 2am.
+  countAgainstTheJoin();
   // Nobody can tell from here whether this is the night ending or five seconds
   // of it, so the page assumes the kinder one for as long as the sound was
   // meant to be on, and keeps trying. A book they had already put down is left
@@ -2808,6 +2919,18 @@ async function openBook(id, { play = false, at = null } = {}) {
   // must too.
   closeCandidates();
   if (gid !== null && gid !== opening.gid) sendPartingPosition();
+  // Another book, so another join, and it gets its own chance at it. Giving up
+  // is a judgement about one concatenation; carried across, one book whose build
+  // failed would have every book opened after it played a file at a time, and
+  // the blink would outlive the reason for it by the whole night.
+  //
+  // The same book opened again is not that. This is called by the two ladders
+  // that ask on a timer as well as by a thumb, and a page that forgot on each of
+  // those would ask for a missing join over and over all night.
+  if (gid !== opening.gid) {
+    fellBackToChapters = false;
+    joinsThatFailed = 0;
+  }
   // Playback belongs to the book it happened in, and this page is starting
   // again from the server's own record of where that book is — which is what
   // the last report it took said, and so what the mark was raised to. Both
