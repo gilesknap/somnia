@@ -10,6 +10,7 @@ every developer's machine and on nobody's real one.
 import sqlite3
 from pathlib import Path
 
+from somnia.catalog import update_catalog
 from somnia.db import connect
 
 # The books table as it stood before this feature, written out longhand rather
@@ -172,3 +173,107 @@ def test_a_book_that_already_knows_its_total_is_never_recounted(
     finally:
         conn.close()
     assert total == 49
+
+
+# --- the books that kept Gutenberg's header line ----------------------------
+
+_CATALOG_CSV = """\
+Text#,Type,Issued,Title,Language,Authors,Subjects,LoCC,Bookshelves
+45839,Text,2021,Dracula,en,"Stoker, Bram",Horror,PR,
+271,Text,2006,Black Beauty,en,"Sewell, Anna",Horses,PZ,
+"""
+
+_SCRAPED = "The Project Gutenberg eBook of Dracula, by Bram Stoker."
+
+
+def _rendered(conn: sqlite3.Connection, gid: int, title: str) -> None:
+    with conn:
+        conn.execute(
+            "INSERT INTO books (gid, title, voice) VALUES (?, ?, 'af_heart')",
+            (gid, title),
+        )
+
+
+def _title(conn: sqlite3.Connection, gid: int) -> str:
+    return str(
+        conn.execute("SELECT title FROM books WHERE gid = ?", (gid,)).fetchone()[
+            "title"
+        ]
+    )
+
+
+def test_a_book_already_rendered_gets_its_real_name_back(tmp_path: Path) -> None:
+    """The fix to ingest only helps books added after it; this is the rest."""
+    path = tmp_path / "old.db"
+    conn = connect(path)
+    update_catalog(conn, csv_text=_CATALOG_CSV, index_text="")
+    _rendered(conn, 45839, _SCRAPED)
+    conn.close()
+
+    conn = connect(path)
+    try:
+        assert _title(conn, 45839) == "Dracula"
+    finally:
+        conn.close()
+
+
+def test_the_repair_runs_once_and_then_stops_looking(tmp_path: Path) -> None:
+    """Proving a title *matches* means scanning every row of an FTS5 table with
+    an UNINDEXED gid, once per book — 11.7 seconds at two hundred books, on
+    every CLI call, to do nothing. So it is recorded and never repeated."""
+    path = tmp_path / "once.db"
+    conn = connect(path)
+    update_catalog(conn, csv_text=_CATALOG_CSV, index_text="")
+    _rendered(conn, 45839, _SCRAPED)
+    conn.close()
+
+    conn = connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] >= 1
+    # A name somebody chose after the repair ran is theirs to keep.
+    with conn:
+        conn.execute("UPDATE books SET title = 'Renamed' WHERE gid = 45839")
+    conn.close()
+
+    conn = connect(path)
+    try:
+        assert _title(conn, 45839) == "Renamed"
+    finally:
+        conn.close()
+
+
+def test_a_book_the_catalog_does_not_have_is_left_alone(tmp_path: Path) -> None:
+    path = tmp_path / "unknown.db"
+    conn = connect(path)
+    update_catalog(conn, csv_text=_CATALOG_CSV, index_text="")
+    _rendered(conn, 999999, "Only The File Knows")
+    conn.close()
+
+    conn = connect(path)
+    try:
+        assert _title(conn, 999999) == "Only The File Knows"
+    finally:
+        conn.close()
+
+
+def test_an_empty_catalog_defers_the_repair_rather_than_spending_it(
+    tmp_path: Path,
+) -> None:
+    """A box that renders a book before its first `catalog-update` would
+    otherwise have this marked done while the name it needed was still unknown,
+    and nothing would ever come back for it."""
+    path = tmp_path / "nocatalog.db"
+    conn = connect(path)
+    _rendered(conn, 45839, _SCRAPED)
+    conn.close()
+
+    conn = connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 0
+    assert _title(conn, 45839) == _SCRAPED
+    update_catalog(conn, csv_text=_CATALOG_CSV, index_text="")
+    conn.close()
+
+    conn = connect(path)
+    try:
+        assert _title(conn, 45839) == "Dracula"
+    finally:
+        conn.close()

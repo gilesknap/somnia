@@ -10,6 +10,7 @@ from fakes import FakeEmbedder
 from somnia import ingest
 from somnia.abs import AbsClient
 from somnia.audio import ChapterAudio
+from somnia.catalog import update_catalog
 from somnia.config import Config
 from somnia.db import connect
 from somnia.embed import Embedder
@@ -574,5 +575,75 @@ def test_an_australian_book_with_no_address_says_so_before_fetching_anything(
                 cast(Embedder, FakeEmbedder()),
                 910100011,
             )
+    finally:
+        conn.close()
+
+
+CATALOG_CSV = """\
+Text#,Type,Issued,Title,Language,Authors,Subjects,LoCC,Bookshelves
+271,Text,2006-01-25,Black Beauty,en,"Sewell, Anna, 1820-1878",Horses,PZ,
+"""
+
+
+def _headline_book() -> Book:
+    """What Gutenberg's own HTML calls Black Beauty, for a good part of the corpus."""
+    return Book(
+        gid=271,
+        title="The Project Gutenberg eBook of Black Beauty, by Anna Sewell.",
+        authors="",
+        chapters=[Chapter(title="01 My Early Home", paragraphs=["A meadow."])],
+    )
+
+
+def test_a_book_is_called_what_the_catalog_calls_it(
+    unrendered: Fetched, tmp_path: Path
+) -> None:
+    """And not what the file's own header line says.
+
+    The catalog's name is also the one that was on screen when the book was
+    pressed for, which is the name somebody is looking for at 2am.
+    """
+    conn = connect(tmp_path / "named.db")
+    try:
+        update_catalog(conn, csv_text=CATALOG_CSV, index_text="")
+        unrendered.book = _headline_book()
+        _ingest(conn, tmp_path)
+        row = conn.execute("SELECT title FROM books WHERE gid = 271").fetchone()
+        assert row["title"] == "Black Beauty"
+    finally:
+        conn.close()
+
+
+def test_the_library_folder_takes_the_catalog_name_too(
+    unrendered: Fetched, tmp_path: Path
+) -> None:
+    """One name for the book, not two — the folder is built from the same string."""
+    conn = connect(tmp_path / "folder.db")
+    try:
+        update_catalog(conn, csv_text=CATALOG_CSV, index_text="")
+        unrendered.book = _headline_book()
+        _ingest(conn, tmp_path)
+        made = [p.name for p in (tmp_path / "library").rglob("*") if p.is_dir()]
+        assert "Black Beauty" in made
+        assert not any(name.startswith("The Project Gutenberg") for name in made)
+    finally:
+        conn.close()
+
+
+def test_a_book_the_catalog_never_heard_of_keeps_the_scraped_name(
+    unrendered: Fetched, tmp_path: Path
+) -> None:
+    """`somnia add` takes any gid, so the scrape is still the only fallback."""
+    conn = connect(tmp_path / "unknown.db")
+    try:
+        unrendered.book = Book(
+            gid=271,
+            title="Something Only The File Knows",
+            authors="",
+            chapters=[Chapter(title="One", paragraphs=["A line."])],
+        )
+        _ingest(conn, tmp_path)
+        row = conn.execute("SELECT title FROM books WHERE gid = 271").fetchone()
+        assert row["title"] == "Something Only The File Knows"
     finally:
         conn.close()
