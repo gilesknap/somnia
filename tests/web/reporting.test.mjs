@@ -369,6 +369,9 @@ test("a book that has gone stops the page talking about it", async (t) => {
   page.audio.advance(0.5);
   await page.settle();
   assert.equal(page.probe().status, "that book isn't here any more");
+  // In the red: nothing is retrying and nothing is going to fix this, because
+  // the book is out of the database. Somebody has to choose another one.
+  assert.equal(page.probe().statusFailed, true);
   // Whatever is still in the element can play out, but there is nothing left
   // to write to.
   page.posts.length = 0;

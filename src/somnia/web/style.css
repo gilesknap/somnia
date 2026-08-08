@@ -115,14 +115,44 @@
      getting onto one hue. */
   --night: #000;
 
-  /* The two reds, lifted out of the rules below exactly as they were. Nothing
-     on this page has decided yet what failure is supposed to look like once
-     everything else is amber, and a red invented in passing during a colour
-     pass is a red nobody chose either. They keep their hue until that is
-     answered on purpose. */
-  --failed: #8c5a52; /* an answer that never came back */
-  --stop-armed: #c08a80; /* a render about to be thrown away */
-  --stop-armed-line: #6b3f3a;
+  /* The one red, and the second colour on the page.
+
+     Amber already means the sleep timer is armed, the agent is speaking, the
+     play slab, the progress fill and the title of the book being read. A sixth
+     meaning is no meaning, so failure — something is broken and a person has to
+     do something about it — gets a desaturated red of its own rather than
+     borrowing the warm colour that means everything else. Red is a defensible
+     night hue for a reason worth writing down: rods are least sensitive to long
+     wavelengths, so this costs less dark adaptation than the amber does.
+
+     Two stops, because failure is drawn in two places and they are not the same
+     job: --failed is the one that carries words, --failed-line is a chrome edge
+     under them. A ramp rather than a value, so a fourth failure state has
+     somewhere to come from instead of a fourth hex.
+
+     The text stop is no darker than --accent, and that is the rule, not the
+     taste. It was #8c5a52, which is less than half the accent's luminance, and
+     a darker warm colour on near-black does not read as urgent — it reads as
+     disabled, which is what `opacity: .3` already means on a chapter button
+     with nowhere to skip to. Failure must not look recessive. #c08a80 was
+     already in this block doing the armed-stop's text, and it clears the accent
+     by a hair, so the family closed onto it rather than onto a new hex.
+
+     Two things this colour is not:
+
+     Waiting is not failing. "the rest of this book hasn't been read yet" is the
+     render frontier — nothing is wrong, nobody is needed, and the book carries
+     on by itself — so it stays amber along with every other sentence the page
+     says about what it is doing. Painting the most common event of the night
+     red would make red mean "something happened", which is where amber already
+     is. See setStatus in app.js for which sentences are which.
+
+     And it is not the signal. Rod vision barely discriminates hue, so at the
+     light level this page is read at, amber and a dull red are adjacent
+     colours. The sentence is what carries the news; the colour only confirms it
+     once somebody is already looking. */
+  --failed: #c08a80; /* what is said when a person is needed */
+  --failed-line: #6b3f3a; /* and an edge drawn under it */
 
   color-scheme: dark;
 }
@@ -565,6 +595,22 @@ body.player-screen #to-settings {
   font-size: 1.05rem;
   color: var(--accent);
   opacity: 0.75;
+}
+
+/* The handful of sentences on this line that need a person: the chapter that
+   did not arrive, the book that cannot be reached, the sound another app took.
+   Every other sentence here — waiting, the frontier, listening, goodnight —
+   stays amber, and the split is the point. Amber on this line means "somnia is
+   telling you what it is doing"; there is no room left in it for "and this one
+   is broken".
+
+   Full opacity, unlike the amber above it. Failure is the one thing on this
+   page that is allowed to be the brightest thing on it, and .75 of a red is
+   back below the accent it was raised to clear — which would land it exactly
+   where the old #8c5a52 was, reading as switched off rather than as wrong. */
+#status.failed {
+  color: var(--failed);
+  opacity: 1;
 }
 
 /* The one flex column the whole rhythm lives in. It takes every pixel the body
@@ -1501,6 +1547,19 @@ body.chat-screen #transcript .said {
 body.chat-screen #transcript .said.you {
   font-size: 1.2rem;
   color: var(--mid);
+}
+
+/* An answer that never came back, on the one screen where the conversation is
+   read rather than glanced at.
+
+   It needs saying again here for the reason `.said.you` does: the rule above
+   carries a class on <body>, an id and a class, so it outranks `.said.failed`
+   on two classes and was painting a failure in the same cream as a good answer.
+   The player was drawing it red the whole time — the two screens disagreed, and
+   the one that was wrong is the one somebody reads a failure on. Found by
+   photographing it; a stylesheet cannot be read for this. */
+body.chat-screen #transcript .said.failed {
+  color: var(--failed);
 }
 
 /* Short and wide is not a window with no room in it, it is a phone lying on its
@@ -2803,11 +2862,18 @@ body.keyboard-up #candidates-note {
 
 /* Asked once and about to be answered. Warmer, because at this point it is a
    different button doing a different thing, and it should not be possible to
-   press the second half without noticing the first. */
+   press the second half without noticing the first.
+
+   Both stops of the failure ramp, and the only place that uses both: this is
+   not itself a failure, it is the press that causes one on purpose, and it
+   borrows the colour because throwing away four hours of rendering is the same
+   news arriving a second earlier. It is drawn exactly as it was before the
+   ramp was named — the lighter stop on the words, the darker one on the edge —
+   which is what the two stops were pulled out of. */
 .job-stop.armed {
   border-style: solid;
-  border-color: var(--stop-armed-line);
-  color: var(--stop-armed);
+  border-color: var(--failed-line);
+  color: var(--failed);
 }
 
 /* Upright, for the reason #status is: these are somnia's own sentences about

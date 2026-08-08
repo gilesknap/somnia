@@ -65,6 +65,9 @@ test("the pause a chapter failing to load fires is not the listener stopping", a
   // Nobody can tell from here whether this is the night ending or five seconds
   // of it, so the page assumes the kinder one and keeps trying.
   assert.equal(page.probe().status, "the book stopped arriving");
+  // And amber while it says so. Something is being done about this one, so
+  // nobody is needed and the red would be a false alarm.
+  assert.equal(page.probe().statusFailed, false);
   assert.equal(page.probe().wantsSound, true);
   assert.equal(page.session.playbackState, "paused");
   assert.equal(page.probe().swapping, false);
@@ -75,6 +78,9 @@ test("a chapter that fails after they stopped is not fought for", async (t) => {
   page.click("playpause"); // they put the book down
   page.audio.fail();
   assert.equal(page.probe().status, "that chapter didn't arrive");
+  // Nothing is retrying now, so this one stands until somebody does something
+  // about it. That is what the red is for.
+  assert.equal(page.probe().statusFailed, true);
   assert.equal(page.probe().wantsSound, false);
 });
 
@@ -103,7 +109,27 @@ test("a pause nobody here asked for says something else took the sound", async (
   // book, not be talked over.
   page.audio.pause();
   assert.equal(page.probe().status, "something else took the sound");
+  // The phone did the right thing. This line explains a silence rather than
+  // reporting a fault, so it is amber like everything else somnia says about
+  // itself.
+  assert.equal(page.probe().statusFailed, false);
   assert.equal(page.probe().wantsSound, false);
+});
+
+// The one thing a colour that means "a person is needed" must never do is stay
+// on after the book came back. "that chapter didn't arrive" is said with
+// nothing retrying, so the network's own recovery never ran and the sentence
+// used to stand until something else overwrote it — harmless while it was
+// amber, a lie in red.
+test("a book that comes back takes the red off the line", async (t) => {
+  const page = await playing(t);
+  page.click("playpause"); // put it down, so the chapter is not fought for
+  page.audio.fail();
+  assert.equal(page.probe().statusFailed, true);
+  page.click("playpause"); // and pick it up again
+  page.audio.fire("playing"); // the sound really coming out
+  assert.equal(page.probe().status, "");
+  assert.equal(page.probe().statusFailed, false);
 });
 
 test("a paused player is always at full volume", async (t) => {

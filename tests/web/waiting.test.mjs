@@ -258,6 +258,12 @@ test("a book that is not being read is not waited for at the frontier", async (t
   assert.equal(page.probe().atFrontier, false);
   assert.deepEqual(page.waits(), []);
   assert.equal(page.probe().status, "the rest of this book hasn't been read yet");
+  // Amber, and this is the assertion the failure colour was argued out of.
+  // Running out of read book is the commonest thing that happens in a night and
+  // nothing is wrong when it does — the render catches up and the book carries
+  // on. Painting it red would put "something is broken" on the most benign
+  // event there is, and leave the colour meaning nothing by morning.
+  assert.equal(page.probe().statusFailed, false);
 });
 
 test("a finished book is still allowed to end", async (t) => {
