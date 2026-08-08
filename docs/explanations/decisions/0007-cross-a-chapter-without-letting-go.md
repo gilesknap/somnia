@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted, and resting on a handset check that is **not finished** — the end of
-*Consequences* says exactly what was observed and what was not recorded, and it
+Accepted, on a handset check that was made **over Bluetooth** — the route the
+teardown was reported on, and the one ADR 3's check was never run on. The end of
+*Consequences* says exactly what was observed and what is still untested, and it
 should be read before anything here is quoted.
 
 This refines [ADR 3](0003-play-the-book-in-the-page.md) rather than reversing
@@ -283,26 +284,27 @@ platform media session up throughout, and that assigning
 `navigator.mediaSession.metadata` on a *playing* element renames the card
 without disturbing the session underneath it.
 
-What is known is this, and nothing beyond it. **On 2026-08-08 a chapter boundary
-was crossed on the lock screen of the handset, and the card stayed up
-throughout.** That is one observation, on one night, of one boundary.
+What is known is this. **On 2026-08-08 a chapter boundary was crossed on the
+lock screen of the handset, over Bluetooth, and the card stayed up throughout.**
 
-**The audio route was not recorded.** Whether the phone was on its own speaker
-or on the Bluetooth speaker at the bedside is written down nowhere and cannot
-now be recovered. That is not a footnote about tidiness; it is the standing of
-this whole decision, and it is the second time running that the route has gone
-unwritten: 2026-08-06's is not known either, and the amendment to ADR 3 can only
-say that the check passing is itself the whole of the evidence about it. The
-speaker is the forgiving route — the teardown this record exists to abolish has
-never been seen there — so a check run there cannot tell this design apart from
-the one it replaces. If 2026-08-08 was on the speaker, it proves nothing that
-2026-08-06 did not already appear to prove.
+The route is the whole reason that sentence is worth writing. ADR 3's check was
+run on 2026-08-06 and passed, and its route was never written down; the
+teardown was then reported over Bluetooth and only over Bluetooth. So the
+speaker is the forgiving route — it rebuilds the notification fast enough to
+hide the fault — and a check run there could not have told this design apart
+from the one it replaces. This one was run on the route that was failing, which
+is what makes it evidence rather than a repetition of the mistake being amended.
 
-So: **the check is not complete until it has been made over Bluetooth**, with
-the phone locked, across several boundaries, and for long enough to include a
-frontier wait. Until that night has been had and written down, this record holds
-an observation and not a confirmation, and nothing here may be quoted as
-confirmed over Bluetooth. The spike page stays served for the reason ADR 3 gave
-for keeping it — the property belongs to the handset and not to this code — and
-that reason has now earned itself twice over, since it is what made this
-mechanism cheap to try and it is what will make the missing check cheap to run.
+It is still one boundary on one night, and three things it did not cover are
+worth naming so that nobody reads more into it than it holds. It did not run
+long enough to say whether Chrome keeps the session up across **hours** of a
+161 MB progressive resource. It did not include a **frontier wait**, which
+could not have been tested then because the machinery for it did not exist
+until this record was written. And it says nothing about the **fallback to the
+per-chapter path**, which by design is the blinking behaviour anyway.
+
+So this holds a confirmation of the mechanism and not yet of the night. The
+spike page stays served for the reason ADR 3 gave for keeping it — the property
+belongs to the handset and not to this code — and that reason has earned itself
+twice over: it is what made this mechanism cheap to try, and it is what will
+make the remaining checks cheap to run.
