@@ -1,0 +1,1464 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Architecture &#8212; somnia 0.7 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=48f8e935"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=30646c52"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = "pre.mermaid {\n    /* Same as .mermaid-container > pre */\n    display: block;\n    width: 100%;\n}\n\npre.mermaid > svg {\n    /* Same as .mermaid-container > pre > svg */\n    height: auto;\n    width: 100%;\n    max-width: 100% !important;\n}";
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = ".mermaid-container {\n    position: relative;\n    display: flex;\n    flex-direction: row;\n    width: 100%;\n}\n\n.mermaid-container > pre {\n    display: block;\n    width: 100%;\n}\n\n.mermaid-container > pre > svg {\n    height: auto;\n    width: 100%;\n    max-width: 100% !important;\n}\n\n.mermaid-fullscreen-btn {\n    position: absolute;\n    width: 28px;\n    height: 28px;\n    background: rgba(255, 255, 255, 0.95);\n    border: 1px solid rgba(0, 0, 0, 0.3);\n    border-radius: 4px;\n    cursor: pointer;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    transition: all 0.2s;\n    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);\n    font-size: 14px;\n    line-height: 1;\n    padding: 0;\n    color: #333;\n}\n\n.mermaid-fullscreen-btn:hover {\n    opacity: 100% !important;\n    background: rgba(255, 255, 255, 1);\n    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);\n    transform: scale(1.1);\n}\n\n.mermaid-fullscreen-btn.dark-theme {\n    background: rgba(50, 50, 50, 0.95);\n    border: 1px solid rgba(255, 255, 255, 0.3);\n    color: #e0e0e0;\n}\n\n.mermaid-fullscreen-btn.dark-theme:hover {\n    background: rgba(60, 60, 60, 1);\n    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);\n}\n\n.mermaid-fullscreen-modal {\n    display: none;\n    position: fixed !important;\n    top: 0 !important;\n    left: 0 !important;\n    width: 95vw;\n    height: 100vh;\n    background: rgba(255, 255, 255, 0.98);\n    z-index: 9999;\n    padding: 20px;\n    overflow: auto;\n}\n\n.mermaid-fullscreen-modal.dark-theme {\n    background: rgba(0, 0, 0, 0.98);\n}\n\n.mermaid-fullscreen-modal.active {\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen {\n    position: relative;\n    width: 95vw;\n    height: 90vh;\n    max-width: 95vw;\n    max-height: 90vh;\n    background: white;\n    border-radius: 8px;\n    padding: 20px;\n    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);\n    overflow: auto;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen.dark-theme {\n    background: #1a1a1a;\n    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);\n}\n\n.mermaid-container-fullscreen pre.mermaid {\n    width: 100%;\n    height: 100%;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen .mermaid svg {\n    height: 100% !important;\n    width: 100% !important;\n    cursor: grab;\n}\n\n.mermaid-fullscreen-close {\n    position: fixed !important;\n    top: 20px !important;\n    right: 20px !important;\n    width: 40px;\n    height: 40px;\n    background: rgba(255, 255, 255, 0.95);\n    border: 1px solid rgba(0, 0, 0, 0.2);\n    border-radius: 50%;\n    cursor: pointer;\n    z-index: 10000;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);\n    transition: all 0.2s;\n    font-size: 24px;\n    line-height: 1;\n    color: #333;\n}\n\n.mermaid-fullscreen-close:hover {\n    background: white;\n    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);\n    transform: scale(1.1);\n}\n\n.mermaid-fullscreen-close.dark-theme {\n    background: rgba(50, 50, 50, 0.95);\n    border: 1px solid rgba(255, 255, 255, 0.2);\n    color: #e0e0e0;\n}\n\n.mermaid-fullscreen-close.dark-theme:hover {\n    background: rgba(60, 60, 60, 1);\n    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);\n}\n\n.mermaid-fullscreen-modal .mermaid-fullscreen-btn {\n    display: none !important;\n}";
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+let _lazyObserver = null;
+let _renderQueue = Promise.resolve();
+let closeModal = () => {};
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal?.classList.contains('active')) {
+        closeModal();
+    }
+});
+
+// Apply d3 zoom to each SVG. Idempotent: an SVG already wrapped is skipped,
+// so this is safe to call both for the initial batch and for diagrams that
+// render lazily once they become visible.
+const addZoomToSvgs = (svgs) => {
+    svgs.each(function() {
+        if (this.getAttribute('data-zoom-applied') === 'true') return;
+        var svg = d3.select(this);
+        svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+        var inner = svg.select("g");
+        var zoom = d3.zoom().on("zoom", function(event) {
+            inner.attr("transform", event.transform);
+        });
+        svg.call(zoom);
+        this.setAttribute('data-zoom-applied', 'true');
+    });
+};
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        // Disconnect any previous lazy rendering observer
+        if (_lazyObserver) {
+            _lazyObserver.disconnect();
+            _lazyObserver = null;
+        }
+
+        all_mermaids.forEach((el) => {
+            el.removeAttribute('data-mermaid-deferred');
+            el.removeAttribute('data-mermaid-render-failed');
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+
+        // Separate visible and hidden elements. Mermaid's layout engine measures
+        // text dimensions via the DOM, which fails for elements hidden by a parent
+        // (e.g., Reveal.js non-active slides, sphinx-design unopened tabs),
+        // producing broken SVGs. Render visible elements now, defer hidden ones.
+        const visible = [];
+        const hidden = [];
+        all_mermaids.forEach((el) => {
+            // offsetParent is null for display:none ancestors.
+            // getClientRects().length > 0 catches position:fixed elements
+            // (which also have null offsetParent but are still visible).
+            if (el.offsetParent !== null || el.getClientRects().length > 0) {
+                visible.push(el);
+            } else {
+                hidden.push(el);
+                el.setAttribute('data-mermaid-deferred', 'true');
+            }
+        });
+
+        if (visible.length > 0) {
+            try {
+                await mermaid.run({ nodes: visible });
+            } catch (e) {
+                console.error("Mermaid rendering failed:", e);
+            }
+        }
+
+        // Lazily render hidden elements when they become visible.
+        // Uses a promise chain (_renderQueue) to serialize rendering,
+        // since IntersectionObserver may report multiple entries at once
+        // and mermaid.run() is not safe to call concurrently.
+        if (hidden.length > 0) {
+            if (typeof IntersectionObserver === 'undefined') {
+                console.warn("IntersectionObserver not available; hidden mermaid diagrams will not render.");
+            } else {
+                _renderQueue = Promise.resolve();
+                _lazyObserver = new IntersectionObserver((entries) => {
+                    for (const entry of entries) {
+                        if (entry.isIntersecting && entry.target.getAttribute("data-processed") !== "true") {
+                            _lazyObserver.unobserve(entry.target);
+                            const el = entry.target;
+                            _renderQueue = _renderQueue.then(async () => {
+                                try {
+                                    await mermaid.run({ nodes: [el] });
+                                    el.removeAttribute('data-mermaid-deferred');
+                                    // Apply zoom to the now-rendered diagram, matching
+                                    // the decoration visible diagrams receive.
+                                    if (false) {
+                                        addZoomToSvgs(d3.selectAll("").select(function() {
+                                            return this.querySelector("svg");
+                                        }));
+                                    }
+                                } catch (e) {
+                                    console.error("Mermaid deferred rendering failed:", e);
+                                    el.removeAttribute('data-mermaid-deferred');
+                                    el.setAttribute('data-mermaid-render-failed', 'true');
+                                }
+                            });
+                        }
+                    }
+                });
+                hidden.forEach((el) => _lazyObserver.observe(el));
+            }
+        }
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    // Exclude deferred (hidden) and render-failed elements from completion checks
+    const mermaids_active = document.querySelectorAll(".mermaid:not([data-mermaid-deferred]):not([data-mermaid-render-failed])");
+    const mermaids_processed = document.querySelectorAll(".mermaid:not([data-mermaid-deferred]):not([data-mermaid-render-failed])[data-processed='true']");
+
+    if (false) {
+        const mermaids_to_add_zoom = 0 === -1 ? mermaids_active.length : 0;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("").select(function() {
+                return this.querySelector("svg");
+            });
+            // Wait until every active (visible) diagram has rendered. Deferred
+            // diagrams are excluded, so a fixed d3_node_count that counts a
+            // hidden diagram no longer loops forever waiting for its SVG.
+            if(mermaids_active.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            }
+            addZoomToSvgs(svgs);
+        }
+    } else if(mermaids_active.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if (!true) return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = "\u26f6";
+        fullscreenBtn.style.opacity = "50%";
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scrollX, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.display = 'block';
+
+                if (false) {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+
+
+const load = async () => {
+    initStyles();
+
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...{"startOnLoad": false},
+                ...{ darkMode: darkTheme, theme: darkTheme ? "dark" : "default" },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...{"startOnLoad": false},
+    ...{ darkMode: darkTheme, theme: darkTheme ? "dark" : "default" },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'explanations/architecture';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://gilesknap.github.io/somnia/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.7';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/dls-logo.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Architectural Decision Records" href="decisions.html" />
+    <link rel="prev" title="Explanations" href="../explanations.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.7" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/dls-logo.svg" class="logo__image only-light" alt=""/>
+    <img src="../_static/dls-logo.svg" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">somnia</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/gilesknap/somnia" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/gilesknap/somnia" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar">
+  <svg class="pst-icon" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Architecture</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="decisions.html">Architectural Decision Records</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0001-record-architecture-decisions.html">1. Record architecture decisions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0002-switched-to-python-copier-template.html">2. Adopt python-copier-template for project structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0003-play-the-book-in-the-page.html">3. Play the book in the page, not in Audiobookshelf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0004-choose-a-place-from-a-list.html">4. Choose a place from a list, rather than talk about it</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html">5. Render one book at a time, in its own unit, and let the page watch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="design.html">Design decisions</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../explanations.html" class="nav-link">Explanations</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Architecture</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="architecture">
+<h1>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">#</a></h1>
+<p>What the pieces are and how a night flows through them. This is the map;
+<a class="reference internal" href="design.html"><span class="std std-doc">design.md</span></a> is the argument for why the map looks like this, and the
+<a class="reference internal" href="decisions.html"><span class="std std-doc">ADRs</span></a> record the turns that were taken.</p>
+<section id="the-shape-of-it">
+<h2>The shape of it<a class="headerlink" href="#the-shape-of-it" title="Link to this heading">#</a></h2>
+<p>somnia renders public-domain books to audio itself, and that one decision pays
+for everything else. Because the renderer placed every sentence, it knows
+exactly which span of audio each sentence occupies — so the text/audio index is
+free, and a question at 2am can be answered with a timestamp rather than a
+guess.</p>
+<p>Three things run, and they share one sqlite file and one folder of audio:</p>
+<ul class="simple">
+<li><p><strong>the renderer</strong> (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">worker</span></code>) — a supervisor that takes one book at a
+time off the queue and spawns a child to turn a Gutenberg id into per-chapter
+m4a files plus a semantic index, streaming chapter by chapter</p></li>
+<li><p><strong>the server</strong> (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>) — serves the page, the audio, and the agent</p></li>
+<li><p><strong>the page</strong> (the installed PWA) — plays the book and carries the conversation</p></li>
+</ul>
+<p>The renderer is a separate unit from the server on purpose, and
+<a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a> has the argument:
+restarting the page’s process, which is what a deploy is, must not kill a
+render, and Kokoro must never compete with a seek for two cores.</p>
+<pre  class="mermaid">
+        flowchart TB
+  subgraph Phone[&quot;Phone — installed PWA&quot;]
+    ms[&quot;Media Session&lt;br&gt;lock screen, Bluetooth&quot;] --- page[&quot;app.js&lt;br&gt;one audio element,&lt;br&gt;one global-ms timeline&quot;]
+  end
+
+  ts[&quot;tailscale serve&lt;br&gt;TLS, and the only way in&quot;]
+
+  subgraph VPS[&quot;VPS — nothing public&quot;]
+    serve[&quot;somnia serve&quot;]
+    player[&quot;Player&lt;br&gt;fast lane&quot;]
+    agent[&quot;Conversation&lt;br&gt;agent lane&quot;]
+    worker[&quot;somnia worker&lt;br&gt;supervisor, no torch&quot;]
+    ingest[&quot;somnia worker --once&lt;br&gt;renderer, one book&quot;]
+    db[(&quot;somnia.db&quot;)]
+    files[/&quot;library dir&lt;br&gt;.m4a per chapter&quot;/]
+    joins[/&quot;data dir&lt;br&gt;chapters joined,&lt;br&gt;one .m4a per book&quot;/]
+  end
+
+  api[&quot;Anthropic API&quot;]
+  gut[&quot;Project Gutenberg&quot;]
+  abs[&quot;Audiobookshelf&quot;]
+
+  page &lt;--&gt; ts
+  ts --&gt; serve
+  serve --&gt; player &amp; agent
+  agent --&gt; api
+  agent -.-&gt;|&quot;queues a book&quot;| db
+  worker --&gt;|&quot;claims one, spawns&quot;| ingest
+  worker --&gt; db
+  gut --&gt;|&quot;book HTML&quot;| ingest
+  player --&gt; db &amp; files
+  files --&gt;|&quot;joined on the first ask,&lt;br&gt;-c copy&quot;| joins
+  player --&gt; joins
+  agent --&gt; db
+  ingest --&gt; db &amp; files
+  player -.-&gt;|&quot;only when they stop&quot;| abs
+  ingest -.-&gt;|&quot;rescan, chapter marks&quot;| abs
+    </pre><p>The dotted edges are the ones nothing waits on. Audiobookshelf is <strong>written to
+and, while a night is running, never read</strong> — it is somewhere else the book
+might be opened, not the record of anything, and a write that fails is logged
+and forgotten. The single exception is <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>, which reads it
+once by hand before the first night and never again. The agent’s edge is dotted
+for a different reason: asking for a book writes a queue row and nothing else,
+so the answer comes back at once and the render happens in another process
+entirely, minutes or hours later. That is how a book gets added at 2am without
+anything waiting for it — and how two books asked for a minute apart cannot
+both be rendering, because the worker claims one at a time and the claim is a
+single guarded UPDATE.</p>
+<p>There is no login anywhere. Reachability <em>is</em> the authentication: the server
+binds to localhost, and only <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach the port. The VPS
+joins the tailnet tagged <code class="docutils literal notranslate"><span class="pre">tag:vps</span></code> and the ACL never lists that tag as a
+source, so it can be reached by personal devices and can never initiate a
+connection into the tailnet.</p>
+</section>
+<section id="one-clock">
+<h2>One clock<a class="headerlink" href="#one-clock" title="Link to this heading">#</a></h2>
+<p>Every timestamp in somnia — index hit, chapter mark, saved position, what the
+page shows, what ABS is told — is <strong>global milliseconds from the start of the
+book</strong>. It is the render clock, counted in PCM samples before encoding, and
+never what a decoder reports: summing durations off the files drifts tens of
+milliseconds a chapter and is a second out by chapter forty.</p>
+<p>The page converts between that clock and the clock of whatever the audio element
+is actually holding, in three small functions, and that is the only place the
+split exists. When the element holds the whole book joined into one file — the
+ordinary case, and the reason a chapter boundary no longer takes the lock screen
+down (<a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">ADR 7</span></a>) — the
+conversion is the identity, measured on the real forty-nine chapter book rather
+than assumed. When it holds a single chapter, which is the fallback, the
+conversion is <code class="docutils literal notranslate"><span class="pre">(chapter</span> <span class="pre">index,</span> <span class="pre">seconds</span> <span class="pre">into</span> <span class="pre">this</span> <span class="pre">file)</span></code>. Either way “back a bit”
+from the start of chapter five lands in chapter four, the way a listener means
+it.</p>
+</section>
+<section id="making-a-book">
+<h2>Making a book<a class="headerlink" href="#making-a-book" title="Link to this heading">#</a></h2>
+<p>Asking for a book writes a row into <code class="docutils literal notranslate"><span class="pre">queue</span></code> and returns. The worker claims the
+oldest waiting row — while nothing else holds a live lease — and spawns a child
+that streams it: each chapter is written into the library folder and indexed
+the moment it finishes, so listening can start minutes after picking a book
+while the rest arrives overnight.</p>
+<pre  class="mermaid">
+        flowchart TD
+  Q[(&quot;queue row&lt;br&gt;claimed under a lease&quot;)] --&gt; A
+  A[&quot;fetch_book — Gutenberg HTML edition&quot;] --&gt; B[&quot;parse_book_html&lt;br&gt;chapters of paragraphs&quot;]
+  B --&gt; T[&quot;books.chapters_total written&lt;br&gt;the only honest denominator&quot;]
+  T --&gt; R{&quot;chapters already on disk?&quot;}
+  R --&gt;|&quot;yes&quot;| S[&quot;resume at the first missing one,&lt;br&gt;carrying the global clock on&quot;]
+  R --&gt;|&quot;no&quot;| C
+  S --&gt; C
+
+  subgraph loop[&quot;for each chapter&quot;]
+    C[&quot;sentences — pysbd&quot;] --&gt; P{&quot;beat: still ours,&lt;br&gt;and not cancelled?&quot;}
+    P --&gt;|&quot;no&quot;| X[&quot;stop here — this chapter&lt;br&gt;leaves no trace at all&quot;]
+    P --&gt;|&quot;yes&quot;| D[&quot;engine.render — Kokoro-82M&lt;br&gt;one sentence at a time&quot;]
+    D --&gt; E[&quot;ChapterAudio&lt;br&gt;+120ms between sentences&lt;br&gt;+500ms between paragraphs&lt;br&gt;clock counted in samples&quot;]
+    E --&gt; F[&quot;ffmpeg → 'NNN - Title.m4a'&lt;br&gt;AAC 64k, faststart&quot;]
+    E --&gt; G[&quot;TimedSentence[]&lt;br&gt;exact global start and end&quot;]
+    G --&gt; H[&quot;windows — 3 sentences, stride 2&quot;]
+    H --&gt; I[&quot;Embedder — e5-small-v2, 384-dim&quot;]
+  end
+
+  I --&gt; J[(&quot;chunks + vec_chunks&quot;)]
+  F --&gt; K[(&quot;chapters row&lt;br&gt;idx, start_ms, end_ms, audio_file&quot;)]
+  K --&gt; L[&quot;books.total_ms bumped&lt;br&gt;status stays 'rendering'&quot;]
+  F --&gt; M[&quot;ABS rescan, then set_chapters&quot;]
+  L --&gt; N[&quot;listenable now — the page re-asks&lt;br&gt;for the manifest while status is 'rendering'&quot;]
+    </pre><p>Rendering per <strong>sentence</strong> rather than per chunk or per paragraph is what makes
+the timestamps exact by construction, and it is why the engine is swappable:
+anything that can render one sentence satisfies the <code class="docutils literal notranslate"><span class="pre">TTSEngine</span></code> protocol. It is
+also where a stop is allowed to happen, and nowhere else: a chapter is encoded
+on the last line of rendering it, so a render stopped between sentences leaves
+no m4a, no chunks and no chapters row for the chapter it was in — which is what
+makes the window between indexing a chapter and writing its row unreachable,
+and therefore what makes cancelling and resuming safe at all.</p>
+<p>Never re-render a book with a different engine or voice. Durations change, and
+every timestamp — every index entry, every chapter mark, and the position they
+went to sleep at — is invalidated. Which voice a book gets is therefore settled
+once, on the queue row, at the moment somebody asks for it; the renderer prefers
+that, then the voice already on the book, then its own configuration, so neither
+a deploy nor a resume can change a narrator half way through.</p>
+<p>Each chapter opens by saying what it is — <em>Chapter 12. The Invisible Man</em> — and
+that line is built from the heading rather than being the heading: roman
+numerals are converted, capitals are taken out, and a heading with no number in
+it is spoken without one, because somnia’s chapter <em>index</em> counts what the
+parser found and is not what the book calls the chapter. It is rendered before
+the first sentence’s clock is read, so it costs the timestamps nothing, and it
+is deliberately not indexed — it is not the book’s text.</p>
+</section>
+<section id="what-is-stored">
+<h2>What is stored<a class="headerlink" href="#what-is-stored" title="Link to this heading">#</a></h2>
+<p>One sqlite file holds all of it: the catalog for browsing, the books and their
+chapter timelines, the indexed text windows, and the vectors.</p>
+<pre  class="mermaid">
+        erDiagram
+  catalog {
+    text gid &quot;FTS5, ~80k rows&quot;
+    text title
+    text authors
+  }
+  catalog_urls {
+    int gid PK &quot;only where the address is not computable&quot;
+    text url &quot;Project Gutenberg Australia&quot;
+  }
+  books {
+    int gid PK
+    text title &quot;the catalog's name; the scrape only if it has none&quot;
+    text status &quot;pending, rendering, done&quot;
+    int total_ms &quot;grows while rendering&quot;
+    int chapters_total &quot;how many it HAS; 0 = unknown&quot;
+    int heard_to_ms &quot;high-water mark&quot;
+    int position_ms &quot;nullable: never started&quot;
+    int position_seq &quot;agent moves only&quot;
+    text position_at &quot;last report taken, or opened; newest is last_gid&quot;
+    text abs_item_id
+  }
+  queue {
+    int id PK
+    int gid &quot;one live row per book&quot;
+    text state &quot;queued, rendering, done, cancelled, failed&quot;
+    int cancel &quot;asked to stop&quot;
+    text lease &quot;uuid4 of the renderer, never a pid&quot;
+    int pid &quot;which process claimed it&quot;
+    text beat_at &quot;liveness, read at read time&quot;
+    text chapter_at &quot;a second clock: long chapter vs dead process&quot;
+    int attempts &quot;bounded at three&quot;
+    text error &quot;one plain sentence&quot;
+  }
+  chapters {
+    int book_gid PK, FK
+    int idx PK
+    text title
+    int start_ms &quot;global&quot;
+    int end_ms &quot;global&quot;
+    text audio_file &quot;never sent to the page&quot;
+  }
+  chunks {
+    int id PK
+    int book_gid FK
+    int chapter_idx
+    int start_ms &quot;global&quot;
+    int end_ms &quot;global&quot;
+    text text &quot;3-sentence window&quot;
+  }
+  vec_chunks {
+    int rowid PK &quot;= chunks.id&quot;
+    blob embedding &quot;float[384], sqlite-vec&quot;
+  }
+
+  books ||--o{ chapters : &quot;timeline&quot;
+  books ||--o{ chunks : &quot;index&quot;
+  chunks ||--|| vec_chunks : &quot;rowid&quot;
+  books ||--o{ queue : &quot;every time it was asked for&quot;
+    </pre><p><code class="docutils literal notranslate"><span class="pre">queue</span></code> has no foreign key to <code class="docutils literal notranslate"><span class="pre">books</span></code>, and that is not an oversight: a book is
+asked for before it exists, and its <code class="docutils literal notranslate"><span class="pre">books</span></code> row is not written until the parse
+finishes. A partial unique index on <code class="docutils literal notranslate"><span class="pre">gid</span></code> over the waiting and rendering states
+is what keeps one live job per book — enforced by the database rather than by a
+check that two presses a millisecond apart would both pass.</p>
+<p>A book is a few thousand windows, so brute-force exact nearest-neighbour search
+is milliseconds. No database server, no shared infrastructure. The file is in
+WAL mode because several writers exist — an agent turn, the player, the worker,
+and a render running in another process entirely — and a reader must never
+block on any of them. That the render is in another process is also why the
+queue lives in this file rather than in a lock file or a socket: sqlite is the
+one thing every process in somnia already shares, so a render’s progress and
+the request to stop it need no channel of their own.</p>
+<p><code class="docutils literal notranslate"><span class="pre">chunks</span></code> earns a second job it was not designed for: because its rows are
+overlapping windows taken every second sentence, a window start is always a
+sentence start. That is how the page’s long rewind lands on the beginning of a
+sentence rather than the middle of a clause.</p>
+</section>
+<section id="a-night">
+<h2>A night<a class="headerlink" href="#a-night" title="Link to this heading">#</a></h2>
+<p>Serving audio and answering questions are separate lanes. A model turn blocks
+for tens of seconds on the API and on the embedder, and a seek must never queue
+behind it — a dead player while a question is being answered is exactly the
+moment the phone gets put down. So <code class="docutils literal notranslate"><span class="pre">Player</span></code> has its own sqlite connection, its
+own lock and its own ABS client, and shares nothing with a conversation but the
+file on disk.</p>
+<pre  class="mermaid">
+        sequenceDiagram
+  autonumber
+  participant P as Page
+  participant PL as Player
+  participant AG as Agent
+  participant DB as somnia.db
+  participant AN as Anthropic
+
+  Note over P: cold launch
+  P-&gt;&gt;PL: GET /api/books
+  PL--&gt;&gt;P: last_gid
+  P-&gt;&gt;PL: GET /api/book/{gid}
+  PL--&gt;&gt;P: timeline, position, heard_to_ms
+  P-&gt;&gt;PL: GET /api/audio/{gid}/{idx}, Range
+
+  loop every 15s, and at every jump and stop
+    P-&gt;&gt;PL: position_ms, seq, played_ms
+    PL-&gt;&gt;DB: UPDATE ... WHERE position_seq = ?
+    PL--&gt;&gt;P: accepted, heard_to_ms
+  end
+
+  Note over P,AN: &quot;where does the horse die?&quot;
+  P-&gt;&gt;AG: POST /api/ask
+  AG-&gt;&gt;AN: tool runner turn
+  AN-&gt;&gt;AG: find_passage
+  AG-&gt;&gt;DB: search, bounded at heard_to_ms
+  AN-&gt;&gt;AG: move_to
+  AG-&gt;&gt;DB: position_seq + 1
+  AG--&gt;&gt;P: reply, and where to go
+  P-&gt;&gt;P: jump there and play
+
+  alt that reply never arrives
+    P-&gt;&gt;PL: next report, stale seq
+    PL--&gt;&gt;P: 200 refused — go here instead
+    P-&gt;&gt;P: jump anyway
+  end
+    </pre><p>The asymmetry in step 7 is the whole protocol. <code class="docutils literal notranslate"><span class="pre">position_seq</span></code> counts <strong>agent
+moves and nothing else</strong>; the page’s own reports leave it alone. So a report
+carrying a stale count can only mean the agent moved the book, and the refusal
+that comes back is also where to go instead. That is why a refusal is a 200
+with a body rather than a 409: the last report of the night is a <code class="docutils literal notranslate"><span class="pre">sendBeacon</span></code>,
+and a beacon can read nothing else.</p>
+<p>Only the player and an agent move may write those four columns. Ingest upserts
+the <code class="docutils literal notranslate"><span class="pre">books</span></code> row and updates only what a render knows — title, authors, voice,
+and that it is running. The one other writer is <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>, which
+runs once by hand, before any page is open, to bring a position across from
+Audiobookshelf; it never lowers one.</p>
+</section>
+<section id="how-far-a-question-may-see">
+<h2>How far a question may see<a class="headerlink" href="#how-far-a-question-may-see" title="Link to this heading">#</a></h2>
+<p>The spoiler guard is bounded by the <strong>furthest point ever played through</strong>, not
+by where they are now, because the agent can move the position anywhere. Only
+the page can tell a skip from a stretch of listening, so every report says how
+much audio really came out of the speaker since the last one taken.</p>
+<pre  class="mermaid">
+        flowchart TD
+  R[&quot;a report arrives: position_ms, and the playback behind it&quot;] --&gt; C{&quot;is it backed by playback that really happened?&quot;}
+  C -- yes --&gt; U[&quot;the mark rises to position_ms&quot;]
+  C -- no --&gt; K[&quot;the mark stands — a skip is not listening&quot;]
+  U --&gt; S[&quot;a search is bounded at the mark + 60 seconds&quot;]
+  K --&gt; S
+  S --&gt; Q{&quot;does a closer match lie past the bound?&quot;}
+  Q -- yes --&gt; O[&quot;say it is ahead of them and offer to go —&lt;br&gt;never what happens there&quot;]
+  Q -- no --&gt; A[&quot;answer from what they could have heard&quot;]
+    </pre><p>The comparison allows five seconds of slack, and takes the smaller of the
+playback claimed and the wall clock since the last accepted report. The clock is
+a ceiling on the claim, not the answer to it: a phone asleep in a pocket for
+eight hours banks eight hours of clock and no listening at all. Because the
+playback appears on both sides of the comparison, the slack <em>is</em> the largest
+jump that can be laundered as listening — which is why it sits well below
+thirty seconds, the smallest forward jump the page has a button for.
+Two costs are accepted. After a skip forward the mark stops until they go back
+over it, and a book nobody has played is bounded at its start rather than left
+unbounded — so on night one the agent has to say the passage is further on than
+they have got. Failing that way costs a question in the dark; failing the other
+way costs them the book.</p>
+<p>The mark bounds what is <em>said</em> as well as what is searched, and those are two
+different distances. The agent may answer a question about a book out of what it
+already knows of it, as far as that line and no further
+(<a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR 6</span></a>); <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code>
+lets it read past the line to pick the right place to send somebody, and never
+lets it describe what it read. The question tool, <code class="docutils literal notranslate"><span class="pre">recall</span></code>, is bounded by the
+same code as a search, has no <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code>, reports nothing about a closer
+match lying ahead, and marks the turn so that <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code>
+refuse — a question must not cost the listener their place.</p>
+</section>
+<section id="what-the-page-has-to-survive">
+<h2>What the page has to survive<a class="headerlink" href="#what-the-page-has-to-survive" title="Link to this heading">#</a></h2>
+<p>Three things the Audiobookshelf app used to absorb, which nothing absorbs any
+more. All three end the same way if unhandled — silence, under a notification
+that says paused — and none can be seen without unlocking the phone, so each
+also says what is happening on the status line.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>What happens</p></th>
+<th class="head"><p>What the page does</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>The book grows while it is playing</p></td>
+<td><p>Re-asks for the manifest while <code class="docutils literal notranslate"><span class="pre">status</span></code> is <code class="docutils literal notranslate"><span class="pre">rendering</span></code> — when the audio runs out, and when the app comes back in front of them — backing off from 5s to a minute. Only the timeline is adopted; the position in the answer is its own report come back late.</p></td>
+</tr>
+<tr class="row-odd"><td><p>The tailnet drops for a few seconds</p></td>
+<td><p>Reassigns <code class="docutils literal notranslate"><span class="pre">src</span></code> to reload the chapter <em>from where they had got to</em>, on a ladder from 2s to 30s. Every route to a reload uses that ladder, including a stall that never raises an error. It stops entirely when they were the ones who stopped it.</p></td>
+</tr>
+<tr class="row-even"><td><p>The page is discarded</p></td>
+<td><p>The conversation is meant to die — it is keyed in <code class="docutils literal notranslate"><span class="pre">sessionStorage</span></code>. An armed sleep timer is not, so it is written to <code class="docutils literal notranslate"><span class="pre">localStorage</span></code> as it counts down and restored with the minutes it had left, unless it is more than six hours old.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Most of the transport is not on the page at all. With the screen off the book
+is driven from the lock screen, the notification shade and whatever is paired
+over Bluetooth, all arriving through the Media Session API. The scrubber
+published there is chapter-scale on purpose: a whole-book scrubber on a
+twelve-hour novel gives three minutes to the pixel, and one sleepy thumb would
+fling them past the spoiler guard into the ending.</p>
+</section>
+<section id="the-modules">
+<h2>The modules<a class="headerlink" href="#the-modules" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Module</p></th>
+<th class="head"><p>Job</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">catalog</span></code></p></td>
+<td><p>Both libraries’ published lists in one FTS5 table — browsing is offline, with no third-party API</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pgau</span></code></p></td>
+<td><p>Project Gutenberg Australia’s plain-text index, and the offset ids that keep it out of Gutenberg’s way</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gutenberg</span></code></p></td>
+<td><p>Fetch the HTML edition, parse it into chapters of paragraphs</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">segment</span></code></p></td>
+<td><p>Sentences (pysbd), and the overlapping windows the index is built from</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tts</span></code></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">TTSEngine</span></code> protocol, and Kokoro-82M behind it</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">audio</span></code></p></td>
+<td><p>Accumulate a chapter’s samples, track the clock, encode via ffmpeg</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">embed</span></code></p></td>
+<td><p>e5-small-v2, with the asymmetric <code class="docutils literal notranslate"><span class="pre">query:</span></code> / <code class="docutils literal notranslate"><span class="pre">passage:</span></code> prefixes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">index</span></code></p></td>
+<td><p>Store chunk embeddings; search one book, optionally bounded</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ingest</span></code></p></td>
+<td><p>The streaming pipeline that joins all of the above — resumable, stoppable</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">queue</span></code></p></td>
+<td><p>The ingest queue as pure functions: submit, claim, beat, stop, reconcile</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">worker</span></code></p></td>
+<td><p>The supervisor and the one-book child that holds the lease</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">db</span></code></p></td>
+<td><p>The schema, the migrations, the one-off repairs, WAL, and loading sqlite-vec</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tools</span></code></p></td>
+<td><p>Everything the agent can do, as a plain library with no Anthropic import</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">agent</span></code></p></td>
+<td><p>The system prompt and the tool-runner loop</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">player</span></code></p></td>
+<td><p>The fast lane: manifest, audio files, position reports</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
+<td><p>Starlette routes, conversation storage, the mounted page</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">abs</span></code></p></td>
+<td><p>The Audiobookshelf client — a courtesy write and one seed-time read</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">web/</span></code></p></td>
+<td><p>The PWA: <code class="docutils literal notranslate"><span class="pre">index.html</span></code>, <code class="docutils literal notranslate"><span class="pre">app.js</span></code>, <code class="docutils literal notranslate"><span class="pre">sw.js</span></code>, the manifest and icons</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="the-http-surface">
+<h2>The HTTP surface<a class="headerlink" href="#the-http-surface" title="Link to this heading">#</a></h2>
+<p>Everything the page fetches sits under <code class="docutils literal notranslate"><span class="pre">/api/</span></code>, which is not cosmetic: it is
+how the service worker knows what never to cache, and it keeps these routes
+ahead of the static mount that would otherwise swallow them.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Route</p></th>
+<th class="head"><p>Lane</p></th>
+<th class="head"><p>What it is for</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code></p></td>
+<td><p>agent</p></td>
+<td><p>One turn of the conversation; may carry a <code class="docutils literal notranslate"><span class="pre">move</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/forget</span></code></p></td>
+<td><p>agent</p></td>
+<td><p>Start over — the model has the wrong end of a mumbled question</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/health</span></code></p></td>
+<td><p>—</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">true}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/books</span></code></p></td>
+<td><p>player</p></td>
+<td><p>Every book, most recently listened to first, plus <code class="docutils literal notranslate"><span class="pre">last_gid</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code></p></td>
+<td><p>player</p></td>
+<td><p>The manifest: timeline, position, <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code>, in one round trip</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code></p></td>
+<td><p>player</p></td>
+<td><p>Make this the book a cold launch opens — one column, nothing else</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></p></td>
+<td><p>player</p></td>
+<td><p>One chapter’s m4a. Range, <code class="docutils literal notranslate"><span class="pre">If-Range</span></code> and 416 are Starlette’s own</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
+<td><p>player</p></td>
+<td><p>Where the sentence at a point began, for the long rewind</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/position</span></code></p></td>
+<td><p>player</p></td>
+<td><p>The page’s report; always 200, accepted or refused</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/</span></code></p></td>
+<td><p>—</p></td>
+<td><p>The page itself, served straight off the installed package</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A chapter request names a book and an index, never a path — the file comes from
+the <code class="docutils literal notranslate"><span class="pre">chapters</span></code> row, and is refused if it resolves outside the library
+directory. That is the whole traversal defence, and it has to be, because the
+server has no auth by design.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../explanations.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Explanations</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="decisions.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Architectural Decision Records</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-shape-of-it">The shape of it</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#one-clock">One clock</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#making-a-book">Making a book</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-stored">What is stored</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a-night">A night</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-far-a-question-may-see">How far a question may see</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-the-page-has-to-survive">What the page has to survive</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-modules">The modules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-http-surface">The HTTP surface</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/gilesknap/somnia/edit/0.7/docs/explanations/architecture.md">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/explanations/architecture.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

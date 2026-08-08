@@ -1,0 +1,1164 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Serve the page that plays the book &#8212; somnia 0.7 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=48f8e935"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=30646c52"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/serve-the-chat-page';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://gilesknap.github.io/somnia/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.7';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/dls-logo.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Upgrade to a new version" href="upgrade.html" />
+    <link rel="prev" title="Run in a container" href="run-container.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.7" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/dls-logo.svg" class="logo__image only-light" alt=""/>
+    <img src="../_static/dls-logo.svg" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">somnia</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/gilesknap/somnia" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/gilesknap/somnia" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/somnia-reader" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar">
+  <svg class="pst-icon" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="back-up-and-move.html">Back it up, and move it</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribute to the project</a></li>
+<li class="toctree-l1"><a class="reference internal" href="keep-renders-running.html">Keep a long render running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="run-container.html">Run in a container</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Serve the page that plays the book</a></li>
+<li class="toctree-l1"><a class="reference internal" href="upgrade.html">Upgrade to a new version</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../how-to.html" class="nav-link">How-to Guides</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Serve the page that plays the book</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="serve-the-page-that-plays-the-book">
+<h1>Serve the page that plays the book<a class="headerlink" href="#serve-the-page-that-plays-the-book" title="Link to this heading">#</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code> runs the 2am surface: a small chat page that talks to the agent,
+with the Anthropic key held server-side. It is also the player — the page holds
+the book somnia rendered and plays it, which is why asking to be taken
+somewhere now ends in sound instead of in an instruction. Voice input uses the
+browser’s Web Speech API and the lock screen controls need a media session, so
+the page must be reached over HTTPS (or localhost); <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> provides
+both the certificate and the only network path to it.</p>
+<section id="run-it">
+<h2>Run it<a class="headerlink" href="#run-it" title="Link to this heading">#</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ somnia serve                       # 127.0.0.1:8721 by default
+$ somnia serve --host 0.0.0.0 --port 9000
+</pre></div>
+</div>
+<p>It needs the same environment as the rest of somnia, plus a key for the model.
+Every setting is in <a class="reference internal" href="../reference/configuration.html"><span class="std std-doc">Configuration</span></a>; these are
+the ones a served night depends on:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Why</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ANTHROPIC_API_KEY</span></code></p></td>
+<td><p>the agent’s model calls, paid by you not the phone</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code></p></td>
+<td><p>where the rendered chapters are; the page streams them</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR</span></code></p></td>
+<td><p>where <code class="docutils literal notranslate"><span class="pre">somnia.db</span></code> lives, and where the joined-up copy of each book the page plays is written — sometimes more than one for a book opened mid-render; needs room, not just a path</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_URL</span></code>, <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code></p></td>
+<td><p>optional: keeping Audiobookshelf roughly in step, and the one-off below</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code></p></td>
+<td><p>another model; the default is Haiku 4.5</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code></p></td>
+<td><p>how hard it may think before answering, on the models that have such a dial; Haiku has not</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code> is the one that has become load-bearing since the page
+became the player, and it fails quietly if it is wrong. Chapters are never
+served by path — the request names a book and a chapter number, and the file
+comes from the database row — but a row pointing outside the library directory
+is refused all the same, because a database carried over from another machine
+can point anywhere. What you see on the phone is <em>that chapter didn’t arrive</em>;
+the real reason is a warning in the journal. It defaults to
+<code class="docutils literal notranslate"><span class="pre">~/library/audiobooks</span></code>, which is right only if that is genuinely where <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span></code> put things.</p>
+<p>Audiobookshelf is now optional. somnia writes your position to it when you
+stop, as a courtesy, so the ABS app finds roughly the right place if you open
+it somewhere else — but nothing reads it while a night is running, and a write
+that fails is logged and forgotten. Leave <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code> unset and no ABS
+client is built at all.</p>
+<p>Run <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code> once before the first night, if you have been
+listening in Audiobookshelf. It is the one thing that reads ABS: it takes
+where you had got to in each book, and how far you had heard, and puts them in
+somnia’s own database, so the page opens the book you were actually in rather
+than the one added most recently, at the beginning. It says what it did for
+every book, it never moves a position backwards, and running it again changes
+nothing — so if you are unsure whether it worked, run it again.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code> overrides Haiku 4.5. Haiku is the default because over 85
+trial questions on nuc2 it matched Sonnet 5 on every routing case, answered in
+half the time and cost a fifth as much. It lost the job once, for reading a
+character’s name as the title of a book somnia does not have — it did not do
+that once in five tries at the same question, but five tries is not proof, and
+<code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL=claude-sonnet-5</span></code> is the way back if it ever does it again.</p>
+<section id="if-a-question-takes-too-long-to-come-back">
+<h3>If a question takes too long to come back<a class="headerlink" href="#if-a-question-takes-too-long-to-come-back" title="Link to this heading">#</a></h3>
+<p>Almost none of the wait is somnia: a search of the book is a tenth of a second
+and the rest is the model, so this is the one setting that really moves it. If
+you are on Sonnet, going back to the default Haiku roughly halves the wait.</p>
+<p>On Sonnet there is a second, smaller dial: <code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT=low</span></code> tells it
+to think less before answering, against a default of <code class="docutils literal notranslate"><span class="pre">medium</span></code> that is already
+below what the API would do on its own, and is worth perhaps another second.
+It does nothing on Haiku, which has no such dial — somnia asks the API which
+models take one and simply does not send it where it would be refused.</p>
+<p>Restart <code class="docutils literal notranslate"><span class="pre">somnia-serve</span></code> after either.</p>
+<p>One wait is not the model and does not respond to any of that: the <strong>first</strong>
+question of the night that searches a book used to sit for twelve seconds while
+the embedding model loaded. That now happens as the server starts, so the cost
+lands where nobody is waiting — but it means <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code> is busy for those
+twelve seconds after it starts answering. The page, the book and the audio are
+all served throughout; only a search waits, and only if one is asked for that
+early.</p>
+<p><strong>Keep <code class="docutils literal notranslate"><span class="pre">--host</span></code> as localhost.</strong> The page has no login of any kind: anyone who
+can reach it can drive the agent, spend your API credit, listen to your books,
+and start or stop hours of rendering. Its only protection is that nothing but
+<code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach the port.</p>
+</section>
+</section>
+<section id="publish-it-on-the-tailnet">
+<h2>Publish it on the tailnet<a class="headerlink" href="#publish-it-on-the-tailnet" title="Link to this heading">#</a></h2>
+<p>Audiobookshelf usually already holds port 443, so give the chat page its own:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ tailscale serve --bg --https 8443 http://127.0.0.1:8721
+$ tailscale serve status
+</pre></div>
+</div>
+<p>The page is then at <code class="docutils literal notranslate"><span class="pre">https://&lt;node&gt;.&lt;tailnet&gt;.ts.net:8443/</span></code>, reachable from
+your own devices and from nowhere else. The whole night goes over that path now
+— the audio as well as the questions — so a phone that drops off the tailnet at
+3am loses the book. Nothing is downloaded ahead of time.</p>
+</section>
+<section id="install-it-on-the-phone">
+<h2>Install it on the phone<a class="headerlink" href="#install-it-on-the-phone" title="Link to this heading">#</a></h2>
+<p>Open the page in Chrome and use <em>Add to home screen</em>. It installs as a
+standalone app with its own icon, which is one tap in the dark instead of a
+browser and a URL, and it is worth doing for more than the icon: an installed
+app is the shape the media notification and the screen-off playback were built
+for and tested in.</p>
+<p>Nothing else is needed. The page keeps no login, and the conversation is
+started fresh each time it is launched.</p>
+</section>
+<section id="keep-it-running">
+<h2>Keep it running<a class="headerlink" href="#keep-it-running" title="Link to this heading">#</a></h2>
+<p>As a systemd <strong>user</strong> service, alongside the rest of somnia:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="c1"># ~/.config/systemd/user/somnia-serve.service</span>
+<span class="k">[Unit]</span>
+<span class="na">Description</span><span class="o">=</span><span class="s">somnia chat page</span>
+<span class="na">After</span><span class="o">=</span><span class="s">network-online.target</span>
+
+<span class="k">[Service]</span>
+<span class="na">EnvironmentFile</span><span class="o">=</span><span class="s">%h/somnia.env</span>
+<span class="na">ExecStart</span><span class="o">=</span><span class="s">%h/.local/bin/somnia serve</span>
+<span class="na">Restart</span><span class="o">=</span><span class="s">always</span>
+<span class="na">RestartSec</span><span class="o">=</span><span class="s">5</span>
+
+<span class="k">[Install]</span>
+<span class="na">WantedBy</span><span class="o">=</span><span class="s">default.target</span>
+</pre></div>
+</div>
+<p>The environment file must carry <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code> if the library is not in
+the default place. A unit that lacks it starts perfectly happily, answers
+questions perfectly happily, and 404s every chapter.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ loginctl enable-linger $USER          # survive logout
+$ systemctl --user daemon-reload
+$ systemctl --user enable --now somnia-serve
+$ curl -s localhost:8721/api/health     # {&quot;ok&quot;: true}
+</pre></div>
+</div>
+</section>
+<section id="asking-it-things">
+<h2>Asking it things<a class="headerlink" href="#asking-it-things" title="Link to this heading">#</a></h2>
+<p>Type, or hold the button and speak — it listens only while held, because a
+bedroom is full of speech that was not meant for somnia. Answers are read, not
+spoken back: the only thing the page makes a sound with is the book.</p>
+<p>The button glows and pulses while it is listening, and the phone buzzes when it
+starts and stops. Android’s own speech recogniser plays a start and stop tone
+that no web page can turn off; silencing it means muting system sounds on the
+phone.</p>
+<p>Ask to be taken somewhere and the book goes there and plays from there. If the
+passage is in a book that was not even open, that book opens. Nothing has to be
+pressed afterwards — including nothing to get back to the book. A question is
+asked on the conversation and answered by a book that moved, so the page puts
+the player back in front of you rather than leaving the seek behind a
+transcript. It does that whether you typed the question or held the microphone,
+which it did not use to: typed, the keyboard going down took you back by
+accident, and spoken there was no keyboard to go down.</p>
+<p>Ask it a <em>question</em> instead — who Rob Roy is, what became of Ginger, why they
+went to London — and it answers in a sentence and leaves the book exactly where
+it is. Nothing moves, no list goes up, and the book carries on playing
+underneath. It is worth saying because it did not use to be true: every question
+was read as <em>take me somewhere</em>, so asking who somebody was either put a list of
+places on the screen or moved the book to one of them, and cost you the hour you
+were in.</p>
+<p>When more than one place could be what you meant, it does not ask — it puts
+them on the screen. The screen is headed <em>Places you might be</em>, with a line
+under it saying how many there are and what they span, and each row is a
+time, a chapter and the book’s own words — its own, never a description of
+them, so you recognise the moment rather than take somnia’s word for it, and
+never the words of a place you have not reached yet, which is the paragraph
+after this one. Every row starts covered: press its reading and the words come
+up, press it again and they go away, so the list can be read down without ending
+up as four paragraphs of book on a phone at 2am. Sitting between the rows in
+book order, so you can see which places are behind you and which are ahead,
+there is a <em>you are here</em> line — and under it, in amber, where you actually are:
+the time, the words being spoken there behind the same press, and a <em>here</em>
+button that takes you back to it if you have gone somewhere and it was wrong.
+Press <em>goto</em> on a row and the book goes there and plays, and the list
+goes with it, leaving you on the player looking at where you have arrived. The
+line at the foot of the screen names where you landed — <em>moved to 1:20:20</em> —
+with <em>undo</em> beside it for six seconds, which puts you back exactly where the
+press found you and says <em>back where you were</em>. It is there because <em>goto</em> is
+the one press in the app that throws a position away, and without it the only
+route back is asking again. Anything that moves the book inside those six
+seconds takes the offer away and leaves the sentence: a way back holds a
+position, not an intention, and after a press of <em>+30</em> it would be a fourth move
+rather than a way back. After it has gone, the <em>here</em> button on the list is the
+way back that is left — it remembers where you were when you asked, not where
+the book has got to since. Press
+<em>‹ controls</em> in the top left — the same corner and the same word as the way out
+of everything else — and nothing whatever happens: the book carries on exactly
+as it was, in the same place, with the same sleep timer running, on the player
+the list was standing over. It stands over the player however the question was
+asked, so what <em>‹ controls</em> gives back does not depend on whether you spoke it. Nothing has
+moved while the list is up, so there is nothing to undo. The book keeps playing
+underneath it the whole time, which also means a sleep timer left to run out
+under a list still ends the night — the list is not a reason to keep the book
+going.</p>
+<p>It will not answer about a part of the book you have not heard. An answer can
+come out of somnia’s own reading of the book rather than only out of the passage
+it just looked up, and that line is the whole of what bounds it: somebody who
+has not turned up yet gets <em>he hasn’t come up yet in what you’ve heard</em>, and
+nothing after that — not who he is, and not that he arrives later. The bound is
+the furthest point the page has actually <em>played through</em>, not where you are
+now — so being taken back to chapter two does not un-hear chapter twenty, and
+being taken forward does not unlock what you were carried over. What you get
+instead is that place as a row on the list, marked <em>ahead</em>, showing its time
+and its chapter number and nothing else — no words, and not even the chapter’s
+name, since a chapter called <em>How Ginger Died</em> gives away as much as the
+sentence under it. What it says instead is <em>tap to reveal · may spoil</em>: press
+anywhere on the row’s reading and it uncovers, and you decide having read it;
+press it again and it goes back under, name and all; press <em>goto</em> and you go
+there without reading it at all. Two
+things follow from measuring it that way. A book
+somnia has never played is bounded at its opening minute, so if a book you have
+been listening to for a fortnight puts everything on the list as <em>ahead</em>, the
+listening happened in Audiobookshelf and somnia does not know about it — run
+<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>. And skipping forward while the sound is on stops the
+mark where it was until you come back behind it, which is the price of one
+press of <em>+30</em> not marking the rest of the book as heard.</p>
+<p>Conversations are held in memory, keyed by a token the page mints when it
+starts, and nothing is written to disk. <em>Start over</em> drops the history when the
+agent has got the wrong end of a mumbled question; restarting the service drops
+all of them.</p>
+</section>
+<section id="playing-the-book">
+<h2>Playing the book<a class="headerlink" href="#playing-the-book" title="Link to this heading">#</a></h2>
+<p>The page opens the book you last had open — the one you were listening to, or
+the one you last pressed on the shelf — at the place you left it, or at its
+beginning if you have not started it, and does not start it: opening the app at
+2am to ask a question is not the same as asking for the book. Press play when
+you want it.</p>
+<p>To read something else, open <em>books</em> and press the book on the shelf — or ask,
+which still works and is still the shortest way to say it. There is still no
+library of things you do not have to browse: <em>Workshop</em>, behind the quiet
+<em>workshop ›</em> pill in the top-right corner of <em>Books</em>, is where a book is
+<em>added</em>, and its search goes to Gutenberg’s catalog rather than to your shelf.</p>
+<p>Those two are one screen each on purpose. <strong>Books</strong> is the night screen — which
+book — and it is set at the same type size as the player, because it is read in
+the same dark without glasses. <strong>Workshop</strong> is the daytime one — find a book,
+have it read, watch it being made — and it is smaller and denser than anything
+else in the app, because it is read sitting up with the lights on. The two
+things you can change about how the app behaves are on a third, <strong>Settings</strong>,
+which is a night screen and is reached from the player’s top-right corner.</p>
+<p>On the page there are three buttons: back thirty seconds, play/pause, forward
+thirty seconds — or fifteen, or sixty, if you have said so in <em>Settings</em> under
+<em>how far the skip buttons move</em>; the labels say which. Most nights you will use none of them,
+because the screen is off. With the phone locked the book is driven from the
+notification, the lock
+screen and whatever is paired over Bluetooth: play, pause, back and forward,
+previous and next chapter, and a scrubber. The scrubber covers the chapter, not
+the book — three minutes to the pixel across a whole novel is no use for the
+nudge you actually want, and one sleepy thumb from the ending.</p>
+<p>Pressing play again gives you back a little of what you missed, sized by how
+long the sound was off: nothing under half a minute, then eight seconds, twenty
+after a few minutes, and half a minute after an hour — and that longest one
+lands on the start of the sentence you were in rather than in the middle of it.</p>
+<p><strong>The sleep timer is the word <em>sleep</em> next to the clock.</strong> Tapping it walks
+fifteen, thirty, forty-five and sixty minutes, then the end of the chapter,
+then off again, and it always says which it is on. It counts listening time, so
+pausing to ask a question does not spend it. It ends in a twenty-second fade
+that reaches silence at the time it named; tapping the control during that fade
+brings the sound back, on the grounds that anyone reaching for it is awake
+enough to have changed their mind. It is written down as it counts, so a reload
+— or the phone throwing the app out of memory while it is in the background —
+brings it back with the minutes it had left on it. A timer more than six hours
+old is not brought back: opening the book the next evening is starting a night,
+not finishing one.</p>
+<p>If something else takes the sound — a call, an alarm — the book stops and stays
+stopped, and the page says so. If the phone refuses to start audio without
+being touched first, the page says <em>tap anywhere to carry on</em>, and anywhere
+means anywhere.</p>
+<p>A book that is still being rendered grows underneath you, and the page keeps
+up with it: while the render is running it asks again for the chapter list —
+when the audio runs out, and whenever you come back to the app — and carries
+on into whatever has landed since. Open one that is three chapters in and it
+will play those three, say <em>waiting for the next chapter to be read</em>, and go
+on when chapter four arrives. A book with nothing rendered at all says <em>the
+first chapter is still being read</em>, and the player appears when that chapter
+lands — already playing if the agent took you to that book, waiting to be
+pressed if you only opened the app. A book whose render is not running and has
+no audio at all says <em>nothing yet — press books, then Workshop, to add one</em>,
+which is also
+what a somnia with no books in it says.</p>
+<p>When a render stopped part way — you stopped it, or a reboot did — the audio
+runs out mid-book, and the page says <em>the rest of this book hasn’t been read
+yet</em> rather than <em>that is the end of the book</em>. It knows the difference because
+the parse writes down how many chapters the book has, so a book three chapters
+into thirty-nine is tellable from one that is over. Nothing ends: the sleep
+timer keeps counting and the page keeps wanting the sound. Queue the book
+again — from <em>Workshop</em>, or by asking — and it picks up at the chapter after the
+last finished one.</p>
+<p>When the tailnet goes — wifi power save and a tailscale re-key both do it for a
+few seconds — the page says <em>the book stopped arriving</em> and keeps trying,
+waiting longer between attempts up to half a minute, and puts the chapter back
+where you had got to rather than at the top of it. Opening the app while the
+server is unreachable says <em>couldn’t reach the book — trying again</em>, and does.
+It stops the moment you pause — nothing reloads chapters under a book somebody
+has put down — and waking the phone, or the wifi coming back, makes it try
+again at once, so there is nothing to press.</p>
+</section>
+<section id="choosing-a-book-books">
+<h2>Choosing a book: <em>Books</em><a class="headerlink" href="#choosing-a-book-books" title="Link to this heading">#</a></h2>
+<p><em>books</em>, in the top left corner, opens a panel over the page. The book keeps
+playing underneath it, and <em>‹ controls</em> puts it away having changed nothing at
+all. What does change something is tapping a book — the one at the top, which
+starts the book already open, or one on the shelf, which opens that one. No book
+on this screen carries a button of its own: opening one is the same gesture
+wherever it is in the list.</p>
+<p>It is a night screen, and everything on it is set at the player’s own type size
+for that reason: it is read in the same dark, at the same arm’s length, by
+somebody who has taken their glasses off. It asks one question — <em>what shall I
+listen to</em> — and nothing that is not part of that answer is on it. It asks the
+server for one thing, once, when it opens: which books there are. It schedules
+no wake and polls nothing, so a night spent looking at it is a night with no
+radio traffic in it.</p>
+<p>At the top, under <em>reading now</em>, is the book that is playing underneath the
+panel — <em>The Moonstone</em> in amber, the only amber title in the app, and under it
+<em>chapter 4 of 37 · picks up at 1:12:08</em> over a hairline showing how far through
+it you are. The time is where a tap would land you; while the book is actually
+sounding the heading reads <em>playing now</em> and the line ends <em>· playing</em>, because
+then there is nothing to start. The hairline is not drawn at all while the book
+is still being rendered, because until the render is over the book’s length is
+only how much of it exists so far. Tapping the block starts it and puts the
+panel away — the same press as the play button, made from up here.</p>
+<p>Under it, <em>on the shelf</em> is every other book somnia has, each with where you
+left it — <em>0:27:42 in</em>, or <em>not started</em>. Tapping a row opens that book at that
+place and takes the panel away with it. Changing your mind costs one press back:
+nothing is written to the book you left, so it is still exactly where it was,
+and so is the one you looked at. A book still being rendered says so and is not
+a press at all until its first chapter exists, because until then there is
+nothing to play. A book whose render stopped part way says <em>part rendered</em> and
+can still be opened — what was read plays. If the box cannot be reached, the
+shelf you last saw stays on screen with <em>couldn’t reach somnia</em> under it: an
+empty shelf and an unreachable server look identical and mean opposite things.</p>
+<p>The rows say the title and nothing else — no author, no dates, no cover. At this
+size the catalogue’s <em>Title — Surname, Forename, dates</em> is three lines of a
+phone, and it is metadata about a book you already own and chose. The title is
+what you recognise a book you own by. Who wrote it appears in <em>Workshop</em>, where
+you are choosing among seventy thousand you do not.</p>
+<p>The way to <em>Workshop</em> is a quiet <em>workshop ›</em> pill in this screen’s own
+top-right corner, opposite <em>‹ controls</em>. Nothing behind it is a job for 2am,
+which is why it is drawn no louder than the way back — but it is not at the
+bottom of the shelf either. It used to be, and on a twenty-book library that
+meant scrolling past every book on the screen to reach the one thing on it that
+is not about books.</p>
+<p><em>how dark</em> used to sit under the shelf. It is on <em>Settings</em> now, which is a
+night screen too, so nothing it needed is lost — and this screen is back to
+answering one question with nothing on its scroll but books.</p>
+</section>
+<section id="adding-a-book-and-watching-it-made-workshop">
+<h2>Adding a book, and watching it made: <em>Workshop</em><a class="headerlink" href="#adding-a-book-and-watching-it-made-workshop" title="Link to this heading">#</a></h2>
+<p><em>workshop ›</em>, in the top-right corner of <em>Books</em>, and reachable no other way. <em>‹ books</em> comes back, and <em>Books</em> is exactly where you left it.</p>
+<p>This is the daytime screen and it is denser than anything else in the app,
+because it is read sitting up with the lights on — denser, and brighter. It is
+drawn in its own ink rather than the night palette: fuller cream, stronger
+hairlines, a lifted amber, and the sheet of black the rest of the app is read
+through comes off entirely while it is up. Every alpha in the night scale was
+chosen for a dark room, and in daylight those same values are not quiet, they
+are gone. Nothing on it goes below 16dp. It asks one question too: <em>get me a new
+book, and tell me it worked</em>. The order down it is that sentence.</p>
+<p>At the top, under <em>project gutenberg</em>, is the search. Under the results is what
+is happening, in a box headed <em>the server is working</em> — on the same screen and
+directly beneath them on purpose, because somebody who has just pressed <em>add
+this book</em> wants to see it being made, and splitting the press from its
+consequence is how the same book gets added twice. The box holds the book being
+rendered, with <em>narrating</em> in the corner of its line
+and, under the name, which chapter it is on and how much of it can be played
+now — <em>chapter 4 of 39 · 1h12m read so far</em> — over a hairline that fills as the
+chapters land. Under it is whatever is waiting, marked <em>queued</em>, saying how far
+down the line it is. One book renders at a time, always, so a queue of three is
+three books’ worth of waiting and not three renders fighting over two cores.</p>
+<p>The word in the corner is the stage — <em>queued</em>, <em>narrating</em>, <em>ready</em>, <em>failed</em>,
+<em>stopped</em> — and the line under the name is what is actually going on inside it.
+A book whose text has not been parsed yet has no hairline at all rather than one
+sitting at nothing: until the parse has run, nobody has written down how many
+chapters there are, and the line says <em>fetching the text</em> instead of counting.
+The box is not drawn at all when nothing is rendering.</p>
+<p>A render that has not been heard from for five minutes says <em>not responding</em>
+instead of pretending. That is a real answer: it means the worker died, or the
+box did, or nobody ever started <code class="docutils literal notranslate"><span class="pre">somnia-worker</span></code>. Check
+<code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">--user</span> <span class="pre">-u</span> <span class="pre">somnia-worker</span></code>.</p>
+<p>Under those are the renders that ended in the last day, and a failed one says
+why in a sentence — <em>Gutenberg has book 4321 but no HTML edition, so somnia
+cannot read it</em>. They go away by themselves after a day. There is nothing to
+dismiss and no badge or count anywhere: a book finishing at 3am is
+not news to somebody asleep, and it is on a screen nobody opens at 3am.</p>
+<p>Searching is the top of this screen, and it is what you came here for: type part
+of a title or an author and press <em>find</em>. That searches
+the copy of the Gutenberg catalog on this machine, so it answers in the time a
+tap takes and works with the internet down — run <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code> if a
+book you know exists is not in it. A book somnia already has, or already has
+coming, is marked and offers no button; a render that died is marked <em>part
+rendered</em> and offers <em>finish this one</em>, which picks it up at the chapter after
+the last finished one.</p>
+<p><em>add this book</em> does not queue it. It opens <em>read in</em> under that row — the
+voices somnia can read it in, one pill each, with <em>add it</em> underneath — and the
+same press closes it again, so the way back is the button your thumb is already
+on. Pressing a name plays a few seconds of it: the same line of <em>Black Beauty</em>
+in every voice, so what you are comparing is the voice and not the sentence. If
+the book is playing it is paused first, and stays paused — two things reading
+aloud at once is the one thing worth avoiding here, and starting the book again
+under somebody who is still choosing is worse than leaving the play button where
+they can find it. The last voice you chose is the one the next book opens on, so
+the second book of an evening is two presses.</p>
+<p>It is asked here, and only here, because a book is read by one narrator and
+cannot be re-read by another: every timestamp somnia holds — chapter marks,
+index entries, the place you fell asleep — was measured against the audio that
+was actually made. <em>finish this one</em> therefore offers no choice at all and picks
+the book up in the voice it started in.</p>
+<p><em>add it</em> queues it, and the sentence underneath is the server’s own — the same
+sentence the agent says when you ask it out loud. The row it makes says which
+voice, beside its place in the line, while taking it out again still costs
+nothing.</p>
+<p><em>stop reading this</em> takes two presses, and the second one only asks. The render
+stops at the end of the sentence it is reading, about twenty seconds later,
+which is what keeps every chapter that was finished playable and stops the
+index filling up with half a chapter. The row stays as the record of a render
+somebody stopped.</p>
+<p><em>Workshop</em> asks the server how things are going every five seconds while it is
+open, and stops the moment it is closed or the phone goes in a pocket. Nothing
+about the queue is polled otherwise — and since this is the only screen the
+queue is on, and it is two presses from the player behind a row that says
+<em>daytime</em>, no night has a five-second wake in it.</p>
+<p><em>Workshop</em> holds no settings. Both of them are on <em>Settings</em>, below.</p>
+</section>
+<section id="changing-how-it-behaves-at-night-settings">
+<h2>Changing how it behaves at night: <em>Settings</em><a class="headerlink" href="#changing-how-it-behaves-at-night-settings" title="Link to this heading">#</a></h2>
+<p><em>settings ›</em> in the top-right corner of the player — the corner that had been
+empty since <em>start over</em> moved to the chat screen. <em>‹ controls</em> comes back.</p>
+<p>It is a night screen in the night palette, which is the point of it rather than
+a default: both controls on it are reached for in the dark with the book
+playing, and one of them cannot be set anywhere else at all.</p>
+<p><em>how dark the room</em> takes the page darker than the phone’s own minimum
+brightness, by laying black over everything. Press <em>–</em> or <em>+</em> and the screen you
+are looking at gets lighter or darker as you watch — the layer is over this
+screen too, which is why it has to be set on a screen read in the dark. It goes
+from nothing to rather dark in ten presses, and it cannot go dark enough to hide
+itself.</p>
+<p><em>how far the skip buttons move</em> — fifteen, thirty or sixty seconds — is what the
+two buttons either side of play mean, and what they say. It was in <em>Workshop</em>,
+on the argument that a thing set once is daytime configuration. That is wrong
+about when it is discovered: nobody decides thirty seconds is the wrong distance
+sitting up in daylight, they decide it lying in the dark with a narrator who
+leaves long gaps, having missed the same sentence twice.</p>
+<p>Both are written down and outlive the page. The sleep timer is the one setting
+that is not: it expires after six hours, because a timer is an intent about one
+night.</p>
+</section>
+<section id="check-screen-off-playback-before-you-trust-a-night-to-it">
+<h2>Check screen-off playback before you trust a night to it<a class="headerlink" href="#check-screen-off-playback-before-you-trust-a-night-to-it" title="Link to this heading">#</a></h2>
+<p>Everything above rests on an installed PWA being allowed to keep playing with
+the screen off, and on its notification surviving a chapter boundary. The first
+was confirmed on 2026-08-06 and is not an open question; it is the check to run
+again on a new phone, after an Android update, or on the first night that goes
+quiet. The second was confirmed on the same night on the phone’s own speaker,
+and that turned out not to settle it — over Bluetooth the notification is torn
+down and rebuilt at every boundary, and some nights it does not come back. That
+is issue #31, and it is why this page now asks a second question as well. Both
+are properties of the handset rather than of this code, and neither can be
+tested from a desk.</p>
+<p>It is checked with a page of its own, which generates its own audio so it needs
+no library, swaps chapters the way the player does, and writes every
+media-session event to a log held in local storage — so the evidence survives
+the page being discarded, which is one of the things being tested for.</p>
+<p>It is served alongside the app, at:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">https</span><span class="p">:</span><span class="o">//&lt;</span><span class="n">node</span><span class="o">&gt;.&lt;</span><span class="n">tailnet</span><span class="o">&gt;.</span><span class="n">ts</span><span class="o">.</span><span class="n">net</span><span class="p">:</span><span class="mi">8443</span><span class="o">/</span><span class="n">spike</span><span class="o">-</span><span class="n">background</span><span class="o">-</span><span class="n">audio</span><span class="o">.</span><span class="n">html</span>
+</pre></div>
+</div>
+<p>Open that on the phone. The line under the readout says whether it is running
+as a browser tab or as an installed app; the installed case is the one
+everything rests on, and it is the one Android treats more generously, so a tab
+that keeps playing is good news for both while a tab that stops is not by itself
+proof about the app.</p>
+<p>In <em>Tone chapters</em>, press <em>Start</em> and confirm you can hear a tick once a second
+— the tick is the cheapest stall detector there is, because you can hear time
+passing with the screen off. Lock the phone, leave it two minutes, and wake it.
+If <strong>shortfall</strong> is under a couple of seconds, nothing ever stopped it. Then
+press every button you own — the lock screen, the pillow speaker, the headphones
+— and check each one appears in the log, and use <em>Agent move</em> to confirm the
+book can be moved and played again with no gesture at all, which is what the
+agent does every time it takes you somewhere.</p>
+<p>That mode is also a demonstration of the bug: it gives the element a new file at
+every chapter, exactly as the player does, and <strong>src writes</strong> on the readout
+counts the teardowns.</p>
+<section id="whether-one-file-can-carry-a-whole-book">
+<h3>Whether one file can carry a whole book<a class="headerlink" href="#whether-one-file-can-carry-a-whole-book" title="Link to this heading">#</a></h3>
+<p><em>Whole book</em> is the other question, and it is the one that decides whether the
+player can stop letting go at a boundary. It loads a real book — the longest one
+somnia has, or <code class="docutils literal notranslate"><span class="pre">?gid=&lt;gid&gt;</span></code> for a particular one — from a single URL,
+<code class="docutils literal notranslate"><span class="pre">/api/stream/{gid}/{n}</span></code>, and never touches the element again: a chapter boundary
+becomes arithmetic on the render clock, and the only thing that happens is that
+the notification is renamed. <code class="docutils literal notranslate"><span class="pre">?book</span></code> on the URL starts the page in this mode, so
+a home-screen shortcut can go straight to it in the dark.</p>
+<p>It has to be run over Bluetooth with the screen locked, because that is the
+route the last check got wrong. Watch <strong>src writes</strong> stay at 1 all night; watch
+<strong>chapter changes</strong> climb without it moving. Then look at the notification
+across a boundary — no log can see this, and it is the whole question: does the
+panel keep the same session and simply change its title, or does it blink out
+and come back?</p>
+<p>Four other things are worth doing while it is up, all of them nightly in the
+real player:</p>
+<ul class="simple">
+<li><p><em>Seek to the middle</em>, which is the morning resume: the log says how long the
+seek took and how long until sound came back.</p></li>
+<li><p>Watch <strong>holding</strong> — the byte ranges Chrome has kept. If the first range goes
+on starting at 0 all night, the phone is holding the whole book.</p></li>
+<li><p>Turn the tailnet off for half a minute and back on. A stall shows as
+<strong>shortfall</strong>; whether the phone had to fetch the book again shows in
+<strong>holding</strong>, and the other half of that answer is in the server’s own log —
+<code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">somnia</span> <span class="pre">-f</span></code> shows a second <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/...</span></code> if Chrome
+threw the book away and asked for it again.</p></li>
+<li><p>Press the pillow speaker’s skip and its scrubber. The panel is told the
+<em>chapter’s</em> length and not the book’s, so what those buttons move by is the
+question, and the log writes down what the panel was told each time.</p></li>
+</ul>
+<p>It is a spike and it is meant to read like one. It is served rather than kept
+out of the way because a diagnostic nobody can open from the handset is a
+diagnostic nobody runs, and these are the two questions the whole pivot rests
+on.</p>
+</section>
+<section id="asking-the-same-question-of-the-real-player">
+<h3>Asking the same question of the real player<a class="headerlink" href="#asking-the-same-question-of-the-real-player" title="Link to this heading">#</a></h3>
+<p>The player itself now loads the whole book from one URL, so the spike is no
+longer the only place the question can be asked. To compare the two ways on the
+same night, over the same speaker, open the app with <code class="docutils literal notranslate"><span class="pre">?chapters</span></code> on the address:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>https://&lt;node&gt;.&lt;tailnet&gt;.ts.net:8443/?chapters
+</pre></div>
+</div>
+<p>That plays the book a file at a time, the way it played before — a load at every
+boundary, which is the bug — while the app opened normally plays it from one
+file. Nothing else about the page differs, and nothing is remembered: it is a
+property of the address, so closing the tab is the whole of undoing it.</p>
+<p>Listen across a boundary each way, locked, over Bluetooth. The answer is what
+the notification does, and there is nothing on any screen or in any log that can
+stand in for it.</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="run-container.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Run in a container</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="upgrade.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Upgrade to a new version</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-it">Run it</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#if-a-question-takes-too-long-to-come-back">If a question takes too long to come back</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#publish-it-on-the-tailnet">Publish it on the tailnet</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-it-on-the-phone">Install it on the phone</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#keep-it-running">Keep it running</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asking-it-things">Asking it things</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#playing-the-book">Playing the book</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-book-books">Choosing a book: <em>Books</em></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-a-book-and-watching-it-made-workshop">Adding a book, and watching it made: <em>Workshop</em></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-how-it-behaves-at-night-settings">Changing how it behaves at night: <em>Settings</em></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#check-screen-off-playback-before-you-trust-a-night-to-it">Check screen-off playback before you trust a night to it</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#whether-one-file-can-carry-a-whole-book">Whether one file can carry a whole book</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#asking-the-same-question-of-the-real-player">Asking the same question of the real player</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/gilesknap/somnia/edit/0.7/docs/how-to/serve-the-chat-page.md">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/how-to/serve-the-chat-page.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
