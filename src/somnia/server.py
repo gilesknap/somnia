@@ -46,10 +46,11 @@ from .agent import Conversation, Turn, effort_for, open_library
 from .catalog import search_catalog
 from .config import Config
 from .db import connect
+from .format import shorten
 from .player import Player
 from .queue import LIVE, QueueRow, Stopped, Submission, stop, submit, view
 from .stream import build_stream, stream_path
-from .tools import CANDIDATE_TEXT_CHARS, Library, shorten
+from .tools import CANDIDATE_TEXT_CHARS, Library
 from .voices import VOICES, known
 
 __all__ = ["Conversations", "Found", "Queue", "create_app", "serve"]

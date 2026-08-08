@@ -25,8 +25,9 @@ from anthropic.types.beta import BetaOutputConfigParam, BetaTextBlockParam
 
 from .abs import AbsClient
 from .config import Config
+from .format import format_timestamp
 from .queue import QueueRow
-from .tools import Library, Moved, Offer, Refused, format_timestamp
+from .tools import Library, Moved, Offer, Refused
 
 __all__ = [
     "OFFER_SENTENCE",

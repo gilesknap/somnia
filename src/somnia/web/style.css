@@ -582,18 +582,14 @@ body.player-screen #to-settings {
   color: var(--placement);
 }
 
+/* One rule, said once. It used to be two blocks with this selector, and the
+   second set `font-size: 1.1rem` — which is `.said`'s own size, three lines up,
+   restated at a specificity that changes nothing. The rule it was written to
+   outrank is `body.chat-screen #transcript .said` further down, and that one
+   carries a class on <body>, so it beats both spellings equally. Two places to
+   change one number, and one of them silent. */
 #transcript .said {
   display: none;
-}
-
-/* 22dp, the design's size for the placement line, and set through #transcript
-   so it outranks the chat size the same element gets further down. Written here
-   rather than on `.said` because the two rules have to be able to beat each
-   other in one direction only, and this is the one that must lose on the chat
-   screen — which it now does on specificity rather than on being written first,
-   since the rule that beats it carries a class on <body> as well. */
-#transcript .said {
-  font-size: 1.1rem;
   /* Explicit, because the turns above this one are `display: none` and the
      browser's own `p { margin: 1em 0 }` was landing on whichever turn was left
      — a gap that grew with the type and put the placement line 34px under the
@@ -2419,11 +2415,6 @@ body.keyboard-up .candidate {
 
 body.keyboard-up .candidate.here {
   padding-top: 0.4rem;
-}
-
-body.keyboard-up .candidate-what {
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
 }
 
 /* Still over the 44dp floor. Nothing tappable goes under it, and the reveal
