@@ -742,6 +742,21 @@ def a_second_book(tone_book: ToneBook, gid: int, *, rendered: bool = True) -> No
             )
 
 
+def added_first(tone_book: ToneBook, gid: int) -> None:
+    """Make this the oldest book on the shelf, whatever order the test added them.
+
+    ``created_at`` breaks a tie on ``position_at`` and is written in whole
+    seconds like it is, so two books a test inserts carry the same one and an
+    exact tie is decided by nothing anybody wrote down. Saying which is older
+    aims the tie-break, so a test about the lead is answered only by the lead.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET created_at = '2000-01-01 00:00:00' WHERE gid = ?",
+            (gid,),
+        )
+
+
 def test_the_page_can_choose_which_book_it_is_on(
     tone_client: TestClient, tone_book: ToneBook
 ) -> None:
@@ -794,8 +809,14 @@ def test_the_book_being_left_does_not_take_the_switch_back(
     whole seconds, and if the parting one won then a reload would open the book
     they had just left — which is the only way the whole feature can look
     broken while every request in it succeeded.
+
+    The book being opened is made the older of the two, so ``created_at`` is on
+    the side of the book being left. Otherwise both rows are added inside one
+    second, the tie-break has nothing to say, and this passes with or without
+    the lead it exists to protect.
     """
     a_second_book(tone_book, GID + 1)
+    added_first(tone_book, GID + 1)
     report(tone_client, position_ms=5_000)
     assert tone_client.post(f"/api/book/{GID + 1}/open").status_code == 200
 

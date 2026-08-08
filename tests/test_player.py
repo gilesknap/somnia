@@ -170,6 +170,23 @@ def another_book(tone_book: ToneBook, gid: int, *, rendered: bool = True) -> Non
             )
 
 
+def added_first(tone_book: ToneBook, gid: int) -> None:
+    """Make this the oldest book on the shelf, whatever order the test added them.
+
+    ``created_at`` is the tie-break under ``position_at`` and is written by
+    ``datetime('now')`` too, so two books a test inserts a microsecond apart
+    normally carry the same one — and which of two rows equal on every sort key
+    comes back first is the sorter's business, not something to assert against.
+    Saying which is older aims the tie-break deliberately, so a test about the
+    lead ``open_book`` writes cannot be answered by anything else.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET created_at = '2000-01-01 00:00:00' WHERE gid = ?",
+            (gid,),
+        )
+
+
 def listening_to(tone_book: ToneBook, gid: int, position_ms: int = 5_000) -> None:
     """What an accepted report leaves behind: a position and a moment."""
     with tone_book.conn:
@@ -249,8 +266,14 @@ def test_the_book_left_behind_cannot_take_the_switch_back(
     written by ``datetime('now')``, which counts whole seconds, so without a
     lead the two are the same second and the tie is broken by which book was
     added first: a reload would open the book they had just left.
+
+    The destination is made the older of the two so that ``created_at`` points
+    at the book being left. Without that this passes whether the lead is there
+    or not, because both rows are added inside one second and the tie-break has
+    nothing to say either.
     """
     another_book(tone_book, GID + 1)
+    added_first(tone_book, GID + 1)
     listening_to(tone_book, GID)
 
     assert player.open_book(GID + 1) is not None
