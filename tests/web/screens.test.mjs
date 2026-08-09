@@ -546,6 +546,18 @@ test("the player's spacers are not on the chat screen", async (t) => {
   assert.ok(RULES.includes("body.chat-screen .rhythm { display: none; }"));
 });
 
+// And the reading, said the same belt-and-braces way and for the same reason.
+// Both rules are redundant as the sheet stands: `body.chat-screen #player-bar`
+// is `display: none`, and nothing renders under a parent that is not there. A
+// cleanup pass found this one and proposed deleting it — kept instead, and
+// pinned here, because the rule it is redundant *with* is one line away from
+// being changed back, and the two failures are not the same size. A dead rule
+// costs nothing; the reading appearing over a conversation somebody is typing
+// into is the screen losing its subject.
+test("the reading is not on the chat screen either", async (t) => {
+  assert.ok(RULES.includes("body.chat-screen #now-playing { display: none; }"));
+});
+
 // #now-playing is `display: contents` everywhere but one block, and that one
 // block is why this test exists. It was written when the base rule was a flex
 // column, so it said `display: flex` and left the direction to be inherited from

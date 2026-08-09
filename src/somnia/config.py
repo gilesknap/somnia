@@ -112,7 +112,10 @@ def load_config() -> Config:
     if v := os.environ.get("SOMNIA_DATA_DIR"):
         cfg.data_dir = Path(v).expanduser()
     if v := os.environ.get("SOMNIA_LIBRARY_DIR"):
-        cfg.library_dir = Path(v).expanduser()
+        cfg.library_dir = Path(v)
+    # Once, and on the line that catches both: the default carries a ~ and so
+    # may the override, and expanding the override here as well was a second
+    # pass over a path that had already had one.
     cfg.library_dir = cfg.library_dir.expanduser()
     if v := os.environ.get("SOMNIA_ABS_URL"):
         cfg.abs_url = v.rstrip("/")
