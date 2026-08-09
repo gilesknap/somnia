@@ -40,7 +40,7 @@ flowchart LR
     serve["somnia serve<br>Player fast lane, Conversation<br>agent lane, Queue lane"]
     worker["somnia worker<br>supervisor, no torch"]
     child["somnia worker --once<br>one book, under a lease"]
-    db[("somnia.db<br>the only channel<br>between the two units")]
+    db[("somnia.db<br>where the units coordinate —<br>no lock file, no socket")]
     files[/"library dir<br>.m4a per chapter"/]
     joins[/"data dir<br>chapters joined,<br>one .m4a per version"/]
   end
