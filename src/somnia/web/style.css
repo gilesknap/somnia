@@ -1853,14 +1853,104 @@ body.wake-screen #player-bar:not([hidden]) {
 @media (max-height: 34rem) and (min-width: 34rem) {
   body.player-screen #player-bar:not([hidden]) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    /* Even, and it was 1fr to 1.4fr. The transport was given the larger share
+       because it is what gets pressed without looking, which is true — but the
+       narrower column has one line in it that must not wrap, and at the real
+       landscape measure it did. `1:12:08 of 9:41:33` is the widest thing the
+       reading has, and broken over two lines it pushes the sleep timer off the
+       bottom of a 309px window: the one control this whole block exists to keep
+       reachable, lost to a column 60px too narrow. Photographed at 669x309 —
+       the phone on its side at the text scale this page is read at — with a
+       nine-hour book open, which is what put the wrap on screen where a
+       measurement of the bare markup had not. The transport keeps three targets
+       well over the 44dp floor at this width; the clock has nowhere else to go. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
     gap: 1.2rem;
   }
 
+  /* The spacers are the portrait rhythm, and this is not a column. Left standing
+     they are grid items like everything else, so the two columns drawn for the
+     reading and the transport got four things to hold: Spacer A took the whole
+     left column, the reading went in the right, and the transport dropped onto a
+     second row under it. `display: none` for the reason the chat screen gives —
+     what is wrong here is that they exist. */
+  body.player-screen #player-bar:not([hidden]) .rhythm {
+    display: none;
+  }
+
   body.player-screen #now-playing {
+    /* A box again, because a column of the grid needs something to put in it and
+       `display: contents` is not a grid item.
+
+       `flex-direction` is the half that used to go without saying. The base rule
+       was a column when this block was written; it is `display: contents` now,
+       and a flex container with no direction is a ROW — which laid the book's
+       name, its position, the chapter, the clock and the circles out side by
+       side, each squeezed to the width of a letter or two, with the strip pushed
+       off the edge of the screen. This is the one place the sheet turns this
+       element back into a box, so it is the one place that has to say which way
+       it runs. */
     display: flex;
+    flex-direction: column;
+    justify-content: center;
     margin: 0;
+  }
+
+  /* And the reading is only its top half here, which is this block conceding
+     something it was written believing: that nothing has to go, because nothing
+     is short of room across. Height is what it is short of. Measured at the two
+     sizes this actually fires at, with the fix above in place and a two-line
+     title: the reading stands 421px tall under a 61px header, so it wants about
+     540px of window — and the query only runs below 544px. It overflowed at
+     844x390 by 241px, and at 669x309 — a Pixel 6 Pro on its side at the text
+     scale this page is read at — by very much more. The chapter and its circles
+     went off the bottom instead of off the right, which is not a fix.
+
+     So what stays is what this block exists for. Its own first paragraph names
+     it: the fit query took away "the only place the sleep timer can be read or
+     set", and that is #whereabouts — the clock, the progress line and the sleep
+     button. Above it the book's name, which index.html calls the only thing true
+     all night. Those two under a header come to 299px, which fits 309. The
+     chapter name, the chapter clock and the strip of circles are the reading's
+     lower half and they are what a phone on its side cannot have; they are all
+     still one turn of the wrist away, which is not true of the sleep timer. */
+  body.player-screen #chapter-title,
+  body.player-screen #chapter-clock,
+  body.player-screen .chapter-strip,
+  /* And the two lines inside the reading that say nothing the clock does not.
+     Measured at 669x309 with a nine-hour book open: what is left of the reading
+     still stood 45px past the bottom of the window, and the 45px was the sleep
+     pill — so this is not tidying, it is the difference between the timer being
+     on the screen and under it. The scrub line is the clock as a picture, and
+     `4 places found` is a count of something the places screen is one press
+     away from showing in full. Both are on the phone the moment it is upright.
+   */
+  body.player-screen #whole-progress,
+  body.player-screen #places-found {
+    display: none;
+  }
+
+  /* And the name gets one line here, which is the last 56px and the one that
+     decides whether this block does its job at all.
+
+     `#book-title` is the page's largest type and wraps to a second line by
+     design — the rule above says so, and says a two-line title is the case the
+     numbers have to hold. Two lines is 112px, and with them the reading stands
+     339px under a 61px header and a 41px status line in a 309px window: the
+     sleep button goes off the bottom, untappable. That is worse than what this
+     block was written to stop, not better — before this pass the timer was at
+     least on the screen, squeezed into a column a word wide.
+
+     One line brings the reading to 283px and puts the button back. What it
+     costs is the tail of a long name, which is the cheapest thing on this
+     screen to lose: the name is there to answer "am I in the right book?" and
+     its first line answers that. It is the whole name again the moment the
+     phone comes back upright. */
+  body.player-screen #book-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
