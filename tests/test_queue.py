@@ -561,3 +561,67 @@ def test_the_readout_says_which_voice_a_book_is_being_read_in(
     """So a wrong press is visible in the seconds after it, not six hours later."""
     submit(conn, 271, "bf_emma")
     assert view(conn)[0].voice == "bf_emma"
+
+
+def test_a_book_stopped_while_the_worker_was_shutting_down_stays_stopped(
+    conn: sqlite3.Connection,
+) -> None:
+    """Two things in the same second: stop pressed, and the worker stopped.
+
+    ``requeue`` is what a shutdown does, and it used to write 'queued' over the
+    row whatever the flag said — so the press was still there, on a row nobody
+    would look at again until it had been claimed and rendered. The listener
+    pressed stop and the book started again.
+    """
+    job = submit(conn, 271)
+    taken = claim(conn, lease="a-lease", pid=1234)
+    assert taken is not None
+    stop(conn, job.id)
+
+    requeue(conn, taken.id, lease="a-lease")
+
+    row = conn.execute(
+        "SELECT state, ended_at FROM queue WHERE id = ?", (taken.id,)
+    ).fetchone()
+    assert row["state"] == "cancelled"
+    assert row["ended_at"]
+
+
+def test_nothing_claims_a_book_somebody_has_asked_to_stop(
+    conn: sqlite3.Connection,
+) -> None:
+    """'queued' is reached by more than one road, and only one of them asks.
+
+    Pressing stop on a *waiting* book ends it where it stands, so that road was
+    never the problem. This is the other one: the book was being rendered when
+    stop was pressed, which only raises the flag — and then the box lost power
+    before the render could act on it. ``reconcile`` puts a dead render back in
+    the line with its own SQL and says nothing about ``cancel``, so the row came
+    back queued with the press still on it and was claimed and rendered again.
+    """
+    job = submit(conn, 271)
+    taken = claim(conn, lease="a-lease", pid=1234)
+    assert taken is not None
+    stop(conn, job.id)
+    # The renderer never got to hear about it.
+    with conn:
+        conn.execute(
+            "UPDATE queue SET beat_at = datetime('now', '-700 seconds') WHERE id = ?",
+            (job.id,),
+        )
+    reconcile(conn)
+
+    # Settled here rather than put back in the line, which is what wedged the
+    # book: `claim` refuses a flagged row and `queue_live` still counts a queued
+    # one as this book's live row, so it could be neither rendered nor stopped
+    # nor asked for again — a gid lost for good to one press and one power cut.
+    assert (
+        conn.execute("SELECT state FROM queue WHERE id = ?", (job.id,)).fetchone()[
+            "state"
+        ]
+        == "cancelled"
+    )
+    assert claim(conn, lease="another-lease", pid=1235) is None
+    # And the book can be asked for again, which is the half that proves it is
+    # not merely unclaimable.
+    assert submit(conn, 271).ok
