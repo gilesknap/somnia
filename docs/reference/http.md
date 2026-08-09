@@ -12,7 +12,13 @@ and the only path in is `tailscale serve`.
 Everything the page fetches lives under `/api/`, and that prefix does work: the
 service worker knows never to cache it — the Cache API throws when asked to
 store the 206 a seek produces — and it keeps these routes ahead of the static
-mount, which would otherwise swallow them. `/` serves the PWA itself.
+mount, which would otherwise swallow them. `/` serves the PWA itself, and
+everything outside `/api/` goes out with `Cache-Control: no-cache` — which
+means *ask before you use it*, not *do not store it*: unchanged, the ETag
+answers 304; changed, the new file arrives at the next launch. Without it the
+browser invents a freshness policy (Chrome's is a tenth of the file's age), and
+what that looks like is a deploy that did not happen — new bytes on disk, every
+request answered, last week's page on the phone.
 
 All times are milliseconds on the **book clock**: the render clock, counted in
 samples before encoding, and the same clock chapter marks, search results and
@@ -27,6 +33,7 @@ would tell you.
 | `/api/audio/{gid}/{idx}` | GET | The chapter's audio — or 404 |
 | `/api/stream/{gid}/{n}` | GET | The first `n` chapters as one file — or 404 |
 | `/api/sentence/{gid}/{ms}` | GET | Where the sentence being spoken at `ms` began |
+| `/api/passage/{gid}/{ms}` | GET | The book's own words at `ms`, never further on than they have heard |
 | `/api/catalog?q=…` | GET | Books to add, from the local catalog (both libraries) |
 | `/api/voices` | GET | The voices a book may be asked for in |
 | `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
@@ -179,6 +186,27 @@ pauses, never when they press play: a resume has to be instant, and a phone
 that has been face down for an hour is the least likely thing on the tailnet to
 answer quickly.
 
+## `GET /api/passage/{gid}/{ms}`
+
+```json
+{"gid": 271, "ms": 11560000, "text": "…"}
+```
+
+The only route that hands back the book's own words, for the *you are here* row
+on the list of places — every other row on that screen carries its words down
+with the answer that named it.
+
+`text` is `null` when there is nothing to say: no such book, a book whose text
+was never indexed, or a book nobody has played a second of. The row then offers
+no reveal, which is what it did before this existed.
+
+The bound is inside the statement: the row must satisfy
+`start_ms < heard_to_ms`, applied to the row and not to the argument. Ask about
+a point an hour past where anybody has listened and the answer is the last
+passage that really was spoken — not a refusal, which is a frontier to read off.
+The words are cut to 240 characters, the same limit as the places the row sits
+among.
+
 ## `GET /api/catalog`
 
 ```json
@@ -319,6 +347,21 @@ adopting one without the other would have the page's next report refused.
 This is a head start, not the mechanism: if the reply never arrives, the same
 move lands within fifteen seconds as the refusal of the page's next report.
 
+```json
+{"reply": "…", "candidates": {
+  "gid": 271, "title": "Black Beauty", "position_ms": 11560000,
+  "places": [{"chunk_id": 812, "start_ms": 9930000, "chapter_idx": 31,
+              "chapter_title": "32. A Horse Fair", "ahead": false, "text": "…"}]}}
+```
+
+`candidates` and `move` never appear together — a list and a seek in one reply
+would move the book under somebody still choosing. Read by presence, like
+`move`. `position_ms` is `null` for a book never started, and the page draws no
+*you are here* row rather than inventing one. `ahead` is decided on the server,
+by the same code that owns the spoiler guard: a row with `ahead: true` is drawn
+covered up — words and chapter title both — until they ask, and the page
+computes nothing.
+
 ## `POST /api/forget`
 
 `{"token": "…"}` → `{"ok": true}`. Drops that conversation, which is what
@@ -343,19 +386,26 @@ journal. The five that mean the sound stopped — `pause`, `hidden`, `unload`,
 `ended`, `switch` — also send the position to Audiobookshelf, as a background
 task after the reply is on the wire.
 
-**Always 200**, in one of two shapes:
+**Always 200**, in one of three:
 
 ```json
-{"accepted": true, "gid": 271}
-{"accepted": false, "gid": 271, "position_ms": 9930000, "seq": 4}
+{"accepted": true,  "gid": 271, "position_ms": 11560000, "seq": 3, "heard_to_ms": 12040000}
+{"accepted": false, "gid": 271, "position_ms": 9930000, "seq": 4, "heard_to_ms": 12040000, "reason": "moved"}
+{"accepted": false, "gid": 271, "reason": "gone"}
 ```
 
 A refusal is not an error. It is how the page is told the agent moved the book
 while it was not looking, and it carries where to go instead. A 409 would put a
-red line in the console at 2am for something working exactly as designed, and
-be unreadable to the `sendBeacon` sent as the page dies. Nulls are dropped
-rather than sent: a report about a book that is gone has no position to talk
-about, and `"position_ms": null` would read as one.
+red line in the console at 2am for something working exactly as designed, invite
+a throw in the fetch wrapper that skipped the one line that mattered, and be
+unreadable to the `sendBeacon` sent as the page dies.
+
+`reason` is what the page acts on. `moved` means the agent took the book
+somewhere while the page was not looking, and the body says where. `gone` means
+the row is not in this database any more — a page left open on a book that was
+deleted — and there is nothing to go to. Nulls are dropped rather than sent: a
+report about a book that is gone has no position to talk about, and
+`"position_ms": null` would read as one.
 
 400 is reserved for a body with no `gid` or no `position_ms`.
 
@@ -375,9 +425,8 @@ about, and `"position_ms": null` would read as one.
 `said` is a sentence to show somebody — it is the *same string*
 `Library.add_book` gives the agent, out of the same function, so the page and
 the voice cannot disagree about what just happened. A refusal is an answer, not
-an error, for the reason `/api/position` gives above: a 409 would put a red line
-in the console at 2am for something working exactly as designed and invite a
-throw in the fetch wrapper that skipped the one line that mattered.
+an error, for the reason `/api/position` gives above; here the answer is the
+sentence saying why.
 
 Two things are refused: a book with a live queue row, which is already coming,
 and a book somnia has all of. A render that died, was stopped, or was killed by
