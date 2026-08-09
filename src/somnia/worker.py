@@ -325,6 +325,35 @@ class _Watch:
             return True
         return False
 
+    def beat_now(self) -> None:
+        """Say the render is alive without being asked to stop.
+
+        For the one stretch of a render that has no sentences in it: everything
+        between the claim and the first one. :meth:`should_stop` is the only
+        other thing that writes a beat and nothing calls it until ``ingest_book``
+        is under way, so the model load and the fetch went by unannounced.
+        """
+        # Imported here for the reason the module docstring gives about every
+        # other ingest import in this file: the supervisor imports this module,
+        # and it must not pull numpy and torch in behind it.
+        from .ingest import RenderStopped  # noqa: PLC0415
+
+        self._last = time.monotonic()
+        alive = beat(self._conn, self._job.id, lease=self._lease)
+        # The answer matters as much as the beat. Loading the model is minutes,
+        # and it is exactly the window in which another worker decides this
+        # render is dead and takes the row — so the first thing this beat can
+        # discover is that the job is not ours any more. Carrying on from here
+        # would put two renderers on one book, which is the thing the lease
+        # exists to make impossible; and a cancel pressed during the load is
+        # heard here rather than at the end of the first chapter.
+        if alive is None:
+            self.why = "lost"
+            raise RenderStopped("the job was taken away during start-up")
+        if alive.cancel:
+            self.why = "cancel"
+            raise RenderStopped("stopped before the first sentence")
+
     def on_chapter(self, _idx: int) -> None:
         note_chapter(self._conn, self._job.id, lease=self._lease)
 
@@ -376,11 +405,26 @@ def render_one(
     # about — which is every book the agent adds.
     voice = job.voice or _voice_already(conn, job.gid) or cfg.voice
     logger.info("rendering book %d in %s", job.gid, voice)
-    engine = engine or KokoroEngine(voice=voice)
-    embedder = embedder or RealEmbedder(cfg.embed_model)
-    abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
 
     try:
+        # Inside the try, which is the whole of this line's point. Loading
+        # Kokoro and the embedder is minutes of work that reads model files off
+        # disk, and it fails in all the ordinary ways: a half-downloaded
+        # weight, a version that moved, a box out of memory. Built above the
+        # try, any of those left the row saying 'rendering' with no process
+        # behind it and nothing to say why — recovered only by `reconcile` at
+        # the next worker start, after STEAL_S of a queue that looks busy.
+        engine = engine or KokoroEngine(voice=voice)
+        embedder = embedder or RealEmbedder(cfg.embed_model)
+        abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
+        # And a beat before the first sentence, because there is no other one
+        # until then. `claim` stamps beat_at and `should_stop` does not write
+        # again until ingest_book asks it to, so the gap between them is the
+        # model load plus fetching and parsing the book — minutes, against a
+        # STEAL_S that assumes a beat every ten seconds. Another worker starting
+        # in that window reads a dead render and takes the book away from this
+        # one while it is loading.
+        watch.beat_now()
         ingest_book(
             cfg,
             conn,
@@ -409,6 +453,19 @@ def render_one(
         logger.info("job %d stopped, at the end of chapter", job.id)
         return Rendered(job.id, job.gid, "cancelled")
     except Exception as error:
+        # A shutdown does not mean the book is broken, and it does not always
+        # arrive as RenderStopped. `should_stop` is asked between sentences, so
+        # it is only heard between sentences — and the longest thing a chapter
+        # does happens after the last of them, in ffmpeg. Stop the worker while
+        # a chapter is encoding and the child is killed under it, which comes
+        # back here as CalledProcessError: the book was failed, kept its
+        # sentence, and a deploy in the wrong second was recorded as a book that
+        # cannot be read. Asked of `stopping` rather than of `watch.why`, which
+        # is only written where RenderStopped is raised.
+        if stopping():
+            requeue(conn, job.id, lease=lease)
+            logger.info("job %d put back in the line, mid-chapter", job.id)
+            return Rendered(job.id, job.gid, "queued")
         # No re-raise. The traceback is already going to the journal, and
         # exiting non-zero would mean something else entirely to the
         # supervisor: it reads a non-zero child as one that died before it
