@@ -1353,6 +1353,27 @@ def test_the_catalog_can_be_searched_without_leaving_the_box(
     }
 
 
+def test_a_search_that_had_to_change_the_question_says_so(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """The search box is on the panel built for somebody half asleep, and one
+    misspelled word used to take the whole query to nothing. It now answers —
+    and the page is told what it did, because a list of horses under the word
+    "beuty" is only honest with the sentence beside it."""
+    catalogued(tone_book)
+    body = tone_client.get("/api/catalog", params={"q": "black beuty"}).json()
+    assert [entry["gid"] for entry in body["entries"]] == [271]
+    assert body["said"] == 'nothing in the catalog says "beuty", so this is "beauty"'
+
+
+def test_a_search_that_found_what_was_asked_for_says_nothing_extra(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    catalogued(tone_book)
+    body = tone_client.get("/api/catalog", params={"q": "black beauty"}).json()
+    assert body["said"] == ""
+
+
 def test_a_book_somnia_already_has_is_marked_rather_than_offered(
     tone_client: TestClient, tone_book: ToneBook
 ) -> None:

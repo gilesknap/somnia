@@ -303,10 +303,18 @@ def build_tools(
         Args:
             query: Title, author, or subject words to search for.
         """
-        entries = library.search_catalog(query)
-        if not entries:
+        results = library.search_catalog(query)
+        if not results.entries:
             return f"Nothing in the Gutenberg catalog matches {query!r}."
-        return "\n".join(f"gid {e.gid}: {e.title} — {e.authors}" for e in entries[:10])
+        lines = [f"gid {e.gid}: {e.title} — {e.authors}" for e in results.entries[:10]]
+        # First, because it changes what the rows below mean. A search that had
+        # to correct a misspelling or drop a word has answered a question
+        # slightly different from the one that was asked, and the model has to
+        # be able to say so — "there is no Shelly, but here is Mary Shelley" is
+        # the honest sentence, and it cannot be said if only the rows come back.
+        if results.said:
+            lines.insert(0, f"({results.said})")
+        return "\n".join(lines)
 
     @beta_tool
     def add_book(gid: int) -> str:

@@ -5066,7 +5066,13 @@ async function findBooks() {
     if (workshop.hidden) return;
     queueFound = body.entries || [];
     drawResults();
+    // What the search had to do to the question, on the rare occasion it had to
+    // do anything: a word the catalog has never indexed was either corrected
+    // against the library's own vocabulary or left out so that the rest of the
+    // query could still answer. Four Frankensteins under the words "Mary
+    // Shelly" is only an honest answer with this line under it.
     if (!queueFound.length) queueSaid.textContent = "nothing in the catalog";
+    else queueSaid.textContent = body.said || "";
   } catch (error) {
     console.error(error);
     if (workshop.hidden) return;

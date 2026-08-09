@@ -1478,6 +1478,35 @@ test("a search asks once per press, not once per keystroke", async (t) => {
   ]);
 });
 
+test("a search that had to correct a word says so under the results", async (t) => {
+  // The box is on the panel built for somebody half asleep, and one misspelled
+  // word used to take the whole query to "nothing in the catalog" — about a
+  // library that has the book. It answers now, and this line is what keeps the
+  // answer honest: these are not the words that were typed.
+  const page = await opened(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries(
+    [entry()],
+    'nothing in the catalog says "shelly", so this is "shelley"',
+  );
+  await search(page, "mary shelly");
+  assert.equal(results(page).length, 1);
+  assert.equal(
+    page.el("queue-said").textContent,
+    'nothing in the catalog says "shelly", so this is "shelley"',
+  );
+});
+
+test("a search that found what was asked for says nothing extra", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries([entry()]);
+  await search(page, "treasure island");
+  assert.equal(page.el("queue-said").textContent, "");
+});
+
 test("a book from the Australian library says so, because that is the surprise", async (t) => {
   const page = await opened(t);
   page.queueView([]);
