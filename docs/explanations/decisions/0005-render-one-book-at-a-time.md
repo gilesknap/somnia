@@ -214,7 +214,10 @@ only on purpose from the far corner, that it holds no payload so nothing has to
 close it, and that it never switches what is playing. (**Amended 2026-08-07**:
 the third of those is gone — it switches what is playing when a book on its
 shelf is pressed. The first two still hold, and the press replaced by it was a
-sentence typed to an agent at 2am.)
+sentence typed to an agent at 2am. **And 2026-08-08**: the third this paragraph
+predicted arrived, and a fourth with it — the panel was cut into `Books` and
+`Workshop` and `Settings` was added, so the page carries four. The Decision's
+note of that date says why each one was argued for.)
 
 **No percentage, no time remaining, no notification.** People will want all
 three. Chapters differ in length by an order of magnitude, so a bar drawn from
@@ -241,3 +244,10 @@ they are to be checked on the VPS and written into this file with the date:
 that one render at a time really does outrun 1× listening at the measured rate,
 and that `systemctl --user restart somnia-serve` really does now leave a render
 running.
+
+**Checked 2026-08-07.** With `scripts/somnia-bench.py`, which renders the same
+passage one sentence at a time through the real Kokoro: nuc2 3.87× realtime, the
+VPS 1.06×. One render at a time outruns 1× listening on either box, and
+[ADR 7](0007-cross-a-chapter-without-letting-go.md) records what the difference
+between those two numbers costs. The restart is still unchecked, and the box to
+check it on is nuc2, which is where somnia runs now.

@@ -16,6 +16,7 @@ from somnia.db import connect
 from somnia.embed import Embedder
 from somnia.gutenberg import Book, Chapter
 from somnia.ingest import RenderStopped, ingest_book, publish_chapters
+from somnia.stream import stream_path
 from somnia.tts import TTSEngine
 
 REL_PATH = "Sewell, Anna/Black Beauty"
@@ -311,6 +312,29 @@ def test_re_rendering_a_book_keeps_where_they_had_got_to(
         "af_heart",
         "done",
     )
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_a_render_throws_away_the_joined_file_before_it_overwrites_a_chapter(
+    conn: Any, tmp_path: Path
+) -> None:
+    """Because the joined file is what the page plays, and it is named by count.
+
+    `build_stream` serves whatever it finds under `<n>.m4a` without looking
+    inside it, so a book rendered again with the same number of chapters kept
+    streaming the old audio — the old narrator, out of a filename that had not
+    changed and never would.
+
+    Taken away here, before a chapter is written over, because from that point
+    the old joined file is not a truthful copy of anything.
+    """
+    stale = stream_path(_cfg(tmp_path), 271, 3)
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"three chapters, read by somebody else")
+
+    _ingest(conn, tmp_path)
+
+    assert not stale.exists()
 
 
 @pytest.mark.usefixtures("unrendered")

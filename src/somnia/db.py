@@ -47,6 +47,14 @@ CREATE TABLE IF NOT EXISTS books (
     position_ms INTEGER,
     position_seq INTEGER NOT NULL DEFAULT 0,
     position_at TEXT,
+    -- Said here as well as in _ADDED_COLUMNS, which is how the five columns
+    -- above it are handled and how this one was not. Nothing was broken by the
+    -- omission — the rule below adds it to a table that already exists, and a
+    -- table created by this statement is such a table by the time it runs — but
+    -- it left a fresh database whose books table is only correct because a
+    -- migration ran over it, and this file's own schema disagreeing with the
+    -- one somnia actually opens.
+    chapters_total INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

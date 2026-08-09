@@ -35,7 +35,8 @@ pre-commit` covers it too and CI runs it on every pull request. What it cannot
 tell you is whether the audio decodes, whether a Range request really comes
 back 206, or whether the lock screen follows a chapter boundary. Those are
 properties of a handset and are checked in a real browser against a real
-`somnia serve` — the how-to guide *Serve the chat page* ends with how.
+`somnia serve` — the how-to guide *Serve the page that plays the book* ends
+with how.
 
 ## Developer Information
 

@@ -15,6 +15,11 @@ bottom that said `close`. The list still replaces the
 conversation rather than the seek, the guard is still decided once on the
 server, and the way out still touches nothing.
 
+**Amended 2026-08-08**: the smoke test owed below is owed on nuc2, not the VPS.
+An 85-turn real-model run on nuc2 (design.md, *Agent surface*) covered routing
+and the spoiler guard but not the narration-over-a-list case this record asks
+about, which remains open.
+
 Amended again by the handoff's second revision. Nothing on a row sits beside
 anything else: the time, the chapter and the words are each a full-width line,
 and `goto` is under them rather than next to them. At 360dp the old row could
@@ -92,10 +97,10 @@ in one press, and each of those turns is twenty seconds of a lit screen.
 
 The second is the spoiler guard. Searches are bounded by `heard_to_ms`, and
 when the closest match lies past that bound the search says so without saying
-what it is — `Search.better_ahead`, which
-[design.md](../design.md) calls the crux of the guard, because without it a
-bounded search that excludes the answer is indistinguishable from a book that
-never contained it. The agent then had to turn that into speech: *that is
+what it is — `Search.better_ahead`, which is the crux of the guard —
+[design.md](../design.md) makes the same point — because without it a bounded
+search that excludes the answer is indistinguishable from a book that never
+contained it. The agent then had to turn that into speech: *that is
 further on than you have got — shall I take you there anyway?* Which is a
 reasonable sentence and a bad question at 2am. It arrives as prose, so it has
 to be read; it needs a yes, so it needs another turn; and the yes it is asking

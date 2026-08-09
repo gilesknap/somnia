@@ -31,6 +31,7 @@ twenty minutes ago — a corrupt read in the middle of a sentence.
 
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -39,7 +40,7 @@ from pathlib import Path
 
 from .config import Config
 
-__all__ = ["build_stream", "concat_list", "stream_path"]
+__all__ = ["build_stream", "concat_list", "forget_streams", "stream_path"]
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,51 @@ def stream_path(cfg: Config, gid: int, n: int) -> Path:
     here because the server has no auth by design.
     """
     return cfg.data_dir / "streams" / str(gid) / f"{n}.m4a"
+
+
+def forget_streams(cfg: Config, gid: int) -> None:
+    """Throw away every joined file for a book, because its chapters moved.
+
+    A stream is named for how many chapters it holds and nothing else, so two
+    renders of the same book that both produce the same number of chapters
+    produce the same filename — and :func:`build_stream` returns the file it
+    finds there without looking inside it. Re-render a book in another voice
+    and the chapters on disk are the new narrator while the joined file, which
+    is what the page actually plays, is still the old one. Nothing ages it out:
+    it is served until the chapter count changes.
+
+    Called where a render begins rather than where one finishes, because the
+    chapters start being overwritten immediately and a stream built from a
+    half-replaced book would be worse than a stale one.
+
+    Unlinking a file somebody is streaming is safe here: the open descriptor
+    keeps reading the old bytes to the end of the request, and the next request
+    builds the file again.
+
+    **This does not take the per-book lock, and cannot.** That lock lives in
+    :data:`_locks`, which is a ``threading.Lock`` in one process — and the two
+    callers are not one process: ``build_stream`` is only ever called by
+    ``somnia-serve`` and this only ever by ``somnia-worker``, which is a
+    separate unit and the whole point of ADR 4. So a lock shared between them
+    would serialise nothing.
+
+    What that leaves is a real but narrow race, and it is worth writing down
+    rather than implying it is handled. The server can be a second into joining
+    a book — `_join` is a second or two on a five-hour one — when the worker
+    starts re-rendering that same book and clears this directory. The join then
+    finishes and renames a file into a directory that has just been emptied,
+    built out of chapter files the worker has already begun overwriting: a
+    stream that is half one narrator and half the next, under a name that will
+    be served until the chapter count changes.
+
+    Reaching it means opening the book on the phone in the same second as
+    submitting a re-render of it. It is left as a known gap rather than
+    papered over, because the fix is to stop naming streams by a number that
+    two different editions can share — see issue #93 — and that is a change to
+    what a stream *is*, not a lock. Before this function existed the same
+    staleness was not a race at all: it was every re-render, permanently.
+    """
+    shutil.rmtree(cfg.data_dir / "streams" / str(gid), ignore_errors=True)
 
 
 def concat_list(files: Sequence[Path]) -> str:
