@@ -1,7 +1,7 @@
 # Command line
 
-Eleven commands. `somnia` on its own prints the help and stops, and `somnia
---version` prints the version and nothing else.
+Ten commands. `somnia` on its own prints the help and stops, and
+`somnia --version` (or `-v`) prints the version and nothing else.
 
 Results go to **stdout** and progress to **stderr**, so `somnia search bee >
 books.txt` captures the books and leaves the logging in the terminal. Every
@@ -23,8 +23,8 @@ therefore leaves a database behind whatever else happens.
 | [`libraries`](#cli-libraries) | List Audiobookshelf library ids | `SOMNIA_ABS_TOKEN` |
 | [`seed-positions`](#cli-seed-positions) | Take your place across from ABS, once | `SOMNIA_ABS_TOKEN` |
 
-Settings come from the environment, and from nowhere else — there is no config
-file and no flag that overrides one. They are listed in
+Settings come from the environment — there is no config file. One flag
+overrides one of them for a single run, and the rest are listed in
 [Configuration](configuration.md).
 
 (cli-catalog-update)=

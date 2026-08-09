@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -514,6 +514,10 @@ panel and as the player’s own navigation pill, replacing a slab across the
 bottom that said <code class="docutils literal notranslate"><span class="pre">close</span></code>. The list still replaces the
 conversation rather than the seek, the guard is still decided once on the
 server, and the way out still touches nothing.</p>
+<p><strong>Amended 2026-08-08</strong>: the smoke test owed below is owed on nuc2, not the VPS.
+An 85-turn real-model run on nuc2 (design.md, <em>Agent surface</em>) covered routing
+and the spoiler guard but not the narration-over-a-list case this record asks
+about, which remains open.</p>
 <p>Amended again by the handoff’s second revision. Nothing on a row sits beside
 anything else: the time, the chapter and the words are each a full-width line,
 and <code class="docutils literal notranslate"><span class="pre">goto</span></code> is under them rather than next to them. At 360dp the old row could
@@ -584,10 +588,10 @@ more turns of a conversation to express something a thumb could have expressed
 in one press, and each of those turns is twenty seconds of a lit screen.</p>
 <p>The second is the spoiler guard. Searches are bounded by <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code>, and
 when the closest match lies past that bound the search says so without saying
-what it is — <code class="docutils literal notranslate"><span class="pre">Search.better_ahead</span></code>, which
-<a class="reference internal" href="../design.html"><span class="std std-doc">design.md</span></a> calls the crux of the guard, because without it a
-bounded search that excludes the answer is indistinguishable from a book that
-never contained it. The agent then had to turn that into speech: <em>that is
+what it is — <code class="docutils literal notranslate"><span class="pre">Search.better_ahead</span></code>, which is the crux of the guard —
+<a class="reference internal" href="../design.html"><span class="std std-doc">design.md</span></a> makes the same point — because without it a bounded
+search that excludes the answer is indistinguishable from a book that never
+contained it. The agent then had to turn that into speech: <em>that is
 further on than you have got — shall I take you there anyway?</em> Which is a
 reasonable sentence and a bad question at 2am. It arrives as prose, so it has
 to be read; it needs a yes, so it needs another turn; and the yes it is asking

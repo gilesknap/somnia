@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Keep a long render running &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>Keep a long render running &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -428,6 +428,7 @@
 <li class="toctree-l1"><a class="reference internal" href="run-container.html">Run in a container</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serve-the-chat-page.html">Serve the page that plays the book</a></li>
 <li class="toctree-l1"><a class="reference internal" href="upgrade.html">Upgrade to a new version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="use-the-page-at-night.html">Use the page at night</a></li>
 </ul>
 </div>
 </nav></div>
@@ -495,7 +496,9 @@ them is <code class="docutils literal notranslate"><span class="pre">somnia</spa
 per book, and waits for it. Run it as a systemd user unit and you can forget
 about it — books asked for from the page, from the agent or from a terminal all
 land in the same line, and it empties it.</p>
-<p>Before starting one, check the machine can actually finish it:</p>
+<p>Before starting one, check the machine can actually finish it with
+<code class="docutils literal notranslate"><span class="pre">somnia-doctor.sh</span></code> (in the repo’s <code class="docutils literal notranslate"><span class="pre">scripts/</span></code>, or curl it as
+<a class="reference internal" href="../tutorials/installation.html"><span class="std std-doc">Installation</span></a> does):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>somnia-doctor.sh
 </pre></div>
 </div>
@@ -590,16 +593,14 @@ network, and <code class="docutils literal notranslate"><span class="pre">somnia
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>somnia<span class="w"> </span>queue<span class="w"> </span>stop<span class="w"> </span><span class="m">4</span>
 </pre></div>
 </div>
-<p>A book that was only waiting goes immediately. A render that is running is only
-<em>asked</em>: nothing signals it and nothing kills it, so it reads to the end of the
-sentence it is on and stops on the next chapter boundary, which takes about
-twenty seconds. Every chapter it had already finished stays exactly where it is
-and stays playable, and asking for the book again resumes at the next one.</p>
+<p>It stops at the end of the sentence it is on, about twenty seconds, and
+everything already rendered stays playable.</p>
 <p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">--user</span> <span class="pre">stop</span> <span class="pre">somnia-worker</span></code> is the other kind of stop, and means
 something different: nobody stopped wanting the book, so it goes back into the
-queue rather than being cancelled, and the worker picks it up again when it
-starts. The chapter that was in flight is lost — minutes of Kokoro — because
-the child will not gamble on finishing a chapter inside the stop timeout.</p>
+queue rather than being cancelled, and the chapter in flight is lost — minutes
+of Kokoro. The detail of both is in
+<a class="reference internal" href="../reference/cli.html#cli-queue"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">queue</span> <span class="pre">stop</span></code></span></a> and
+<a class="reference internal" href="../reference/cli.html#cli-worker"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">worker</span></code></span></a>.</p>
 </section>
 <section id="renders-the-agent-starts">
 <h2>Renders the agent starts<a class="headerlink" href="#renders-the-agent-starts" title="Link to this heading">#</a></h2>

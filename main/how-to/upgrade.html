@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Upgrade to a new version &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>Upgrade to a new version &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -59,7 +59,7 @@
     <link rel="icon" href="../_static/dls-logo.svg"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Explanations" href="../explanations.html" />
+    <link rel="next" title="Use the page at night" href="use-the-page-at-night.html" />
     <link rel="prev" title="Serve the page that plays the book" href="serve-the-chat-page.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -428,6 +428,7 @@
 <li class="toctree-l1"><a class="reference internal" href="run-container.html">Run in a container</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serve-the-chat-page.html">Serve the page that plays the book</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Upgrade to a new version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="use-the-page-at-night.html">Use the page at night</a></li>
 </ul>
 </div>
 </nav></div>
@@ -554,17 +555,23 @@ re-renders a book or asks you to.</p>
 </section>
 <section id="afterwards">
 <h2>Afterwards<a class="headerlink" href="#afterwards" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span>--user<span class="w"> </span>restart<span class="w"> </span>somnia-serve
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span>--user<span class="w"> </span>restart<span class="w"> </span>somnia-serve<span class="w"> </span>somnia-worker
 bash<span class="w"> </span>somnia-doctor.sh
 </pre></div>
 </div>
-<p>The doctor is the check worth running, because it looks at the install and the
-data together. <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-s</span> <span class="pre">localhost:8721/api/health</span></code> answers <code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">true}</span></code> once
-the service is back.</p>
-<p>On the phone, the page updates itself: the new service worker takes over as
-soon as it is fetched, and drops the caches belonging to older versions. Closing
-the app and opening it again is enough to be sure — and worth doing before a
-night rather than during one.</p>
+<p>Both, not just the page — a worker left on the old code renders with it, and the
+split exists so restarting one cannot kill a render under the other. A render in
+flight goes back into the queue and is picked up at the next chapter.</p>
+<p><code class="docutils literal notranslate"><span class="pre">somnia-doctor.sh</span></code> (in the repo’s <code class="docutils literal notranslate"><span class="pre">scripts/</span></code>, or curl it as
+<a class="reference internal" href="../tutorials/installation.html"><span class="std std-doc">Installation</span></a> does) is the check worth running,
+because it looks at the install and the data together.
+<code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-s</span> <span class="pre">localhost:8721/api/health</span></code> answers <code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">true}</span></code> once the service is
+back.</p>
+<p>On the phone, the page updates itself. The service worker goes to the network
+first and falls back to its cache only when the box cannot be reached, so the
+next reload with the box up is the new page — cache-first would have taken two.
+Closing the app and opening it again is enough to be sure, and worth doing
+before a night rather than during one.</p>
 </section>
 <section id="going-back">
 <h2>Going back<a class="headerlink" href="#going-back" title="Link to this heading">#</a></h2>
@@ -579,8 +586,8 @@ reverse, take a copy of <code class="docutils literal notranslate"><span class="
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>pull<span class="w"> </span>ghcr.io/gilesknap/somnia:0.6
 </pre></div>
 </div>
-<p>Same story for the data: the database and the library live outside the image,
-and the new container migrates the database it is given.</p>
+<p>What that image can and cannot do is in <a class="reference internal" href="run-container.html"><span class="std std-doc">Run in a container</span></a>
+— today it is not the thing that renders or serves a book.</p>
 </section>
 </section>
 
@@ -604,11 +611,11 @@ and the new container migrates the database it is given.</p>
       </div>
     </a>
     <a class="right-next"
-       href="../explanations.html"
+       href="use-the-page-at-night.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Explanations</p>
+        <p class="prev-next-title">Use the page at night</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Add a book and ask it something &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>Add a book and ask it something &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -499,10 +499,10 @@ the <code class="docutils literal notranslate"><span class="pre">gid</span></cod
 <span class="go">   271  Black Beauty — Sewell, Anna</span>
 </pre></div>
 </div>
-<p>The page can do this too, once you have one: <em>library</em> in the top left corner
-searches the same local catalog and queues what you press, and so does asking
-out loud. This is the same act by three routes, and all three end up in the
-same queue.</p>
+<p>The page can do this too, once you have one: <em>books ›</em> in the top left corner,
+then <em>workshop ›</em> from its right-hand corner, reaches the same local catalog and
+queues what you press — and so does asking out loud. This is the same act by
+three routes, and all three end up in the same queue.</p>
 </section>
 <section id="render-it">
 <h2>Render it<a class="headerlink" href="#render-it" title="Link to this heading">#</a></h2>
@@ -513,13 +513,14 @@ same queue.</p>
 <span class="go">...</span>
 </pre></div>
 </div>
-<p>This takes hours — Kokoro runs at about 1.15× realtime, which is the
-conservative end of <a class="reference internal" href="../explanations/design.html"><span class="std std-doc">the benchmark</span></a>, so a six-hour
-book is roughly a five-hour render — but <strong>you do not wait for it</strong>. Each
-chapter is written to the library folder and indexed the moment it finishes, so
-chapter one is listenable within a few minutes and the rest arrives while you
-sleep. The page will show you how far it has got: <em>library</em>, in the top left
-corner.</p>
+<p>This takes a while — Kokoro was
+<a class="reference internal" href="../explanations/decisions/0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">measured</span></a>
+at 3.87× realtime on the box somnia renders on and 1.06× on a 2-vCPU VPS, so a
+six-hour book is anywhere from ninety minutes to six hours depending on the
+machine — but <strong>you do not wait for it</strong>. Each chapter is written to the library
+folder and indexed the moment it finishes, so chapter one is listenable within a
+few minutes and the rest arrives while you sleep. The page will show you how far
+it has got, on that same <em>Workshop</em> screen.</p>
 <p>Each chapter opens by saying which one it is — <em>Chapter 2. The Hunt</em> — so a
 boundary reached half asleep is a boundary rather than a skip. That line is
 built from the heading, not read off it: a numeral is turned into a number and a

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Back it up, and move it &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>Back it up, and move it &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -428,6 +428,7 @@
 <li class="toctree-l1"><a class="reference internal" href="run-container.html">Run in a container</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serve-the-chat-page.html">Serve the page that plays the book</a></li>
 <li class="toctree-l1"><a class="reference internal" href="upgrade.html">Upgrade to a new version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="use-the-page-at-night.html">Use the page at night</a></li>
 </ul>
 </div>
 </nav></div>
@@ -548,7 +549,9 @@ plays nothing.</p>
 <span class="s">PY</span>
 </pre></div>
 </div>
-<p>Then let the doctor confirm it, which is exactly what it is for:</p>
+<p>Then let <code class="docutils literal notranslate"><span class="pre">somnia-doctor.sh</span></code> (in the repo’s <code class="docutils literal notranslate"><span class="pre">scripts/</span></code>, or curl it as
+<a class="reference internal" href="../tutorials/installation.html"><span class="std std-doc">Installation</span></a> does) confirm it, which is exactly
+what it is for:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>somnia-doctor.sh
 </pre></div>
 </div>
@@ -589,6 +592,10 @@ directory rather than copying <code class="docutils literal notranslate"><span c
 </section>
 <section id="moving-the-renders-somewhere-faster">
 <h2>Moving the renders somewhere faster<a class="headerlink" href="#moving-the-renders-somewhere-faster" title="Link to this heading">#</a></h2>
+<p>This is not hypothetical — somnia’s own renders moved to a home machine, which
+is where the 3.87× in
+<a class="reference internal" href="../explanations/decisions/0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">ADR 7</span></a>
+comes from, and the absolute-path catch below is the one thing that bit.</p>
 <p>Rendering and serving do not have to be the same machine, and the render host
 is the one that wants CPU
 (<a class="reference external" href="https://github.com/gilesknap/somnia/issues/4">#4</a>). The catch is the same

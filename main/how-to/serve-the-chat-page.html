@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -428,6 +428,7 @@
 <li class="toctree-l1"><a class="reference internal" href="run-container.html">Run in a container</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Serve the page that plays the book</a></li>
 <li class="toctree-l1"><a class="reference internal" href="upgrade.html">Upgrade to a new version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="use-the-page-at-night.html">Use the page at night</a></li>
 </ul>
 </div>
 </nav></div>
@@ -534,14 +535,11 @@ the ones a served night depends on:</p>
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code> is the one that has become load-bearing since the page
-became the player, and it fails quietly if it is wrong. Chapters are never
-served by path — the request names a book and a chapter number, and the file
-comes from the database row — but a row pointing outside the library directory
-is refused all the same, because a database carried over from another machine
-can point anywhere. What you see on the phone is <em>that chapter didn’t arrive</em>;
-the real reason is a warning in the journal. It defaults to
-<code class="docutils literal notranslate"><span class="pre">~/library/audiobooks</span></code>, which is right only if that is genuinely where <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span></code> put things.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code> is load-bearing since the page became the player, and it
+fails quietly: everything starts, the agent answers, and every chapter 404s
+with the reason only in the journal. It defaults to <code class="docutils literal notranslate"><span class="pre">~/library/audiobooks</span></code>,
+which is right only if that is genuinely where <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span></code> put things —
+<a class="reference internal" href="../reference/configuration.html#config-fail-quietly"><span class="std std-ref">Configuration</span></a> has why.</p>
 <p>Audiobookshelf is now optional. somnia writes your position to it when you
 stop, as a courtesy, so the ABS app finds roughly the right place if you open
 it somewhere else — but nothing reads it while a night is running, and a write
@@ -604,7 +602,9 @@ browser and a URL, and it is worth doing for more than the icon: an installed
 app is the shape the media notification and the screen-off playback were built
 for and tested in.</p>
 <p>Nothing else is needed. The page keeps no login, and the conversation is
-started fresh each time it is launched.</p>
+started fresh each time it is launched. What it does once it is there — the
+asking, the player, and the three screens behind the corners — is
+<a class="reference internal" href="use-the-page-at-night.html"><span class="std std-doc">Use the page at night</span></a>.</p>
 </section>
 <section id="keep-it-running">
 <h2>Keep it running<a class="headerlink" href="#keep-it-running" title="Link to this heading">#</a></h2>
@@ -616,7 +616,7 @@ started fresh each time it is launched.</p>
 
 <span class="k">[Service]</span>
 <span class="na">EnvironmentFile</span><span class="o">=</span><span class="s">%h/somnia.env</span>
-<span class="na">ExecStart</span><span class="o">=</span><span class="s">%h/.local/bin/somnia serve</span>
+<span class="na">ExecStart</span><span class="o">=</span><span class="s">%h/somnia-venv/bin/somnia serve</span>
 <span class="na">Restart</span><span class="o">=</span><span class="s">always</span>
 <span class="na">RestartSec</span><span class="o">=</span><span class="s">5</span>
 
@@ -634,325 +634,19 @@ $ curl -s localhost:8721/api/health     # {&quot;ok&quot;: true}
 </pre></div>
 </div>
 </section>
-<section id="asking-it-things">
-<h2>Asking it things<a class="headerlink" href="#asking-it-things" title="Link to this heading">#</a></h2>
-<p>Type, or hold the button and speak — it listens only while held, because a
-bedroom is full of speech that was not meant for somnia. Answers are read, not
-spoken back: the only thing the page makes a sound with is the book.</p>
-<p>The button glows and pulses while it is listening, and the phone buzzes when it
-starts and stops. Android’s own speech recogniser plays a start and stop tone
-that no web page can turn off; silencing it means muting system sounds on the
-phone.</p>
-<p>Ask to be taken somewhere and the book goes there and plays from there. If the
-passage is in a book that was not even open, that book opens. Nothing has to be
-pressed afterwards — including nothing to get back to the book. A question is
-asked on the conversation and answered by a book that moved, so the page puts
-the player back in front of you rather than leaving the seek behind a
-transcript. It does that whether you typed the question or held the microphone,
-which it did not use to: typed, the keyboard going down took you back by
-accident, and spoken there was no keyboard to go down.</p>
-<p>Ask it a <em>question</em> instead — who Rob Roy is, what became of Ginger, why they
-went to London — and it answers in a sentence and leaves the book exactly where
-it is. Nothing moves, no list goes up, and the book carries on playing
-underneath. It is worth saying because it did not use to be true: every question
-was read as <em>take me somewhere</em>, so asking who somebody was either put a list of
-places on the screen or moved the book to one of them, and cost you the hour you
-were in.</p>
-<p>When more than one place could be what you meant, it does not ask — it puts
-them on the screen. The screen is headed <em>Places you might be</em>, with a line
-under it saying how many there are and what they span, and each row is a
-time, a chapter and the book’s own words — its own, never a description of
-them, so you recognise the moment rather than take somnia’s word for it, and
-never the words of a place you have not reached yet, which is the paragraph
-after this one. Every row starts covered: press its reading and the words come
-up, press it again and they go away, so the list can be read down without ending
-up as four paragraphs of book on a phone at 2am. Sitting between the rows in
-book order, so you can see which places are behind you and which are ahead,
-there is a <em>you are here</em> line — and under it, in amber, where you actually are:
-the time, the words being spoken there behind the same press, and a <em>here</em>
-button that takes you back to it if you have gone somewhere and it was wrong.
-Press <em>goto</em> on a row and the book goes there and plays, and the list
-goes with it, leaving you on the player looking at where you have arrived. The
-line at the foot of the screen names where you landed — <em>moved to 1:20:20</em> —
-with <em>undo</em> beside it for six seconds, which puts you back exactly where the
-press found you and says <em>back where you were</em>. It is there because <em>goto</em> is
-the one press in the app that throws a position away, and without it the only
-route back is asking again. Anything that moves the book inside those six
-seconds takes the offer away and leaves the sentence: a way back holds a
-position, not an intention, and after a press of <em>+30</em> it would be a fourth move
-rather than a way back. After it has gone, the <em>here</em> button on the list is the
-way back that is left — it remembers where you were when you asked, not where
-the book has got to since. Press
-<em>‹ controls</em> in the top left — the same corner and the same word as the way out
-of everything else — and nothing whatever happens: the book carries on exactly
-as it was, in the same place, with the same sleep timer running, on the player
-the list was standing over. It stands over the player however the question was
-asked, so what <em>‹ controls</em> gives back does not depend on whether you spoke it. Nothing has
-moved while the list is up, so there is nothing to undo. The book keeps playing
-underneath it the whole time, which also means a sleep timer left to run out
-under a list still ends the night — the list is not a reason to keep the book
-going.</p>
-<p>It will not answer about a part of the book you have not heard. An answer can
-come out of somnia’s own reading of the book rather than only out of the passage
-it just looked up, and that line is the whole of what bounds it: somebody who
-has not turned up yet gets <em>he hasn’t come up yet in what you’ve heard</em>, and
-nothing after that — not who he is, and not that he arrives later. The bound is
-the furthest point the page has actually <em>played through</em>, not where you are
-now — so being taken back to chapter two does not un-hear chapter twenty, and
-being taken forward does not unlock what you were carried over. What you get
-instead is that place as a row on the list, marked <em>ahead</em>, showing its time
-and its chapter number and nothing else — no words, and not even the chapter’s
-name, since a chapter called <em>How Ginger Died</em> gives away as much as the
-sentence under it. What it says instead is <em>tap to reveal · may spoil</em>: press
-anywhere on the row’s reading and it uncovers, and you decide having read it;
-press it again and it goes back under, name and all; press <em>goto</em> and you go
-there without reading it at all. Two
-things follow from measuring it that way. A book
-somnia has never played is bounded at its opening minute, so if a book you have
-been listening to for a fortnight puts everything on the list as <em>ahead</em>, the
-listening happened in Audiobookshelf and somnia does not know about it — run
-<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>. And skipping forward while the sound is on stops the
-mark where it was until you come back behind it, which is the price of one
-press of <em>+30</em> not marking the rest of the book as heard.</p>
-<p>Conversations are held in memory, keyed by a token the page mints when it
-starts, and nothing is written to disk. <em>Start over</em> drops the history when the
-agent has got the wrong end of a mumbled question; restarting the service drops
-all of them.</p>
-</section>
-<section id="playing-the-book">
-<h2>Playing the book<a class="headerlink" href="#playing-the-book" title="Link to this heading">#</a></h2>
-<p>The page opens the book you last had open — the one you were listening to, or
-the one you last pressed on the shelf — at the place you left it, or at its
-beginning if you have not started it, and does not start it: opening the app at
-2am to ask a question is not the same as asking for the book. Press play when
-you want it.</p>
-<p>To read something else, open <em>books</em> and press the book on the shelf — or ask,
-which still works and is still the shortest way to say it. There is still no
-library of things you do not have to browse: <em>Workshop</em>, behind the quiet
-<em>workshop ›</em> pill in the top-right corner of <em>Books</em>, is where a book is
-<em>added</em>, and its search goes to Gutenberg’s catalog rather than to your shelf.</p>
-<p>Those two are one screen each on purpose. <strong>Books</strong> is the night screen — which
-book — and it is set at the same type size as the player, because it is read in
-the same dark without glasses. <strong>Workshop</strong> is the daytime one — find a book,
-have it read, watch it being made — and it is smaller and denser than anything
-else in the app, because it is read sitting up with the lights on. The two
-things you can change about how the app behaves are on a third, <strong>Settings</strong>,
-which is a night screen and is reached from the player’s top-right corner.</p>
-<p>On the page there are three buttons: back thirty seconds, play/pause, forward
-thirty seconds — or fifteen, or sixty, if you have said so in <em>Settings</em> under
-<em>how far the skip buttons move</em>; the labels say which. Most nights you will use none of them,
-because the screen is off. With the phone locked the book is driven from the
-notification, the lock
-screen and whatever is paired over Bluetooth: play, pause, back and forward,
-previous and next chapter, and a scrubber. The scrubber covers the chapter, not
-the book — three minutes to the pixel across a whole novel is no use for the
-nudge you actually want, and one sleepy thumb from the ending.</p>
-<p>Pressing play again gives you back a little of what you missed, sized by how
-long the sound was off: nothing under half a minute, then eight seconds, twenty
-after a few minutes, and half a minute after an hour — and that longest one
-lands on the start of the sentence you were in rather than in the middle of it.</p>
-<p><strong>The sleep timer is the word <em>sleep</em> next to the clock.</strong> Tapping it walks
-fifteen, thirty, forty-five and sixty minutes, then the end of the chapter,
-then off again, and it always says which it is on. It counts listening time, so
-pausing to ask a question does not spend it. It ends in a twenty-second fade
-that reaches silence at the time it named; tapping the control during that fade
-brings the sound back, on the grounds that anyone reaching for it is awake
-enough to have changed their mind. It is written down as it counts, so a reload
-— or the phone throwing the app out of memory while it is in the background —
-brings it back with the minutes it had left on it. A timer more than six hours
-old is not brought back: opening the book the next evening is starting a night,
-not finishing one.</p>
-<p>If something else takes the sound — a call, an alarm — the book stops and stays
-stopped, and the page says so. If the phone refuses to start audio without
-being touched first, the page says <em>tap anywhere to carry on</em>, and anywhere
-means anywhere.</p>
-<p>A book that is still being rendered grows underneath you, and the page keeps
-up with it: while the render is running it asks again for the chapter list —
-when the audio runs out, and whenever you come back to the app — and carries
-on into whatever has landed since. Open one that is three chapters in and it
-will play those three, say <em>waiting for the next chapter to be read</em>, and go
-on when chapter four arrives. A book with nothing rendered at all says <em>the
-first chapter is still being read</em>, and the player appears when that chapter
-lands — already playing if the agent took you to that book, waiting to be
-pressed if you only opened the app. A book whose render is not running and has
-no audio at all says <em>nothing yet — press books, then Workshop, to add one</em>,
-which is also
-what a somnia with no books in it says.</p>
-<p>When a render stopped part way — you stopped it, or a reboot did — the audio
-runs out mid-book, and the page says <em>the rest of this book hasn’t been read
-yet</em> rather than <em>that is the end of the book</em>. It knows the difference because
-the parse writes down how many chapters the book has, so a book three chapters
-into thirty-nine is tellable from one that is over. Nothing ends: the sleep
-timer keeps counting and the page keeps wanting the sound. Queue the book
-again — from <em>Workshop</em>, or by asking — and it picks up at the chapter after the
-last finished one.</p>
-<p>When the tailnet goes — wifi power save and a tailscale re-key both do it for a
-few seconds — the page says <em>the book stopped arriving</em> and keeps trying,
-waiting longer between attempts up to half a minute, and puts the chapter back
-where you had got to rather than at the top of it. Opening the app while the
-server is unreachable says <em>couldn’t reach the book — trying again</em>, and does.
-It stops the moment you pause — nothing reloads chapters under a book somebody
-has put down — and waking the phone, or the wifi coming back, makes it try
-again at once, so there is nothing to press.</p>
-</section>
-<section id="choosing-a-book-books">
-<h2>Choosing a book: <em>Books</em><a class="headerlink" href="#choosing-a-book-books" title="Link to this heading">#</a></h2>
-<p><em>books</em>, in the top left corner, opens a panel over the page. The book keeps
-playing underneath it, and <em>‹ controls</em> puts it away having changed nothing at
-all. What does change something is tapping a book — the one at the top, which
-starts the book already open, or one on the shelf, which opens that one. No book
-on this screen carries a button of its own: opening one is the same gesture
-wherever it is in the list.</p>
-<p>It is a night screen, and everything on it is set at the player’s own type size
-for that reason: it is read in the same dark, at the same arm’s length, by
-somebody who has taken their glasses off. It asks one question — <em>what shall I
-listen to</em> — and nothing that is not part of that answer is on it. It asks the
-server for one thing, once, when it opens: which books there are. It schedules
-no wake and polls nothing, so a night spent looking at it is a night with no
-radio traffic in it.</p>
-<p>At the top, under <em>reading now</em>, is the book that is playing underneath the
-panel — <em>The Moonstone</em> in amber, the only amber title in the app, and under it
-<em>chapter 4 of 37 · picks up at 1:12:08</em> over a hairline showing how far through
-it you are. The time is where a tap would land you; while the book is actually
-sounding the heading reads <em>playing now</em> and the line ends <em>· playing</em>, because
-then there is nothing to start. The hairline is not drawn at all while the book
-is still being rendered, because until the render is over the book’s length is
-only how much of it exists so far. Tapping the block starts it and puts the
-panel away — the same press as the play button, made from up here.</p>
-<p>Under it, <em>on the shelf</em> is every other book somnia has, each with where you
-left it — <em>0:27:42 in</em>, or <em>not started</em>. Tapping a row opens that book at that
-place and takes the panel away with it. Changing your mind costs one press back:
-nothing is written to the book you left, so it is still exactly where it was,
-and so is the one you looked at. A book still being rendered says so and is not
-a press at all until its first chapter exists, because until then there is
-nothing to play. A book whose render stopped part way says <em>part rendered</em> and
-can still be opened — what was read plays. If the box cannot be reached, the
-shelf you last saw stays on screen with <em>couldn’t reach somnia</em> under it: an
-empty shelf and an unreachable server look identical and mean opposite things.</p>
-<p>The rows say the title and nothing else — no author, no dates, no cover. At this
-size the catalogue’s <em>Title — Surname, Forename, dates</em> is three lines of a
-phone, and it is metadata about a book you already own and chose. The title is
-what you recognise a book you own by. Who wrote it appears in <em>Workshop</em>, where
-you are choosing among seventy thousand you do not.</p>
-<p>The way to <em>Workshop</em> is a quiet <em>workshop ›</em> pill in this screen’s own
-top-right corner, opposite <em>‹ controls</em>. Nothing behind it is a job for 2am,
-which is why it is drawn no louder than the way back — but it is not at the
-bottom of the shelf either. It used to be, and on a twenty-book library that
-meant scrolling past every book on the screen to reach the one thing on it that
-is not about books.</p>
-<p><em>how dark</em> used to sit under the shelf. It is on <em>Settings</em> now, which is a
-night screen too, so nothing it needed is lost — and this screen is back to
-answering one question with nothing on its scroll but books.</p>
-</section>
-<section id="adding-a-book-and-watching-it-made-workshop">
-<h2>Adding a book, and watching it made: <em>Workshop</em><a class="headerlink" href="#adding-a-book-and-watching-it-made-workshop" title="Link to this heading">#</a></h2>
-<p><em>workshop ›</em>, in the top-right corner of <em>Books</em>, and reachable no other way. <em>‹ books</em> comes back, and <em>Books</em> is exactly where you left it.</p>
-<p>This is the daytime screen and it is denser than anything else in the app,
-because it is read sitting up with the lights on — denser, and brighter. It is
-drawn in its own ink rather than the night palette: fuller cream, stronger
-hairlines, a lifted amber, and the sheet of black the rest of the app is read
-through comes off entirely while it is up. Every alpha in the night scale was
-chosen for a dark room, and in daylight those same values are not quiet, they
-are gone. Nothing on it goes below 16dp. It asks one question too: <em>get me a new
-book, and tell me it worked</em>. The order down it is that sentence.</p>
-<p>At the top, under <em>project gutenberg</em>, is the search. Under the results is what
-is happening, in a box headed <em>the server is working</em> — on the same screen and
-directly beneath them on purpose, because somebody who has just pressed <em>add
-this book</em> wants to see it being made, and splitting the press from its
-consequence is how the same book gets added twice. The box holds the book being
-rendered, with <em>narrating</em> in the corner of its line
-and, under the name, which chapter it is on and how much of it can be played
-now — <em>chapter 4 of 39 · 1h12m read so far</em> — over a hairline that fills as the
-chapters land. Under it is whatever is waiting, marked <em>queued</em>, saying how far
-down the line it is. One book renders at a time, always, so a queue of three is
-three books’ worth of waiting and not three renders fighting over two cores.</p>
-<p>The word in the corner is the stage — <em>queued</em>, <em>narrating</em>, <em>ready</em>, <em>failed</em>,
-<em>stopped</em> — and the line under the name is what is actually going on inside it.
-A book whose text has not been parsed yet has no hairline at all rather than one
-sitting at nothing: until the parse has run, nobody has written down how many
-chapters there are, and the line says <em>fetching the text</em> instead of counting.
-The box is not drawn at all when nothing is rendering.</p>
-<p>A render that has not been heard from for five minutes says <em>not responding</em>
-instead of pretending. That is a real answer: it means the worker died, or the
-box did, or nobody ever started <code class="docutils literal notranslate"><span class="pre">somnia-worker</span></code>. Check
-<code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">--user</span> <span class="pre">-u</span> <span class="pre">somnia-worker</span></code>.</p>
-<p>Under those are the renders that ended in the last day, and a failed one says
-why in a sentence — <em>Gutenberg has book 4321 but no HTML edition, so somnia
-cannot read it</em>. They go away by themselves after a day. There is nothing to
-dismiss and no badge or count anywhere: a book finishing at 3am is
-not news to somebody asleep, and it is on a screen nobody opens at 3am.</p>
-<p>Searching is the top of this screen, and it is what you came here for: type part
-of a title or an author and press <em>find</em>. That searches
-the copy of the Gutenberg catalog on this machine, so it answers in the time a
-tap takes and works with the internet down — run <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code> if a
-book you know exists is not in it. A book somnia already has, or already has
-coming, is marked and offers no button; a render that died is marked <em>part
-rendered</em> and offers <em>finish this one</em>, which picks it up at the chapter after
-the last finished one.</p>
-<p><em>add this book</em> does not queue it. It opens <em>read in</em> under that row — the
-voices somnia can read it in, one pill each, with <em>add it</em> underneath — and the
-same press closes it again, so the way back is the button your thumb is already
-on. Pressing a name plays a few seconds of it: the same line of <em>Black Beauty</em>
-in every voice, so what you are comparing is the voice and not the sentence. If
-the book is playing it is paused first, and stays paused — two things reading
-aloud at once is the one thing worth avoiding here, and starting the book again
-under somebody who is still choosing is worse than leaving the play button where
-they can find it. The last voice you chose is the one the next book opens on, so
-the second book of an evening is two presses.</p>
-<p>It is asked here, and only here, because a book is read by one narrator and
-cannot be re-read by another: every timestamp somnia holds — chapter marks,
-index entries, the place you fell asleep — was measured against the audio that
-was actually made. <em>finish this one</em> therefore offers no choice at all and picks
-the book up in the voice it started in.</p>
-<p><em>add it</em> queues it, and the sentence underneath is the server’s own — the same
-sentence the agent says when you ask it out loud. The row it makes says which
-voice, beside its place in the line, while taking it out again still costs
-nothing.</p>
-<p><em>stop reading this</em> takes two presses, and the second one only asks. The render
-stops at the end of the sentence it is reading, about twenty seconds later,
-which is what keeps every chapter that was finished playable and stops the
-index filling up with half a chapter. The row stays as the record of a render
-somebody stopped.</p>
-<p><em>Workshop</em> asks the server how things are going every five seconds while it is
-open, and stops the moment it is closed or the phone goes in a pocket. Nothing
-about the queue is polled otherwise — and since this is the only screen the
-queue is on, and it is two presses from the player behind a row that says
-<em>daytime</em>, no night has a five-second wake in it.</p>
-<p><em>Workshop</em> holds no settings. Both of them are on <em>Settings</em>, below.</p>
-</section>
-<section id="changing-how-it-behaves-at-night-settings">
-<h2>Changing how it behaves at night: <em>Settings</em><a class="headerlink" href="#changing-how-it-behaves-at-night-settings" title="Link to this heading">#</a></h2>
-<p><em>settings ›</em> in the top-right corner of the player — the corner that had been
-empty since <em>start over</em> moved to the chat screen. <em>‹ controls</em> comes back.</p>
-<p>It is a night screen in the night palette, which is the point of it rather than
-a default: both controls on it are reached for in the dark with the book
-playing, and one of them cannot be set anywhere else at all.</p>
-<p><em>how dark the room</em> takes the page darker than the phone’s own minimum
-brightness, by laying black over everything. Press <em>–</em> or <em>+</em> and the screen you
-are looking at gets lighter or darker as you watch — the layer is over this
-screen too, which is why it has to be set on a screen read in the dark. It goes
-from nothing to rather dark in ten presses, and it cannot go dark enough to hide
-itself.</p>
-<p><em>how far the skip buttons move</em> — fifteen, thirty or sixty seconds — is what the
-two buttons either side of play mean, and what they say. It was in <em>Workshop</em>,
-on the argument that a thing set once is daytime configuration. That is wrong
-about when it is discovered: nobody decides thirty seconds is the wrong distance
-sitting up in daylight, they decide it lying in the dark with a narrator who
-leaves long gaps, having missed the same sentence twice.</p>
-<p>Both are written down and outlive the page. The sleep timer is the one setting
-that is not: it expires after six hours, because a timer is an intent about one
-night.</p>
-</section>
 <section id="check-screen-off-playback-before-you-trust-a-night-to-it">
 <h2>Check screen-off playback before you trust a night to it<a class="headerlink" href="#check-screen-off-playback-before-you-trust-a-night-to-it" title="Link to this heading">#</a></h2>
-<p>Everything above rests on an installed PWA being allowed to keep playing with
-the screen off, and on its notification surviving a chapter boundary. The first
-was confirmed on 2026-08-06 and is not an open question; it is the check to run
-again on a new phone, after an Android update, or on the first night that goes
-quiet. The second was confirmed on the same night on the phone’s own speaker,
-and that turned out not to settle it — over Bluetooth the notification is torn
-down and rebuilt at every boundary, and some nights it does not come back. That
-is issue #31, and it is why this page now asks a second question as well. Both
+<p>Playing a book through the night rests on an installed PWA being allowed to
+keep playing with the screen off, and on its notification surviving a chapter
+boundary. The first was confirmed on 2026-08-06 and is not an open question; it
+is the check to run again on a new phone, after an Android update, or on the
+first night that goes quiet. The second was confirmed on the same night on the
+phone’s own speaker, and that turned out not to settle it — over Bluetooth the
+notification is torn down and rebuilt at every boundary, and some nights it does
+not come back. That was issue #31, and it is closed: the player now loads the
+whole book from one URL
+(<a class="reference internal" href="../explanations/decisions/0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">ADR 7</span></a>),
+and on 2026-08-08 a boundary was crossed over Bluetooth with the card up. Both
 are properties of the handset rather than of this code, and neither can be
 tested from a desk.</p>
 <p>It is checked with a page of its own, which generates its own audio so it needs
@@ -977,17 +671,19 @@ press every button you own — the lock screen, the pillow speaker, the headphon
 book can be moved and played again with no gesture at all, which is what the
 agent does every time it takes you somewhere.</p>
 <p>That mode is also a demonstration of the bug: it gives the element a new file at
-every chapter, exactly as the player does, and <strong>src writes</strong> on the readout
-counts the teardowns.</p>
+every chapter, exactly as the player did before ADR 7, and as it still does with
+<code class="docutils literal notranslate"><span class="pre">?chapters</span></code>, and <strong>src writes</strong> on the readout counts the teardowns.</p>
 <section id="whether-one-file-can-carry-a-whole-book">
 <h3>Whether one file can carry a whole book<a class="headerlink" href="#whether-one-file-can-carry-a-whole-book" title="Link to this heading">#</a></h3>
-<p><em>Whole book</em> is the other question, and it is the one that decides whether the
-player can stop letting go at a boundary. It loads a real book — the longest one
-somnia has, or <code class="docutils literal notranslate"><span class="pre">?gid=&lt;gid&gt;</span></code> for a particular one — from a single URL,
-<code class="docutils literal notranslate"><span class="pre">/api/stream/{gid}/{n}</span></code>, and never touches the element again: a chapter boundary
-becomes arithmetic on the render clock, and the only thing that happens is that
-the notification is renamed. <code class="docutils literal notranslate"><span class="pre">?book</span></code> on the URL starts the page in this mode, so
-a home-screen shortcut can go straight to it in the dark.</p>
+<p><em>Whole book</em> is the mode that exercises the mechanism ADR 7 chose, and it is
+what to run on a new phone, after an Android update, and for the two checks
+ADR 7 leaves open: hours of a 161MB progressive resource, and a frontier wait.
+It loads a real book — the longest one somnia has, or <code class="docutils literal notranslate"><span class="pre">?gid=&lt;gid&gt;</span></code> for a
+particular one — from a single URL, <code class="docutils literal notranslate"><span class="pre">/api/stream/{gid}/{n}</span></code>, and never touches
+the element again: a chapter boundary becomes arithmetic on the render clock,
+and the only thing that happens is that the notification is renamed. <code class="docutils literal notranslate"><span class="pre">?book</span></code> on
+the URL starts the page in this mode, so a home-screen shortcut can go straight
+to it in the dark.</p>
 <p>It has to be run over Bluetooth with the screen locked, because that is the
 route the last check got wrong. Watch <strong>src writes</strong> stay at 1 all night; watch
 <strong>chapter changes</strong> climb without it moving. Then look at the notification
@@ -1004,8 +700,8 @@ on starting at 0 all night, the phone is holding the whole book.</p></li>
 <li><p>Turn the tailnet off for half a minute and back on. A stall shows as
 <strong>shortfall</strong>; whether the phone had to fetch the book again shows in
 <strong>holding</strong>, and the other half of that answer is in the server’s own log —
-<code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">somnia</span> <span class="pre">-f</span></code> shows a second <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/...</span></code> if Chrome
-threw the book away and asked for it again.</p></li>
+<code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">--user</span> <span class="pre">-u</span> <span class="pre">somnia-serve</span> <span class="pre">-f</span></code> shows a second <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/...</span></code>
+if Chrome threw the book away and asked for it again.</p></li>
 <li><p>Press the pillow speaker’s skip and its scrubber. The panel is told the
 <em>chapter’s</em> length and not the book’s, so what those buttons move by is the
 question, and the log writes down what the panel was told each time.</p></li>
@@ -1088,11 +784,6 @@ stand in for it.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#publish-it-on-the-tailnet">Publish it on the tailnet</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-it-on-the-phone">Install it on the phone</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#keep-it-running">Keep it running</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asking-it-things">Asking it things</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#playing-the-book">Playing the book</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-book-books">Choosing a book: <em>Books</em></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-a-book-and-watching-it-made-workshop">Adding a book, and watching it made: <em>Workshop</em></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-how-it-behaves-at-night-settings">Changing how it behaves at night: <em>Settings</em></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#check-screen-off-playback-before-you-trust-a-night-to-it">Check screen-off playback before you trust a night to it</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#whether-one-file-can-carry-a-whole-book">Whether one file can carry a whole book</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#asking-the-same-question-of-the-real-player">Asking the same question of the real player</a></li>

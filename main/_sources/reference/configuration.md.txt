@@ -1,9 +1,12 @@
 # Configuration
 
-Every setting is an environment variable. There is no configuration file, no
-flag that overrides one, and no precedence to learn: a variable that is set wins
-over the default, and that is the whole of it. Two commands take flags that
-override a setting for that run only — `add --voice` and `serve --host/--port`.
+Every setting is an environment variable. There is no configuration file and no
+precedence to learn: a variable that is set wins over the default, and that is
+the whole of it. One flag overrides a setting for a single run: `add --voice`,
+which shadows `SOMNIA_VOICE` and is written on the queue row rather than on the
+process, so it survives whichever renderer gets there. `serve --host/--port` has
+no variable behind it at all — the defaults are `127.0.0.1` and `8721`, and they
+live in the command.
 
 `~/somnia.env` is the conventional place to keep them, and what the installer
 writes and the how-to guides assume. Your shell reads it with `source`; a
@@ -33,6 +36,7 @@ twice.
 `~` is expanded in the two path settings, so `~/library/audiobooks` works when a
 shell sets it. Under systemd nothing expands it, which is the trap: see above.
 
+(config-fail-quietly)=
 ### The two that fail quietly
 
 **`SOMNIA_LIBRARY_DIR`** is load-bearing since the page became the player. Get

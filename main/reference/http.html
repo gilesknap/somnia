@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>HTTP surface &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -500,7 +500,13 @@ and the only path in is <code class="docutils literal notranslate"><span class="
 <p>Everything the page fetches lives under <code class="docutils literal notranslate"><span class="pre">/api/</span></code>, and that prefix does work: the
 service worker knows never to cache it — the Cache API throws when asked to
 store the 206 a seek produces — and it keeps these routes ahead of the static
-mount, which would otherwise swallow them. <code class="docutils literal notranslate"><span class="pre">/</span></code> serves the PWA itself.</p>
+mount, which would otherwise swallow them. <code class="docutils literal notranslate"><span class="pre">/</span></code> serves the PWA itself, and
+everything outside <code class="docutils literal notranslate"><span class="pre">/api/</span></code> goes out with <code class="docutils literal notranslate"><span class="pre">Cache-Control:</span> <span class="pre">no-cache</span></code> — which
+means <em>ask before you use it</em>, not <em>do not store it</em>: unchanged, the ETag
+answers 304; changed, the new file arrives at the next launch. Without it the
+browser invents a freshness policy (Chrome’s is a tenth of the file’s age), and
+what that looks like is a deploy that did not happen — new bytes on disk, every
+request answered, last week’s page on the phone.</p>
 <p>All times are milliseconds on the <strong>book clock</strong>: the render clock, counted in
 samples before encoding, and the same clock chapter marks, search results and
 saved positions all speak. It is not per-chapter, and it is not what a decoder
@@ -537,39 +543,43 @@ would tell you.</p>
 <td><p>GET</p></td>
 <td><p>Where the sentence being spoken at <code class="docutils literal notranslate"><span class="pre">ms</span></code> began</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/passage/{gid}/{ms}</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>The book’s own words at <code class="docutils literal notranslate"><span class="pre">ms</span></code>, never further on than they have heard</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>Books to add, from the local catalog (both libraries)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/voices</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/voices</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>The voices a book may be asked for in</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>What is rendering, what is waiting, what went wrong</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Make this the book a cold launch opens — or 404</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>The agent’s reply, and a move if it made one</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Drops one conversation</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>What became of a report — always 200</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Ask for a book — always 200</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Stop a render, or take a book out of the line</p></td>
 </tr>
@@ -701,6 +711,24 @@ pauses, never when they press play: a resume has to be instant, and a phone
 that has been face down for an hour is the least likely thing on the tailnet to
 answer quickly.</p>
 </section>
+<section id="get-api-passage-gid-ms">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/passage/{gid}/{ms}</span></code><a class="headerlink" href="#get-api-passage-gid-ms" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The only route that hands back the book’s own words, for the <em>you are here</em> row
+on the list of places — every other row on that screen carries its words down
+with the answer that named it.</p>
+<p><code class="docutils literal notranslate"><span class="pre">text</span></code> is <code class="docutils literal notranslate"><span class="pre">null</span></code> when there is nothing to say: no such book, a book whose text
+was never indexed, or a book nobody has played a second of. The row then offers
+no reveal, which is what it did before this existed.</p>
+<p>The bound is inside the statement: the row must satisfy
+<code class="docutils literal notranslate"><span class="pre">start_ms</span> <span class="pre">&lt;</span> <span class="pre">heard_to_ms</span></code>, applied to the row and not to the argument. Ask about
+a point an hour past where anybody has listened and the answer is the last
+passage that really was spoken — not a refusal, which is a frontier to read off.
+The words are cut to 240 characters, the same limit as the places the row sits
+among.</p>
+</section>
 <section id="get-api-catalog">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code><a class="headerlink" href="#get-api-catalog" title="Link to this heading">#</a></h2>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -821,6 +849,19 @@ rather than its contents. The sequence number travels with the position because
 adopting one without the other would have the page’s next report refused.</p>
 <p>This is a head start, not the mechanism: if the reply never arrives, the same
 move lands within fifteen seconds as the refusal of the page’s next report.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;reply&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;candidates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;places&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;chunk_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">812</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;start_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapter_idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;chapter_title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;32. A Horse Fair&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ahead&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="p">}]}}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">candidates</span></code> and <code class="docutils literal notranslate"><span class="pre">move</span></code> never appear together — a list and a seek in one reply
+would move the book under somebody still choosing. Read by presence, like
+<code class="docutils literal notranslate"><span class="pre">move</span></code>. <code class="docutils literal notranslate"><span class="pre">position_ms</span></code> is <code class="docutils literal notranslate"><span class="pre">null</span></code> for a book never started, and the page draws no
+<em>you are here</em> row rather than inventing one. <code class="docutils literal notranslate"><span class="pre">ahead</span></code> is decided on the server,
+by the same code that owns the spoiler guard: a row with <code class="docutils literal notranslate"><span class="pre">ahead:</span> <span class="pre">true</span></code> is drawn
+covered up — words and chapter title both — until they ask, and the page
+computes nothing.</p>
 </section>
 <section id="post-api-forget">
 <h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/forget</span></code><a class="headerlink" href="#post-api-forget" title="Link to this heading">#</a></h2>
@@ -842,17 +883,23 @@ missing it claims no playback rather than an impossible amount of it.</p>
 journal. The five that mean the sound stopped — <code class="docutils literal notranslate"><span class="pre">pause</span></code>, <code class="docutils literal notranslate"><span class="pre">hidden</span></code>, <code class="docutils literal notranslate"><span class="pre">unload</span></code>,
 <code class="docutils literal notranslate"><span class="pre">ended</span></code>, <code class="docutils literal notranslate"><span class="pre">switch</span></code> — also send the position to Audiobookshelf, as a background
 task after the reply is on the wire.</p>
-<p><strong>Always 200</strong>, in one of two shapes:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">}</span>
+<p><strong>Always 200</strong>, in one of three:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">  </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;moved&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gone&quot;</span><span class="p">}</span>
 </pre></div>
 </div>
 <p>A refusal is not an error. It is how the page is told the agent moved the book
 while it was not looking, and it carries where to go instead. A 409 would put a
-red line in the console at 2am for something working exactly as designed, and
-be unreadable to the <code class="docutils literal notranslate"><span class="pre">sendBeacon</span></code> sent as the page dies. Nulls are dropped
-rather than sent: a report about a book that is gone has no position to talk
-about, and <code class="docutils literal notranslate"><span class="pre">&quot;position_ms&quot;:</span> <span class="pre">null</span></code> would read as one.</p>
+red line in the console at 2am for something working exactly as designed, invite
+a throw in the fetch wrapper that skipped the one line that mattered, and be
+unreadable to the <code class="docutils literal notranslate"><span class="pre">sendBeacon</span></code> sent as the page dies.</p>
+<p><code class="docutils literal notranslate"><span class="pre">reason</span></code> is what the page acts on. <code class="docutils literal notranslate"><span class="pre">moved</span></code> means the agent took the book
+somewhere while the page was not looking, and the body says where. <code class="docutils literal notranslate"><span class="pre">gone</span></code> means
+the row is not in this database any more — a page left open on a book that was
+deleted — and there is nothing to go to. Nulls are dropped rather than sent: a
+report about a book that is gone has no position to talk about, and
+<code class="docutils literal notranslate"><span class="pre">&quot;position_ms&quot;:</span> <span class="pre">null</span></code> would read as one.</p>
 <p>400 is reserved for a body with no <code class="docutils literal notranslate"><span class="pre">gid</span></code> or no <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>.</p>
 </section>
 <section id="post-api-queue">
@@ -868,9 +915,8 @@ about, and <code class="docutils literal notranslate"><span class="pre">&quot;po
 <p><code class="docutils literal notranslate"><span class="pre">said</span></code> is a sentence to show somebody — it is the <em>same string</em>
 <code class="docutils literal notranslate"><span class="pre">Library.add_book</span></code> gives the agent, out of the same function, so the page and
 the voice cannot disagree about what just happened. A refusal is an answer, not
-an error, for the reason <code class="docutils literal notranslate"><span class="pre">/api/position</span></code> gives above: a 409 would put a red line
-in the console at 2am for something working exactly as designed and invite a
-throw in the fetch wrapper that skipped the one line that mattered.</p>
+an error, for the reason <code class="docutils literal notranslate"><span class="pre">/api/position</span></code> gives above; here the answer is the
+sentence saying why.</p>
 <p>Two things are refused: a book with a live queue row, which is already coming,
 and a book somnia has all of. A render that died, was stopped, or was killed by
 a deploy is <strong>accepted</strong> — that is the retry that used to be impossible.</p>
@@ -966,6 +1012,7 @@ too.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-audio-gid-idx"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-stream-gid-n"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-sentence-gid-ms"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-passage-gid-ms"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/passage/{gid}/{ms}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-catalog"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/catalog</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-voices"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/voices</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-queue"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/queue</span></code></a></li>

@@ -69,7 +69,9 @@ print(f"{n} chapters repointed")
 PY
 ```
 
-Then let the doctor confirm it, which is exactly what it is for:
+Then let `somnia-doctor.sh` (in the repo's `scripts/`, or curl it as
+[Installation](../tutorials/installation.md) does) confirm it, which is exactly
+what it is for:
 
 ```bash
 bash somnia-doctor.sh
@@ -113,6 +115,11 @@ which is the tidiest moment there is to be rid of them. If you rsync the data
 directory rather than copying `somnia.db` on its own, exclude it.
 
 ## Moving the renders somewhere faster
+
+This is not hypothetical — somnia's own renders moved to a home machine, which
+is where the 3.87× in
+[ADR 7](../explanations/decisions/0007-cross-a-chapter-without-letting-go.md)
+comes from, and the absolute-path catch below is the one thing that bit.
 
 Rendering and serving do not have to be the same machine, and the render host
 is the one that wants CPU

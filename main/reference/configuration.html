@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Configuration &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>Configuration &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -490,10 +490,13 @@
                   
   <section id="configuration">
 <h1>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h1>
-<p>Every setting is an environment variable. There is no configuration file, no
-flag that overrides one, and no precedence to learn: a variable that is set wins
-over the default, and that is the whole of it. Two commands take flags that
-override a setting for that run only — <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">--voice</span></code> and <code class="docutils literal notranslate"><span class="pre">serve</span> <span class="pre">--host/--port</span></code>.</p>
+<p>Every setting is an environment variable. There is no configuration file and no
+precedence to learn: a variable that is set wins over the default, and that is
+the whole of it. One flag overrides a setting for a single run: <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">--voice</span></code>,
+which shadows <code class="docutils literal notranslate"><span class="pre">SOMNIA_VOICE</span></code> and is written on the queue row rather than on the
+process, so it survives whichever renderer gets there. <code class="docutils literal notranslate"><span class="pre">serve</span> <span class="pre">--host/--port</span></code> has
+no variable behind it at all — the defaults are <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> and <code class="docutils literal notranslate"><span class="pre">8721</span></code>, and they
+live in the command.</p>
 <p><code class="docutils literal notranslate"><span class="pre">~/somnia.env</span></code> is the conventional place to keep them, and what the installer
 writes and the how-to guides assume. Your shell reads it with <code class="docutils literal notranslate"><span class="pre">source</span></code>; a
 systemd unit reads it with <code class="docutils literal notranslate"><span class="pre">EnvironmentFile=</span></code>. <strong>systemd does no variable
@@ -558,7 +561,7 @@ twice.</p>
 <p><code class="docutils literal notranslate"><span class="pre">~</span></code> is expanded in the two path settings, so <code class="docutils literal notranslate"><span class="pre">~/library/audiobooks</span></code> works when a
 shell sets it. Under systemd nothing expands it, which is the trap: see above.</p>
 <section id="the-two-that-fail-quietly">
-<h3>The two that fail quietly<a class="headerlink" href="#the-two-that-fail-quietly" title="Link to this heading">#</a></h3>
+<span id="config-fail-quietly"></span><h3>The two that fail quietly<a class="headerlink" href="#the-two-that-fail-quietly" title="Link to this heading">#</a></h3>
 <p><strong><code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code></strong> is load-bearing since the page became the player. Get
 it wrong and everything starts, the agent answers questions, and every chapter
 404s. Chapters are never served by path — the request names a book and a chapter

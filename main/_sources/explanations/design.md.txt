@@ -24,7 +24,8 @@ any engine that can render one sentence fits the `TTSEngine` protocol.
 
 ## Engine choice: Kokoro, benchmarked
 
-Benchmarks on the target VPS (2 vCPU AMD EPYC 9354P slice):
+Benchmarks on the VPS somnia was first deployed to (2 vCPU AMD EPYC 9354P
+slice):
 
 | Engine | Speed | Verdict |
 |---|---|---|
@@ -33,20 +34,21 @@ Benchmarks on the target VPS (2 vCPU AMD EPYC 9354P slice):
 | Piper (en_GB-alan-medium) | ~18× realtime | fallback if speed ever matters more |
 
 Kokoro sounds much better and the owner preferred it decisively. At ~1.15×
-realtime the renderer still outruns 1× listening, so streaming works with a
-thin margin — and that margin is the sentence the ingest queue exists to
-defend, because two renders at once halve it and the whole of streaming ingest
-stops working. **One book renders at a time**, in its own systemd unit, which
-is [ADR 5](decisions/0005-render-one-book-at-a-time.md). If underruns bite in
+realtime on that 2 vCPU box the renderer still outruns 1× listening with a thin
+margin — and that margin is the sentence the ingest queue exists to defend,
+because two renders at once halve it and the whole of streaming ingest stops
+working. **One book renders at a time**, in its own systemd unit, which is
+[ADR 5](decisions/0005-render-one-book-at-a-time.md). If underruns bite in
 practice: more vCPUs, or a render worker on a faster home machine pushing
 chapters up — the lease a renderer holds is deliberately process-agnostic, so
-another machine drops into the same slot without a second queue. The 1.15×
-above is the conservative end of the benchmark and has not been re-measured
-against a real book on the live box; doing that, and writing the number down
-with its date, is one of the two things ADR 5 leaves open. Never
-re-render a book with a different engine/voice: durations change and every
-timestamp — every index entry, every chapter mark, and the position they went
-to sleep at — would be invalidated.
+another machine drops into the same slot without a second queue. Measured again
+on 2026-08-07 with `scripts/somnia-bench.py` — the same sentence-at-a-time path
+a render takes: 3.87× on nuc2 and 1.06× on the VPS
+([ADR 7](decisions/0007-cross-a-chapter-without-letting-go.md)). Both outrun 1×
+listening; only nuc2 has a cushion, which is why moving to a slower box reopens
+ADR 7. Never re-render a book with a different engine/voice: durations change
+and every timestamp — every index entry, every chapter mark, and the position
+they went to sleep at — would be invalidated.
 
 ## Streaming ingest: pick a book and go
 
@@ -78,12 +80,11 @@ Multi-file books are ABS's native format with a single global timeline, so:
   replaces its passages rather than adding a second copy of every one of them,
   which is what makes any of that safe
 
-All timestamps everywhere are **global milliseconds from book start** —
-`chapters` rows carry each chapter's global start, so index hits, the saved
-position, what the player has on screen and what ABS is told all speak the same
-clock. It is the render clock, counted in samples before encoding, and never
-what a decoder reports: summing durations off the files drifts by tens of
-milliseconds a chapter and is a second out by chapter forty.
+All timestamps everywhere are **global milliseconds from book start**, on the
+render clock — `chapters` rows carry each chapter's global start, so index hits,
+the saved position, the player and ABS all speak it.
+[Architecture](architecture.md) has the reason that is not what a decoder
+reports.
 
 ## Semantic index
 
@@ -108,6 +109,12 @@ dump** (~20MB, all ~75k books) into sqlite FTS5. Browsing is fully offline
 and deployment has no third-party API dependency. Refresh with
 `somnia catalog-update`.
 
+A second library sits in the same FTS5 table — Project Gutenberg Australia,
+which publishes no CSV and no API, only a text index meant for a person to
+read, and whose ids are offset clear of Gutenberg's so that one integer goes on
+meaning one book in the queue, the player and every saved position
+([ADR 8](decisions/0008-a-second-library-under-the-same-ids.md)).
+
 ## Playback: the page is the player, and the position is somnia's own
 
 This reverses the original design, which made the Audiobookshelf Android app
@@ -118,37 +125,28 @@ that button remotely that we turned down, are in
 [ADR 3](decisions/0003-play-the-book-in-the-page.md); the losses are there too,
 offline downloads chief among them.
 
-**The page plays the book.** somnia rendered the audio, so serving it is a
-route resolved from the `chapters` rows and never from a path in the request;
-Range, `If-Range` and 416 — and therefore seeking — are Starlette's own. The
-page holds one `<audio>` element for its whole life, and everything it plays is
-counted in **global milliseconds**, the clock the index, the chapter marks and
-the agent already speak. Where a position falls is an implementation detail of
-three conversion functions, so "back a bit" from the start of chapter five
-lands in chapter four, the way a listener means it.
+**The page plays the book.** somnia rendered the audio, so serving it is a route
+resolved from the `chapters` rows and never from a path in the request; Range,
+`If-Range` and 416 — and therefore seeking — are Starlette's own. What holding
+one clock costs the page is in [Architecture](architecture.md).
 
-What that element is given used to be a chapter at a time
-(`/api/audio/{gid}/{idx}`), swapped at every boundary. It is now the whole book
-joined into one file (`/api/stream/{gid}/{n}`), loaded once, and a boundary is
-arithmetic that never touches the element — because the swap was emptying the
-element, and an empty element is one Android takes the lock screen card away
-from.
+What the `<audio>` element is given used to be a chapter at a time, swapped at
+every boundary; it is now the whole book joined into one file, and a boundary is
+arithmetic that never touches the element.
 [ADR 7](decisions/0007-cross-a-chapter-without-letting-go.md) has the argument
-and the bill, including what it costs on disk and what is still only assumed.
-The per-chapter route is still there and is still what plays when there is no
-join to be had.
+and the bill. The per-chapter route is still there and is still what plays when
+there is no join to be had.
 
 **Most of the transport is not on the page.** With the screen off the book is
 driven from the lock screen, the notification shade and whatever is paired over
 Bluetooth, all of which arrive through the Media Session API. The scrubber
-published there is chapter-scale on purpose: a whole-book scrubber on a
-twelve-hour novel gives three minutes to the pixel, and one sleepy thumb would
-fling them past the spoiler guard into the ending. That used to be belt and
-braces — the loaded file was a chapter long, so the platform's own idea of the
-duration agreed with what the page published. Now the element holds the whole
-book and the page's `setPositionState` is the only thing saying otherwise, so
-the chapter-scale scrubber is one uncaught exception away from being the
-whole-book one this paragraph refuses.
+published there is chapter-scale on purpose ([Architecture](architecture.md)
+says why). That used to be belt and braces — the loaded file was a chapter
+long, so the platform's own idea of the duration agreed with what the page
+published. Now the element holds the whole book and the page's
+`setPositionState` is the only thing saying otherwise, so the chapter-scale
+scrubber is one uncaught exception away from being the whole-book one this
+paragraph refuses.
 
 **Stopping the book is as much of the job as starting it.** The two things the
 ABS app did that a bedtime player cannot do without: a sleep timer — fifteen,
@@ -173,8 +171,7 @@ the whole protocol: the page's own reports — every fifteen seconds while it
 plays, at every jump and every chapter boundary, and whenever the sound starts
 or stops — leave the count alone, so a report carrying a stale count can only
 mean the agent moved the book, and the refusal that comes back is also the
-instruction to jump. That is why a refusal is a 200 with a body and not a 409:
-the last report of the night is a beacon, and a beacon can read nothing else.
+instruction to jump.
 
 A book being left behind gets a report of its own, sent while the page is still
 on it, because it is the last thing that page will ever say about that book:
@@ -225,20 +222,18 @@ listening both arrive at the server as a position further on than the last one
 report the server took, counted off the media clock, and the mark rises to the
 reported position only when the report stands no further past the mark than
 that playback accounts for. The wall clock is a ceiling on the claim and not
-the answer to it: a phone asleep in a pocket for eight hours banks eight hours
-of clock and no listening at all, and reading the first report after it off the
-clock handed over a five-hour agent move in full. A pause raises the mark like
-anything else, because a pause is the best evidence in the protocol that they
-listened right up to it; and playback the server never acknowledged stays owed
-and is sent again, because a mark left even a heartbeat behind the position
-refuses every report after it and never recovers — except across a jump, where
-it is given up instead, since it was earned over the ground behind the jump and
-would otherwise be spent on the distance by the report from the far side. Two costs, both chosen: after
-a skip forward the mark stops until they go back over it, and a book nobody has
-played is bounded at its start rather than left unbounded, so on night one the
-passage they asked for is somewhere to be offered rather than somewhere to be
-played from. Failing that way costs a press in the dark; failing the other
-way costs them the book.
+the answer to it ([Architecture](architecture.md) has the arithmetic). A pause
+raises the mark like anything else, because a pause is the best evidence in the
+protocol that they listened right up to it; and playback the server never
+acknowledged stays owed and is sent again, because a mark left even a heartbeat
+behind the position refuses every report after it and never recovers — except
+across a jump, where it is given up instead, since it was earned over the
+ground behind the jump and would otherwise be spent on the distance by the
+report from the far side. Two costs, both chosen: after a skip forward the mark
+stops until they go back over it, and a book nobody has played is bounded at
+its start rather than left unbounded, so on night one the passage they asked
+for is somewhere to be offered rather than somewhere to be played from. Failing
+that way costs a press in the dark; failing the other way costs them the book.
 
 A bounded search does not simply come back empty. It also runs unbounded and
 says whether a closer match lies past the mark — never what it is — which is
@@ -269,34 +264,18 @@ nothing, where under the old rule it was impossible. That one the prompt has to
 carry, and it does: look before you speak, and hardest on the question you are
 sure you already know the answer to.
 
-**What it offers is a list of places, not a question.** That passage becomes a
-row on screen with its time and its chapter number, and its words and its
-chapter title covered up until the row is pressed — *tap to reveal · may spoil*;
-the same screen is what several plausible matches produce, so "did you mean the
-one an hour in or the one at four hours?" is now a thing a thumb answers rather
-than a sentence somebody half asleep has to compose. [ADR
-4](decisions/0004-choose-a-place-from-a-list.md) has the argument. What matters
-to the guard is that none of it moves the mark: the model names passages by
-chunk id and `Library.offer_positions` only reads, so an offering turn writes
-nothing at all; whether a row starts covered is decided there and only there,
-as `start_ms >= heard_to_ms`, with no slack and no exemption for a finished
-book, so the page obeys a flag rather than recomputing a number it holds a
-stale copy of; and choosing a row is a local seek by a thumb, not an agent
-move, so `position_seq` is untouched and the mark rises afterwards exactly as
-it would for a press of *−30*. A turn either moves the book or asks which place
-was meant, never both — refused in the tool, before a move can write anything,
-and again in the shape of the reply.
+**What it offers is a list of places, not a question**, and
+[ADR 4](decisions/0004-choose-a-place-from-a-list.md) has the whole argument:
+the row, the cover-up, and why an offering turn writes nothing at all.
 
 Every row's words travel with the answer that named them, which is why there is
 no route anywhere that hands back the text of a chunk by id: that would be a
 general way to read unheard book text, one guessed integer wide, sitting on the
-server for the life of the deployment. The one exception proves the rule rather
-than bending it. `/api/passage/{gid}/{ms}` exists for the *you are here* row,
-which names no passage and so carries none — and it is addressed by a point on
-the book's clock, not by an identifier, and answers out of a statement whose own
-`WHERE` carries `start_ms < heard_to_ms`. Ask it about the last millisecond of
-the book and it replies with the last thing that was really spoken. There is
-nothing to guess and no refusal to read a frontier off.
+server for the life of the deployment. `/api/passage/{gid}/{ms}` is the one
+exception and proves the rule — addressed by a point on the book's clock rather
+than by an identifier, and answering out of a statement whose own `WHERE`
+carries `start_ms < heard_to_ms`, so there is nothing to guess and no refusal to
+read a frontier off.
 
 ## Getting through the night is the page's job now
 
@@ -323,23 +302,23 @@ backwards every time the book grew.
 a tailscale re-key each take it away for a few seconds, and a media element
 comes back from none of them by itself: once it has taken a network error it
 never fetches again, and a buffer that ran dry with nothing behind it sits
-there silently. So the page reloads the chapter — assigning `src` is the whole
-of what makes an element try again — from where they had got to rather than
-from the top of it, so five seconds off the network costs five seconds and not
-the last ten minutes over again. It waits longer each time, two seconds to thirty,
-because a VPS that is down is down and a phone that retried flat out until
-morning is a phone with no battery in the morning. Every route to a reload goes
-on that same ladder, including the one that never sees an error at all: a
-server that accepts the connection and answers nothing — a proxy black hole, a
-re-key caught mid-handshake — leaves the element stalling rather than failing,
-and a stall that reloads on a fixed timer stalls again off the new source, for
-ever, at exactly the fixed cadence the ladder exists to prevent. It stops
-entirely when
-they were the ones who stopped it, because a page reloading chapters under a
-book somebody put down is spending the battery on nobody. The boot does the
-same thing for the same reason: the service worker serves the shell when the
-server cannot be reached, which is right, and what they land on otherwise is a
-page that looks perfectly alive with no book in it.
+there silently. So the page reloads whatever it is holding — the joined book, or
+a chapter in the fallback; assigning `src` is the whole of what makes an element
+try again — from where they had got to rather than from the top of it, so five
+seconds off the network costs five seconds and not the last ten minutes over
+again. It waits longer each time, two seconds to
+thirty, because a server that is down is down and a phone that retried flat out
+until morning is a phone with no battery in the morning. Every route to a
+reload goes on that same ladder, including the one that never sees an error at
+all: a server that accepts the connection and answers nothing — a proxy black
+hole, a re-key caught mid-handshake — leaves the element stalling rather than
+failing, and a stall that reloads on a fixed timer stalls again off the new
+source, for ever, at exactly the fixed cadence the ladder exists to prevent. It
+stops entirely when they were the ones who stopped it, because a page reloading
+audio under a book somebody put down is spending the battery on nobody. The
+boot does the same thing for the same reason: the service worker serves the
+shell when the server cannot be reached, which is right, and what they land on
+otherwise is a page that looks perfectly alive with no book in it.
 
 **The page itself dies.** A backgrounded tab is discarded whenever the phone
 wants the memory back, and reloading is the first thing anyone does to a page
@@ -366,19 +345,10 @@ the top of it, and under that the last places somnia found, the conversation,
 and the position it would otherwise just keep. Twelve hours and no longer, on
 the timer's argument said at a morning's distance instead of a night's.
 
-## Serving the audio and answering the questions are separate lanes
-
-A model turn blocks for tens of seconds on the API and on the embedder. A seek
-must not queue behind it — a dead player while a question is being answered is
-exactly the moment the phone gets put down — so `somnia.player.Player` has its
-own sqlite connection, its own lock and its own ABS client, and shares nothing
-with a conversation but the file on disk. sqlite is in WAL for the same reason:
-several writers now exist (a turn, the player, the render worker, and the
-render itself in another process entirely) and a reader must never block on any
-of them. The renderer is not merely a separate connection but a separate
-**unit**, which is the same argument taken one step further: a model turn can
-be waited out, but Kokoro holding both cores cannot, and restarting the page's
-process to deploy must not kill a render that is four hours in.
+How the lanes are kept apart, and why sqlite is in WAL with several writers, is
+in [Architecture](architecture.md); that the renderer is a separate *unit* and
+not merely a separate connection is
+[ADR 5](decisions/0005-render-one-book-at-a-time.md).
 
 ## Agent surface
 
@@ -397,10 +367,11 @@ process to deploy must not kill a render that is four hours in.
   which *passage* they meant never is; and whether they wanted moving or telling
   is the model's to judge, which it declares by which of the two searches it
   calls.
-- 2am surface: a small **PWA chat page** served from the VPS. The server runs
-  the agent loop (Anthropic Python SDK tool runner) with an API key held
-  server-side — no OAuth. Voice input via the browser's Web Speech API
-  (push-to-talk button); Android keyboard dictation as fallback.
+- 2am surface: the installed PWA, which is the player as well as the
+  conversation, served over the tailnet. The server runs the agent loop
+  (Anthropic Python SDK tool runner) with an API key held server-side — no
+  OAuth. Voice input via the browser's Web Speech API (push-to-talk button);
+  Android keyboard dictation as fallback.
 - Model: **Haiku 4.5** default, `SOMNIA_AGENT_MODEL` to change it. It was the
   original choice on cost, lost the job for reading a character's name as the
   title of a book somnia does not have and saying so — a spoken half-sentence
@@ -443,12 +414,10 @@ process to deploy must not kill a render that is four hours in.
   publicly reachable MCP endpoint plus OAuth, which conflicts with the network
   model below.
 
-As built (`somnia serve`, Starlette + uvicorn): `POST /api/ask` and
-`/api/forget` for the conversation, `/api/health`, and five routes the player
-needs — `/api/books`, `/api/book/{gid}`, `/api/audio/{gid}/{idx}`,
-`/api/sentence/{gid}/{ms}` and `POST /api/position` — with the page itself
-mounted at `/`. Everything the page fetches sits under `/api/`, which is not
-cosmetic: it is how the service worker knows what never to cache.
+The whole HTTP surface is in [reference/http.md](../reference/http.md).
+Everything the page fetches sits under `/api/`, which is not cosmetic: it is how
+the service worker knows what never to cache, and it keeps those routes ahead of
+the static mount at `/`.
 
 - **Conversation state lives on the server**, keyed by a token the page mints
   on load. The tool-runner history contains SDK content blocks, not JSON the
@@ -467,16 +436,16 @@ cosmetic: it is how the service worker knows what never to cache.
 
 ## Network model
 
-The VPS is treated as untrusted-ish (it runs experiments). It joins the
-owner's tailnet **tagged** (`tag:vps`), and the tailnet ACL never lists that
-tag as a source — so the VPS is reachable from personal devices but can never
-initiate connections into the tailnet. Nothing is exposed publicly.
-`tailscale serve` fronts ABS and the PWA on separate ports with a real TLS
-certificate on the node's `.ts.net` name. That one-way rule is what ruled out
-every remote-control route in
-[ADR 3](decisions/0003-play-the-book-in-the-page.md), and the certificate is
-not optional either: an installable PWA, the Web Speech API and a media session
-all require a secure context.
+Nothing is exposed publicly. The server binds to localhost (`--host` defaults to
+`127.0.0.1`) and only `tailscale serve` can reach it, fronting ABS and the PWA
+on separate ports with a real TLS certificate on the node's `.ts.net` name. When
+somnia ran on a shared experiment box, that box joined the tailnet **tagged**
+(`tag:vps`) with the ACL never listing the tag as a source, so it could be
+reached from personal devices and could never initiate a connection inward —
+that one-way rule is what ruled out every remote-control route in
+[ADR 3](decisions/0003-play-the-book-in-the-page.md). The certificate is not
+optional either: an installable PWA, the Web Speech API and a media session all
+require a secure context.
 
 The whole night now goes over that path — the audio as well as the questions —
 which is the price of the pivot: nothing is downloaded, so a tailnet that drops
@@ -484,24 +453,17 @@ at 3am takes the book with it.
 
 ## Deployment shape
 
-- One installable package, subcommands per role (`somnia serve`, `somnia
-  worker`, `somnia add`, etc.). It is `somnia-reader` on PyPI — the name
-  `somnia` there is an unrelated project — while the import package and the
-  command stay `somnia`. Heavy ML dependencies (torch, kokoro,
-  sentence-transformers) live in the `[ml]` extra — install
-  `somnia-reader[ml]` on the rendering machine; CI and light installs skip
-  them. On CPU-only machines install the CPU torch wheel *first*, from
-  `--index-url https://download.pytorch.org/whl/cpu` and nothing else:
-  `--extra-index-url` lets the resolver see both indexes and take the higher
-  version, which is how a CPU box ends up with the CUDA build.
-- **Two systemd user units**, `somnia-serve` and `somnia-worker`, and deploying
-  is pull main and restart both. They are separate so that restarting the one
+- How it is installed and run is in
+  [the installation tutorial](../tutorials/installation.md) — the package name,
+  the `[ml]` extra and the CPU torch trap all live there. The one decision worth
+  recording here is that the server and the renderer are **separate systemd user
+  units**, `somnia-serve` and `somnia-worker`, so that restarting the process
   that serves the page cannot kill a render — which, before the worker existed,
-  it silently did on every deploy, because `start_new_session` escapes the
-  process group but not the cgroup.
+  it silently did on every deploy
+  ([ADR 5](decisions/0005-render-one-book-at-a-time.md)). Both units run on
+  nuc2, a small home machine; the VPS this was first built on is stopped.
 - Audiobookshelf runs as a rootless podman container (quadlet systemd unit)
   under a dedicated user, bound to localhost, fronted by tailscale serve.
-- `ffmpeg` and `espeak-ng` are required system packages on the render host.
 
 ## Test books
 

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>5. Render one book at a time, in its own unit, and let the page watch &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>5. Render one book at a time, in its own unit, and let the page watch &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -694,7 +694,10 @@ only on purpose from the far corner, that it holds no payload so nothing has to
 close it, and that it never switches what is playing. (<strong>Amended 2026-08-07</strong>:
 the third of those is gone — it switches what is playing when a book on its
 shelf is pressed. The first two still hold, and the press replaced by it was a
-sentence typed to an agent at 2am.)</p>
+sentence typed to an agent at 2am. <strong>And 2026-08-08</strong>: the third this paragraph
+predicted arrived, and a fourth with it — the panel was cut into <code class="docutils literal notranslate"><span class="pre">Books</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Workshop</span></code> and <code class="docutils literal notranslate"><span class="pre">Settings</span></code> was added, so the page carries four. The Decision’s
+note of that date says why each one was argued for.)</p>
 <p><strong>No percentage, no time remaining, no notification.</strong> People will want all
 three. Chapters differ in length by an order of magnitude, so a bar drawn from
 4/39 moves in lurches that read as a stall; the only honest time denominator
@@ -718,6 +721,12 @@ they are to be checked on the VPS and written into this file with the date:
 that one render at a time really does outrun 1× listening at the measured rate,
 and that <code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">--user</span> <span class="pre">restart</span> <span class="pre">somnia-serve</span></code> really does now leave a render
 running.</p>
+<p><strong>Checked 2026-08-07.</strong> With <code class="docutils literal notranslate"><span class="pre">scripts/somnia-bench.py</span></code>, which renders the same
+passage one sentence at a time through the real Kokoro: nuc2 3.87× realtime, the
+VPS 1.06×. One render at a time outruns 1× listening on either box, and
+<a class="reference internal" href="0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">ADR 7</span></a> records what the difference
+between those two numbers costs. The restart is still unchecked, and the box to
+check it on is nuc2, which is where somnia runs now.</p>
 </section>
 </section>
 

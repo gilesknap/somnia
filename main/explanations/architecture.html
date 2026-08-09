@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>Architecture &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -863,13 +863,16 @@ for everything else. Because the renderer placed every sentence, it knows
 exactly which span of audio each sentence occupies — so the text/audio index is
 free, and a question at 2am can be answered with a timestamp rather than a
 guess.</p>
-<p>Three things run, and they share one sqlite file and one folder of audio:</p>
+<p>Three things run. The two on the box share one sqlite file and the audio on
+disk; the third is on the phone and reaches both over HTTP:</p>
 <ul class="simple">
 <li><p><strong>the renderer</strong> (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">worker</span></code>) — a supervisor that takes one book at a
 time off the queue and spawns a child to turn a Gutenberg id into per-chapter
 m4a files plus a semantic index, streaming chapter by chapter</p></li>
-<li><p><strong>the server</strong> (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>) — serves the page, the audio, and the agent</p></li>
-<li><p><strong>the page</strong> (the installed PWA) — plays the book and carries the conversation</p></li>
+<li><p><strong>the server</strong> (<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">serve</span></code>) — serves the page, the audio, the catalog,
+the queue and the agent</p></li>
+<li><p><strong>the page</strong> (the installed PWA) — plays the book, picks the next one, and
+carries the conversation</p></li>
 </ul>
 <p>The renderer is a separate unit from the server on purpose, and
 <a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a> has the argument:
@@ -913,20 +916,20 @@ render, and Kokoro must never compete with a seek for two cores.</p>
   ingest --&gt; db &amp; files
   player -.-&gt;|&quot;only when they stop&quot;| abs
   ingest -.-&gt;|&quot;rescan, chapter marks&quot;| abs
-    </pre><p>The dotted edges are the ones nothing waits on. Audiobookshelf is <strong>written to
-and, while a night is running, never read</strong> — it is somewhere else the book
-might be opened, not the record of anything, and a write that fails is logged
-and forgotten. The single exception is <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>, which reads it
-once by hand before the first night and never again. The agent’s edge is dotted
-for a different reason: asking for a book writes a queue row and nothing else,
-so the answer comes back at once and the render happens in another process
-entirely, minutes or hours later. That is how a book gets added at 2am without
-anything waiting for it — and how two books asked for a minute apart cannot
-both be rendering, because the worker claims one at a time and the claim is a
-single guarded UPDATE.</p>
+    </pre><p>The dotted edges are the ones the page never waits on. Audiobookshelf is
+<strong>written to and, while a night is running, never read</strong> — it is somewhere else
+the book might be opened, not the record of anything, and a write that fails is
+logged and forgotten. The single exception is <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>, which
+reads it once by hand before the first night and never again. Asking for a
+book — from the panel or by voice — writes a queue row and nothing else, so the
+answer comes back at once and the render happens in the other unit entirely,
+minutes or hours later. That is how a book gets added at 2am without anything
+waiting for it — and how two books asked for a minute apart cannot both be
+rendering, because the worker claims one at a time and the claim is a single
+guarded UPDATE.</p>
 <p>There is no login anywhere. Reachability <em>is</em> the authentication: the server
-binds to localhost, and only <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach the port. The VPS
-joins the tailnet tagged <code class="docutils literal notranslate"><span class="pre">tag:vps</span></code> and the ACL never lists that tag as a
+binds to localhost, and only <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach the port. The box it
+runs on joins the tailnet <strong>tagged</strong>, and the ACL never lists that tag as a
 source, so it can be reached by personal devices and can never initiate a
 connection into the tailnet.</p>
 </section>
@@ -938,7 +941,7 @@ book</strong>. It is the render clock, counted in PCM samples before encoding, a
 never what a decoder reports: summing durations off the files drifts tens of
 milliseconds a chapter and is a second out by chapter forty.</p>
 <p>The page converts between that clock and the clock of whatever the audio element
-is actually holding, in three small functions, and that is the only place the
+is actually holding, in four small functions, and that is the only place the
 split exists. When the element holds the whole book joined into one file — the
 ordinary case, and the reason a chapter boundary no longer takes the lock screen
 down (<a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html"><span class="std std-doc">ADR 7</span></a>) — the
@@ -950,11 +953,16 @@ it.</p>
 </section>
 <section id="making-a-book">
 <h2>Making a book<a class="headerlink" href="#making-a-book" title="Link to this heading">#</a></h2>
-<p>Asking for a book writes a row into <code class="docutils literal notranslate"><span class="pre">queue</span></code> and returns. The worker claims the
-oldest waiting row — while nothing else holds a live lease — and spawns a child
-that streams it: each chapter is written into the library folder and indexed
-the moment it finishes, so listening can start minutes after picking a book
-while the rest arrives overnight.</p>
+<p>Asking for a book writes a row into <code class="docutils literal notranslate"><span class="pre">queue</span></code> and returns.</p>
+<p>Two things ask. The agent, in a sentence, when somebody says a title out loud;
+and the page’s own panel, which searches the catalog on disk, offers a voice,
+and posts a gid. Both end in the same <code class="docutils literal notranslate"><span class="pre">queue.submit</span></code> and both get the same
+sentence back, so the page and the voice cannot disagree about what just
+happened.</p>
+<p>The worker claims the oldest waiting row — while nothing else holds a live
+lease — and spawns a child that streams it: each chapter is written into the
+library folder and indexed the moment it finishes, so listening can start
+minutes after picking a book while the rest arrives overnight.</p>
 <pre  class="mermaid">
         flowchart TD
   Q[(&quot;queue row&lt;br&gt;claimed under a lease&quot;)] --&gt; A
@@ -1074,12 +1082,12 @@ is what keeps one live job per book — enforced by the database rather than by 
 check that two presses a millisecond apart would both pass.</p>
 <p>A book is a few thousand windows, so brute-force exact nearest-neighbour search
 is milliseconds. No database server, no shared infrastructure. The file is in
-WAL mode because several writers exist — an agent turn, the player, the worker,
-and a render running in another process entirely — and a reader must never
-block on any of them. That the render is in another process is also why the
-queue lives in this file rather than in a lock file or a socket: sqlite is the
-one thing every process in somnia already shares, so a render’s progress and
-the request to stop it need no channel of their own.</p>
+WAL mode because several writers exist — an agent turn, the player, the queue
+panel, the worker, and a render running in another process entirely — and a
+reader must never block on any of them. That the render is in another process
+is also why the queue lives in this file rather than in a lock file or a
+socket: sqlite is the one thing every process in somnia already shares, so a
+render’s progress and the request to stop it need no channel of their own.</p>
 <p><code class="docutils literal notranslate"><span class="pre">chunks</span></code> earns a second job it was not designed for: because its rows are
 overlapping windows taken every second sentence, a window start is always a
 sentence start. That is how the page’s long rewind lands on the beginning of a
@@ -1093,6 +1101,10 @@ behind it — a dead player while a question is being answered is exactly the
 moment the phone gets put down. So <code class="docutils literal notranslate"><span class="pre">Player</span></code> has its own sqlite connection, its
 own lock and its own ABS client, and shares nothing with a conversation but the
 file on disk.</p>
+<p>The queue panel is a third lane in the same shape, and it is the same argument a
+second time: a submit button that sits there for twenty seconds because somebody
+happened to ask a question is exactly the dead control this arrangement exists
+to refuse.</p>
 <pre  class="mermaid">
         sequenceDiagram
   autonumber
@@ -1136,11 +1148,9 @@ carrying a stale count can only mean the agent moved the book, and the refusal
 that comes back is also where to go instead. That is why a refusal is a 200
 with a body rather than a 409: the last report of the night is a <code class="docutils literal notranslate"><span class="pre">sendBeacon</span></code>,
 and a beacon can read nothing else.</p>
-<p>Only the player and an agent move may write those four columns. Ingest upserts
-the <code class="docutils literal notranslate"><span class="pre">books</span></code> row and updates only what a render knows — title, authors, voice,
-and that it is running. The one other writer is <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>, which
-runs once by hand, before any page is open, to bring a position across from
-Audiobookshelf; it never lowers one.</p>
+<p>Only the player and an agent move may write those four columns; what ingest may
+touch, and the one-off <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code> that never lowers a position, are
+in <a class="reference internal" href="design.html"><span class="std std-doc">design.md</span></a>.</p>
 </section>
 <section id="how-far-a-question-may-see">
 <h2>How far a question may see<a class="headerlink" href="#how-far-a-question-may-see" title="Link to this heading">#</a></h2>
@@ -1164,21 +1174,16 @@ a ceiling on the claim, not the answer to it: a phone asleep in a pocket for
 eight hours banks eight hours of clock and no listening at all. Because the
 playback appears on both sides of the comparison, the slack <em>is</em> the largest
 jump that can be laundered as listening — which is why it sits well below
-thirty seconds, the smallest forward jump the page has a button for.
-Two costs are accepted. After a skip forward the mark stops until they go back
-over it, and a book nobody has played is bounded at its start rather than left
-unbounded — so on night one the agent has to say the passage is further on than
-they have got. Failing that way costs a question in the dark; failing the other
-way costs them the book.</p>
+thirty seconds, the smallest forward jump the page has a button for. Two costs
+are accepted, and <a class="reference internal" href="design.html"><span class="std std-doc">design.md</span></a> argues both.</p>
 <p>The mark bounds what is <em>said</em> as well as what is searched, and those are two
 different distances. The agent may answer a question about a book out of what it
 already knows of it, as far as that line and no further
 (<a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR 6</span></a>); <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code>
 lets it read past the line to pick the right place to send somebody, and never
 lets it describe what it read. The question tool, <code class="docutils literal notranslate"><span class="pre">recall</span></code>, is bounded by the
-same code as a search, has no <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code>, reports nothing about a closer
-match lying ahead, and marks the turn so that <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code>
-refuse — a question must not cost the listener their place.</p>
+same code as a search and marks the turn so that <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and
+<code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> refuse — a question must not cost the listener their place.</p>
 </section>
 <section id="what-the-page-has-to-survive">
 <h2>What the page has to survive<a class="headerlink" href="#what-the-page-has-to-survive" title="Link to this heading">#</a></h2>
@@ -1197,7 +1202,7 @@ also says what is happening on the status line.</p>
 <td><p>Re-asks for the manifest while <code class="docutils literal notranslate"><span class="pre">status</span></code> is <code class="docutils literal notranslate"><span class="pre">rendering</span></code> — when the audio runs out, and when the app comes back in front of them — backing off from 5s to a minute. Only the timeline is adopted; the position in the answer is its own report come back late.</p></td>
 </tr>
 <tr class="row-odd"><td><p>The tailnet drops for a few seconds</p></td>
-<td><p>Reassigns <code class="docutils literal notranslate"><span class="pre">src</span></code> to reload the chapter <em>from where they had got to</em>, on a ladder from 2s to 30s. Every route to a reload uses that ladder, including a stall that never raises an error. It stops entirely when they were the ones who stopped it.</p></td>
+<td><p>Reassigns <code class="docutils literal notranslate"><span class="pre">src</span></code> to reload whatever it is holding — the joined book, or a chapter in the fallback — <em>from where they had got to</em>, on a ladder from 2s to 30s. Every route to a reload uses that ladder, including a stall that never raises an error. It stops entirely when they were the ones who stopped it.</p></td>
 </tr>
 <tr class="row-even"><td><p>The page is discarded</p></td>
 <td><p>The conversation is meant to die — it is keyed in <code class="docutils literal notranslate"><span class="pre">sessionStorage</span></code>. An armed sleep timer is not, so it is written to <code class="docutils literal notranslate"><span class="pre">localStorage</span></code> as it counts down and restored with the minutes it had left, unless it is more than six hours old.</p></td>
@@ -1233,8 +1238,14 @@ fling them past the spoiler guard into the ending.</p>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">segment</span></code></p></td>
 <td><p>Sentences (pysbd), and the overlapping windows the index is built from</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">announce</span></code></p></td>
+<td><p>The line a chapter opens with, built from the heading rather than being it</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tts</span></code></p></td>
 <td><p>The <code class="docutils literal notranslate"><span class="pre">TTSEngine</span></code> protocol, and Kokoro-82M behind it</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">voices</span></code></p></td>
+<td><p>The six voices a book may be read in, kept out of <code class="docutils literal notranslate"><span class="pre">tts</span></code> so the process answering the page need not import torch</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">audio</span></code></p></td>
 <td><p>Accumulate a chapter’s samples, track the clock, encode via ffmpeg</p></td>
@@ -1266,13 +1277,22 @@ fling them past the spoiler guard into the ending.</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">player</span></code></p></td>
 <td><p>The fast lane: manifest, audio files, position reports</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stream</span></code></p></td>
+<td><p>The chapters joined into one file per version, so a boundary touches nothing</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">server</span></code></p></td>
 <td><p>Starlette routes, conversation storage, the mounted page</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">abs</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">abs</span></code></p></td>
 <td><p>The Audiobookshelf client — a courtesy write and one seed-time read</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">web/</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">config</span></code></p></td>
+<td><p>Where everything is and what it is set to, from the environment</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">seed</span></code></p></td>
+<td><p>The one-off read of Audiobookshelf, before the first night</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">web/</span></code></p></td>
 <td><p>The PWA: <code class="docutils literal notranslate"><span class="pre">index.html</span></code>, <code class="docutils literal notranslate"><span class="pre">app.js</span></code>, <code class="docutils literal notranslate"><span class="pre">sw.js</span></code>, the manifest and icons</p></td>
 </tr>
 </tbody>
@@ -1284,61 +1304,17 @@ fling them past the spoiler guard into the ending.</p>
 <p>Everything the page fetches sits under <code class="docutils literal notranslate"><span class="pre">/api/</span></code>, which is not cosmetic: it is
 how the service worker knows what never to cache, and it keeps these routes
 ahead of the static mount that would otherwise swallow them.</p>
-<div class="pst-scrollable-table-container"><table class="table">
-<thead>
-<tr class="row-odd"><th class="head"><p>Route</p></th>
-<th class="head"><p>Lane</p></th>
-<th class="head"><p>What it is for</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/ask</span></code></p></td>
-<td><p>agent</p></td>
-<td><p>One turn of the conversation; may carry a <code class="docutils literal notranslate"><span class="pre">move</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/forget</span></code></p></td>
-<td><p>agent</p></td>
-<td><p>Start over — the model has the wrong end of a mumbled question</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/health</span></code></p></td>
-<td><p>—</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">true}</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/books</span></code></p></td>
-<td><p>player</p></td>
-<td><p>Every book, most recently listened to first, plus <code class="docutils literal notranslate"><span class="pre">last_gid</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code></p></td>
-<td><p>player</p></td>
-<td><p>The manifest: timeline, position, <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code>, in one round trip</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code></p></td>
-<td><p>player</p></td>
-<td><p>Make this the book a cold launch opens — one column, nothing else</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></p></td>
-<td><p>player</p></td>
-<td><p>One chapter’s m4a. Range, <code class="docutils literal notranslate"><span class="pre">If-Range</span></code> and 416 are Starlette’s own</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
-<td><p>player</p></td>
-<td><p>Where the sentence at a point began, for the long rewind</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/position</span></code></p></td>
-<td><p>player</p></td>
-<td><p>The page’s report; always 200, accepted or refused</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/</span></code></p></td>
-<td><p>—</p></td>
-<td><p>The page itself, served straight off the installed package</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>A chapter request names a book and an index, never a path — the file comes from
-the <code class="docutils literal notranslate"><span class="pre">chapters</span></code> row, and is refused if it resolves outside the library
-directory. That is the whole traversal defence, and it has to be, because the
-server has no auth by design.</p>
+<p>Which lane a route belongs to is the same split as everywhere else: <code class="docutils literal notranslate"><span class="pre">/api/ask</span></code>
+and <code class="docutils literal notranslate"><span class="pre">/api/forget</span></code> are the agent’s, the manifest, the audio and the position
+reports are the player’s, and the catalog, the voices and the queue are the
+third’s. What each one answers is in <a class="reference internal" href="../reference/http.html"><span class="std std-doc">the HTTP reference</span></a>;
+<code class="docutils literal notranslate"><span class="pre">/</span></code> is the page itself, served straight off the installed package.</p>
+<p>A chapter or a stream is named by a book and a number, never by a path. A
+chapter’s file comes from its <code class="docutils literal notranslate"><span class="pre">chapters</span></code> row and is refused if it resolves
+outside the library directory; a stream’s name is two integers under the data
+directory, and it is built only from chapters that passed that same check. That
+is the whole traversal defence, and it has to be, because the server has no auth
+by design.</p>
 </section>
 </section>
 

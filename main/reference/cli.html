@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Command line &#8212; somnia 0.7.dev69+g0d5cc116c documentation</title>
+    <title>Command line &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=7734276f"></script>
+    <script src="../_static/documentation_options.js?v=ce82d266"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -490,7 +490,8 @@
                   
   <section id="command-line">
 <h1>Command line<a class="headerlink" href="#command-line" title="Link to this heading">#</a></h1>
-<p>Eleven commands. <code class="docutils literal notranslate"><span class="pre">somnia</span></code> on its own prints the help and stops, and <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">--version</span></code> prints the version and nothing else.</p>
+<p>Ten commands. <code class="docutils literal notranslate"><span class="pre">somnia</span></code> on its own prints the help and stops, and
+<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">--version</span></code> (or <code class="docutils literal notranslate"><span class="pre">-v</span></code>) prints the version and nothing else.</p>
 <p>Results go to <strong>stdout</strong> and progress to <strong>stderr</strong>, so <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">search</span> <span class="pre">bee</span> <span class="pre">&gt;</span> <span class="pre">books.txt</span></code> captures the books and leaves the logging in the terminal. Every
 command loads the settings, creates <code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR</span></code> if it is not there, opens
 <code class="docutils literal notranslate"><span class="pre">somnia.db</span></code> and runs the migrations before it does anything else — including the
@@ -547,8 +548,8 @@ therefore leaves a database behind whatever else happens.</p>
 </tbody>
 </table>
 </div>
-<p>Settings come from the environment, and from nowhere else — there is no config
-file and no flag that overrides one. They are listed in
+<p>Settings come from the environment — there is no config file. One flag
+overrides one of them for a single run, and the rest are listed in
 <a class="reference internal" href="configuration.html"><span class="std std-doc">Configuration</span></a>.</p>
 <section id="catalog-update">
 <span id="cli-catalog-update"></span><h2><code class="docutils literal notranslate"><span class="pre">catalog-update</span></code><a class="headerlink" href="#catalog-update" title="Link to this heading">#</a></h2>
