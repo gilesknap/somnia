@@ -48,13 +48,14 @@ def test_an_encode_that_dies_leaves_no_chapter_at_all(
     """
     out = tmp_path / "chapters" / "0001.m4a"
 
-    def killed(*args: object, **kwargs: object) -> object:
+    def killed(command: list[str], **kwargs: object) -> object:
         # Whatever ffmpeg had written by then is on disk under whichever name
         # it was given, which is the point: the name it was given must not be
-        # the chapter's.
-        for arg in args[0]:  # type: ignore[index]
-            if str(arg).endswith((".m4a", ".part")):
-                Path(str(arg)).write_bytes(b"\x00\x00\x00\x18ftypM4A ")
+        # the chapter's. The command is typed rather than taken out of *args,
+        # so that the shape this stands in for is stated instead of suppressed.
+        for arg in command:
+            if arg.endswith((".m4a", ".part")):
+                Path(arg).write_bytes(b"\x00\x00\x00\x18ftypM4A ")
         raise subprocess.CalledProcessError(-9, "ffmpeg")
 
     monkeypatch.setattr(subprocess, "run", killed)
