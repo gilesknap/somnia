@@ -4734,7 +4734,14 @@ function jobWords(row) {
     const chapter = Math.min(row.chapters_done + 1, row.chapters_total);
     const words = `chapter ${chapter} of ${row.chapters_total}`;
     const ready = howMuch(row.rendered_ms);
-    return ready ? `${words} · ${ready} read so far` : words;
+    const line = ready ? `${words} · ${ready} read so far` : words;
+    // A note is the render saying the book parsed into a shape that cannot be
+    // right — three chapters, four hours each. It goes last because it is the
+    // long half of the line, and it goes on this row rather than into a warning
+    // of its own because this is the row somebody is already looking at when
+    // they wonder how the book is getting on, and the whole value of it is
+    // being seen while the render is still minutes rather than hours old.
+    return row.note ? `${line} · ${row.note}` : line;
   }
   if (row.state === "failed") return row.error || "something went wrong";
   if (row.state === "cancelled") {

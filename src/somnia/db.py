@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS queue (
     attempts INTEGER NOT NULL DEFAULT 0,
     voice TEXT NOT NULL DEFAULT '',
     error TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
     submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
     started_at TEXT,
     ended_at TEXT
@@ -171,6 +172,18 @@ _ADDED_COLUMNS = (
     # submitted before this column existed and every one the agent adds by
     # voice at 2am — not a real conversation to have half asleep.
     ("queue", "voice", "TEXT NOT NULL DEFAULT ''"),
+    # Something worth saying about a render that is going perfectly well. The
+    # only free text a live row had was `error`, which is read as "this book
+    # failed" everywhere it is drawn, and a parse that came out looking wrong is
+    # not a failure — the render can and does carry on.
+    #
+    # There is one thing in here so far: the sentence
+    # :func:`somnia.gutenberg.implausible_shape` writes when a book parses into
+    # a handful of chapters hours long. Parsing is minutes and rendering is
+    # hours, so this is the difference between somebody seeing it while it is
+    # still worth stopping and discovering it the next night with a four-hour
+    # audio file in front of them.
+    ("queue", "note", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

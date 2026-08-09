@@ -705,11 +705,16 @@ def _line(row: QueueRow) -> str:
     if row.state == "queued":
         return f"waiting to be rendered, {row.place} in the line"
     if not row.chapters_total:
-        return "being rendered now, still fetching the text"
-    return (
-        "being rendered now, chapter"
-        f" {min(row.chapters_done + 1, row.chapters_total)} of {row.chapters_total}"
-    )
+        said = "being rendered now, still fetching the text"
+    else:
+        said = (
+            "being rendered now, chapter"
+            f" {min(row.chapters_done + 1, row.chapters_total)} of {row.chapters_total}"
+        )
+    # Carried through so that somebody who asks how a book is getting on is told
+    # the one thing about it that is worth acting on tonight. It is a plain
+    # clause about the book, not a number to be turned into a promise.
+    return f"{said} ({row.note})" if row.note else said
 
 
 def _offered(offer: Offer) -> str:

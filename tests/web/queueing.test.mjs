@@ -1174,6 +1174,27 @@ test("a render says which chapter it is on and how much is ready to play", async
   ]);
 });
 
+test("a book that parsed into a shape that cannot be right says so on its row", async (t) => {
+  // Parsing is minutes and rendering is hours, so this line exists to be seen
+  // while stopping the render is still worth doing — rather than the next
+  // night, by a listener holding a four-hour "chapter".
+  const page = await opened(t);
+  page.queueView([
+    job({
+      note:
+        "3 chapters, averaging 3.7 hours each — the chapter headings may have been missed",
+    }),
+  ]);
+  await workshop(page);
+  assert.equal(
+    jobs(page)[0].state,
+    "chapter 4 of 39 · 1h12m read so far · 3 chapters," +
+      " averaging 3.7 hours each — the chapter headings may have been missed",
+  );
+  // Still narrating. A note is not a failure, and the render carries on.
+  assert.equal(jobs(page)[0].stage, "narrating");
+});
+
 test("the corner says the stage, in the panel's word for it", async (t) => {
   const page = await opened(t);
   page.queueView([
