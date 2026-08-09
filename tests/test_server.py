@@ -18,7 +18,6 @@ from somnia.agent import OFFER_SENTENCE, Turn, open_library
 from somnia.catalog import update_catalog
 from somnia.config import Config
 from somnia.db import connect
-from somnia.embed import Embedder
 from somnia.queue import claim, finish
 from somnia.tools import Library, Moved, Offer
 from tone_book import CHAPTERS, GID, TOTAL_MS
@@ -1649,10 +1648,11 @@ def test_the_warm_up_asks_the_api_once_and_builds_the_embedder(
     night does not: asks whether this model takes an effort level, and builds
     the embedder. Both are observable, and neither was observed.
     """
+    from somnia import tools
     from somnia.agent import forget_model_capabilities
 
-    forget_model_capabilities()
     asked: list[str] = []
+    built: list[str] = []
 
     class RecordingModels:
         @staticmethod
@@ -1667,19 +1667,37 @@ def test_the_warm_up_asks_the_api_once_and_builds_the_embedder(
     def fake_client(**kwargs: object) -> Anthropic:
         return cast(Anthropic, SimpleNamespace(models=RecordingModels()))
 
-    monkeypatch.setattr(server, "Anthropic", fake_client)
-    library = Library(
-        tone_book.cfg, tone_book.conn, embedder=cast(Embedder, FakeEmbedder())
-    )
-    conversations = server.Conversations(tone_book.cfg, library)
+    class RecordingEmbedder(FakeEmbedder):
+        """The embedder as `Library` builds it: from a model name, on demand."""
 
-    conversations.warm()
+        def __init__(self, model: str) -> None:
+            super().__init__()
+            built.append(model)
 
-    assert asked == [tone_book.cfg.agent_model]
-    # And the embedder is built rather than waiting for the first search, which
-    # on nuc2 is twelve seconds inside a turn.
-    assert library.embedder is not None
+    # In a finally, because a cached answer about one model outlives this test
+    # and decides what every later one is told about it — which is what the
+    # autouse fixture in test_agent.py exists for and this file has not got.
     forget_model_capabilities()
+    try:
+        monkeypatch.setattr(server, "Anthropic", fake_client)
+        # No embedder handed in. Injecting one made the assertion below vacuous:
+        # `library.embedder is not None` was already true before warm() ran, so
+        # the half of this test about the slow half of the warm-up proved
+        # nothing at all. `Library` builds it lazily from `cfg.embed_model`, so
+        # standing that class in is what shows the build really happened here
+        # rather than inside the night's first search.
+        monkeypatch.setattr(tools, "Embedder", RecordingEmbedder)
+        library = Library(tone_book.cfg, tone_book.conn)
+        conversations = server.Conversations(tone_book.cfg, library)
+
+        conversations.warm()
+
+        assert asked == [tone_book.cfg.agent_model]
+        # Built once, from the configured model — rather than waiting for the
+        # first search, which on nuc2 is twelve seconds inside a turn.
+        assert built == [tone_book.cfg.embed_model]
+    finally:
+        forget_model_capabilities()
 
 
 def test_the_background_audio_spike_is_still_served(

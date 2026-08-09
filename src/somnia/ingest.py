@@ -166,12 +166,19 @@ def publish_chapters(
                 ],
             )
             return
-        if time.monotonic() >= deadline:
+        left = deadline - time.monotonic()
+        if left <= 0:
             logger.warning(
                 "ABS scan did not catch up in %.0fs; marks deferred", timeout_s
             )
             return
-        time.sleep(poll_s)
+        # Never past the deadline. A bare `sleep(poll_s)` overshoots `timeout_s`
+        # by up to one interval — invisible at the default two seconds against
+        # thirty, and not invisible now that the interval is a parameter: a
+        # caller may set it larger than the timeout, and this would then wait
+        # the interval rather than the timeout it was given. The wait is held by
+        # the render, between chapters, so what it costs is the book.
+        time.sleep(min(poll_s, left))
 
 
 def _forget_the_old_edition(conn: sqlite3.Connection, gid: int) -> None:

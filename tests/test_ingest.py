@@ -106,6 +106,40 @@ def test_publish_chapters_waits_for_the_scan_to_catch_up(
     assert abs_client.pushed is not None
 
 
+def test_publish_chapters_does_not_wait_past_the_timeout_it_was_given(
+    conn: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A poll interval longer than the timeout must not become the timeout.
+
+    The sleep used to be `poll_s` flat, so the loop could wait a whole interval
+    past the deadline it had already missed. Invisible at the shipped two
+    seconds against thirty — and not invisible now that the interval is a
+    parameter, because a caller can set one larger than the timeout. The wait is
+    held by the render, between chapters, so what it costs is the book.
+    """
+    slept: list[float] = []
+    monkeypatch.setattr(ingest.time, "sleep", slept.append)
+    # A scan that never catches up. Not `polls_until_ready`, because the sleep
+    # is stubbed out and the loop therefore spins through any number of polls
+    # inside the timeout — it is the duration that has to stay short.
+    abs_client = FakeAbs(duration_ms=0)
+
+    publish_chapters(
+        _cfg(tmp_path),
+        conn,
+        cast(AbsClient, abs_client),
+        271,
+        REL_PATH,
+        549425,
+        timeout_s=0.05,
+        poll_s=30,
+    )
+
+    # Whatever it waited, none of it was the thirty seconds it was offered.
+    assert all(nap <= 0.05 for nap in slept), slept
+    assert abs_client.pushed is None
+
+
 def test_publish_chapters_gives_up_quietly_when_the_item_never_appears(
     conn: Any, tmp_path: Path
 ) -> None:
