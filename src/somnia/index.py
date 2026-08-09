@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from .embed import Embedder, Vectors
 from .segment import Window
 
-__all__ = ["Passage", "add_chunks", "find_passage", "indexed_frontier"]
+__all__ = ["Passage", "add_chunks", "find_passage"]
 
 
 @dataclass
@@ -17,7 +17,6 @@ class Passage:
     start_ms: int
     end_ms: int
     text: str
-    context: str
     distance: float
 
 
@@ -84,14 +83,6 @@ def add_chunks(
             )
 
 
-def indexed_frontier(conn: sqlite3.Connection, book_gid: int) -> int | None:
-    """Highest chapter index rendered so far, or None if nothing yet."""
-    row = conn.execute(
-        "SELECT MAX(chapter_idx) AS m FROM chunks WHERE book_gid = ?", (book_gid,)
-    ).fetchone()
-    return row["m"] if row and row["m"] is not None else None
-
-
 def find_passage(
     conn: sqlite3.Connection,
     embedder: Embedder,
@@ -100,7 +91,7 @@ def find_passage(
     k: int = 5,
     before_ms: int | None = None,
 ) -> list[Passage]:
-    """Semantic search within one book; candidates carry surrounding context.
+    """Semantic search within one book.
 
     ``before_ms`` restricts the search to passages that start before that point
     in the book — the spoiler guard. Answering "who is Ginger?" from a chapter
@@ -126,11 +117,6 @@ def find_passage(
 
     passages: list[Passage] = []
     for r in rows:
-        neighbours = conn.execute(
-            "SELECT text FROM chunks WHERE book_gid = ? AND id IN (?, ?) ORDER BY id",
-            (book_gid, r["id"] - 1, r["id"] + 1),
-        ).fetchall()
-        context = " […] ".join(n["text"] for n in neighbours)
         chap = conn.execute(
             "SELECT title FROM chapters WHERE book_gid = ? AND idx = ?",
             (book_gid, r["chapter_idx"]),
@@ -143,7 +129,6 @@ def find_passage(
                 start_ms=r["start_ms"],
                 end_ms=r["end_ms"],
                 text=r["text"],
-                context=context,
                 distance=r["distance"],
             )
         )

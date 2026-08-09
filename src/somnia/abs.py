@@ -101,12 +101,6 @@ class AbsClient:
         )
         resp.raise_for_status()
 
-    def ping(self) -> bool:
-        try:
-            return self._client.get("/healthcheck").status_code == 200
-        except httpx.HTTPError:
-            return False
-
 
 def tell_abs(client: AbsClient | None, item_id: str, position_ms: int) -> None:
     """Say where the book has got to, if there is anywhere to say it.
