@@ -29,43 +29,40 @@ restarting the page's process, which is what a deploy is, must not kill a
 render, and Kokoro must never compete with a seek for two cores.
 
 ```mermaid
-flowchart TB
+flowchart LR
   subgraph Phone["Phone — installed PWA"]
     ms["Media Session<br>lock screen, Bluetooth"] --- page["app.js<br>one audio element,<br>one global-ms timeline"]
   end
 
   ts["tailscale serve<br>TLS, and the only way in"]
 
-  subgraph VPS["VPS — nothing public"]
-    serve["somnia serve"]
-    player["Player<br>fast lane"]
-    agent["Conversation<br>agent lane"]
+  subgraph Box["nuc2 — nothing public"]
+    serve["somnia serve<br>Player fast lane, Conversation<br>agent lane, Queue lane"]
     worker["somnia worker<br>supervisor, no torch"]
-    ingest["somnia worker --once<br>renderer, one book"]
-    db[("somnia.db")]
+    child["somnia worker --once<br>one book, under a lease"]
+    db[("somnia.db<br>the only channel<br>between the two units")]
     files[/"library dir<br>.m4a per chapter"/]
-    joins[/"data dir<br>chapters joined,<br>one .m4a per book"/]
+    joins[/"data dir<br>chapters joined,<br>one .m4a per version"/]
   end
 
+  gut["Project Gutenberg /<br>PG Australia"]
   api["Anthropic API"]
-  gut["Project Gutenberg"]
   abs["Audiobookshelf"]
 
   page <--> ts
   ts --> serve
-  serve --> player & agent
-  agent --> api
-  agent -.->|"queues a book"| db
-  worker -->|"claims one, spawns"| ingest
-  worker --> db
-  gut -->|"book HTML"| ingest
-  player --> db & files
+  worker -->|"sees one waiting,<br>spawns"| child
+  gut -->|"book HTML"| child
+  serve --- db
+  worker --- db
+  child --- db
+  child --> files
+  serve --> files
   files -->|"joined on the first ask,<br>-c copy"| joins
-  player --> joins
-  agent --> db
-  ingest --> db & files
-  player -.->|"only when they stop"| abs
-  ingest -.->|"rescan, chapter marks"| abs
+  serve --> joins
+  serve -->|"the agent lane only"| api
+  serve -.->|"on a stop"| abs
+  child -.->|"rescan, chapter marks"| abs
 ```
 
 The dotted edges are the ones the page never waits on. Audiobookshelf is
@@ -122,30 +119,27 @@ minutes after picking a book while the rest arrives overnight.
 
 ```mermaid
 flowchart TD
-  Q[("queue row<br>claimed under a lease")] --> A
-  A["fetch_book — Gutenberg HTML edition"] --> B["parse_book_html<br>chapters of paragraphs"]
+  Q[("queue row<br>claimed under a lease")] --> A["fetch_book — the HTML edition,<br>Gutenberg's or Australia's"]
+  A --> B["parse_book_html<br>chapters of paragraphs"]
   B --> T["books.chapters_total written<br>the only honest denominator"]
-  T --> R{"chapters already on disk?"}
-  R -->|"yes"| S["resume at the first missing one,<br>carrying the global clock on"]
+  T --> R{"any chapters rows<br>for this book already?"}
+  R -->|"yes"| S["resume at the first index with no row,<br>carrying the global clock on"]
   R -->|"no"| C
   S --> C
 
-  subgraph loop["for each chapter"]
+  subgraph loop["for each chapter — every write below is per chapter"]
     C["sentences — pysbd"] --> P{"beat: still ours,<br>and not cancelled?"}
     P -->|"no"| X["stop here — this chapter<br>leaves no trace at all"]
     P -->|"yes"| D["engine.render — Kokoro-82M<br>one sentence at a time"]
-    D --> E["ChapterAudio<br>+120ms between sentences<br>+500ms between paragraphs<br>clock counted in samples"]
-    E --> F["ffmpeg → 'NNN - Title.m4a'<br>AAC 64k, faststart"]
-    E --> G["TimedSentence[]<br>exact global start and end"]
-    G --> H["windows — 3 sentences, stride 2"]
-    H --> I["Embedder — e5-small-v2, 384-dim"]
+    D --> E["ChapterAudio<br>+120ms between sentences,<br>+500ms between paragraphs,<br>clock in samples, so every<br>TimedSentence is exact"]
+    E --> F["ffmpeg → 'NNN - Title.m4a'<br>AAC 64k, faststart<br>— the chapter's first write of any kind"]
+    F --> H["windows — 3 sentences, stride 2<br>Embedder — e5-small-v2, 384-dim"]
+    H --> J[("chunks + vec_chunks")]
+    J --> K[("chapters row: idx, start_ms,<br>end_ms, audio_file<br>books.total_ms bumped")]
+    K --> M["ABS rescan, then set_chapters"]
   end
 
-  I --> J[("chunks + vec_chunks")]
-  F --> K[("chapters row<br>idx, start_ms, end_ms, audio_file")]
-  K --> L["books.total_ms bumped<br>status stays 'rendering'"]
-  F --> M["ABS rescan, then set_chapters"]
-  L --> N["listenable now — the page re-asks<br>for the manifest while status is 'rendering'"]
+  K --> N["listenable now — the page re-asks<br>for the manifest while status is 'rendering'"]
 ```
 
 Rendering per **sentence** rather than per chunk or per paragraph is what makes
@@ -191,6 +185,7 @@ erDiagram
   books {
     int gid PK
     text title "the catalog's name; the scrape only if it has none"
+    text voice "which narrator read it; never changed mid-book"
     text status "pending, rendering, done"
     int total_ms "grows while rendering"
     int chapters_total "how many it HAS; 0 = unknown"
@@ -209,6 +204,7 @@ erDiagram
     int pid "which process claimed it"
     text beat_at "liveness, read at read time"
     text chapter_at "a second clock: long chapter vs dead process"
+    text voice "the voice asked for, settled here; empty means the renderer's own"
     int attempts "bounded at three"
     text error "one plain sentence"
   }
@@ -287,7 +283,8 @@ sequenceDiagram
   PL-->>P: last_gid
   P->>PL: GET /api/book/{gid}
   PL-->>P: timeline, position, heard_to_ms
-  P->>PL: GET /api/audio/{gid}/{idx}, Range
+  P->>PL: GET /api/stream/{gid}/{n}, Range
+  Note over P,PL: one file for the whole book so far —<br>a chapter at a time is the fallback
 
   loop every 15s, and at every jump and stop
     P->>PL: position_ms, seq, played_ms
