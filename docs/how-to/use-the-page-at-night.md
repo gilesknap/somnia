@@ -365,4 +365,3 @@ leaves long gaps, having missed the same sentence twice.
 All three are written down and outlive the page. The sleep timer is the one
 setting that is not: it expires after six hours, because a timer is an intent
 about one night.
-
