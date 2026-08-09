@@ -75,18 +75,25 @@ re-renders a book or asks you to.
 ## Afterwards
 
 ```bash
-systemctl --user restart somnia-serve
+systemctl --user restart somnia-serve somnia-worker
 bash somnia-doctor.sh
 ```
 
-The doctor is the check worth running, because it looks at the install and the
-data together. `curl -s localhost:8721/api/health` answers `{"ok": true}` once
-the service is back.
+Both, not just the page — a worker left on the old code renders with it, and the
+split exists so restarting one cannot kill a render under the other. A render in
+flight goes back into the queue and is picked up at the next chapter.
 
-On the phone, the page updates itself: the new service worker takes over as
-soon as it is fetched, and drops the caches belonging to older versions. Closing
-the app and opening it again is enough to be sure — and worth doing before a
-night rather than during one.
+`somnia-doctor.sh` (in the repo's `scripts/`, or curl it as
+[Installation](../tutorials/installation.md) does) is the check worth running,
+because it looks at the install and the data together.
+`curl -s localhost:8721/api/health` answers `{"ok": true}` once the service is
+back.
+
+On the phone, the page updates itself. The service worker goes to the network
+first and falls back to its cache only when the box cannot be reached, so the
+next reload with the box up is the new page — cache-first would have taken two.
+Closing the app and opening it again is enough to be sure, and worth doing
+before a night rather than during one.
 
 ## Going back
 
@@ -102,5 +109,5 @@ reverse, take a copy of `somnia.db` first — see
 docker pull ghcr.io/gilesknap/somnia:0.6
 ```
 
-Same story for the data: the database and the library live outside the image,
-and the new container migrates the database it is given.
+What that image can and cannot do is in [Run in a container](run-container.md)
+— today it is not the thing that renders or serves a book.
