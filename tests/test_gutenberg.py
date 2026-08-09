@@ -174,6 +174,24 @@ def test_parse_leaves_a_book_of_a_few_real_chapters_alone():
     ]
 
 
+def test_parse_keeps_a_skipped_part_skipped_all_the_way_down():
+    """A skipped heading owns everything under it, subheadings included.
+
+    Descending a level put the deeper headings inside "Contents" back in play —
+    each one cleared the skip and became a chapter — so a book whose front
+    matter is marked up in two levels had its table of contents read out loud.
+    """
+    html = volume_book("h3").replace(
+        "<h2>by Mary Shelley</h2>",
+        "<h2>CONTENTS</h2><h3>Letter I</h3><p>Not a chapter.</p>",
+        1,
+    )
+    book = parse_book_html(41445, html)
+    assert len(book.chapters) == 12
+    assert "Letter I" not in [c.title for c in book.chapters]
+    assert "Not a chapter." not in [p for c in book.chapters for p in c.paragraphs]
+
+
 def test_parse_keeps_prose_that_sits_before_a_volumes_first_chapter():
     """A volume's epigraph belongs to something rather than to nothing."""
     html = volume_book("h3").replace(

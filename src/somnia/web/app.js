@@ -4727,7 +4727,15 @@ function jobWords(row) {
     // are what produce it — and it is what every book rendered before that
     // column existed says as well. "chapter 1 of 0" is the sentence this
     // prevents.
-    if (!row.chapters_total) return "fetching the text";
+    // The note is appended here as well as below, and not only for tidiness:
+    // there is a window — between the parse writing the note and the books row
+    // carrying the chapter count — where a row is both warned about and still
+    // counted as fetching. Dropping the note there would hide it at the one
+    // moment it is newest. `somnia queue` and the agent both say it in either
+    // state, and the page and the voice are not allowed to disagree.
+    if (!row.chapters_total) {
+      return row.note ? `fetching the text · ${row.note}` : "fetching the text";
+    }
     // The chapter being worked on, not the count that is finished: the same
     // number, and the same meaning, as the "rendering chapter 4/39" line the
     // renderer writes to the journal, so the two can be read side by side.

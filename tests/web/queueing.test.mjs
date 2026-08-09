@@ -1195,6 +1195,26 @@ test("a book that parsed into a shape that cannot be right says so on its row", 
   assert.equal(jobs(page)[0].stage, "narrating");
 });
 
+test("a note is said even before anybody has counted the chapters", async (t) => {
+  // The parse writes the note and the chapter count a moment apart, so there is
+  // a window where the row is warned about and still says it is fetching. That
+  // is the moment the note is newest, and the worst one to hide it in.
+  const page = await opened(t);
+  page.queueView([
+    job({
+      chapters_total: 0,
+      chapters_done: 0,
+      rendered_ms: 0,
+      note: "3 chapters, averaging 3.7 hours each",
+    }),
+  ]);
+  await workshop(page);
+  assert.equal(
+    jobs(page)[0].state,
+    "fetching the text · 3 chapters, averaging 3.7 hours each",
+  );
+});
+
 test("the corner says the stage, in the panel's word for it", async (t) => {
   const page = await opened(t);
   page.queueView([

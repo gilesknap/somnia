@@ -161,6 +161,12 @@ def _split(body: Tag, level: str, volumes: str | None = None) -> list[Chapter]:
     chapters: list[Chapter] = []
     current: Chapter | None = None
     part = ""
+    # Two of them, because a skipped *part* has to outlast the headings inside
+    # it. "Contents" or "Preface" at the volume level owns everything under it,
+    # including its own subheadings — and one flag meant the first of those
+    # subheadings cleared the skip and turned the rest of the front matter into
+    # chapters. Which is exactly the text a listener must not be read at 2am.
+    part_skipping = False
     skipping = False
 
     def close() -> None:
@@ -175,12 +181,13 @@ def _split(body: Tag, level: str, volumes: str | None = None) -> list[Chapter]:
         if el.name == volumes:
             close()
             name = _clean(el.get_text())
-            skipping = bool(_SKIP_HEADINGS.match(name))
-            part = "" if skipping else name
+            part_skipping = bool(_SKIP_HEADINGS.match(name))
+            skipping = part_skipping
+            part = "" if part_skipping else name
         elif el.name == level:
             close()
             title = _clean(el.get_text())
-            skipping = bool(_SKIP_HEADINGS.match(title))
+            skipping = part_skipping or bool(_SKIP_HEADINGS.match(title))
             if not skipping:
                 current = Chapter(
                     title=f"{part} — {title}" if part else title, paragraphs=[]
