@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; somnia 0.8.dev8+g2fac3104e documentation</title>
+    <title>Architecture &#8212; somnia 0.8.dev11+g91e3d9299 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=ce82d266"></script>
+    <script src="../_static/documentation_options.js?v=fd63e4cc"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -879,43 +879,40 @@ carries the conversation</p></li>
 restarting the page’s process, which is what a deploy is, must not kill a
 render, and Kokoro must never compete with a seek for two cores.</p>
 <pre  class="mermaid">
-        flowchart TB
+        flowchart LR
   subgraph Phone[&quot;Phone — installed PWA&quot;]
     ms[&quot;Media Session&lt;br&gt;lock screen, Bluetooth&quot;] --- page[&quot;app.js&lt;br&gt;one audio element,&lt;br&gt;one global-ms timeline&quot;]
   end
 
   ts[&quot;tailscale serve&lt;br&gt;TLS, and the only way in&quot;]
 
-  subgraph VPS[&quot;VPS — nothing public&quot;]
-    serve[&quot;somnia serve&quot;]
-    player[&quot;Player&lt;br&gt;fast lane&quot;]
-    agent[&quot;Conversation&lt;br&gt;agent lane&quot;]
+  subgraph Box[&quot;nuc2 — nothing public&quot;]
+    serve[&quot;somnia serve&lt;br&gt;Player fast lane, Conversation&lt;br&gt;agent lane, Queue lane&quot;]
     worker[&quot;somnia worker&lt;br&gt;supervisor, no torch&quot;]
-    ingest[&quot;somnia worker --once&lt;br&gt;renderer, one book&quot;]
-    db[(&quot;somnia.db&quot;)]
+    child[&quot;somnia worker --once&lt;br&gt;one book, under a lease&quot;]
+    db[(&quot;somnia.db&lt;br&gt;where the units coordinate —&lt;br&gt;no lock file, no socket&quot;)]
     files[/&quot;library dir&lt;br&gt;.m4a per chapter&quot;/]
-    joins[/&quot;data dir&lt;br&gt;chapters joined,&lt;br&gt;one .m4a per book&quot;/]
+    joins[/&quot;data dir&lt;br&gt;chapters joined,&lt;br&gt;one .m4a per version&quot;/]
   end
 
+  gut[&quot;Project Gutenberg /&lt;br&gt;PG Australia&quot;]
   api[&quot;Anthropic API&quot;]
-  gut[&quot;Project Gutenberg&quot;]
   abs[&quot;Audiobookshelf&quot;]
 
   page &lt;--&gt; ts
   ts --&gt; serve
-  serve --&gt; player &amp; agent
-  agent --&gt; api
-  agent -.-&gt;|&quot;queues a book&quot;| db
-  worker --&gt;|&quot;claims one, spawns&quot;| ingest
-  worker --&gt; db
-  gut --&gt;|&quot;book HTML&quot;| ingest
-  player --&gt; db &amp; files
+  worker --&gt;|&quot;sees one waiting,&lt;br&gt;spawns&quot;| child
+  gut --&gt;|&quot;book HTML&quot;| child
+  serve --- db
+  worker --- db
+  child --- db
+  child --&gt; files
+  serve --&gt; files
   files --&gt;|&quot;joined on the first ask,&lt;br&gt;-c copy&quot;| joins
-  player --&gt; joins
-  agent --&gt; db
-  ingest --&gt; db &amp; files
-  player -.-&gt;|&quot;only when they stop&quot;| abs
-  ingest -.-&gt;|&quot;rescan, chapter marks&quot;| abs
+  serve --&gt; joins
+  serve --&gt;|&quot;the agent lane only&quot;| api
+  serve -.-&gt;|&quot;on a stop&quot;| abs
+  child -.-&gt;|&quot;rescan, chapter marks&quot;| abs
     </pre><p>The dotted edges are the ones the page never waits on. Audiobookshelf is
 <strong>written to and, while a night is running, never read</strong> — it is somewhere else
 the book might be opened, not the record of anything, and a write that fails is
@@ -965,30 +962,27 @@ library folder and indexed the moment it finishes, so listening can start
 minutes after picking a book while the rest arrives overnight.</p>
 <pre  class="mermaid">
         flowchart TD
-  Q[(&quot;queue row&lt;br&gt;claimed under a lease&quot;)] --&gt; A
-  A[&quot;fetch_book — Gutenberg HTML edition&quot;] --&gt; B[&quot;parse_book_html&lt;br&gt;chapters of paragraphs&quot;]
+  Q[(&quot;queue row&lt;br&gt;claimed under a lease&quot;)] --&gt; A[&quot;fetch_book — the HTML edition,&lt;br&gt;Gutenberg's or Australia's&quot;]
+  A --&gt; B[&quot;parse_book_html&lt;br&gt;chapters of paragraphs&quot;]
   B --&gt; T[&quot;books.chapters_total written&lt;br&gt;the only honest denominator&quot;]
-  T --&gt; R{&quot;chapters already on disk?&quot;}
-  R --&gt;|&quot;yes&quot;| S[&quot;resume at the first missing one,&lt;br&gt;carrying the global clock on&quot;]
+  T --&gt; R{&quot;any chapters rows&lt;br&gt;for this book already?&quot;}
+  R --&gt;|&quot;yes&quot;| S[&quot;resume at the first index with no row,&lt;br&gt;carrying the global clock on&quot;]
   R --&gt;|&quot;no&quot;| C
   S --&gt; C
 
-  subgraph loop[&quot;for each chapter&quot;]
+  subgraph loop[&quot;for each chapter — every write below is per chapter&quot;]
     C[&quot;sentences — pysbd&quot;] --&gt; P{&quot;beat: still ours,&lt;br&gt;and not cancelled?&quot;}
     P --&gt;|&quot;no&quot;| X[&quot;stop here — this chapter&lt;br&gt;leaves no trace at all&quot;]
     P --&gt;|&quot;yes&quot;| D[&quot;engine.render — Kokoro-82M&lt;br&gt;one sentence at a time&quot;]
-    D --&gt; E[&quot;ChapterAudio&lt;br&gt;+120ms between sentences&lt;br&gt;+500ms between paragraphs&lt;br&gt;clock counted in samples&quot;]
-    E --&gt; F[&quot;ffmpeg → 'NNN - Title.m4a'&lt;br&gt;AAC 64k, faststart&quot;]
-    E --&gt; G[&quot;TimedSentence[]&lt;br&gt;exact global start and end&quot;]
-    G --&gt; H[&quot;windows — 3 sentences, stride 2&quot;]
-    H --&gt; I[&quot;Embedder — e5-small-v2, 384-dim&quot;]
+    D --&gt; E[&quot;ChapterAudio&lt;br&gt;+120ms between sentences,&lt;br&gt;+500ms between paragraphs,&lt;br&gt;clock in samples, so every&lt;br&gt;TimedSentence is exact&quot;]
+    E --&gt; F[&quot;ffmpeg → 'NNN - Title.m4a'&lt;br&gt;AAC 64k, faststart&lt;br&gt;— the chapter's first write of any kind&quot;]
+    F --&gt; H[&quot;windows — 3 sentences, stride 2&lt;br&gt;Embedder — e5-small-v2, 384-dim&quot;]
+    H --&gt; J[(&quot;chunks + vec_chunks&quot;)]
+    J --&gt; K[(&quot;chapters row: idx, start_ms,&lt;br&gt;end_ms, audio_file&lt;br&gt;books.total_ms bumped&quot;)]
+    K --&gt; M[&quot;ABS rescan, then set_chapters&quot;]
   end
 
-  I --&gt; J[(&quot;chunks + vec_chunks&quot;)]
-  F --&gt; K[(&quot;chapters row&lt;br&gt;idx, start_ms, end_ms, audio_file&quot;)]
-  K --&gt; L[&quot;books.total_ms bumped&lt;br&gt;status stays 'rendering'&quot;]
-  F --&gt; M[&quot;ABS rescan, then set_chapters&quot;]
-  L --&gt; N[&quot;listenable now — the page re-asks&lt;br&gt;for the manifest while status is 'rendering'&quot;]
+  K --&gt; N[&quot;listenable now — the page re-asks&lt;br&gt;for the manifest while status is 'rendering'&quot;]
     </pre><p>Rendering per <strong>sentence</strong> rather than per chunk or per paragraph is what makes
 the timestamps exact by construction, and it is why the engine is swappable:
 anything that can render one sentence satisfies the <code class="docutils literal notranslate"><span class="pre">TTSEngine</span></code> protocol. It is
@@ -1029,6 +1023,7 @@ chapter timelines, the indexed text windows, and the vectors.</p>
   books {
     int gid PK
     text title &quot;the catalog's name; the scrape only if it has none&quot;
+    text voice &quot;which narrator read it; never changed mid-book&quot;
     text status &quot;pending, rendering, done&quot;
     int total_ms &quot;grows while rendering&quot;
     int chapters_total &quot;how many it HAS; 0 = unknown&quot;
@@ -1047,6 +1042,7 @@ chapter timelines, the indexed text windows, and the vectors.</p>
     int pid &quot;which process claimed it&quot;
     text beat_at &quot;liveness, read at read time&quot;
     text chapter_at &quot;a second clock: long chapter vs dead process&quot;
+    text voice &quot;the voice asked for, settled here; empty means the renderer's own&quot;
     int attempts &quot;bounded at three&quot;
     text error &quot;one plain sentence&quot;
   }
@@ -1119,7 +1115,8 @@ to refuse.</p>
   PL--&gt;&gt;P: last_gid
   P-&gt;&gt;PL: GET /api/book/{gid}
   PL--&gt;&gt;P: timeline, position, heard_to_ms
-  P-&gt;&gt;PL: GET /api/audio/{gid}/{idx}, Range
+  P-&gt;&gt;PL: GET /api/stream/{gid}/{n}, Range
+  Note over P,PL: one file for the whole book so far —&lt;br&gt;a chapter at a time is the fallback
 
   loop every 15s, and at every jump and stop
     P-&gt;&gt;PL: position_ms, seq, played_ms
