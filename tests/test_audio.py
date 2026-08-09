@@ -8,6 +8,7 @@ Everything else about `ChapterAudio` — the running clock, the silences — is
 already exercised through `tests/test_ingest.py`.
 """
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -16,6 +17,17 @@ import pytest
 
 from somnia.audio import ChapterAudio
 
+# The two tests below shell out for real, because what they are about is the
+# file that ends up on disk and a stub that touched the path would agree with
+# any implementation. ffmpeg is a system package on the render host and the
+# suite is not allowed to need one — the `unrendered` fixture in test_ingest
+# says so and stubs the encode for that reason — so where it is absent these
+# skip rather than fail. The test that matters most, the one about what a
+# killed encode leaves behind, stubs `subprocess.run` and always runs.
+needs_ffmpeg = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None, reason="ffmpeg is not installed here"
+)
+
 
 def one_second() -> ChapterAudio:
     audio = ChapterAudio(24000)
@@ -23,6 +35,7 @@ def one_second() -> ChapterAudio:
     return audio
 
 
+@needs_ffmpeg
 def test_a_chapter_that_encodes_is_there_and_plays(tmp_path: Path) -> None:
     out = tmp_path / "chapters" / "0001.m4a"
 
@@ -68,6 +81,7 @@ def test_an_encode_that_dies_leaves_no_chapter_at_all(
     assert list(out.parent.iterdir()) == []
 
 
+@needs_ffmpeg
 def test_a_second_attempt_writes_over_the_first(tmp_path: Path) -> None:
     """A render picked up again re-encodes a chapter it did not finish."""
     out = tmp_path / "chapters" / "0001.m4a"
