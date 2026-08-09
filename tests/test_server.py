@@ -123,10 +123,20 @@ def book_row(tone_book: ToneBook) -> dict[str, Any]:
     return dict(row)
 
 
+def no_warm_up(self: server.Conversations) -> None:
+    """Startup's one slow step, stood down.
+
+    It asks the API whether this model takes an effort level and builds the
+    embedder — a live call and a torch import, neither of which belongs in a
+    test suite. What it actually does has its own test below.
+    """
+    return None
+
+
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(server, "Conversation", FakeConversation)
-    monkeypatch.setattr(server.Conversations, "warm", lambda self: None)
+    monkeypatch.setattr(server.Conversations, "warm", no_warm_up)
     cfg = Config(data_dir=tmp_path)
     conn = connect(cfg.db_path, cross_thread=True)
     try:
@@ -147,7 +157,7 @@ def tone_client(
 ) -> Iterator[TestClient]:
     """A server with a book that is really audio behind it."""
     monkeypatch.setattr(server, "Conversation", FakeConversation)
-    monkeypatch.setattr(server.Conversations, "warm", lambda self: None)
+    monkeypatch.setattr(server.Conversations, "warm", no_warm_up)
     with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
         yield client
 
@@ -1636,9 +1646,10 @@ def test_the_warm_up_asks_the_api_once_and_builds_the_embedder(
 
     # Conversations builds its own client, so the class is what has to be stood
     # in for — which is also the assertion that no real one is ever made here.
-    monkeypatch.setattr(
-        server, "Anthropic", lambda **kwargs: SimpleNamespace(models=RecordingModels())
-    )
+    def fake_client(**kwargs: object) -> Anthropic:
+        return cast(Anthropic, SimpleNamespace(models=RecordingModels()))
+
+    monkeypatch.setattr(server, "Anthropic", fake_client)
     library = Library(
         tone_book.cfg, tone_book.conn, embedder=cast(Embedder, FakeEmbedder())
     )
@@ -1696,7 +1707,11 @@ def test_starting_the_server_starts_nothing_of_its_own(
     # the warm-up, recorded rather than run, so that the test says what it does
     # instead of pretending it does not happen.
     monkeypatch.setattr(subprocess, "Popen", spawned)
-    monkeypatch.setattr(server.Conversations, "warm", lambda self: warmed.append(True))
+
+    def record_warm_up(self: server.Conversations) -> None:
+        warmed.append(True)
+
+    monkeypatch.setattr(server.Conversations, "warm", record_warm_up)
     monkeypatch.setattr(server, "Conversation", FakeConversation)
 
     # Through TestClient, which really runs the startup task — the lifespan
