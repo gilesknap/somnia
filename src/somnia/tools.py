@@ -357,7 +357,7 @@ class Library:
         query: str,
         k: int = 5,
         spoiler_free: bool = True,
-        ahead: bool = True,
+        look_ahead: bool = True,
     ) -> Search:
         """Search a book for a passage — an event, a character, a moment.
 
@@ -398,14 +398,17 @@ class Library:
             self._conn, self.embedder, gid, query, k=k, before_ms=before_ms
         )
         better_ahead: Passage | None = None
-        # `ahead` is what stops this being paid for by callers that throw it
+        # `look_ahead` is what stops this being paid for by callers that throw
+        # it — and it is not called `ahead` because eight lines down `ahead` is the
+        # list of passages past the mark, and one name for a bool and a list of
+        # Passages is a trap set for whoever edits this next.
         # away. Working it out means a second search of the whole book — another
         # embedding of the query and another vector scan — and `recall` drops
         # the answer on the way out, deliberately and at length: see its
         # docstring for why a question must not be followed by a nudge towards
         # somewhere further on. So it was buying a spoiler it then refused to
         # tell anybody, twice a night, on the screen where seconds are felt.
-        if before_ms is not None and ahead:
+        if before_ms is not None and look_ahead:
             whole_book = find_passage(self._conn, self.embedder, gid, query, k=k)
             ahead = [p for p in whole_book if p.start_ms > before_ms]
             floor = hits[0].distance if hits else float("inf")
@@ -442,7 +445,9 @@ class Library:
         never widens, and a question about what has not happened yet is answered
         with the truth that it has not happened yet.
         """
-        search = self.find_passage(gid, question, k=k, spoiler_free=True, ahead=False)
+        search = self.find_passage(
+            gid, question, k=k, spoiler_free=True, look_ahead=False
+        )
         return Recall(passages=search.hits, searched_to_ms=search.searched_to_ms)
 
     def offer_positions(self, gid: int, chunk_ids: list[int]) -> Offer | Refused:

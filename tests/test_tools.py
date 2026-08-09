@@ -919,13 +919,16 @@ def test_a_recall_does_not_pay_for_a_search_it_throws_away(
 
     A search is one embedded query, which is what is counted here.
     """
-    fixture.embedder.queries = 0
+    # The fixture holds it as the protocol, and the counter is the fake's own.
+    counting = cast(FakeEmbedder, fixture.embedder)
+
+    counting.queries = 0
     fixture.library.recall(271, "Rob Roy was shot after the hunt")
-    assert fixture.embedder.queries == 1
+    assert counting.queries == 1
 
     # And a move still gets it, because "take me there" is the question the
     # nudge is right for.
-    fixture.embedder.queries = 0
+    counting.queries = 0
     search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
-    assert fixture.embedder.queries == 2
+    assert counting.queries == 2
     assert search.searched_to_ms is not None
