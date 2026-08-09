@@ -6,7 +6,9 @@ per book, and waits for it. Run it as a systemd user unit and you can forget
 about it — books asked for from the page, from the agent or from a terminal all
 land in the same line, and it empties it.
 
-Before starting one, check the machine can actually finish it:
+Before starting one, check the machine can actually finish it with
+`somnia-doctor.sh` (in the repo's `scripts/`, or curl it as
+[Installation](../tutorials/installation.md) does):
 
 ```bash
 bash somnia-doctor.sh
@@ -111,17 +113,15 @@ network, and `somnia queue` is the thing to look at.
 somnia queue stop 4
 ```
 
-A book that was only waiting goes immediately. A render that is running is only
-*asked*: nothing signals it and nothing kills it, so it reads to the end of the
-sentence it is on and stops on the next chapter boundary, which takes about
-twenty seconds. Every chapter it had already finished stays exactly where it is
-and stays playable, and asking for the book again resumes at the next one.
+It stops at the end of the sentence it is on, about twenty seconds, and
+everything already rendered stays playable.
 
 `systemctl --user stop somnia-worker` is the other kind of stop, and means
 something different: nobody stopped wanting the book, so it goes back into the
-queue rather than being cancelled, and the worker picks it up again when it
-starts. The chapter that was in flight is lost — minutes of Kokoro — because
-the child will not gamble on finishing a chapter inside the stop timeout.
+queue rather than being cancelled, and the chapter in flight is lost — minutes
+of Kokoro. The detail of both is in
+[`queue stop`](#cli-queue) and
+[`worker`](#cli-worker).
 
 ## Renders the agent starts
 

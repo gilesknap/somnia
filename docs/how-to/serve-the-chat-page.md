@@ -28,15 +28,11 @@ the ones a served night depends on:
 | `SOMNIA_AGENT_MODEL` | another model; the default is Haiku 4.5 |
 | `SOMNIA_AGENT_EFFORT` | how hard it may think before answering, on the models that have such a dial; Haiku has not |
 
-`SOMNIA_LIBRARY_DIR` is the one that has become load-bearing since the page
-became the player, and it fails quietly if it is wrong. Chapters are never
-served by path — the request names a book and a chapter number, and the file
-comes from the database row — but a row pointing outside the library directory
-is refused all the same, because a database carried over from another machine
-can point anywhere. What you see on the phone is *that chapter didn't arrive*;
-the real reason is a warning in the journal. It defaults to
-`~/library/audiobooks`, which is right only if that is genuinely where `somnia
-add` put things.
+`SOMNIA_LIBRARY_DIR` is load-bearing since the page became the player, and it
+fails quietly: everything starts, the agent answers, and every chapter 404s
+with the reason only in the journal. It defaults to `~/library/audiobooks`,
+which is right only if that is genuinely where `somnia add` put things —
+[Configuration](#config-fail-quietly) has why.
 
 Audiobookshelf is now optional. somnia writes your position to it when you
 stop, as a courtesy, so the ABS app finds roughly the right place if you open
@@ -123,7 +119,7 @@ After=network-online.target
 
 [Service]
 EnvironmentFile=%h/somnia.env
-ExecStart=%h/.local/bin/somnia serve
+ExecStart=%h/somnia-venv/bin/somnia serve
 Restart=always
 RestartSec=5
 
@@ -251,7 +247,7 @@ Those two are one screen each on purpose. **Books** is the night screen — whic
 book — and it is set at the same type size as the player, because it is read in
 the same dark without glasses. **Workshop** is the daytime one — find a book,
 have it read, watch it being made — and it is smaller and denser than anything
-else in the app, because it is read sitting up with the lights on. The two
+else in the app, because it is read sitting up with the lights on. The three
 things you can change about how the app behaves are on a third, **Settings**,
 which is a night screen and is reached from the player's top-right corner.
 
@@ -281,6 +277,15 @@ enough to have changed their mind. It is written down as it counts, so a reload
 brings it back with the minutes it had left on it. A timer more than six hours
 old is not brought back: opening the book the next evening is starting a night,
 not finishing one.
+
+**The morning after a fade.** If the night ended in the sleep timer rather than
+a thumb, the next launch shows this instead of the player, once. It says the
+wall-clock time the sound went and that you were probably gone before that, and
+offers three presses: the last query's places, when there were any; *tell me
+what you remember*; and keeping the position, with the position written on the
+button. There is no way off it but those three, on purpose. A fade more than
+twelve hours old is not worth a morning for, and is not shown. The reasoning is
+in [Design decisions](../explanations/design.md).
 
 If something else takes the sound — a call, an alarm — the book stops and stays
 stopped, and the page says so. If the phone refuses to start audio without
@@ -459,7 +464,7 @@ about the queue is polled otherwise — and since this is the only screen the
 queue is on, and it is two presses from the player behind a row that says
 *daytime*, no night has a five-second wake in it.
 
-*Workshop* holds no settings. Both of them are on *Settings*, below.
+*Workshop* holds no settings. They are all on *Settings*, below.
 
 ## Changing how it behaves at night: *Settings*
 
@@ -467,8 +472,14 @@ queue is on, and it is two presses from the player behind a row that says
 empty since *start over* moved to the chat screen. *‹ controls* comes back.
 
 It is a night screen in the night palette, which is the point of it rather than
-a default: both controls on it are reached for in the dark with the book
-playing, and one of them cannot be set anywhere else at all.
+a default: all three controls on it are reached for in the dark with the book
+playing, and none of them can be had from the phone's own settings.
+
+*how big the words* moves the page's root size, so the words and the space
+around them go together and the player's rhythm survives being resized. It
+moves every screen, not only this one. It is somnia's answer to browser zoom,
+which is several screens into Chrome and retunes every app on the phone — this
+is one press from the player and moves nothing but somnia.
 
 *how dark the room* takes the page darker than the phone's own minimum
 brightness, by laying black over everything. Press *–* or *+* and the screen you
@@ -484,9 +495,9 @@ about when it is discovered: nobody decides thirty seconds is the wrong distance
 sitting up in daylight, they decide it lying in the dark with a narrator who
 leaves long gaps, having missed the same sentence twice.
 
-Both are written down and outlive the page. The sleep timer is the one setting
-that is not: it expires after six hours, because a timer is an intent about one
-night.
+All three are written down and outlive the page. The sleep timer is the one
+setting that is not: it expires after six hours, because a timer is an intent
+about one night.
 
 ## Check screen-off playback before you trust a night to it
 
@@ -497,7 +508,9 @@ again on a new phone, after an Android update, or on the first night that goes
 quiet. The second was confirmed on the same night on the phone's own speaker,
 and that turned out not to settle it — over Bluetooth the notification is torn
 down and rebuilt at every boundary, and some nights it does not come back. That
-is issue #31, and it is why this page now asks a second question as well. Both
+was issue #31, and it is closed: the player now loads the whole book from one URL
+([ADR 7](../explanations/decisions/0007-cross-a-chapter-without-letting-go.md)),
+and on 2026-08-08 a boundary was crossed over Bluetooth with the card up. Both
 are properties of the handset rather than of this code, and neither can be
 tested from a desk.
 
@@ -528,18 +541,20 @@ book can be moved and played again with no gesture at all, which is what the
 agent does every time it takes you somewhere.
 
 That mode is also a demonstration of the bug: it gives the element a new file at
-every chapter, exactly as the player does, and **src writes** on the readout
-counts the teardowns.
+every chapter, exactly as the player did before ADR 7, and as it still does with
+`?chapters`, and **src writes** on the readout counts the teardowns.
 
 ### Whether one file can carry a whole book
 
-*Whole book* is the other question, and it is the one that decides whether the
-player can stop letting go at a boundary. It loads a real book — the longest one
-somnia has, or `?gid=<gid>` for a particular one — from a single URL,
-`/api/stream/{gid}/{n}`, and never touches the element again: a chapter boundary
-becomes arithmetic on the render clock, and the only thing that happens is that
-the notification is renamed. `?book` on the URL starts the page in this mode, so
-a home-screen shortcut can go straight to it in the dark.
+*Whole book* is the mode that exercises the mechanism ADR 7 chose, and it is
+what to run on a new phone, after an Android update, and for the two checks
+ADR 7 leaves open: hours of a 161MB progressive resource, and a frontier wait.
+It loads a real book — the longest one somnia has, or `?gid=<gid>` for a
+particular one — from a single URL, `/api/stream/{gid}/{n}`, and never touches
+the element again: a chapter boundary becomes arithmetic on the render clock,
+and the only thing that happens is that the notification is renamed. `?book` on
+the URL starts the page in this mode, so a home-screen shortcut can go straight
+to it in the dark.
 
 It has to be run over Bluetooth with the screen locked, because that is the
 route the last check got wrong. Watch **src writes** stay at 1 all night; watch
@@ -558,8 +573,8 @@ real player:
 - Turn the tailnet off for half a minute and back on. A stall shows as
   **shortfall**; whether the phone had to fetch the book again shows in
   **holding**, and the other half of that answer is in the server's own log —
-  `journalctl -u somnia -f` shows a second `GET /api/stream/...` if Chrome
-  threw the book away and asked for it again.
+  `journalctl --user -u somnia-serve -f` shows a second `GET /api/stream/...`
+  if Chrome threw the book away and asked for it again.
 - Press the pillow speaker's skip and its scrubber. The panel is told the
   *chapter's* length and not the book's, so what those buttons move by is the
   question, and the log writes down what the panel was told each time.
