@@ -1853,7 +1853,18 @@ body.wake-screen #player-bar:not([hidden]) {
 @media (max-height: 34rem) and (min-width: 34rem) {
   body.player-screen #player-bar:not([hidden]) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    /* Even, and it was 1fr to 1.4fr. The transport was given the larger share
+       because it is what gets pressed without looking, which is true — but the
+       narrower column has one line in it that must not wrap, and at the real
+       landscape measure it did. `1:12:08 of 9:41:33` is the widest thing the
+       reading has, and broken over two lines it pushes the sleep timer off the
+       bottom of a 309px window: the one control this whole block exists to keep
+       reachable, lost to a column 60px too narrow. Photographed at 669x309 —
+       the phone on its side at the text scale this page is read at — with a
+       nine-hour book open, which is what put the wrap on screen where a
+       measurement of the bare markup had not. The transport keeps three targets
+       well over the 44dp floor at this width; the clock has nowhere else to go. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
     gap: 1.2rem;
   }
@@ -1906,7 +1917,17 @@ body.wake-screen #player-bar:not([hidden]) {
      still one turn of the wrist away, which is not true of the sleep timer. */
   body.player-screen #chapter-title,
   body.player-screen #chapter-clock,
-  body.player-screen .chapter-strip {
+  body.player-screen .chapter-strip,
+  /* And the two lines inside the reading that say nothing the clock does not.
+     Measured at 669x309 with a nine-hour book open: what is left of the reading
+     still stood 45px past the bottom of the window, and the 45px was the sleep
+     pill — so this is not tidying, it is the difference between the timer being
+     on the screen and under it. The scrub line is the clock as a picture, and
+     `4 places found` is a count of something the places screen is one press
+     away from showing in full. Both are on the phone the moment it is upright.
+   */
+  body.player-screen #whole-progress,
+  body.player-screen #places-found {
     display: none;
   }
 

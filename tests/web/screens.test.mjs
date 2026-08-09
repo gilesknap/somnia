@@ -603,17 +603,36 @@ test("the player's spacers are not items of the landscape grid", async (t) => {
 // about 540px of window and the query only runs below 544px.
 //
 // So the chapter, its clock and its circles go, and the name gets one line. What
-// stays is the name and #whereabouts — the clock, the progress line and the
-// sleep button, which is the control this block exists to keep reachable and the
-// one thing here that a turn of the wrist is not a workaround for. Measured with
-// those four rules in place: at 669x309 — a Pixel 6 Pro on its side at the text
-// scale this page is read at — the name, the sleep button and the transport are
-// all fully on screen, and at 844x390 the page overflows by 1px rather than 241.
+// stays is the name, the clock and the sleep button — the control this block
+// exists to keep reachable and the one thing here that a turn of the wrist is
+// not a workaround for.
+//
+// The numbers below come from photographing the real page with a nine-hour book
+// open, not from measuring the bare markup, and the difference between the two
+// is the whole of why this comment was rewritten. Measured that way at 669x309 —
+// a Pixel 6 Pro on its side at the text scale this page is read at — the first
+// version of this block still put the sleep pill 45px under the bottom of the
+// window: `1:12:08 of 9:41:33` wrapped in a column 60px too narrow, and the
+// wrapped line pushed the pill off. Hence even columns rather than 1fr to
+// 1.4fr, and hence the scrub line and the places count going too. As it stands
+// the pill's bottom edge is at 295 in a 309px window.
 test("the landscape reading keeps the name and the sleep timer", async (t) => {
   const [landscape] = mediaBlocks(RULES).filter((block) =>
     block.includes("min-width: 34rem"),
   );
-  for (const gone of ["#chapter-title", "#chapter-clock", ".chapter-strip"]) {
+  // The columns the reading has to fit in. Named because the wrap that lost the
+  // sleep timer was a width problem showing up as a height one.
+  assert.ok(
+    landscape.includes("grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);"),
+    "the landscape columns are uneven again, and the clock wraps when they are",
+  );
+  for (const gone of [
+    "#chapter-title",
+    "#chapter-clock",
+    ".chapter-strip",
+    "#whole-progress",
+    "#places-found",
+  ]) {
     assert.ok(
       landscape.includes(`body.player-screen ${gone}`),
       `${gone} is drawn in landscape, where there is no height for it`,
