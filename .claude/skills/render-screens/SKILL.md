@@ -231,6 +231,34 @@ unlike `--screenshot`, so the viewport comes up ~87px short; 867 lands
 `SCROLLS: False` is a hard rule, not a preference, and it is the first thing a
 newly added row breaks.
 
+## Measure the page with the book in it, never with placeholder text
+
+`snapshot.py` fills the screens for exactly this reason, and a hand-rolled probe
+that sets a couple of ids and leaves the rest empty is not the page — it is a
+layout with all the long strings taken out, which is the layout that always
+fits.
+
+It cost a wrong fix on 2026-08-09. The landscape player was drawing the reading
+as a row of single letters; a headless probe that set `#book-title` and
+`#chapter-title` by hand said the repair worked at 669x309, and the PR shipped
+with a table of measurements saying so. Rendering the *real* page with a
+nine-hour book open showed `1:12:08 of 9:41:33` wrapping in a column 60px too
+narrow, and the wrapped line pushing the sleep timer below the fold — the one
+control that block exists to keep reachable. The probe had left `#whereabouts`
+short, so the only element that mattered was the one it had not filled.
+
+The three strings that break a column here, and none of them is the title:
+
+| string | why it is the widest thing on the screen |
+|---|---|
+| `1:12:08 of 9:41:33` | two clocks and a word, and it must not wrap |
+| `sleep timer · 60 min left` | a pill, so it cannot ellipsize |
+| `chapter 4 of 37` | ~150px, and it has been given a 119px column before |
+
+So: render, then look, then measure — and if a number in a commit message came
+from a probe rather than from `snapshot.py`, say which, because the two disagree
+exactly where it matters.
+
 **But `SCROLLS` is not the detector for type that is too big.** The column is
 `flex: 1` all the way down, so the spacers give until there is nothing left and
 then type lands on type — the book's title truncates to one line, the chapter
