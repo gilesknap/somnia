@@ -333,8 +333,26 @@ class _Watch:
         other thing that writes a beat and nothing calls it until ``ingest_book``
         is under way, so the model load and the fetch went by unannounced.
         """
+        # Imported here for the reason the module docstring gives about every
+        # other ingest import in this file: the supervisor imports this module,
+        # and it must not pull numpy and torch in behind it.
+        from .ingest import RenderStopped  # noqa: PLC0415
+
         self._last = time.monotonic()
-        beat(self._conn, self._job.id, lease=self._lease)
+        alive = beat(self._conn, self._job.id, lease=self._lease)
+        # The answer matters as much as the beat. Loading the model is minutes,
+        # and it is exactly the window in which another worker decides this
+        # render is dead and takes the row — so the first thing this beat can
+        # discover is that the job is not ours any more. Carrying on from here
+        # would put two renderers on one book, which is the thing the lease
+        # exists to make impossible; and a cancel pressed during the load is
+        # heard here rather than at the end of the first chapter.
+        if alive is None:
+            self.why = "lost"
+            raise RenderStopped("the job was taken away during start-up")
+        if alive.cancel:
+            self.why = "cancel"
+            raise RenderStopped("stopped before the first sentence")
 
     def on_chapter(self, _idx: int) -> None:
         note_chapter(self._conn, self._job.id, lease=self._lease)

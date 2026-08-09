@@ -574,7 +574,18 @@ def reconcile(conn: sqlite3.Connection, *, steal_s: int = STEAL_S) -> Reconciled
             (MAX_ATTEMPTS, stale),
         ).fetchall()
         requeued = conn.execute(
-            "UPDATE queue SET state = 'queued', lease = '', pid = 0, beat_at = NULL,"
+            # The same CASE `requeue` makes, and it has to be made here too.
+            # Without it a stop pressed during a render that then lost power
+            # came back as a 'queued' row with the flag still up — which `claim`
+            # now refuses, while `queue_live` still counts it as this book's one
+            # live row and refuses a fresh submission of the same gid. The book
+            # was then wedged for good: not renderable, not stoppable, and not
+            # askable-for again. Settling the flag here is what keeps the two
+            # guards from closing on the same row.
+            "UPDATE queue SET"
+            " state = CASE WHEN cancel = 1 THEN 'cancelled' ELSE 'queued' END,"
+            " ended_at = CASE WHEN cancel = 1 THEN datetime('now') ELSE NULL END,"
+            " lease = '', pid = 0, beat_at = NULL,"
             " chapter_at = NULL, started_at = NULL WHERE state = 'rendering'"
             " AND (beat_at IS NULL OR beat_at <= datetime('now', ?)) RETURNING id",
             (stale,),

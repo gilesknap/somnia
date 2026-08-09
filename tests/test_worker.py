@@ -704,3 +704,51 @@ def test_the_claim_is_kept_alive_while_the_renderer_loads(
     )
 
     assert happened[0] == "beat", f"nothing beat before the first sentence: {happened}"
+
+
+@pytest.mark.usefixtures("gutenberg")
+def test_a_render_whose_job_was_taken_during_start_up_never_starts(
+    conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The beat before the first sentence has an answer, and it is worth reading.
+
+    Loading the model is minutes, and that is exactly the window in which
+    another worker decides this render is dead and takes the row. Beating
+    without looking at what came back meant the first thing this process
+    learned about losing the job was nothing at all: it went on to render a
+    book somebody else was already rendering, which is the one thing the lease
+    exists to make impossible.
+    """
+    submit(conn, 271)
+    stolen: list[str] = []
+
+    class TakesTheJobWhileItLoads(SilentEngine):
+        def __init__(self, voice: str = "af_heart") -> None:
+            # Another worker, arriving while this one builds its engine — which
+            # is the real window, and is why the engine has to be built inside
+            # render_one rather than handed to it.
+            with conn:
+                conn.execute("UPDATE queue SET lease = 'somebody-else' WHERE id = 1")
+            stolen.append("taken")
+
+        def render(self, text: str) -> Any:
+            stolen.append("rendered")
+            return super().render(text)
+
+    from somnia import tts
+
+    monkeypatch.setattr(tts, "KokoroEngine", TakesTheJobWhileItLoads)
+
+    rendered = render_one(
+        cfg(tmp_path),
+        conn,
+        embedder=cast(Embedder, FakeEmbedder()),
+        stopping=never,
+        beat_every_s=600,
+    )
+
+    assert rendered is not None
+    assert rendered.state == "lost"
+    # And not one sentence of it was rendered under a lease it did not hold.
+    assert stolen == ["taken"]
+    assert chapters_done(conn) == 0

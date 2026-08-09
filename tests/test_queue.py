@@ -610,11 +610,18 @@ def test_nothing_claims_a_book_somebody_has_asked_to_stop(
             (job.id,),
         )
     reconcile(conn)
+
+    # Settled here rather than put back in the line, which is what wedged the
+    # book: `claim` refuses a flagged row and `queue_live` still counts a queued
+    # one as this book's live row, so it could be neither rendered nor stopped
+    # nor asked for again — a gid lost for good to one press and one power cut.
     assert (
         conn.execute("SELECT state FROM queue WHERE id = ?", (job.id,)).fetchone()[
             "state"
         ]
-        == "queued"
+        == "cancelled"
     )
-
     assert claim(conn, lease="another-lease", pid=1235) is None
+    # And the book can be asked for again, which is the half that proves it is
+    # not merely unclaimable.
+    assert submit(conn, 271).ok
