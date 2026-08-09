@@ -302,10 +302,11 @@ backwards every time the book grew.
 a tailscale re-key each take it away for a few seconds, and a media element
 comes back from none of them by itself: once it has taken a network error it
 never fetches again, and a buffer that ran dry with nothing behind it sits
-there silently. So the page reloads the chapter — assigning `src` is the whole
-of what makes an element try again — from where they had got to rather than
-from the top of it, so five seconds off the network costs five seconds and not
-the last ten minutes over again. It waits longer each time, two seconds to
+there silently. So the page reloads whatever it is holding — the joined book, or
+a chapter in the fallback; assigning `src` is the whole of what makes an element
+try again — from where they had got to rather than from the top of it, so five
+seconds off the network costs five seconds and not the last ten minutes over
+again. It waits longer each time, two seconds to
 thirty, because a server that is down is down and a phone that retried flat out
 until morning is a phone with no battery in the morning. Every route to a
 reload goes on that same ladder, including the one that never sees an error at
@@ -314,7 +315,7 @@ hole, a re-key caught mid-handshake — leaves the element stalling rather than
 failing, and a stall that reloads on a fixed timer stalls again off the new
 source, for ever, at exactly the fixed cadence the ladder exists to prevent. It
 stops entirely when they were the ones who stopped it, because a page reloading
-chapters under a book somebody put down is spending the battery on nobody. The
+audio under a book somebody put down is spending the battery on nobody. The
 boot does the same thing for the same reason: the service worker serves the
 shell when the server cannot be reached, which is right, and what they land on
 otherwise is a page that looks perfectly alive with no book in it.
@@ -344,9 +345,9 @@ the top of it, and under that the last places somnia found, the conversation,
 and the position it would otherwise just keep. Twelve hours and no longer, on
 the timer's argument said at a morning's distance instead of a night's.
 
-How the lanes are kept apart, and why sqlite is in WAL with four writers, is in
-[Architecture](architecture.md); that the renderer is a separate *unit* and not
-merely a separate connection is
+How the lanes are kept apart, and why sqlite is in WAL with several writers, is
+in [Architecture](architecture.md); that the renderer is a separate *unit* and
+not merely a separate connection is
 [ADR 5](decisions/0005-render-one-book-at-a-time.md).
 
 ## Agent surface

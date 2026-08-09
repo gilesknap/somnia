@@ -12,7 +12,8 @@ exactly which span of audio each sentence occupies — so the text/audio index i
 free, and a question at 2am can be answered with a timestamp rather than a
 guess.
 
-Three things run, and they share one sqlite file and the audio on disk:
+Three things run. The two on the box share one sqlite file and the audio on
+disk; the third is on the phone and reaches both over HTTP:
 
 - **the renderer** (`somnia worker`) — a supervisor that takes one book at a
   time off the queue and spawns a child to turn a Gutenberg id into per-chapter
