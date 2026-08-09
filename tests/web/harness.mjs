@@ -1230,6 +1230,7 @@ export async function boot(t, options = {}) {
   // cannot show: a voice is chosen by hearing it.
   const voiceAsks = [];
   const samples = [];
+  const samplers = [];
   let queueItems = [];
   let catalogFound = [];
   // The roster the picker draws, as /api/voices answers it. Two of the six the
@@ -1327,6 +1328,11 @@ export async function boot(t, options = {}) {
       constructor() {
         this.src = "";
         this.paused = true;
+        // Kept so a test can ask whether the sample is still going. The page
+        // holds the only other reference to it, and "is a stranger still
+        // reading out of a screen nobody is looking at" is not answerable from
+        // the list of things that were started.
+        samplers.push(this);
       }
 
       play() {
@@ -1589,6 +1595,9 @@ export async function boot(t, options = {}) {
     },
     voiceAsks,
     samples,
+    // Whether a voice sample is playing right now, as against which ones were
+    // ever started.
+    sampling: () => samplers.some((one) => !one.paused),
     submitReply: (body) => {
       submitAnswer = body;
     },
