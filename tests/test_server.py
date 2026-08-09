@@ -1492,6 +1492,24 @@ def test_a_body_with_no_number_in_it_is_the_one_four_hundred(
     assert tone_client.post("/api/queue", content=b"not json").status_code == 400
 
 
+def test_a_number_no_arithmetic_can_hold_is_a_four_hundred_not_a_five_hundred(
+    tone_client: TestClient,
+) -> None:
+    """JSON has Infinity and python's json reads it.
+
+    `_number` catches TypeError and ValueError, which is every kind of nonsense
+    the page could send except this one: int() of a float infinity raises
+    OverflowError, which went straight out of the function and up through the
+    route as a 500 with a traceback. It is the same nonsense as a word or a
+    missing key and it gets the same answer.
+    """
+    for body in (b'{"gid": Infinity}', b'{"gid": -Infinity}', b'{"gid": NaN}'):
+        response = tone_client.post(
+            "/api/queue", content=body, headers={"content-type": "application/json"}
+        )
+        assert response.status_code == 400, body
+
+
 def test_a_book_that_may_not_be_renderable_is_still_taken(
     tone_client: TestClient,
 ) -> None:
@@ -1653,6 +1671,21 @@ def test_the_page_is_told_which_voices_it_may_ask_for(tone_client: TestClient) -
     voices = response.json()["voices"]
     assert {"id", "name", "says"} == set(voices[0])
     assert "af_heart" in [v["id"] for v in voices]
+
+
+def test_the_voice_roster_is_revalidated_rather_than_kept_for_a_day(
+    tone_client: TestClient,
+) -> None:
+    """A deploy changes the roster and the phone cannot be told.
+
+    `max-age=86400` let a phone hold yesterday's list for a day after somnia
+    was redeployed, so Workshop offered a voice the renderer has not got, or
+    hid one it has, and the sample played nothing. `no-cache` stores it and
+    asks — a 304 of a few hundred bytes on a tailnet, which is the same bargain
+    the shell files make and for the same reason.
+    """
+    response = tone_client.get("/api/voices")
+    assert response.headers["cache-control"] == "no-cache"
 
 
 def test_a_book_can_be_asked_for_in_a_particular_voice(
