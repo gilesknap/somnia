@@ -13,6 +13,7 @@ from black_beauty import CHAPTERS, PASSAGES, build_black_beauty
 from fakes import FakeAbs, FakeEmbedder
 from somnia.abs import AbsClient
 from somnia.agent import (
+    MAX_HOPS,
     OFFER_SENTENCE,
     SYSTEM_PROMPT,
     Conversation,
@@ -34,6 +35,22 @@ def tool_use() -> Any:
     return SimpleNamespace(type="tool_use", name="list_books", input={})
 
 
+def said(*blocks: Any, stop_reason: str | None = None) -> Any:
+    """One assistant message, shaped as the runner yields it.
+
+    ``stop_reason`` is why the model stopped, and it is on every message the API
+    sends. It was missing from these fakes, which is how a turn that ends in a
+    refusal came to run its tool calls anyway: the runner checks that field and
+    somnia did not, and nothing here could tell the difference. Left to itself
+    it is what the blocks imply — a message that asks for a tool stopped to ask
+    for it, and one that only talks reached the end of what it had to say.
+    """
+    if stop_reason is None:
+        asked = any(block.type == "tool_use" for block in blocks)
+        stop_reason = "tool_use" if asked else "end_turn"
+    return SimpleNamespace(content=list(blocks), stop_reason=stop_reason)
+
+
 class FakeRunner:
     """The SDK tool runner, minus the model.
 
@@ -52,6 +69,7 @@ class FakeRunner:
         self._turns = turns
         self._dies_after = dies_after
         self._sent = 0
+        self.tool_calls_run = 0
         for name, arguments in calls or []:
             tool = next(t for t in tools or [] if t.name == name)
             tool.call(arguments)
@@ -64,6 +82,10 @@ class FakeRunner:
             yield turn
 
     def generate_tool_call_response(self) -> Any:
+        # Counted, because "the tools did not run" is the whole of what a
+        # refusal has to mean and there is nothing else about it to observe:
+        # this is the call that fires them.
+        self.tool_calls_run += 1
         turn = self._turns[self._sent - 1]
         if any(block.type == "tool_use" for block in turn.content):
             return {"role": "user", "content": [{"type": "tool_result"}]}
@@ -165,8 +187,8 @@ def test_each_turn_is_remembered_for_the_next_question(library: Library) -> None
         Config(),
         library,
         client_returning(
-            FakeRunner([SimpleNamespace(content=[text("Black Beauty.")])]),
-            FakeRunner([SimpleNamespace(content=[text("Two hours in.")])]),
+            FakeRunner([said(text("Black Beauty."))]),
+            FakeRunner([said(text("Two hours in."))]),
         ),
     )
     assert conversation.ask("what have I got?").reply == "Black Beauty."
@@ -191,11 +213,11 @@ def test_a_turn_that_dies_leaves_the_conversation_as_it_was(library: Library) ->
         Config(),
         library,
         client_returning(
-            FakeRunner([SimpleNamespace(content=[text("Black Beauty.")])]),
+            FakeRunner([said(text("Black Beauty."))]),
             FakeRunner(
                 [
-                    SimpleNamespace(content=[tool_use()]),
-                    SimpleNamespace(content=[text("never arrives")]),
+                    said(tool_use()),
+                    said(text("never arrives")),
                 ],
                 dies_after=1,
             ),
@@ -210,6 +232,92 @@ def test_a_turn_that_dies_leaves_the_conversation_as_it_was(library: Library) ->
     assert conversation.messages == good
 
 
+def test_a_refused_turn_does_not_do_the_thing_it_was_refused(
+    library: Library,
+) -> None:
+    """A refusal is terminal, and the tools it asked for must not fire.
+
+    The SDK's runner has this rule and states it — the tool_use blocks of a
+    refused turn would fire side effects the model never confirmed — but it
+    applies it after the yield, and somnia runs the tools at the yield. So the
+    guard was read one statement too late: `move_to` had already written a
+    position and bumped the seq, and the page took a jump the model had refused
+    to make and then said nothing about.
+    """
+    runner = FakeRunner(
+        [
+            said(text("I won't do that."), tool_use(), stop_reason="refusal"),
+            said(text("this turn is over and must never be asked for")),
+        ]
+    )
+    conversation = Conversation(Config(), library, client_returning(runner))
+
+    turn = conversation.ask("take me to the last page")
+
+    assert runner.tool_calls_run == 0
+    # And it stopped there, rather than going round again for the message after.
+    assert turn.reply == "I won't do that."
+    assert turn.move is None
+
+
+def test_a_refusal_leaves_a_conversation_that_can_still_be_asked(
+    library: Library,
+) -> None:
+    """What it said is kept; what it asked for is not kept beside it.
+
+    An assistant tool call with no result behind it is rejected by the API for
+    the rest of the conversation, which is the same 2am failure as a turn that
+    dies part-way — so refusing has to drop the call, not just decline to run
+    it.
+    """
+    conversation = Conversation(
+        Config(),
+        library,
+        client_returning(
+            FakeRunner(
+                [said(text("I won't do that."), tool_use(), stop_reason="refusal")]
+            ),
+            FakeRunner([said(text("Two hours in."))]),
+        ),
+    )
+    conversation.ask("take me to the last page")
+
+    kept = [
+        block
+        for message in conversation.messages
+        if message["role"] == "assistant"
+        for block in message["content"]
+    ]
+    assert [block.type for block in kept] == ["text"]
+    # And the conversation goes on, which is the point of the line above.
+    assert conversation.ask("how far?").reply == "Two hours in."
+
+
+def test_a_turn_cannot_go_round_the_model_for_ever(library: Library) -> None:
+    """A model that answers a tool's error with the same call never stops.
+
+    Nothing in the loop ends a turn except the model choosing to stop asking, so
+    a cap is the only thing that does. It is handed to the runner rather than
+    counted here, because the runner is what decides whether to go round again.
+    """
+    given: dict[str, Any] = {}
+
+    def tool_runner(**kwargs: Any) -> FakeRunner:
+        given.update(kwargs)
+        return FakeRunner([said(text("Black Beauty."))])
+
+    client = cast(
+        Anthropic,
+        SimpleNamespace(
+            beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner))
+        ),
+    )
+    Conversation(Config(), library, client).ask("what have I got?")
+
+    assert given["max_iterations"] == MAX_HOPS
+    assert MAX_HOPS > 0
+
+
 def test_a_sentence_written_before_a_tool_call_is_not_lost(library: Library) -> None:
     """The last message of a turn is often a bare tool call with no text.
 
@@ -221,8 +329,8 @@ def test_a_sentence_written_before_a_tool_call_is_not_lost(library: Library) -> 
         client_returning(
             FakeRunner(
                 [
-                    SimpleNamespace(content=[text("Taking you there.")]),
-                    SimpleNamespace(content=[tool_use()]),
+                    said(text("Taking you there.")),
+                    said(tool_use()),
                 ]
             )
         ),
@@ -242,7 +350,7 @@ def test_acting_without_speaking_answers_with_what_it_did(
         Config(),
         library_with_book,
         client_that_acts(
-            [SimpleNamespace(content=[])],
+            [said()],
             calls=[("move_to", {"gid": 271, "position_ms": 3_600_000})],
         ),
     )
@@ -261,7 +369,7 @@ def test_a_turn_that_moved_twice_reports_where_it_left_them(
         Config(),
         library_with_book,
         client_that_acts(
-            [SimpleNamespace(content=[text("You're at the fair.")])],
+            [said(text("You're at the fair."))],
             calls=[
                 ("move_to", {"gid": 271, "position_ms": 60_000}),
                 ("move_to", {"gid": 271, "position_ms": 3_600_000}),
@@ -282,9 +390,7 @@ def test_a_turn_that_moved_nothing_carries_no_move(library_with_book: Library) -
     conversation = Conversation(
         Config(),
         library_with_book,
-        client_returning(
-            FakeRunner([SimpleNamespace(content=[text("Two hours in.")])])
-        ),
+        client_returning(FakeRunner([said(text("Two hours in."))])),
     )
     assert conversation.ask("how far am I?").move is None
 
@@ -299,7 +405,7 @@ def test_a_search_is_never_used_as_the_answer(library_with_book: Library) -> Non
         Config(),
         library_with_book,
         client_that_acts(
-            [SimpleNamespace(content=[])],
+            [said()],
             calls=[("find_passage", {"gid": 271, "description": "the hunt"})],
         ),
     )
@@ -411,7 +517,7 @@ def test_a_turn_that_offered_hands_the_page_the_list_and_says_one_sentence(
         Config(),
         searchable.library,
         client_that_acts(
-            [SimpleNamespace(content=[])],
+            [said()],
             calls=[
                 (
                     "find_passage",
@@ -477,7 +583,7 @@ def client_recording_system(
         systems.append("".join(block["text"] for block in system))
         if blocks is not None:
             blocks.append(system)
-        return FakeRunner([SimpleNamespace(content=[text("Right you are.")])])
+        return FakeRunner([said(text("Right you are."))])
 
     fake = SimpleNamespace(
         beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner))
@@ -501,7 +607,7 @@ def client_recording_calls(
 
     def tool_runner(**kwargs: Any) -> FakeRunner:
         calls.append(kwargs)
-        return FakeRunner([SimpleNamespace(content=[text("Right you are.")])])
+        return FakeRunner([said(text("Right you are."))])
 
     def retrieve(model: str) -> Any:
         offered = {name: SimpleNamespace(supported=True) for name in levels.split()}
@@ -648,7 +754,7 @@ def test_a_model_we_cannot_ask_about_is_sent_no_effort_either(
 
     def tool_runner(**kwargs: Any) -> FakeRunner:
         calls.append(kwargs)
-        return FakeRunner([SimpleNamespace(content=[text("Right you are.")])])
+        return FakeRunner([said(text("Right you are."))])
 
     client = cast(
         Anthropic,
@@ -937,7 +1043,7 @@ def test_a_passage_found_answering_one_question_can_be_offered_in_the_next(
         searchable.library,
         client_that_acts_each(
             (
-                [SimpleNamespace(content=[text("There's one about the pond.")])],
+                [said(text("There's one about the pond."))],
                 [
                     (
                         "find_passage",
@@ -946,7 +1052,7 @@ def test_a_passage_found_answering_one_question_can_be_offered_in_the_next(
                 ],
             ),
             (
-                [SimpleNamespace(content=[])],
+                [said()],
                 [
                     (
                         "offer_positions",
@@ -979,7 +1085,7 @@ def test_the_last_questions_list_does_not_reappear_under_this_answer(
         searchable.library,
         client_that_acts_each(
             (
-                [SimpleNamespace(content=[])],
+                [said()],
                 [
                     (
                         "find_passage",
@@ -997,7 +1103,7 @@ def test_the_last_questions_list_does_not_reappear_under_this_answer(
                     ),
                 ],
             ),
-            ([SimpleNamespace(content=[text("Two hours in.")])], []),
+            ([said(text("Two hours in."))], []),
         ),
     )
     assert conversation.ask("the bit by the pond").candidates is not None
@@ -1019,7 +1125,7 @@ def test_a_turn_that_offered_twice_shows_only_the_last_list(
         Config(),
         searchable.library,
         client_that_acts(
-            [SimpleNamespace(content=[])],
+            [said()],
             calls=[
                 (
                     "find_passage",
@@ -1071,7 +1177,7 @@ def test_a_silent_turn_that_offered_answers_with_the_sentence_not_with_what_it_d
         Config(),
         searchable.library,
         client_that_acts(
-            [SimpleNamespace(content=[])],
+            [said()],
             calls=[
                 (
                     "find_passage",
@@ -1111,7 +1217,7 @@ def test_a_confident_single_hit_still_just_moves_the_book(
         Config(),
         searchable.library,
         client_that_acts(
-            [SimpleNamespace(content=[text("You're back by the pond.")])],
+            [said(text("You're back by the pond."))],
             calls=[
                 (
                     "find_passage",
@@ -1144,7 +1250,7 @@ def test_a_move_on_the_last_question_does_not_stop_a_list_on_this_one(
         searchable.library,
         client_that_acts_each(
             (
-                [SimpleNamespace(content=[text("You're back by the pond.")])],
+                [said(text("You're back by the pond."))],
                 [
                     (
                         "find_passage",
@@ -1154,7 +1260,7 @@ def test_a_move_on_the_last_question_does_not_stop_a_list_on_this_one(
                 ],
             ),
             (
-                [SimpleNamespace(content=[])],
+                [said()],
                 [
                     (
                         "offer_positions",
@@ -1326,7 +1432,7 @@ def test_a_question_that_tugged_at_the_book_still_leaves_it_where_it_was(
         Config(),
         searchable.library,
         client_that_acts(
-            [SimpleNamespace(content=[text("The horse shot after the hunt.")])],
+            [said(text("The horse shot after the hunt."))],
             calls=[
                 ("recall", {"gid": 271, "question": "Rob Roy was shot after the hunt"}),
                 ("move_to", {"gid": 271, "position_ms": 300_000}),
@@ -1352,7 +1458,7 @@ def test_a_recall_is_never_used_as_the_answer(searchable: Searchable) -> None:
         Config(),
         searchable.library,
         client_that_acts(
-            [SimpleNamespace(content=[])],
+            [said()],
             calls=[
                 ("recall", {"gid": 271, "question": "Rob Roy was shot after the hunt"})
             ],
@@ -1376,7 +1482,7 @@ def test_a_question_answered_now_does_not_stop_them_being_moved_next(
         searchable.library,
         client_that_acts_each(
             (
-                [SimpleNamespace(content=[text("The horse shot after the hunt.")])],
+                [said(text("The horse shot after the hunt."))],
                 [
                     (
                         "recall",
@@ -1385,7 +1491,7 @@ def test_a_question_answered_now_does_not_stop_them_being_moved_next(
                 ],
             ),
             (
-                [SimpleNamespace(content=[text("You're back at the hunt.")])],
+                [said(text("You're back at the hunt."))],
                 [
                     (
                         "find_passage",
@@ -1418,7 +1524,7 @@ def test_a_passage_only_a_recall_found_is_not_a_place_it_can_offer(
         searchable.library,
         client_that_acts_each(
             (
-                [SimpleNamespace(content=[text("The horse shot after the hunt.")])],
+                [said(text("The horse shot after the hunt."))],
                 [
                     (
                         "recall",
@@ -1427,7 +1533,7 @@ def test_a_passage_only_a_recall_found_is_not_a_place_it_can_offer(
                 ],
             ),
             (
-                [SimpleNamespace(content=[text("I couldn't find it.")])],
+                [said(text("I couldn't find it."))],
                 [
                     (
                         "offer_positions",

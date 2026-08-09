@@ -144,7 +144,21 @@ def parse_index(text: str) -> list[PgauEntry]:
 
 
 def fetch_index() -> str:
-    """Download the catalog. Under a megabyte, and it never changes now."""
+    """Download the catalog. Under a megabyte, and it never changes now.
+
+    Decoded as cp1252 rather than left to ``.text``. The file carries no charset
+    — no HTTP header and no meta tag — so httpx falls back to UTF-8, and the
+    bytes are not UTF-8: it is a Windows-authored page from the nineties, and
+    the accented names and dashes in it are single high bytes. Eleven entries
+    came through with U+FFFD in them, which is not a rendering blemish but a
+    different string — `Le Compte de Janz\xe9` was stored with a replacement
+    character where the é belongs, so searching for the author by either
+    spelling missed the book.
+
+    cp1252 and not latin-1, which is the reflex: 0x91-0x97 are undefined control
+    codes in latin-1 and are exactly what this file uses them for — curly quotes
+    and the en and em dashes in its titles.
+    """
     resp = httpx.get(PGAU_INDEX_URL, timeout=120, follow_redirects=True)
     resp.raise_for_status()
-    return resp.text
+    return resp.content.decode("cp1252")

@@ -904,3 +904,31 @@ def test_add_book_refuses_a_book_that_is_already_coming(fixture: Fixture) -> Non
     said = fixture.library.add_book(120)
     assert "already in the queue" in said
     assert fixture.conn.execute("SELECT COUNT(*) AS n FROM queue").fetchone()["n"] == 1
+
+
+def test_a_recall_does_not_pay_for_a_search_it_throws_away(
+    fixture: Fixture,
+) -> None:
+    """`better_ahead` costs a second search of the whole book, and recall drops it.
+
+    Not an optimisation for its own sake: recall drops the field deliberately
+    and says why at length — a question must not be followed by a nudge towards
+    somewhere further on, because that is a spoiler in itself. So the second
+    search was buying something the method exists to refuse to say, on the
+    screen where every second of the wait is felt.
+
+    A search is one embedded query, which is what is counted here.
+    """
+    # The fixture holds it as the protocol, and the counter is the fake's own.
+    counting = cast(FakeEmbedder, fixture.embedder)
+
+    counting.queries = 0
+    fixture.library.recall(271, "Rob Roy was shot after the hunt")
+    assert counting.queries == 1
+
+    # And a move still gets it, because "take me there" is the question the
+    # nudge is right for.
+    counting.queries = 0
+    search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    assert counting.queries == 2
+    assert search.searched_to_ms is not None

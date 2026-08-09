@@ -21,6 +21,7 @@ from .abs import AbsClient, tell_abs
 from .catalog import CatalogEntry, search_catalog
 from .config import Config
 from .embed import Embedder
+from .format import format_timestamp, shorten
 from .index import Passage, find_passage
 from .queue import QueueRow, submit, view
 
@@ -33,7 +34,6 @@ __all__ = [
     "Position",
     "Recall",
     "Refused",
-    "shorten",
 ]
 
 # How many places may go on one screen. Four is what somebody half awake can
@@ -352,7 +352,12 @@ class Library:
         return int(row["heard_to_ms"]) if row else 0
 
     def find_passage(
-        self, gid: int, query: str, k: int = 5, spoiler_free: bool = True
+        self,
+        gid: int,
+        query: str,
+        k: int = 5,
+        spoiler_free: bool = True,
+        look_ahead: bool = True,
     ) -> Search:
         """Search a book for a passage — an event, a character, a moment.
 
@@ -393,7 +398,17 @@ class Library:
             self._conn, self.embedder, gid, query, k=k, before_ms=before_ms
         )
         better_ahead: Passage | None = None
-        if before_ms is not None:
+        # `look_ahead` is what stops this being paid for by callers that throw
+        # it — and it is not called `ahead` because eight lines down `ahead` is the
+        # list of passages past the mark, and one name for a bool and a list of
+        # Passages is a trap set for whoever edits this next.
+        # away. Working it out means a second search of the whole book — another
+        # embedding of the query and another vector scan — and `recall` drops
+        # the answer on the way out, deliberately and at length: see its
+        # docstring for why a question must not be followed by a nudge towards
+        # somewhere further on. So it was buying a spoiler it then refused to
+        # tell anybody, twice a night, on the screen where seconds are felt.
+        if before_ms is not None and look_ahead:
             whole_book = find_passage(self._conn, self.embedder, gid, query, k=k)
             ahead = [p for p in whole_book if p.start_ms > before_ms]
             floor = hits[0].distance if hits else float("inf")
@@ -430,7 +445,9 @@ class Library:
         never widens, and a question about what has not happened yet is answered
         with the truth that it has not happened yet.
         """
-        search = self.find_passage(gid, question, k=k, spoiler_free=True)
+        search = self.find_passage(
+            gid, question, k=k, spoiler_free=True, look_ahead=False
+        )
         return Recall(passages=search.hits, searched_to_ms=search.searched_to_ms)
 
     def offer_positions(self, gid: int, chunk_ids: list[int]) -> Offer | Refused:
@@ -590,31 +607,3 @@ class Library:
                 (position_ms, gid),
             ).fetchone()
         return int(row["position_seq"]) if row is not None else None
-
-
-def shorten(text: str, limit: int) -> str:
-    """A passage cut to a length a row can hold, on a word boundary.
-
-    Public because the "you are here" row is cut by it too, from the other side
-    of the app: its words come back from ``/api/passage`` rather than down with
-    an offer, and a rule that only half the rows on one screen obeyed would show
-    up as the one row that can be longer than the screen.
-
-    The ellipsis goes on only when something was actually cut, so a row that
-    ends in one is telling the truth about there being more. There is never a
-    leading one: the words start where the passage starts, and a row that opened
-    with "…" would read as though the beginning had been withheld, which on a
-    screen built around withholding things is precisely the wrong suggestion.
-    """
-    if len(text) <= limit:
-        return text
-    cut = text[:limit].rsplit(" ", 1)[0].rstrip()
-    # A single word longer than the whole limit has no boundary to cut on, and
-    # an empty row says nothing at all — so fall back to cutting mid-word.
-    return f"{cut or text[:limit].rstrip()}…"
-
-
-def format_timestamp(ms: int) -> str:
-    """Global milliseconds as h:mm:ss — how a listener thinks about position."""
-    seconds = ms // 1000
-    return f"{seconds // 3600}:{seconds // 60 % 60:02d}:{seconds % 60:02d}"

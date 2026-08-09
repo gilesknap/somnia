@@ -190,14 +190,34 @@ def main(args: Sequence[str] | None = None) -> None:
                 "Something else is being rendered, so this one waits its"
                 " turn. Run `somnia queue` to see the line."
             )
-        elif rendered.state == "queued":
+            return
+        # Which book that was, because it is not always the one this command was
+        # asked about. `render_one` claims the head of the line and the book
+        # just submitted goes on the end of it, so anything already queued is
+        # rendered first — and every sentence below used to be printed about
+        # whichever book that turned out to be, under the id the person typed.
+        # Six hours of the wrong book, reported as theirs.
+        this_one = rendered.gid == ns.gid
+        book = "the book" if this_one else f"book {rendered.gid}, which was ahead of it"
+        if rendered.state == "queued":
             # Ctrl-C, or systemd stopping the session out from under it. Said
             # rather than logged because the person who pressed it is watching
             # a terminal and wants to know what it cost them.
             print(
-                "Stopped at the end of a chapter. Everything already rendered"
-                " is still there, and the book is back in the queue."
+                f"Stopped at the end of a chapter of {book}. Everything already"
+                " rendered is still there, and it is back in the queue."
             )
+        elif rendered.state == "done":
+            print(f"Rendered {book}.")
+        elif rendered.state == "failed":
+            # The sentence itself is on the row; `somnia queue` prints it. What
+            # belongs here is that it stopped and did not finish, which was said
+            # nowhere at all before — a failed render simply ended the command.
+            print(f"Could not render {book}. Run `somnia queue` for the reason.")
+        elif rendered.state == "cancelled":
+            print(f"Somebody stopped {book}.")
+        if not this_one:
+            print(f"Book {ns.gid} is still in the line. Run `somnia queue` to see it.")
     elif ns.command == "worker":
         from .worker import asked_to_stop, render_one, supervise  # noqa: PLC0415
 

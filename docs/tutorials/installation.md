@@ -2,7 +2,7 @@
 
 somnia has two halves and they have different appetites. The machine that
 **renders** books needs Kokoro, torch, ffmpeg and espeak-ng; the machine that
-**serves** them needs none of that. Most of the time they are the same VPS, and
+**serves** them needs none of that. Most of the time they are the same box, and
 that is what the installer assumes.
 
 You need Python 3.11, 3.12 or 3.13 — 3.14 is held back by pysbd, the sentence
@@ -23,9 +23,18 @@ same with anybody else's installer.
 
 It builds a virtual environment in `~/somnia-venv`, installs somnia and the CPU
 build of torch, writes a starter `~/somnia.env` with every setting commented out
-except the one that has no default, and pulls the Gutenberg catalog. Run it
-twice and nothing is harmed: an existing environment is reused, and an existing
-settings file is never touched.
+except the one that has no default, and pulls both book catalogs, Project
+Gutenberg and its Australian sibling. Run it twice and nothing is harmed: an
+existing environment is reused, and an existing settings file is never touched.
+
+```bash
+export PATH="$HOME/somnia-venv/bin:$PATH"   # or call ~/somnia-venv/bin/somnia in full
+```
+
+The installer prints this when it finishes, and nothing else does it for you:
+the environment is never activated, so until you do, `somnia` is not a command
+your shell knows. The other line it prints — `source ~/somnia.env` — is
+[Configure](#configure), below.
 
 It installs from `main` by default, not from the last release — this is the
 project's own box-builder, and the box it builds is expected to be ahead. Pass
@@ -76,10 +85,6 @@ before this project existed, by an unrelated AI-agent CLI, so `pip install
 somnia` gets you a stranger's package that will not answer to any command on
 this site. The extra name is the only thing that changed: `import somnia` and
 the `somnia` command are untouched.
-
-If pip answers *No matching distribution found for somnia-reader*, there is no
-release on PyPI for it to find — the first one may not have gone out yet. The
-repository has the code either way, and that is the next section.
 
 ## Ahead of the last release
 
@@ -143,8 +148,10 @@ somnia doctor
   ok    ANTHROPIC_API_KEY is set
   ok    catalog: 76421 books to search
   warn  no books added yet — try 'somnia add 271'
+  warn  no library directory at /home/you/library/audiobooks — 'somnia add' will create it
+  warn  nothing answering at http://127.0.0.1:8721 (only a problem if it should be running)
 
-0 failed, 1 warned
+0 failed, 3 warned
 ```
 
 It exits non-zero if anything failed, and it is worth running again after the

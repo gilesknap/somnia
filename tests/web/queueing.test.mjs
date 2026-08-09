@@ -1905,3 +1905,90 @@ test("the row it made says which voice, while it can still be undone", async (t)
     ["1st in line · george"],
   );
 });
+
+// ------------------------------------- what arrives after the panel has gone
+
+// Four requests on this panel could outlive it, and only the shelf had the
+// guard that says so. Over a tailnet, one press to ask and one to leave is an
+// ordinary thing to do inside the time an answer takes — and what the answer
+// then did was draw into a hidden panel, to be found at the next opening: a
+// list of books from a question nobody remembers asking, a queue from a
+// session that is over, a sentence about a press made last night.
+
+test("a search that answers after the panel closed draws nothing", async (t) => {
+  const page = await opened(t);
+  await workshop(page);
+  page.catalogEntries([entry()]);
+
+  page.el("queue-query").value = "treasure";
+  page.el("queue-search").fire("submit", { preventDefault() {} });
+  // The press that leaves, made while the search is still out.
+  page.click("workshop-close");
+  await page.settle();
+  await page.settle();
+
+  assert.equal(page.probe().workshopUp, false);
+  assert.deepEqual(results(page), []);
+});
+
+test("a queue poll that answers after the panel closed draws nothing", async (t) => {
+  const page = await opened(t);
+  page.queueView([job()]);
+  await workshop(page);
+  assert.equal(jobs(page).length, 1);
+
+  // The next poll goes out, and the press that leaves lands while it is still
+  // in flight. Closing stops the *scheduling*; this is the one already sent.
+  assert.equal(page.wake(POLL_MS), true);
+  page.click("workshop-close");
+  await page.settle();
+  await page.settle();
+
+  assert.equal(page.probe().workshopUp, false);
+  assert.equal(page.probe().queuePolling, false);
+  // Close empties the rows, and the answer that arrived after it must not put
+  // them back — they would be there at the next opening, from a session that
+  // is over.
+  assert.deepEqual(jobs(page), []);
+});
+
+test("a book added just before the panel closed is still a book that was added", async (t) => {
+  const page = await found(t);
+  await offerVoices(page, 120);
+  page.submitReply({ ok: true, said: "Treasure Island is next to be rendered." });
+
+  // The press that submits, and then the press that leaves, made while the
+  // submit is still out.
+  page.click("queue-confirm-120");
+  page.click("workshop-close");
+  await page.settle();
+  await page.settle();
+  await page.settle();
+
+  // The submit is the server's now, whatever this panel is doing — so the
+  // request went, and the guard is only about what is drawn.
+  assert.ok(page.submits.length, "the book was never submitted");
+  assert.equal(page.probe().workshopUp, false);
+  // And nothing was said into the closed panel. The sentence is about a press
+  // made on a screen that is gone; left there, it is the first thing read at
+  // the next opening, under a search nobody remembers running.
+  assert.equal(page.el("queue-said").textContent, "");
+});
+
+// A voice sample is the one sound this page makes that is not the book, and
+// nothing that quiets the book quiets it: it has its own element, no transport
+// anywhere, and no place in the media session. Press a pill and put the phone
+// in a pocket — or just let the screen lock — and a stranger went on reading
+// the same two lines out of a page nobody could see, with nothing to stop it.
+test("a voice sample does not go on reading into a pocket", async (t) => {
+  const page = await found(t);
+  await offerVoices(page, 120);
+  page.click("voice-120-bm_george");
+  assert.equal(page.sampling(), true);
+
+  page.document.visibilityState = "hidden";
+  page.document.fire("visibilitychange");
+  await page.settle();
+
+  assert.equal(page.sampling(), false);
+});

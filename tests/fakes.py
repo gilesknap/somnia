@@ -16,6 +16,10 @@ class FakeEmbedder:
 
     def __init__(self) -> None:
         self.axis_of: dict[str, int] = {}
+        # How many times a query was embedded, which is the cheap proxy for how
+        # many searches were run: one per search, and a search that is thrown
+        # away costs the same as one that is read.
+        self.queries = 0
 
     def _vec(self, text: str) -> Any:
         axis = self.axis_of.setdefault(text, len(self.axis_of))
@@ -27,6 +31,7 @@ class FakeEmbedder:
         return np.stack([self._vec(t) for t in texts])
 
     def encode_query(self, text: str) -> Any:
+        self.queries += 1
         return self._vec(text)
 
 

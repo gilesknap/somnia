@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .abs import AbsClient
-from .tools import format_timestamp
+from .format import format_timestamp
 
 __all__ = ["Seed", "seed_positions"]
 

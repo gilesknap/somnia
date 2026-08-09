@@ -17,6 +17,7 @@ vectors for embeddings.
 """
 
 import sqlite3
+import subprocess
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -24,7 +25,7 @@ from typing import Any, cast
 import pytest
 
 from fakes import FakeEmbedder
-from somnia import ingest
+from somnia import ingest, worker
 from somnia.audio import ChapterAudio
 from somnia.catalog import update_catalog
 from somnia.config import Config
@@ -609,3 +610,172 @@ def test_a_renderer_the_kernel_killed_says_which_signal_and_what_it_means(
     error = str(row["error"])
     assert "signal 9" in error
     assert "running out of memory" in error
+
+
+# ------------------------------------------- what a shutdown must not record
+
+
+@pytest.mark.usefixtures("gutenberg")
+def test_a_shutdown_while_a_chapter_encodes_puts_the_book_back(
+    conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A deploy is not a book that cannot be read.
+
+    ``should_stop`` is asked between sentences, so a shutdown is only *heard*
+    between sentences — and the longest thing a chapter does happens after the
+    last of them, in ffmpeg. Stopped there, the child is killed under the
+    encode and it comes back as an ordinary exception, which failed the book
+    and wrote a sentence against it. The book keeps its attempt and goes back
+    in the line, exactly as a shutdown heard at a sentence boundary does.
+    """
+    on = [False]
+
+    def killed_by_the_deploy(
+        self: ChapterAudio, out_path: Path, bitrate: str = "64k"
+    ) -> None:
+        on[0] = True
+        raise subprocess.CalledProcessError(-15, "ffmpeg")
+
+    monkeypatch.setattr(ChapterAudio, "encode", killed_by_the_deploy)
+    job = submit(conn, 271)
+
+    rendered = render(conn, tmp_path, stopping=lambda: on[0])
+
+    assert rendered is not None
+    assert rendered.state == "queued"
+    row = row_of(conn, job.id)
+    assert row["state"] == "queued"
+    # No sentence against it: nothing about this book was wrong.
+    assert row["error"] == ""
+    # And it keeps the attempt, which is what eventually stops a book that
+    # really cannot be rendered from being picked up all night.
+    assert row["attempts"] == 1
+
+
+@pytest.mark.usefixtures("gutenberg")
+def test_a_renderer_that_cannot_load_says_so_instead_of_holding_the_row(
+    conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Loading Kokoro is minutes of work and it fails in ordinary ways.
+
+    Built above the try, any of them left the row saying 'rendering' with no
+    process behind it and nothing to say why — a queue that looks busy until
+    the next worker start reconciles it, which on a box that renders overnight
+    is the rest of the night.
+    """
+    from somnia import tts
+
+    def wont_load(*args: object, **kwargs: object) -> Any:
+        raise RuntimeError("no such file: kokoro-v1_0.pth")
+
+    monkeypatch.setattr(tts, "KokoroEngine", wont_load)
+    job = submit(conn, 271)
+
+    rendered = render_one(
+        cfg(tmp_path),
+        conn,
+        embedder=cast(Embedder, FakeEmbedder()),
+        stopping=never,
+        beat_every_s=0,
+    )
+
+    assert rendered is not None
+    assert rendered.state == "failed"
+    row = row_of(conn, job.id)
+    assert row["state"] == "failed"
+    assert "kokoro-v1_0.pth" in str(row["error"])
+
+
+@pytest.mark.usefixtures("gutenberg")
+def test_the_claim_is_kept_alive_while_the_renderer_loads(
+    conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The one stretch of a render with no sentences in it.
+
+    ``claim`` stamps the heartbeat and nothing writes another until
+    ``ingest_book`` starts asking, so the model load and the fetch went by
+    unannounced — minutes, against a STEAL_S that assumes ten seconds. A worker
+    starting in that window read a dead render and took the book away.
+    """
+    submit(conn, 271)
+    # The order of things, rather than the age of the heartbeat. Time is what
+    # this is about and none of it passes here: `claim` stamps beat_at as it
+    # takes the row, so an assertion about how old it is would be answered by
+    # the claim itself no matter what came afterwards. What can be observed is
+    # whether anything beat at all before the first sentence.
+    happened: list[str] = []
+
+    class SaysWhenItRenders(SilentEngine):
+        def render(self, text: str) -> Any:
+            happened.append("sentence")
+            return super().render(text)
+
+    real_beat = worker.beat
+
+    def watched_beat(*args: Any, **kwargs: Any) -> Any:
+        happened.append("beat")
+        return real_beat(*args, **kwargs)
+
+    monkeypatch.setattr(worker, "beat", watched_beat)
+
+    render_one(
+        cfg(tmp_path),
+        conn,
+        engine=cast(TTSEngine, SaysWhenItRenders()),
+        # The real interval, not this file's usual 0. At ten minutes
+        # `should_stop` writes nothing for the length of this render, so a beat
+        # in the list can only be the one before the first sentence.
+        embedder=cast(Embedder, FakeEmbedder()),
+        stopping=never,
+        beat_every_s=600,
+    )
+
+    assert happened[0] == "beat", f"nothing beat before the first sentence: {happened}"
+
+
+@pytest.mark.usefixtures("gutenberg")
+def test_a_render_whose_job_was_taken_during_start_up_never_starts(
+    conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The beat before the first sentence has an answer, and it is worth reading.
+
+    Loading the model is minutes, and that is exactly the window in which
+    another worker decides this render is dead and takes the row. Beating
+    without looking at what came back meant the first thing this process
+    learned about losing the job was nothing at all: it went on to render a
+    book somebody else was already rendering, which is the one thing the lease
+    exists to make impossible.
+    """
+    submit(conn, 271)
+    stolen: list[str] = []
+
+    class TakesTheJobWhileItLoads(SilentEngine):
+        def __init__(self, voice: str = "af_heart") -> None:
+            # Another worker, arriving while this one builds its engine — which
+            # is the real window, and is why the engine has to be built inside
+            # render_one rather than handed to it.
+            with conn:
+                conn.execute("UPDATE queue SET lease = 'somebody-else' WHERE id = 1")
+            stolen.append("taken")
+
+        def render(self, text: str) -> Any:
+            stolen.append("rendered")
+            return super().render(text)
+
+    from somnia import tts
+
+    monkeypatch.setattr(tts, "KokoroEngine", TakesTheJobWhileItLoads)
+
+    rendered = render_one(
+        cfg(tmp_path),
+        conn,
+        embedder=cast(Embedder, FakeEmbedder()),
+        stopping=never,
+        beat_every_s=600,
+    )
+
+    assert rendered is not None
+    assert rendered.state == "lost"
+    # And not one sentence of it was rendered under a lease it did not hold.
+    assert stolen == ["taken"]
+    assert chapters_done(conn) == 0

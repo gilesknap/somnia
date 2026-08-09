@@ -4,8 +4,9 @@ The model's job is routing, disambiguation and phrasing, not retrieval — the
 tools do the work. What it may say used to be bounded by what a tool had handed
 it in this conversation; since ADR 6 it is bounded by how far the listener has
 listened instead, which is a line the tools compute and tell it about rather
-than one it has to remember. The model is Sonnet — see :mod:`somnia.config` for
-why it is not Haiku, and for the two settings that decide how long a turn takes.
+than one it has to remember. Which model answers is :mod:`somnia.config`'s to
+say — it has the measurements that chose the one it names — together with the
+two settings that decide how long a turn takes.
 
 Everything sent here is shaped around one number: a question asked in the dark
 is answered in a handful of seconds, and every one of them is felt. So the
@@ -25,8 +26,9 @@ from anthropic.types.beta import BetaOutputConfigParam, BetaTextBlockParam
 
 from .abs import AbsClient
 from .config import Config
+from .format import format_timestamp
 from .queue import QueueRow
-from .tools import Library, Moved, Offer, Refused, format_timestamp
+from .tools import Library, Moved, Offer, Refused
 
 __all__ = [
     "OFFER_SENTENCE",
@@ -54,6 +56,24 @@ _EFFORT_LOCK = threading.Lock()
 # quoted in the prompt so the model says it, and used verbatim when the model
 # offers and then says nothing at all.
 OFFER_SENTENCE = "There are a few places that could be it."
+
+# How many times round the runner one question may go before the turn is taken
+# away from it.
+#
+# Without a cap there is none: the runner stops when a message asks for no tool,
+# and a model that reads a tool's error and answers it with the same call never
+# writes one. That is not a hypothetical shape — `move_to` refuses a move past
+# the guard by returning a sentence, and a search that finds nothing returns a
+# sentence too, so a turn that keeps rephrasing the same failing call is the
+# ordinary failure here and it bills for every hop of it at 2am with nothing on
+# the screen.
+#
+# Eight because the longest turn the tools can honestly need is short: find the
+# book, search it, look at what came back, move, and say so. Four hops with room
+# for a second thought. Running out is not an error path of its own — the loop
+# simply ends, and the turn answers with what it did, which is the same fallback
+# a turn that acted and then said nothing already takes.
+MAX_HOPS = 8
 
 # Interpolated rather than typed out again below: the sentence the model is told
 # to say and the sentence said on its behalf when it says nothing have to be the
@@ -813,10 +833,41 @@ class Conversation:
             tools=self._tools,
             messages=turn,
             output_config=effort_for(self._client, self._cfg),
+            max_iterations=MAX_HOPS,
         )
 
         reply = ""
         for message in runner:
+            # A refused turn is over, and nothing it asked for happens.
+            #
+            # The runner says this itself, and says why — executing the tool_use
+            # blocks of a refusal fires side effects the model never confirmed —
+            # but it says it *after* the yield, and this loop calls the tools at
+            # the yield. So the guard was being read one statement too late: by
+            # the time the runner decided not to run anything, `move_to` had
+            # already written a position and bumped the seq, and the page had
+            # taken a jump the model refused to make and then said nothing
+            # about.
+            #
+            # Only `refusal`, which is the runner's own list. `max_tokens` is the
+            # other terminal stop and is deliberately not here: a call that
+            # completed before the cap was reached is one the model meant, and
+            # one truncated by it fails on its own arguments rather than quietly
+            # doing the wrong thing.
+            if message.stop_reason == "refusal":
+                logger.warning("turn was refused; its tool calls are not run")
+                # What it said is kept and what it asked for is dropped, block
+                # by block. Keeping the tool_use would leave an assistant call
+                # with no result behind it, and this method's docstring is about
+                # what that costs: every later question in the conversation is
+                # rejected, which at 2am is an app that has stopped working.
+                spoken = [b for b in message.content if b.type != "tool_use"]
+                if spoken:
+                    turn.append({"role": "assistant", "content": spoken})
+                refusal = "".join(b.text for b in spoken if b.type == "text").strip()
+                if refusal:
+                    reply = refusal
+                break
             turn.append({"role": "assistant", "content": message.content})
             tool_response = runner.generate_tool_call_response()
             if tool_response is not None:
