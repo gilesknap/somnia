@@ -12,13 +12,15 @@ exactly which span of audio each sentence occupies — so the text/audio index i
 free, and a question at 2am can be answered with a timestamp rather than a
 guess.
 
-Three things run, and they share one sqlite file and one folder of audio:
+Three things run, and they share one sqlite file and the audio on disk:
 
 - **the renderer** (`somnia worker`) — a supervisor that takes one book at a
   time off the queue and spawns a child to turn a Gutenberg id into per-chapter
   m4a files plus a semantic index, streaming chapter by chapter
-- **the server** (`somnia serve`) — serves the page, the audio, and the agent
-- **the page** (the installed PWA) — plays the book and carries the conversation
+- **the server** (`somnia serve`) — serves the page, the audio, the catalog,
+  the queue and the agent
+- **the page** (the installed PWA) — plays the book, picks the next one, and
+  carries the conversation
 
 The renderer is a separate unit from the server on purpose, and
 [ADR 5](decisions/0005-render-one-book-at-a-time.md) has the argument:
@@ -65,21 +67,21 @@ flowchart TB
   ingest -.->|"rescan, chapter marks"| abs
 ```
 
-The dotted edges are the ones nothing waits on. Audiobookshelf is **written to
-and, while a night is running, never read** — it is somewhere else the book
-might be opened, not the record of anything, and a write that fails is logged
-and forgotten. The single exception is `somnia seed-positions`, which reads it
-once by hand before the first night and never again. The agent's edge is dotted
-for a different reason: asking for a book writes a queue row and nothing else,
-so the answer comes back at once and the render happens in another process
-entirely, minutes or hours later. That is how a book gets added at 2am without
-anything waiting for it — and how two books asked for a minute apart cannot
-both be rendering, because the worker claims one at a time and the claim is a
-single guarded UPDATE.
+The dotted edges are the ones the page never waits on. Audiobookshelf is
+**written to and, while a night is running, never read** — it is somewhere else
+the book might be opened, not the record of anything, and a write that fails is
+logged and forgotten. The single exception is `somnia seed-positions`, which
+reads it once by hand before the first night and never again. Asking for a
+book — from the panel or by voice — writes a queue row and nothing else, so the
+answer comes back at once and the render happens in the other unit entirely,
+minutes or hours later. That is how a book gets added at 2am without anything
+waiting for it — and how two books asked for a minute apart cannot both be
+rendering, because the worker claims one at a time and the claim is a single
+guarded UPDATE.
 
 There is no login anywhere. Reachability *is* the authentication: the server
-binds to localhost, and only `tailscale serve` can reach the port. The VPS
-joins the tailnet tagged `tag:vps` and the ACL never lists that tag as a
+binds to localhost, and only `tailscale serve` can reach the port. The box it
+runs on joins the tailnet **tagged**, and the ACL never lists that tag as a
 source, so it can be reached by personal devices and can never initiate a
 connection into the tailnet.
 
@@ -92,7 +94,7 @@ never what a decoder reports: summing durations off the files drifts tens of
 milliseconds a chapter and is a second out by chapter forty.
 
 The page converts between that clock and the clock of whatever the audio element
-is actually holding, in three small functions, and that is the only place the
+is actually holding, in four small functions, and that is the only place the
 split exists. When the element holds the whole book joined into one file — the
 ordinary case, and the reason a chapter boundary no longer takes the lock screen
 down ([ADR 7](decisions/0007-cross-a-chapter-without-letting-go.md)) — the
@@ -104,11 +106,18 @@ it.
 
 ## Making a book
 
-Asking for a book writes a row into `queue` and returns. The worker claims the
-oldest waiting row — while nothing else holds a live lease — and spawns a child
-that streams it: each chapter is written into the library folder and indexed
-the moment it finishes, so listening can start minutes after picking a book
-while the rest arrives overnight.
+Asking for a book writes a row into `queue` and returns.
+
+Two things ask. The agent, in a sentence, when somebody says a title out loud;
+and the page's own panel, which searches the catalog on disk, offers a voice,
+and posts a gid. Both end in the same `queue.submit` and both get the same
+sentence back, so the page and the voice cannot disagree about what just
+happened.
+
+The worker claims the oldest waiting row — while nothing else holds a live
+lease — and spawns a child that streams it: each chapter is written into the
+library folder and indexed the moment it finishes, so listening can start
+minutes after picking a book while the rest arrives overnight.
 
 ```mermaid
 flowchart TD
@@ -237,12 +246,12 @@ check that two presses a millisecond apart would both pass.
 
 A book is a few thousand windows, so brute-force exact nearest-neighbour search
 is milliseconds. No database server, no shared infrastructure. The file is in
-WAL mode because several writers exist — an agent turn, the player, the worker,
-and a render running in another process entirely — and a reader must never
-block on any of them. That the render is in another process is also why the
-queue lives in this file rather than in a lock file or a socket: sqlite is the
-one thing every process in somnia already shares, so a render's progress and
-the request to stop it need no channel of their own.
+WAL mode because several writers exist — an agent turn, the player, the queue
+panel, the worker, and a render running in another process entirely — and a
+reader must never block on any of them. That the render is in another process
+is also why the queue lives in this file rather than in a lock file or a
+socket: sqlite is the one thing every process in somnia already shares, so a
+render's progress and the request to stop it need no channel of their own.
 
 `chunks` earns a second job it was not designed for: because its rows are
 overlapping windows taken every second sentence, a window start is always a
@@ -257,6 +266,11 @@ behind it — a dead player while a question is being answered is exactly the
 moment the phone gets put down. So `Player` has its own sqlite connection, its
 own lock and its own ABS client, and shares nothing with a conversation but the
 file on disk.
+
+The queue panel is a third lane in the same shape, and it is the same argument a
+second time: a submit button that sits there for twenty seconds because somebody
+happened to ask a question is exactly the dead control this arrangement exists
+to refuse.
 
 ```mermaid
 sequenceDiagram
@@ -304,11 +318,9 @@ that comes back is also where to go instead. That is why a refusal is a 200
 with a body rather than a 409: the last report of the night is a `sendBeacon`,
 and a beacon can read nothing else.
 
-Only the player and an agent move may write those four columns. Ingest upserts
-the `books` row and updates only what a render knows — title, authors, voice,
-and that it is running. The one other writer is `somnia seed-positions`, which
-runs once by hand, before any page is open, to bring a position across from
-Audiobookshelf; it never lowers one.
+Only the player and an agent move may write those four columns; what ingest may
+touch, and the one-off `somnia seed-positions` that never lowers a position, are
+in [design.md](design.md).
 
 ## How far a question may see
 
@@ -335,12 +347,8 @@ a ceiling on the claim, not the answer to it: a phone asleep in a pocket for
 eight hours banks eight hours of clock and no listening at all. Because the
 playback appears on both sides of the comparison, the slack *is* the largest
 jump that can be laundered as listening — which is why it sits well below
-thirty seconds, the smallest forward jump the page has a button for.
-Two costs are accepted. After a skip forward the mark stops until they go back
-over it, and a book nobody has played is bounded at its start rather than left
-unbounded — so on night one the agent has to say the passage is further on than
-they have got. Failing that way costs a question in the dark; failing the other
-way costs them the book.
+thirty seconds, the smallest forward jump the page has a button for. Two costs
+are accepted, and [design.md](design.md) argues both.
 
 The mark bounds what is *said* as well as what is searched, and those are two
 different distances. The agent may answer a question about a book out of what it
@@ -348,9 +356,8 @@ already knows of it, as far as that line and no further
 ([ADR 6](decisions/0006-answer-a-question-about-the-book.md)); `allow_spoilers`
 lets it read past the line to pick the right place to send somebody, and never
 lets it describe what it read. The question tool, `recall`, is bounded by the
-same code as a search, has no `allow_spoilers`, reports nothing about a closer
-match lying ahead, and marks the turn so that `move_to` and `offer_positions`
-refuse — a question must not cost the listener their place.
+same code as a search and marks the turn so that `move_to` and
+`offer_positions` refuse — a question must not cost the listener their place.
 
 ## What the page has to survive
 
@@ -362,7 +369,7 @@ also says what is happening on the status line.
 | What happens | What the page does |
 |---|---|
 | The book grows while it is playing | Re-asks for the manifest while `status` is `rendering` — when the audio runs out, and when the app comes back in front of them — backing off from 5s to a minute. Only the timeline is adopted; the position in the answer is its own report come back late. |
-| The tailnet drops for a few seconds | Reassigns `src` to reload the chapter *from where they had got to*, on a ladder from 2s to 30s. Every route to a reload uses that ladder, including a stall that never raises an error. It stops entirely when they were the ones who stopped it. |
+| The tailnet drops for a few seconds | Reassigns `src` to reload whatever it is holding — the joined book, or a chapter in the fallback — *from where they had got to*, on a ladder from 2s to 30s. Every route to a reload uses that ladder, including a stall that never raises an error. It stops entirely when they were the ones who stopped it. |
 | The page is discarded | The conversation is meant to die — it is keyed in `sessionStorage`. An armed sleep timer is not, so it is written to `localStorage` as it counts down and restored with the minutes it had left, unless it is more than six hours old. |
 
 Most of the transport is not on the page at all. With the screen off the book
@@ -380,7 +387,9 @@ fling them past the spoiler guard into the ending.
 | `pgau` | Project Gutenberg Australia's plain-text index, and the offset ids that keep it out of Gutenberg's way |
 | `gutenberg` | Fetch the HTML edition, parse it into chapters of paragraphs |
 | `segment` | Sentences (pysbd), and the overlapping windows the index is built from |
+| `announce` | The line a chapter opens with, built from the heading rather than being it |
 | `tts` | The `TTSEngine` protocol, and Kokoro-82M behind it |
+| `voices` | The six voices a book may be read in, kept out of `tts` so the process answering the page need not import torch |
 | `audio` | Accumulate a chapter's samples, track the clock, encode via ffmpeg |
 | `embed` | e5-small-v2, with the asymmetric `query:` / `passage:` prefixes |
 | `index` | Store chunk embeddings; search one book, optionally bounded |
@@ -391,8 +400,11 @@ fling them past the spoiler guard into the ending.
 | `tools` | Everything the agent can do, as a plain library with no Anthropic import |
 | `agent` | The system prompt and the tool-runner loop |
 | `player` | The fast lane: manifest, audio files, position reports |
+| `stream` | The chapters joined into one file per version, so a boundary touches nothing |
 | `server` | Starlette routes, conversation storage, the mounted page |
 | `abs` | The Audiobookshelf client — a courtesy write and one seed-time read |
+| `config` | Where everything is and what it is set to, from the environment |
+| `seed` | The one-off read of Audiobookshelf, before the first night |
 | `web/` | The PWA: `index.html`, `app.js`, `sw.js`, the manifest and icons |
 
 ## The HTTP surface
@@ -401,20 +413,15 @@ Everything the page fetches sits under `/api/`, which is not cosmetic: it is
 how the service worker knows what never to cache, and it keeps these routes
 ahead of the static mount that would otherwise swallow them.
 
-| Route | Lane | What it is for |
-|---|---|---|
-| `POST /api/ask` | agent | One turn of the conversation; may carry a `move` |
-| `POST /api/forget` | agent | Start over — the model has the wrong end of a mumbled question |
-| `GET /api/health` | — | `{"ok": true}` |
-| `GET /api/books` | player | Every book, most recently listened to first, plus `last_gid` |
-| `GET /api/book/{gid}` | player | The manifest: timeline, position, `heard_to_ms`, in one round trip |
-| `POST /api/book/{gid}/open` | player | Make this the book a cold launch opens — one column, nothing else |
-| `GET /api/audio/{gid}/{idx}` | player | One chapter's m4a. Range, `If-Range` and 416 are Starlette's own |
-| `GET /api/sentence/{gid}/{ms}` | player | Where the sentence at a point began, for the long rewind |
-| `POST /api/position` | player | The page's report; always 200, accepted or refused |
-| `/` | — | The page itself, served straight off the installed package |
+Which lane a route belongs to is the same split as everywhere else: `/api/ask`
+and `/api/forget` are the agent's, the manifest, the audio and the position
+reports are the player's, and the catalog, the voices and the queue are the
+third's. What each one answers is in [the HTTP reference](../reference/http.md);
+`/` is the page itself, served straight off the installed package.
 
-A chapter request names a book and an index, never a path — the file comes from
-the `chapters` row, and is refused if it resolves outside the library
-directory. That is the whole traversal defence, and it has to be, because the
-server has no auth by design.
+A chapter or a stream is named by a book and a number, never by a path. A
+chapter's file comes from its `chapters` row and is refused if it resolves
+outside the library directory; a stream's name is two integers under the data
+directory, and it is built only from chapters that passed that same check. That
+is the whole traversal defence, and it has to be, because the server has no auth
+by design.
