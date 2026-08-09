@@ -158,7 +158,10 @@ def test_the_index_is_read_as_the_windows_page_it_is(
         def raise_for_status() -> None:
             return None
 
-    monkeypatch.setattr(pgau.httpx, "get", lambda *a, **k: Answered())
+    def answered(*args: object, **kwargs: object) -> Answered:
+        return Answered()
+
+    monkeypatch.setattr(pgau.httpx, "get", answered)
 
     text = pgau.fetch_index()
 
