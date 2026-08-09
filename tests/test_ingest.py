@@ -98,6 +98,9 @@ def test_publish_chapters_waits_for_the_scan_to_catch_up(
         REL_PATH,
         549425,
         timeout_s=10,
+        # The waiting is not what is under test — the asking again is — and at
+        # the real two seconds this one test spent four of them.
+        poll_s=0,
     )
     assert abs_client.finds == 3
     assert abs_client.pushed is not None

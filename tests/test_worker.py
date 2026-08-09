@@ -167,6 +167,11 @@ def crashes(conn: sqlite3.Connection, job: Claim, lease: str, pid: int) -> Child
     return Child(pid=pid, code=1)
 
 
+def killed(conn: sqlite3.Connection, job: Claim, lease: str, pid: int) -> Child:
+    """A child the kernel took: `wait` reports a negative code, not an exit."""
+    return Child(pid=pid, code=-9)
+
+
 class Rounds:
     """A ``stopping`` for a supervisor that must not run all night."""
 
@@ -752,3 +757,25 @@ def test_a_render_whose_job_was_taken_during_start_up_never_starts(
     # And not one sentence of it was rendered under a lease it did not hold.
     assert stolen == ["taken"]
     assert chapters_done(conn) == 0
+
+
+def test_a_renderer_the_kernel_killed_says_which_signal_and_what_it_means(
+    conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """Which on this box is the OOM killer, and is the likeliest way a render dies.
+
+    A negative code from `wait` is a signal rather than an exit, and the
+    supervisor has a sentence for exactly that — it names the signal and says
+    what it usually means, because "the renderer was killed by signal 9" on its
+    own tells somebody at 2am nothing they can act on. Nothing ran that branch.
+    """
+    job = submit(conn, 271)
+    children = FakeChildren(conn, killed)
+
+    supervise(cfg(tmp_path), conn, spawn=children, stopping=Rounds(2), idle_s=0)
+
+    row = row_of(conn, job.id)
+    assert row["state"] == "failed"
+    error = str(row["error"])
+    assert "signal 9" in error
+    assert "running out of memory" in error

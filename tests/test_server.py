@@ -1,24 +1,24 @@
-import asyncio
 import shutil
 import subprocess
 import sys
-import threading
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from anthropic import Anthropic
 from starlette.testclient import TestClient
 
 from conftest import ToneBook
-from fakes import RecordingAbs
+from fakes import FakeEmbedder, RecordingAbs
 from mp4 import duration_ms, payload
 from somnia import server
 from somnia.agent import OFFER_SENTENCE, Turn, open_library
 from somnia.catalog import update_catalog
 from somnia.config import Config
 from somnia.db import connect
+from somnia.embed import Embedder
 from somnia.queue import claim, finish
 from somnia.tools import Library, Moved, Offer
 from tone_book import CHAPTERS, GID, TOTAL_MS
@@ -123,9 +123,20 @@ def book_row(tone_book: ToneBook) -> dict[str, Any]:
     return dict(row)
 
 
+def no_warm_up(self: server.Conversations) -> None:
+    """Startup's one slow step, stood down.
+
+    It asks the API whether this model takes an effort level and builds the
+    embedder — a live call and a torch import, neither of which belongs in a
+    test suite. What it actually does has its own test below.
+    """
+    return None
+
+
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(server, "Conversation", FakeConversation)
+    monkeypatch.setattr(server.Conversations, "warm", no_warm_up)
     cfg = Config(data_dir=tmp_path)
     conn = connect(cfg.db_path, cross_thread=True)
     try:
@@ -146,6 +157,7 @@ def tone_client(
 ) -> Iterator[TestClient]:
     """A server with a book that is really audio behind it."""
     monkeypatch.setattr(server, "Conversation", FakeConversation)
+    monkeypatch.setattr(server.Conversations, "warm", no_warm_up)
     with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
         yield client
 
@@ -1626,6 +1638,68 @@ def test_the_new_routes_are_under_api_like_everything_the_page_fetches(
         assert "json" not in fell_through.headers.get("content-type", "")
 
 
+def test_the_warm_up_asks_the_api_once_and_builds_the_embedder(
+    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The one thing startup does, and nothing exercised it.
+
+    Both fixtures above stub it out, which is right — a test suite must not make
+    live API calls or load torch — but stubbing it everywhere left the method
+    itself unrun. It does two slow things so that the first question of the
+    night does not: asks whether this model takes an effort level, and builds
+    the embedder. Both are observable, and neither was observed.
+    """
+    from somnia.agent import forget_model_capabilities
+
+    forget_model_capabilities()
+    asked: list[str] = []
+
+    class RecordingModels:
+        @staticmethod
+        def retrieve(model: str) -> Any:
+            asked.append(model)
+            # No dial, which is the shape Haiku answers with and the branch the
+            # default configuration takes.
+            return SimpleNamespace(capabilities=None)
+
+    # Conversations builds its own client, so the class is what has to be stood
+    # in for — which is also the assertion that no real one is ever made here.
+    def fake_client(**kwargs: object) -> Anthropic:
+        return cast(Anthropic, SimpleNamespace(models=RecordingModels()))
+
+    monkeypatch.setattr(server, "Anthropic", fake_client)
+    library = Library(
+        tone_book.cfg, tone_book.conn, embedder=cast(Embedder, FakeEmbedder())
+    )
+    conversations = server.Conversations(tone_book.cfg, library)
+
+    conversations.warm()
+
+    assert asked == [tone_book.cfg.agent_model]
+    # And the embedder is built rather than waiting for the first search, which
+    # on nuc2 is twelve seconds inside a turn.
+    assert library.embedder is not None
+    forget_model_capabilities()
+
+
+def test_the_background_audio_spike_is_still_served(
+    tone_client: TestClient,
+) -> None:
+    """It is reachable, and nothing said so.
+
+    `spike-background-audio.html` is 900 lines of the experiment that decided
+    how this page keeps sound going with the screen off, and it is served — by
+    an implicit StaticFiles mount rather than by a route anybody wrote, which is
+    the part worth pinning. It is kept because it is the only place the
+    behaviour can be tried in isolation when the real page stops doing it; a
+    file that had quietly stopped being served would be found out at exactly the
+    wrong moment.
+    """
+    response = tone_client.get("/spike-background-audio.html")
+    assert response.status_code == 200
+    assert "audio" in response.text
+
+
 def test_starting_the_server_starts_nothing_of_its_own(
     tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1637,23 +1711,40 @@ def test_starting_the_server_starts_nothing_of_its_own(
     ``TestClient`` as fast as they are, so it is worth catching here rather
     than in a stopwatch.
     """
-    threads: list[threading.Thread] = []
     processes: list[Any] = []
+    warmed: list[bool] = []
 
     def spawned(*args: Any, **kwargs: Any) -> None:
         processes.append(args)
 
-    monkeypatch.setattr(threading.Thread, "start", threads.append)
+    # The renderer's two shapes: a child process, and the model it would load.
+    # `threading.Thread.start` used to be stubbed here as well, which is what
+    # made the thread half of this test unable to fail — the assertion was that
+    # nothing started, against a stub that made starting impossible. It is gone,
+    # and what stands in its place is the one thread this app really does start:
+    # the warm-up, recorded rather than run, so that the test says what it does
+    # instead of pretending it does not happen.
     monkeypatch.setattr(subprocess, "Popen", spawned)
 
-    app = server.create_app(tone_book.cfg, tone_book.conn)
+    def record_warm_up(self: server.Conversations) -> None:
+        warmed.append(True)
 
-    async def start_and_stop() -> None:
-        async with app.router.lifespan_context(app):
-            pass
+    monkeypatch.setattr(server.Conversations, "warm", record_warm_up)
+    monkeypatch.setattr(server, "Conversation", FakeConversation)
 
-    asyncio.run(start_and_stop())
-    assert (threads, processes) == ([], [])
+    # Through TestClient, which really runs the startup task — the lifespan
+    # driven by hand went up and down before the threadpool had scheduled
+    # anything, so nothing it started could have been observed either.
+    with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as started:
+        # One request, so the loop gets a turn and the startup task it created
+        # actually runs. Without it the app goes up and down inside one tick and
+        # cancels the warm-up before the threadpool has scheduled it — which is
+        # true of the real server too, and is only ever a deploy restarting
+        # inside a second.
+        assert started.get("/api/health").status_code == 200
+
+    assert processes == []
+    assert warmed == [True]
     assert "torch" not in sys.modules
 
 
