@@ -453,3 +453,45 @@ test("a press on settings does not start a book that is waiting for a touch", as
   await page.settle();
   assert.equal(page.audio.paused, false);
 });
+
+// The instruction and the thing it describes, which used to be able to
+// disagree. The sentence was written where the listener was armed and taken
+// down nowhere at all, so a tap started the book and left "tap anywhere to
+// carry on" standing over it — on the one line that holds sentences which do
+// not clear themselves, so it stayed for the rest of the night.
+test("the instruction to tap goes when the tap happens", async (t) => {
+  const page = await boot(t, { lastGid: HALF_HEARD.gid });
+  page.audio.ready(1800);
+  page.audio.refuse = "NotAllowedError";
+  page.click("playpause");
+  await page.settle();
+  assert.equal(page.probe().status, "tap anywhere to carry on");
+
+  page.audio.refuse = null;
+  page.document.fire("pointerdown");
+  await page.settle();
+
+  assert.equal(page.audio.paused, false);
+  assert.equal(page.probe().status, "");
+});
+
+// And the other way out of it: something took the listener away, so the
+// instruction is no longer true either.
+test("the instruction to tap goes when the listener is taken away", async (t) => {
+  const page = await boot(t, { lastGid: HALF_HEARD.gid });
+  page.audio.ready(1800);
+  page.audio.refuse = "NotAllowedError";
+  page.click("playpause");
+  await page.settle();
+  assert.equal(page.probe().status, "tap anywhere to carry on");
+
+  page.click("to-settings");
+  await page.settle();
+  assert.equal(page.probe().status, "");
+
+  // Handed back on the way out, sentence and all, because by then it is true
+  // again — which is the invariant the two halves have to keep together.
+  page.click("settings-close");
+  await page.settle();
+  assert.equal(page.probe().status, "tap anywhere to carry on");
+});

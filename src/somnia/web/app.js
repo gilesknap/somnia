@@ -1422,6 +1422,13 @@ function ensurePlaying({ rewind = false } = {}) {
 }
 
 function pauseHere() {
+  // Nothing to swallow if it is already paused. `weArePausing` exists to make
+  // the next `pause` event ours rather than the platform's, and `pause()` on a
+  // paused element fires no event at all — so the flag was raised and left
+  // standing, waiting for an event that never came. The next pause the platform
+  // really did make — a call arriving, the headset, audio focus lost — was then
+  // read as this page's own doing and went unhandled.
+  if (player.paused) return;
   weArePausing = true;
   player.pause();
 }
@@ -2014,11 +2021,30 @@ wakeKeep.addEventListener("click", () => {
 // puts it back afterwards, because by then it is true again.
 let tapToResume = null;
 
+// Written once, so that arming and clearing cannot come to disagree about what
+// the line says. They did: the sentence was set here and taken down nowhere at
+// all, so it outlived the thing it describes. Tap, the book starts, and the
+// page goes on asking to be tapped — under a book that is already playing, for
+// the rest of the night or until something else happened to write over #status.
+// It is the one line that holds sentences which have to stand, so nothing
+// clears it on a timer.
+const TAP_TO_RESUME = "tap anywhere to carry on";
+
+// Only if the line still says it. #status is shared, and between arming and
+// this something else may have written a sentence of its own there — blanking
+// that would take away a line this knows nothing about.
+function clearTapToResume() {
+  if (statusLine.textContent === TAP_TO_RESUME) setStatus("");
+}
+
 function armTapToResume() {
   if (tapToResume) return;
-  setStatus("tap anywhere to carry on");
+  setStatus(TAP_TO_RESUME);
   tapToResume = () => {
     tapToResume = null;
+    // Before ensurePlaying, not after: that call writes its own sentences on
+    // this line when it fails, and clearing afterwards would rub one out.
+    clearTapToResume();
     ensurePlaying();
   };
   document.addEventListener("pointerdown", tapToResume, { once: true });
@@ -2028,6 +2054,10 @@ function disarmTapToResume() {
   if (!tapToResume) return;
   document.removeEventListener("pointerdown", tapToResume);
   tapToResume = null;
+  // The instruction goes with the listener it describes. Both places that
+  // borrow the listener — the candidate list and Workshop — put it back
+  // afterwards, and arming writes the sentence again.
+  clearTapToResume();
 }
 
 function onPlayRejected(error) {
@@ -3756,6 +3786,13 @@ document.addEventListener("visibilitychange", () => {
     // Nobody is looking at the books panel either, and a poll in a pocket is
     // both throttled to uselessness and a radio wake beside somebody asleep.
     stopQueuePoll();
+    // And nobody is listening to a voice sample. It is an <audio> of its own,
+    // so nothing that quiets the book quiets it: press a pill, put the phone in
+    // a pocket or let the screen lock, and a stranger goes on reading the same
+    // two lines out of a page nobody can see — with no transport anywhere to
+    // stop it, because it is not the book. `closeVoices` for the whole picker
+    // rather than a bare pause, which is what leaving this screen already does.
+    closeVoices();
     return;
   }
   // Back in front of them, and the phone may have been asleep for hours.
@@ -4918,6 +4955,13 @@ async function pollQueue() {
     const response = await fetch("api/queue");
     if (!response.ok) throw new Error("no queue");
     const body = await response.json();
+    // Workshop may have gone while this was in flight, which over a tailnet is
+    // an ordinary thing for it to do. The shelf has held this guard since it
+    // was written — see askForTheShelf — and the four functions on this panel
+    // did not, so an answer that arrived after close drew rows into a hidden
+    // panel and scheduled the next poll from a screen nobody was on. What the
+    // reader saw at the next opening was a queue from a session that was over.
+    if (workshop.hidden) return;
     queueRows = body.items || [];
     queueNote.textContent = "";
     drawQueue();
@@ -4927,6 +4971,7 @@ async function pollQueue() {
     // empty queue and an unreachable server look identical and mean opposite
     // things, and only one of them is a reason to go to sleep.
     console.error(error);
+    if (workshop.hidden) return;
     queueNote.textContent = "couldn't reach somnia";
   }
   scheduleQueuePoll();
@@ -4985,9 +5030,13 @@ async function askToStop(id) {
     // is answered 404 with the same shape, and the sentence is the point of
     // both.
     const body = await response.json();
+    // The stop landed either way — it is the server's now — but the sentence
+    // about it belongs to a panel that may have gone.
+    if (workshop.hidden) return;
     queueSaid.textContent = body.said || "";
   } catch (error) {
     console.error(error);
+    if (workshop.hidden) return;
     queueSaid.textContent = "couldn't reach somnia — nothing has been stopped";
     return;
   }
@@ -5011,11 +5060,16 @@ async function findBooks() {
     const response = await fetch(`api/catalog?q=${encodeURIComponent(wanted)}`);
     if (!response.ok) throw new Error("no catalog");
     const body = await response.json();
+    // Closed while the search was out. Drawing here would put a list of books
+    // into a panel nobody is on, to be found at the next opening under a
+    // question they no longer remember asking.
+    if (workshop.hidden) return;
     queueFound = body.entries || [];
     drawResults();
     if (!queueFound.length) queueSaid.textContent = "nothing in the catalog";
   } catch (error) {
     console.error(error);
+    if (workshop.hidden) return;
     queueSaid.textContent = "couldn't reach somnia";
   }
 }
@@ -5047,12 +5101,19 @@ async function addBook(entry, button, voice) {
       body: JSON.stringify(voice ? { gid: entry.gid, voice } : { gid: entry.gid }),
     });
     const body = await response.json();
+    // The book is submitted whatever this panel is doing, so `have` is set
+    // before the guard: it is a fact about the book and it has to be true at
+    // the next opening. Only the drawing and the sentence are held back.
+    if (body.ok) entry.have = "queued";
+    if (workshop.hidden) {
+      submitting = 0;
+      return;
+    }
     // Taken or refused, the server said a sentence and the sentence is the
     // answer — the same string the agent's add_book returns, from the same
     // function, so the panel and the voice cannot disagree about what happened.
     queueSaid.textContent = body.said || "";
     if (body.ok) {
-      entry.have = "queued";
       drawResults();
     } else {
       button.disabled = false;
@@ -5063,9 +5124,10 @@ async function addBook(entry, button, voice) {
     // to leave behind. The press comes back, because trying again is the whole
     // of what there is to do about it.
     console.error(error);
+    submitting = 0;
+    if (workshop.hidden) return;
     queueSaid.textContent = "couldn't reach somnia — nothing has been added";
     button.disabled = false;
-    submitting = 0;
     return;
   }
   submitting = 0;
