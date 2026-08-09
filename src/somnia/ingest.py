@@ -124,6 +124,7 @@ def publish_chapters(
     rel_path: str,
     expect_ms: int,
     timeout_s: float = 30.0,
+    poll_s: float = 2.0,
 ) -> None:
     """Tell ABS where this book's chapters start, once its scan has caught up.
 
@@ -132,6 +133,11 @@ def publish_chapters(
     would describe chapters past the end of the file ABS knows about. Every
     push sends the whole list, so a push that times out is repaired by the
     next chapter's.
+
+    ``poll_s`` is how long to wait between asks, and it is a parameter so that a
+    test can set it to zero. The retry loop is the thing worth testing here and
+    the sleep is not part of it: at two seconds a single test of it spent four
+    real seconds, which was better than a third of the whole suite's wall clock.
     """
     deadline = time.monotonic() + timeout_s
     while True:
@@ -160,12 +166,19 @@ def publish_chapters(
                 ],
             )
             return
-        if time.monotonic() >= deadline:
+        left = deadline - time.monotonic()
+        if left <= 0:
             logger.warning(
                 "ABS scan did not catch up in %.0fs; marks deferred", timeout_s
             )
             return
-        time.sleep(2)
+        # Never past the deadline. A bare `sleep(poll_s)` overshoots `timeout_s`
+        # by up to one interval — invisible at the default two seconds against
+        # thirty, and not invisible now that the interval is a parameter: a
+        # caller may set it larger than the timeout, and this would then wait
+        # the interval rather than the timeout it was given. The wait is held by
+        # the render, between chapters, so what it costs is the book.
+        time.sleep(min(poll_s, left))
 
 
 def _forget_the_old_edition(conn: sqlite3.Connection, gid: int) -> None:

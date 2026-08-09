@@ -87,6 +87,31 @@ def test_add_refuses_while_something_else_is_rendering(tmp_path: Path) -> None:
     assert "somnia queue" in out
 
 
+def test_the_worker_command_runs_and_claims_nothing_from_an_empty_line(
+    tmp_path: Path,
+) -> None:
+    """The argv the supervisor spawns its children with, actually executed.
+
+    `supervise` builds a command line and hands it to Popen, and every test of
+    the supervisor stands the child in with a hook — which is right, since a
+    real child is a python process and a night of rendering. What none of them
+    touch is whether that command line runs at all: a renamed flag, a module
+    that no longer has a `__main__`, an import that moved, would all pass the
+    suite and fail on the box, once, in the dark.
+
+    Cheap because it stops early: `render_one` returns before the expensive
+    imports when the claim finds nothing, so this loads neither kokoro nor
+    torch — neither of which is installed here, which is itself the assertion.
+    """
+    env = {**os.environ, "SOMNIA_DATA_DIR": str(tmp_path / "data")}
+
+    out = somnia("worker", "--once", env=env)
+
+    # Nothing in the line, so nothing was taken and nothing was said about a
+    # book. What matters is that it exited zero, which check_output asserts.
+    assert "Traceback" not in out
+
+
 def test_add_says_which_book_it_actually_rendered(tmp_path: Path) -> None:
     """`add` renders the head of the line, which is not always the book asked for.
 
