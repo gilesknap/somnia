@@ -5,6 +5,11 @@ repos:
       - id: check-added-large-files
         exclude: ^uv.lock
       - id: check-yaml
+        # Helm templates are Go templates that happen to end in .yaml, and they
+        # are not YAML until helm has rendered them — a leading `{{- if }}`
+        # parses as a flow mapping and fails here. The chart is checked by
+        # `helm lint` and by rendering it two ways, in .github/workflows/_helm.yml.
+        exclude: ^Charts/somnia/templates/
       - id: check-merge-conflict
       - id: end-of-file-fixer
 
