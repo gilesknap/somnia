@@ -9,13 +9,17 @@ The tone book is the fixture for all of it because it is the only one that is
 really on disk: three m4a files in `library_dir/<author>/<title>`, with rows in
 every table that knows about a book. A delete tested against rows alone would
 pass while leaving the audio exactly where it was.
+
+Marking a book finished is the other verb in this module and is the opposite of
+the delete in every way that matters — one column, nothing on disk, and its own
+undo — so it is tested at the bottom, on its own.
 """
 
 import sqlite3
 from pathlib import Path
 
 from conftest import ToneBook
-from somnia.library import remove_book
+from somnia.library import finish_book, remove_book
 from tone_book import CHAPTERS, GID
 
 
@@ -242,3 +246,62 @@ def test_a_chapter_whose_file_is_already_gone_is_nothing_to_delete(
 
     assert removed.ok
     assert not tone_book.book_dir.exists()
+
+
+def finished_at(conn: sqlite3.Connection) -> str | None:
+    return conn.execute(
+        "SELECT finished_at FROM books WHERE gid = ?", (GID,)
+    ).fetchone()["finished_at"]
+
+
+def test_a_book_marked_finished_says_when_and_keeps_everything_else(
+    tone_book: ToneBook,
+) -> None:
+    """Finished is a fact about the reader, so nothing about the book moves.
+
+    Not `status`, which is the render's word — a book somebody has finished
+    reading and a book that was never made would be the same row, and the shelf
+    could not tell a book it should stop offering from one it never had
+    anything to offer of. The position stays where it was left as well: a book
+    put down at the last page and marked finished is still at the last page if
+    anybody opens it again.
+    """
+    done = finish_book(tone_book.conn, GID)
+
+    assert (done.ok, done.found) == (True, True)
+    assert done.said == "Three Tones is finished."
+    assert finished_at(tone_book.conn) is not None
+    row = tone_book.conn.execute(
+        "SELECT status, position_ms FROM books WHERE gid = ?", (GID,)
+    ).fetchone()
+    assert row["status"] == "done"
+    assert row["position_ms"] is None
+
+
+def test_a_book_marked_finished_by_mistake_goes_back_on_the_shelf(
+    tone_book: ToneBook,
+) -> None:
+    """One press back, which is the whole reason this verb is allowed to exist
+    on a list of books. Marking the wrong row is an ordinary mistake to make,
+    and a mark with no way out of it would have to be asked about twice.
+    """
+    finish_book(tone_book.conn, GID)
+
+    done = finish_book(tone_book.conn, GID, finished=False)
+
+    assert done.ok
+    assert done.said == "Three Tones is back on the shelf."
+    assert finished_at(tone_book.conn) is None
+
+
+def test_a_book_that_is_not_here_cannot_be_finished_either(
+    tone_book: ToneBook,
+) -> None:
+    """The same split the delete makes, for the same reason: a gid that is not
+    here is a page holding an id from a database that has moved on, and the
+    caller turns that into a 404 rather than into a sentence about a book.
+    """
+    done = finish_book(tone_book.conn, 404_404)
+
+    assert (done.ok, done.found) == (False, False)
+    assert done.said == "There is no book 404404 here."

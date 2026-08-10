@@ -24,7 +24,7 @@ from pathlib import Path
 
 from .config import Config
 from .db import connect
-from .library import inside_library
+from .library import Finished, finish_book, inside_library
 
 __all__ = [
     "BookEntry",
@@ -86,6 +86,12 @@ class BookEntry:
     chapters: int
     position_ms: int | None
     seq: int
+    # When the reader said they were done with it, or None while they are not.
+    # A book that is finished is still a book somnia has — it plays, it holds
+    # its position, and nothing about it is taken away — so this is one more
+    # thing said about it rather than a reason to leave it out of the answer.
+    # Which screens draw a finished book, and where, is the page's to decide.
+    finished_at: str | None
 
 
 @dataclass
@@ -240,7 +246,7 @@ class Player:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT b.gid, b.title, b.authors, b.status, b.total_ms,"
-                " b.position_ms, b.position_seq, b.position_at,"
+                " b.position_ms, b.position_seq, b.position_at, b.finished_at,"
                 " (SELECT COUNT(*) FROM chapters c WHERE c.book_gid = b.gid)"
                 " AS chapters"
                 " FROM books b"
@@ -256,6 +262,7 @@ class Player:
                 chapters=row["chapters"],
                 position_ms=row["position_ms"],
                 seq=row["position_seq"],
+                finished_at=row["finished_at"],
             )
             for row in rows
         ]
@@ -315,6 +322,20 @@ class Player:
         if row is None:
             return None
         return Opened(gid=gid, position_ms=row["position_ms"], seq=row["position_seq"])
+
+    def finish(self, gid: int, finished: bool) -> Finished:
+        """Mark a book finished, or put it back on the shelf.
+
+        On this lane rather than the queue's, because it writes the ``books``
+        row and every other write to that row — the position reports, the open
+        — is taken under this lock. The delete is the exception and belongs
+        where it is: the first thing it has to do is ask the queue.
+
+        The work itself is :func:`somnia.library.finish_book`; this is the lock
+        around it, the same way :meth:`open_book` is the lock around one UPDATE.
+        """
+        with self._lock:
+            return finish_book(self._conn, gid, finished)
 
     def manifest(self, gid: int) -> Manifest | None:
         """The whole timeline of one book, or None if there is no such book."""

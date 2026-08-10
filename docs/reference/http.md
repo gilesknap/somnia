@@ -39,6 +39,7 @@ would tell you.
 | `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
 | `/api/book/{gid}` | DELETE | Take a book away — rows, audio and all |
 | `/api/book/{gid}/open` | POST | Make this the book a cold launch opens — or 404 |
+| `/api/book/{gid}/finished` | POST | Say the reader is done with a book, or that they are not |
 | `/api/ask` | POST | The agent's reply, and a move if it made one |
 | `/api/forget` | POST | Drops one conversation |
 | `/api/position` | POST | What became of a report — always 200 |
@@ -54,7 +55,7 @@ would tell you.
     {
       "gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
       "status": "done", "total_ms": 22320000, "chapters": 49,
-      "position_ms": 11560000, "seq": 3
+      "position_ms": 11560000, "seq": 3, "finished_at": null
     }
   ]
 }
@@ -70,6 +71,19 @@ rows that really exist, and `0` means there is nothing to open yet: a render
 that has not produced its first chapter, or one that died before it. The books
 panel draws its shelf from this list, and that is the field that decides whether
 a row offers a press at all.
+
+`finished_at` is when the reader said they were done with the book, and `null`
+while they have not — which is every book somnia has ever had until somebody
+says otherwise. It is deliberately not `status`: that is the *render's* word,
+and a book somebody has finished reading would otherwise be indistinguishable
+from one that was never made. A finished book is still a book somnia has and
+still plays; the night shelf stops offering it, and the Workshop is where it
+goes.
+
+The night shelf shows at most the twenty most recently touched books, and
+finished books and the one playing underneath are not among them and do not
+count towards the twenty. Everything is still in this answer — which books to
+draw is the page's business, not the server's.
 
 ## `GET /api/book/{gid}`
 
@@ -181,6 +195,32 @@ render still on its first chapter, or one that died before it. Both are the same
 answer to a press: there is nothing to open. The guard is here and not only on
 the page because a book nobody can play made the most recent one would leave the
 next launch waiting on a render instead of on the book that was playing.
+
+## `POST /api/book/{gid}/finished`
+
+```json
+{"finished": true}
+```
+```json
+{"ok": true, "found": true, "said": "Black Beauty is finished."}
+```
+
+One column, `books.finished_at`, written as a UTC stamp or cleared. A body that
+says nothing means `true`, which is the press that exists; `{"finished": false}`
+is the undo, and it is the same route on purpose — an undo shaped like the doing
+is what lets the day screen offer one control that toggles rather than two that
+can disagree about a book.
+
+Nothing else changes. The book keeps its position, its audio, its rows and its
+`status`, and it still plays if it is opened. That is the whole distance between
+this and the DELETE on the path above it, and it is why this one is not asked
+about twice: marking the wrong row costs one press back.
+
+POST rather than DELETE because nothing is deleted, and not on the agent at
+all — a hold-to-talk request at 2am is the wrong way to say a book is over.
+
+**404** for a gid that is not here, the same answer as the GET and the DELETE
+on this path.
 
 ## `GET /api/audio/{gid}/{idx}`
 

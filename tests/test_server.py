@@ -1260,6 +1260,64 @@ def test_a_book_being_rendered_answers_200_and_stays_where_it_is(
     assert tone_client.get(f"/api/book/{GID}").status_code == 200
 
 
+def test_a_book_can_be_finished_and_unfinished_on_the_same_route(
+    tone_client: TestClient,
+) -> None:
+    """The undo is the doing with a false in it, which is what makes it one control.
+
+    Both answers come back on `/api/books`, because that is the only thing the
+    day screen has to read to know: a stamp while it is finished, and null the
+    moment it is not.
+    """
+
+    def listed() -> dict[str, object]:
+        books = tone_client.get("/api/books").json()["books"]
+        return dict(next(book for book in books if book["gid"] == GID))
+
+    assert listed()["finished_at"] is None
+
+    done = tone_client.post(f"/api/book/{GID}/finished", json={})
+
+    assert done.status_code == 200
+    assert done.json()["ok"] is True
+    assert "Three Tones is finished" in done.json()["said"]
+    assert listed()["finished_at"] is not None
+
+    back = tone_client.post(f"/api/book/{GID}/finished", json={"finished": False})
+
+    assert back.json()["ok"] is True
+    assert listed()["finished_at"] is None
+
+
+def test_finishing_a_book_that_is_not_here_is_a_404_like_the_rest_of_the_path(
+    tone_client: TestClient,
+) -> None:
+    response = tone_client.post("/api/book/404404/finished", json={})
+
+    assert response.status_code == 404
+    assert response.json()["ok"] is False
+    assert "404404" in response.json()["said"]
+
+
+def test_a_book_marked_finished_is_still_a_book_that_plays(
+    tone_client: TestClient,
+) -> None:
+    """Finished is the reader's word and touches nothing the render owns.
+
+    Worth asserting on the route rather than only under it, because this is the
+    line between this verb and the delete beside it on the same path: one of
+    them leaves a book that can still be opened, and the other is the reason
+    the page asks twice.
+    """
+    tone_client.post(f"/api/book/{GID}/finished", json={})
+
+    manifest = tone_client.get(f"/api/book/{GID}")
+
+    assert manifest.status_code == 200
+    assert manifest.json()["status"] == "done"
+    assert tone_client.get(f"/api/audio/{GID}/0").status_code == 200
+
+
 # ---------------------------------------------------- coming back to the book
 
 

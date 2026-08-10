@@ -1030,6 +1030,131 @@ test("a somnia with one book has no shelf and no label over it", async (t) => {
   assert.equal(page.el("shelf-label").hidden, true);
 });
 
+// ------------------------------------------------------- twenty, and the rest
+//
+// The night shelf stops at twenty. Somebody at 2am is going back to a book they
+// were reading this month, and a list long enough to need scrolling in the dark
+// is a list somnia has made worse by being used for a year.
+//
+// Two things are held out of the twenty rather than counted by it: the book
+// playing underneath, which is named at the top of this screen, and a book
+// somebody has said they are finished with, which is not an answer to what this
+// screen asks. Both would otherwise spend the cap on rows that are either
+// already on the screen or already read.
+//
+// And the line at the foot only ever appears on a night when something really
+// was left out — which is what these tests are mostly about, because a line
+// that is always there is furniture and a line that is never there is a screen
+// that has quietly lost half a library.
+
+// As many books as a test needs, each one distinguishable from the others by
+// its name so that an assertion can say which twenty were kept. Built off one
+// real fixture, so a row here is shaped exactly as /api/books shapes a row.
+function manyBooks(count, overrides = () => ({})) {
+  return Array.from({ length: count }, (_, n) => ({
+    ...listed(OTHER_BOOK),
+    gid: 5000 + n,
+    title: `Book ${n}`,
+    ...overrides(n),
+  }));
+}
+
+// Whether the foot of the shelf is saying that there are more books elsewhere.
+// The words themselves are in index.html and are read out of the markup by the
+// test at the bottom of this file — the fake DOM knows ids and nothing the
+// document says.
+function moreInTheWorkshop(page) {
+  return !page.el("shelf-more").hidden;
+}
+
+test("twenty books all fit on the shelf, and nothing says otherwise", async (t) => {
+  const page = await opened(t, { library: manyBooks(20) });
+  page.queueView([]);
+  await books(page);
+  assert.equal(shelf(page).length, 20);
+  // Nothing was cut, so there is nothing to say. The boundary is tested here
+  // and at twenty-one because an off-by-one shows up as a line claiming books
+  // are elsewhere when every one of them is on the screen.
+  assert.equal(moreInTheWorkshop(page), false);
+});
+
+test("a twenty-first book stays behind, and the shelf says where it went", async (t) => {
+  const page = await opened(t, { library: manyBooks(21) });
+  page.queueView([]);
+  await books(page);
+  const names = shelf(page).map((row) => row.name);
+  assert.equal(names.length, 20);
+  // The first twenty of the order the server sent, which is last-touched: the
+  // one left behind is the book nobody has been near for longest, and cutting
+  // from the other end would take the one somebody was reading yesterday.
+  assert.equal(names[0], "Book 0");
+  assert.equal(names[19], "Book 19");
+  assert.equal(moreInTheWorkshop(page), true);
+});
+
+test("a book somebody has finished is not offered at night", async (t) => {
+  const page = await opened(t, {
+    library: [
+      { ...listed(OTHER_BOOK), finished_at: "2026-08-01 21:14:00" },
+      listed(PART_READ),
+    ],
+  });
+  page.queueView([]);
+  await books(page);
+  // Not hidden and not gone — it plays, it is in the Workshop, and one press
+  // there puts it back. It is only not an answer to what this screen asks.
+  assert.deepEqual(
+    shelf(page).map((row) => row.name),
+    ["Stopped Part Way"],
+  );
+  assert.equal(moreInTheWorkshop(page), true);
+});
+
+test("a finished book does not spend one of the twenty", async (t) => {
+  const page = await opened(t, {
+    library: manyBooks(21, (n) =>
+      n === 3 ? { finished_at: "2026-07-30 22:02:00" } : {},
+    ),
+  });
+  page.queueView([]);
+  await books(page);
+  const names = shelf(page).map((row) => row.name);
+  // Twenty books left to listen to and all twenty drawn: the finished one was
+  // held out before the cap rather than counted by it. Counting it would make
+  // the shelf shorter every time somebody finished something, which is the cap
+  // making the screen worse the longer somnia is used.
+  assert.equal(names.length, 20);
+  assert.equal(names.includes("Book 3"), false);
+  assert.equal(names.includes("Book 20"), true);
+  assert.equal(moreInTheWorkshop(page), true);
+});
+
+test("the book playing underneath is not what puts that line there", async (t) => {
+  const page = await opened(t, {
+    library: [HALF_HEARD, OTHER_BOOK, PART_READ].map(listed),
+  });
+  page.queueView([]);
+  await books(page);
+  assert.equal(shelf(page).length, 2);
+  // It is off the shelf, but it is at the top of this very screen and one tap
+  // away — a line sending somebody to the Workshop to find it would be false in
+  // the most confusing way available.
+  assert.equal(moreInTheWorkshop(page), false);
+});
+
+test("close takes that line away with the rest of the shelf", async (t) => {
+  const page = await opened(t, { library: manyBooks(21) });
+  page.queueView([]);
+  await books(page);
+  assert.equal(moreInTheWorkshop(page), true);
+  page.click("queue-close");
+  await page.settle();
+  // The panel forgets everything it held. A line left standing about a shelf
+  // that is no longer in the DOM would be there at the next opening, read as a
+  // claim about a list that has not arrived yet.
+  assert.equal(page.el("shelf-more").hidden, true);
+});
+
 // ------------------------------------------------- one screen, one sentence
 //
 // The cut that made two screens out of one is *when* each is used, and the only
@@ -1105,6 +1230,28 @@ test("the way to Workshop is in Books' header, above the scroll", async (t) => {
   // corner would be the wordmark's kind of thing, which takes no presses.
   const head = queue.slice(queue.indexOf('id="queue-head"'), scroll);
   assert.equal(head.match(/class="pill"/g).length, 2, "queue-head lost a pill");
+});
+
+// The words at the foot of a shortened shelf, which the fake DOM cannot see
+// either: they are the document's and the page only ever hides or shows the
+// line. Read here for the same reason the pill's place is — what is being
+// asserted is a decision, and nothing else in the suite would notice it going.
+test("the foot of the shelf says where the rest went, and is not a press", async (t) => {
+  // The whole document rather than section("queue"), which stops at the first
+  // nested <section> and so never reaches the shelf: `reading now` is one.
+  const bare = MARKUP.replace(/<!--[\s\S]*?-->/g, "");
+  assert.ok(
+    bare.includes(
+      '<p id="shelf-more" hidden>the rest of your books are in the workshop</p>',
+    ),
+    "the shelf's tail line is not the sentence it was drawn as",
+  );
+  // A paragraph and nothing else. Nothing on Books manages anything, which is
+  // the whole of the split with Workshop: the way there is the pill at the top
+  // of this screen, and a second door down here would be a control reached by
+  // reading to the end of a list of books in the dark.
+  const after = bare.slice(bare.indexOf('id="shelf-more"'));
+  assert.equal(after.slice(0, after.indexOf("</p>")).includes("<"), false);
 });
 
 // The other half of "nothing nightly in daylight", and the one that is not a

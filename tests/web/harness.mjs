@@ -462,6 +462,11 @@ export function listed(book) {
     chapters: book.chapters.length,
     position_ms: book.position_ms,
     seq: book.seq,
+    // When the reader said they were done with it, which no manifest carries —
+    // it is not the render's business and `/api/book/{gid}` does not return it.
+    // So a fixture that wants to be finished says so on itself, and everything
+    // else is what every book somnia has is: still being read.
+    finished_at: book.finished_at ?? null,
   };
 }
 
@@ -603,6 +608,10 @@ const BORN_HIDDEN = new Set([
   // The label over the shelf, which goes with its rows the way the ended list's
   // does: a somnia with one book has nothing to put under it.
   "shelf-label",
+  // The line at the foot of a shelf that was cut short, which ships hidden
+  // because on most nights nothing is cut and a line that was always there
+  // would be furniture rather than an answer.
+  "shelf-more",
   "toast",
   // The way back inside it, which ships hidden separately: the box comes up for
   // every sentence the page says and this is on the one that has something to

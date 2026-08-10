@@ -458,6 +458,27 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             return JSONResponse({"error": "no book to open"}, 404)
         return JSONResponse(asdict(opened))
 
+    async def finish_the_book(request: Request) -> Response:
+        """Say the reader is done with this book, or that they are not.
+
+        POST and not DELETE, because nothing is deleted: one column is written,
+        and writing it back is the same route with ``"finished": false``. The
+        undo being the same shape as the doing is what lets the day screen
+        offer it as one control that toggles rather than two that disagree.
+
+        A body that says nothing means finished — which is the press that
+        exists on the page — so a request that arrives without one does the
+        thing it was almost certainly sent to do rather than the opposite.
+
+        404 for a gid that is not here, the same answer as the GET and the
+        DELETE on this path.
+        """
+        gid = int(request.path_params["gid"])
+        payload = await _payload(request)
+        finished = bool(payload.get("finished", True))
+        done = await run_in_threadpool(player.finish, gid, finished)
+        return JSONResponse(asdict(done), 200 if done.found else 404)
+
     async def sentence(request: Request) -> Response:
         """Where the sentence being spoken at a point began.
 
@@ -735,6 +756,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             # two routes are already in: one method each, one handler each.
             Route("/api/book/{gid:int}", remove_the_book, methods=["DELETE"]),
             Route("/api/book/{gid:int}/open", open_book, methods=["POST"]),
+            Route("/api/book/{gid:int}/finished", finish_the_book, methods=["POST"]),
             Route("/api/audio/{gid:int}/{idx:int}", audio),
             Route("/api/stream/{gid:int}/{n:int}", stream),
             Route("/api/sentence/{gid:int}/{ms:int}", sentence),

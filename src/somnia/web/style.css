@@ -3261,6 +3261,22 @@ body.keyboard-up #candidates-note {
   display: none;
 }
 
+/* The line at the foot of a shelf that has been cut short. 19dp, the same as
+   the note above and as the line under every book's name, because it is a
+   sentence about the list and not a heading over one — a .section-label at 11dp
+   would file it as furniture and it is only ever drawn on a night when it is
+   true.
+   Italic and in the faint ink, which is as far down the scale as anything on
+   this screen goes: it is an aside, read after the twenty rows above it have
+   failed to hold what somebody came for, and anything louder would compete with
+   the books for the eye that is scanning them. */
+#shelf-more {
+  margin: 0;
+  font-size: 0.95rem;
+  font-style: italic;
+  color: var(--faint);
+}
+
 #queue-search {
   display: flex;
   align-items: center;

@@ -114,6 +114,9 @@ const shelf = document.getElementById("shelf");
 // Whether that shelf is what somnia has or the last thing it said before the
 // tailnet went. Its own line, on its own screen — see askForTheShelf.
 const shelfNote = document.getElementById("shelf-note");
+// And where the books this screen is not showing went, drawn only on the nights
+// there are any — see drawShelf.
+const shelfMore = document.getElementById("shelf-more");
 // Settings, the third night screen, and the pill in the player's other corner
 // that is the only way to it. It holds the two controls that had nowhere to be —
 // how dark the room is, and how far `−30` and `+30` move — and it is a night
@@ -4562,6 +4565,14 @@ function shelfRow(entry) {
   return li;
 }
 
+// How many books the night shelf will show. Twenty is about three screenfuls at
+// this type size, which is already more than anybody scrolls in the dark, and
+// the twenty most recently touched are where the answer is: somebody at 2am is
+// going back to a book they were reading this month, not to the one they
+// finished in March. Everything is still in the answer from the server — this
+// is the page deciding what to draw, and the Workshop draws the rest.
+const NIGHT_SHELF_MAX = 20;
+
 function drawShelf() {
   // Never the book playing underneath. That one is the block above — the same
   // shape as one of these rows, in amber, with the time it would land at in its
@@ -4569,10 +4580,27 @@ function drawShelf() {
   // this one being the worse of them, because it would adopt the server's copy
   // of the position, which is up to fifteen seconds behind the sound.
   const others = shelved.filter((entry) => entry.gid !== gid);
-  shelf.replaceChildren(...others.map(shelfRow));
+  // And never a book somebody has said they are finished with, which is the
+  // other half of the same idea: this list is what there is left to listen to.
+  // A finished book is not hidden and not gone — it plays, it is in the
+  // Workshop, and one press there puts it back — it is only not an answer to
+  // the question this screen is asking.
+  //
+  // Held out before the cap rather than counted by it. A shelf of twenty that
+  // was mostly books already read would be a cap that made the screen worse the
+  // longer somnia was used, which is the opposite of what it is for.
+  const unread = others.filter((entry) => !entry.finished_at);
+  const rows = unread.slice(0, NIGHT_SHELF_MAX);
+  shelf.replaceChildren(...rows.map(shelfRow));
   // A label over nothing is a claim that something should be there, which is
   // the rule the card of live rows and the ended list both follow.
-  shelfLabel.hidden = !others.length;
+  shelfLabel.hidden = !rows.length;
+  // And the line saying where the rest went, only when there is a rest. Counted
+  // against `others` and not against `shelved`, so the book playing underneath
+  // is never what makes this appear: that one is at the top of this very
+  // screen, and a line sending somebody to the Workshop to find it would be
+  // false in the most confusing way available.
+  shelfMore.hidden = rows.length === others.length;
 }
 
 // Asked when somebody arrives at the panel, and not on the poll with the queue.
@@ -5180,6 +5208,7 @@ function hideQueue() {
   shelved = [];
   shelf.replaceChildren();
   shelfLabel.hidden = true;
+  shelfMore.hidden = true;
   shelfNote.textContent = "";
   const rearm = rearmOnQueueClose;
   rearmOnQueueClose = false;

@@ -29,7 +29,14 @@ from .config import Config
 from .queue import LIVE, book_name
 from .stream import forget_streams
 
-__all__ = ["Removed", "forget_the_chapters", "inside_library", "remove_book"]
+__all__ = [
+    "Finished",
+    "Removed",
+    "finish_book",
+    "forget_the_chapters",
+    "inside_library",
+    "remove_book",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +58,61 @@ class Removed:
     ok: bool
     found: bool
     said: str
+
+
+@dataclass
+class Finished:
+    """What happened to a request to mark a book finished, or unfinish it.
+
+    The same three fields as :class:`Removed`, and deliberately so: these are
+    the verbs of the daytime screen, they are answered by one route each, and a
+    page that has to read a different shape for every one of them will read the
+    wrong one eventually. There is nothing here that can be refused, so ``ok``
+    and ``found`` only ever differ from each other on a gid that is not here —
+    which is worth saying in the shape rather than leaving a caller to infer a
+    404 from a sentence.
+    """
+
+    ok: bool
+    found: bool
+    said: str
+
+
+def finish_book(conn: sqlite3.Connection, gid: int, finished: bool = True) -> Finished:
+    """Say the reader is done with this book, or that they are not after all.
+
+    One column and nothing else. A finished book is not a deleted one and not a
+    hidden one: it keeps its position, its audio and its rows, it still plays
+    if it is opened, and the only thing that changes is that the night shelf
+    stops offering it — which is the whole point, because a shelf that is
+    mostly books already read is a shelf somebody has to go through at 2am to
+    find the one they are on.
+
+    Undoable, and that is why it is one function taking a boolean rather than
+    two. Marking the wrong book finished is an ordinary mistake to make on a
+    list, and the cost of making it has to be one press back; a verb with no
+    way back would need asking twice, and asking twice about something this
+    small is how a screen becomes tiring to use.
+
+    ``datetime('now')`` is written here, in UTC, the way every other stamp in
+    this database is — the column has no default because sqlite will not take a
+    non-constant one on a column added to a table that already exists.
+    """
+    book = conn.execute("SELECT title FROM books WHERE gid = ?", (gid,)).fetchone()
+    if book is None:
+        return Finished(False, False, f"There is no book {gid} here.")
+    name = book_name(str(book["title"]), gid)
+    with conn:
+        if finished:
+            conn.execute(
+                "UPDATE books SET finished_at = datetime('now') WHERE gid = ?",
+                (gid,),
+            )
+        else:
+            conn.execute("UPDATE books SET finished_at = NULL WHERE gid = ?", (gid,))
+    said = f"{name} is finished." if finished else f"{name} is back on the shelf."
+    logger.info("book %s (%s) finished=%s", gid, name, finished)
+    return Finished(True, True, said)
 
 
 def inside_library(cfg: Config, audio_file: str, what: str) -> Path | None:

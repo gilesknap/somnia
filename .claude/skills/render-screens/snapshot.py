@@ -130,7 +130,19 @@ FIXTURE = {
 # are two views of one moment.
 PANELS = {
     "books": {
-        "unhide": ["queue", "reading-now", "reading-track", "shelf-label"],
+        # `shelf-more` is up because the night it is drawn on is the night worth
+        # looking at: the shelf stops at twenty books and this line is the only
+        # thing that says so. Three rows and the line is not the twenty-book
+        # case, and deliberately — twenty repeats of one row would photograph
+        # the scroller rather than the thing being decided, which is how heavy
+        # an italic aside is against the titles above it.
+        "unhide": [
+            "queue",
+            "reading-now",
+            "reading-track",
+            "shelf-label",
+            "shelf-more",
+        ],
         "text": {
             "reading-title": "The Wind in the Willows",
             # The time is in this line now — it used to be the label of a pill

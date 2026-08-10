@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS books (
     -- migration ran over it, and this file's own schema disagreeing with the
     -- one somnia actually opens.
     chapters_total INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    finished_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS chapters (
@@ -161,6 +162,22 @@ _ADDED_COLUMNS = (
     # that was rendered before this column existed — not a book of no chapters,
     # which is not a thing. Anything reading it has to treat 0 as "don't know".
     ("books", "chapters_total", "INTEGER NOT NULL DEFAULT 0"),
+    # When the reader said they were done with this book, which is a fact about
+    # them and not about the render. `status` already holds the render's view —
+    # pending, rendering, done — and overloading it was the obvious thing and
+    # the wrong one: a book somebody has finished reading and a book that was
+    # never made would become the same row, and the shelf could not tell a book
+    # it should stop offering from one it never had anything to offer of.
+    #
+    # A date rather than a flag, because the only question anybody asks of it
+    # after the first one is "when", and a column that already answers it costs
+    # nothing over a 0/1 that would then need a second one beside it.
+    #
+    # NULL means still being read, which is every book somnia has ever had
+    # until somebody says otherwise. No default, for the reason position_at
+    # gives above: sqlite refuses a non-constant default on ADD COLUMN, so
+    # whoever marks a book finished writes datetime('now') itself.
+    ("books", "finished_at", "TEXT"),
     # Which voice this book was asked for in, held on the request rather than
     # taken from whatever the renderer's environment happened to say hours
     # later. The choice is made in front of the person making it and has to

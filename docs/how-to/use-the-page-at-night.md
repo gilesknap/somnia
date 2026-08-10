@@ -215,8 +215,8 @@ is still being rendered, because until the render is over the book's length is
 only how much of it exists so far. Tapping the block starts it and puts the
 panel away — the same press as the play button, made from up here.
 
-Under it, *on the shelf* is every other book somnia has, each with where you
-left it — *0:27:42 in*, or *not started*. Tapping a row opens that book at that
+Under it, *on the shelf* are the books you are most likely to want, each with
+where you left it — *0:27:42 in*, or *not started*. Tapping a row opens that book at that
 place and takes the panel away with it. Changing your mind costs one press back:
 nothing is written to the book you left, so it is still exactly where it was,
 and so is the one you looked at. A book still being rendered says so and is not
@@ -225,6 +225,15 @@ nothing to play. A book whose render stopped part way says *part rendered* and
 can still be opened — what was read plays. If the box cannot be reached, the
 shelf you last saw stays on screen with *couldn't reach somnia* under it: an
 empty shelf and an unreachable server look identical and mean opposite things.
+
+The shelf stops at twenty books — the twenty you were nearest to most recently,
+which after a year of somnia is not all of them. A book you have said you are
+finished with is not on it either, and does not take up one of the twenty. When
+anything has been left out, the foot of the list says *the rest of your books
+are in the workshop*, and on a night when nothing has been, it says nothing:
+the line is an answer rather than a fixture. Nothing is hidden by any of this —
+every book somnia has is in *Workshop*, and a finished book still plays if you
+open it there.
 
 The rows say the title and nothing else — no author, no dates, no cover. At this
 size the catalogue's *Title — Surname, Forename, dates* is three lines of a
