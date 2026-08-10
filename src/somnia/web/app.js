@@ -455,6 +455,16 @@ function stepText(by) {
 function setText(size) {
   textSize = size;
   drawText();
+  // A press on `how big the words` moves the root with no resize behind it, and
+  // whether the reading fits is a question about the root. Without this the one
+  // control the reader has over the size of the page could not give them back
+  // the reading it had taken away, which is issue #65 in a sentence.
+  //
+  // Here and not in `drawText`: `restoreText` calls that one at boot, long
+  // before `unobscured` exists, and `readRoom` reading a `let` in the temporal
+  // dead zone would throw on the way up. Nothing calls `setText` before a thumb
+  // does.
+  readRoom();
   try {
     localStorage.setItem(TEXT_KEY, String(textSize));
   } catch (error) {
@@ -5717,15 +5727,23 @@ if (!Recognition) {
 // is showing instead of the sheet working it out from the height of the window.
 //
 // The sheet used to ask `@media (max-height: 34rem)` and mean two things at
-// once: "is there room to draw the reading?", which is a fair question to ask a
-// height, and "is the keyboard up?", which is not. The second guess was wrong
-// twice over. A window dragged short has no keyboard in it, and 34rem is 34
-// times a root that is the OS text scale on purpose — so turning the text up,
-// which is the one setting this whole page is sized around, eventually put the
-// threshold above the height of the phone and left the player unreachable for
-// the rest of the night. The larger the reader's type, the sooner they lost the
-// book. The first question is still a height query in the sheet; this is the
-// second one, and it is a measurement.
+// once: "is there room to draw the reading?", which is a fair question, and "is
+// the keyboard up?", which is not. A window dragged short has no keyboard in it,
+// so a short page put the reader on the chat screen with the player gone and no
+// gesture that brought it back. That half is this measurement.
+//
+// Both halves are measurements now, and it took two passes to get there because
+// this comment used to give a wrong reason for a right answer. It said 34rem was
+// "34 times a root that is the OS text scale on purpose". It was neither: `rem`
+// in a MEDIA QUERY resolves against the browser's initial font size and never
+// against `html { font-size }`, so 34rem was a hard 544 CSS px that could not
+// see the type it existed to protect. The fix here was right anyway — a keyboard
+// is a thing you measure, not a height you guess from — but the fit question
+// kept a threshold that was blind to `--text-size`, and the reader who turned
+// the words up got the title landing on the clock with no warning while the
+// reader on a small phone got a void where the book is. `readRoom` below is that
+// second half, arriving late, and the pair of them is why no size query in
+// style.css is written in rem any more.
 //
 // It is a named screen rather than a `keyboard-up` boolean because the keyboard
 // is a route in and not the thing itself: the design's dock is a portal to this
@@ -5881,6 +5899,61 @@ function readKeyboard() {
   );
 }
 
+// ---------------------------------------------------------------- the room
+//
+// Whether there is height enough to draw the reading in, which is the other
+// question the old `@media (max-height: 34rem)` was asked and the one it could
+// never answer honestly.
+//
+// A stack of type either fits in the window or it does not, and how much room it
+// wants is a multiple of the page's own root — turn the words up and the same
+// stack needs more of them. That is exactly the question a media query cannot
+// ask: its `rem` is the browser's 16px, so 34rem was 544 CSS px whatever the
+// page had set, and since the root became a fraction of the screen the two units
+// are not even related. 544px was wrong in both directions at once. On a 309px
+// phone the root is 17.2 and the player wants 584px, so a 560px window kept a
+// reading it had no room for; on a 240px window the root is 13.3 and the player
+// wants 453px, so a 500px window lost a reading that fitted twice over.
+//
+// So the number is asked in roots and the arithmetic is done here, where the
+// root can be read. Roots are an approximation and style.css says where they
+// stop being one: the header's padding and the safe-area inset are device
+// pixels, so the same count of roots is not the same stack at two text sizes.
+//
+// The number came from pictures rather than from arithmetic, and the argument
+// for it is written out in style.css beside the rule that takes the reading
+// away, because that is where the loss is taken. The headline belongs here as
+// well: 32 is the largest number that leaves the reader's own control alone.
+// 360x780 with `how big the words` turned all the way up is a root of 24 and
+// wants 768 of the 780 there are — at 34 it wanted 816, and the design's own
+// phone at the top of its own text range went to a void.
+//
+// The class is written on every window, wide or narrow. What it means on a wide
+// one is only that 32 roots would not fit, which past 460 CSS px across is a
+// flat 818px and not a shape at all — so the sheet gates the rule it feeds, and
+// judges a wide window by the reading's own measured height instead.
+const PLAYER_NEEDS_ROOTS = 32;
+
+// Measured, and against `unobscured` rather than `viewport.height`. The height a
+// page is judged by is the one with nothing over it: a keyboard is not a page
+// with no room in it, and conflating the two is the whole of the bug the section
+// above fixed. A page that went "short" every time somebody started typing would
+// have thrown the reading away and then not brought it back until the next
+// resize.
+function readRoom() {
+  const root = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  // Nothing to measure against, so nothing is taken away. The same arm
+  // `readKeyboard` takes when it takes focus at its word: an engine with no
+  // visual viewport, or a root that came back as NaN, gets the whole reading and
+  // whatever overlap comes with it, which is the failure that leaves the reader
+  // something rather than the one that leaves them a void.
+  if (!(root > 0) || !(unobscured > 0)) return;
+  document.body.classList.toggle(
+    "short-page",
+    unobscured < PLAYER_NEEDS_ROOTS * root,
+  );
+}
+
 viewport?.addEventListener("resize", () => {
   // With nothing focused, nothing is over the page: whatever it is now is what
   // "not obscured" means from here on. A window dragged shorter, a phone turned
@@ -5889,7 +5962,12 @@ viewport?.addEventListener("resize", () => {
   if (!typing) unobscured = viewport.height;
   fit();
   readKeyboard();
+  readRoom();
 });
+
+// The first reading, so a page opened on a phone with no room for the player
+// says so before it is looked at rather than a resize later.
+readRoom();
 
 // The way ON to the chat screen, and the whole of it: a press on the dock.
 //
