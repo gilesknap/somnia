@@ -821,10 +821,22 @@ class Conversation:
         position = self._library.get_position(gid)
         if position is None:
             return " They have not started it."
+        # The last clause is not decoration, and it was not there for one
+        # deploy. Handing the model the true position is not enough on its own:
+        # its own "you're at chapter 2" from the turn before is a sentence in
+        # the conversation, and it wins against a line in the system prompt that
+        # merely disagrees with it. Asked again after a page seek, the model
+        # repeated the stale time down to the minute — "already at chapter 2,
+        # about thirty-two minutes in" — while this block said 1:33:00. Two
+        # contradicting facts and nothing saying which is current is a coin
+        # toss; this says which.
         return (
             f" They are {format_timestamp(position.position_ms)}"
             f" (ms={position.position_ms}) into it, in"
-            f" {position.chapter_title!r}."
+            f" {position.chapter_title!r}. That is where they are now — anything"
+            " earlier in this conversation about where they are is out of date,"
+            " including anything you said yourself, because they can move the"
+            " book from the page without telling you."
         )
 
     def ask(self, question: str, gid: int | None = None) -> Turn:

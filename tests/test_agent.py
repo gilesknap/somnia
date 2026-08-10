@@ -1775,6 +1775,12 @@ def test_the_prompt_says_where_they_are_now_and_not_where_it_last_put_them(
     conversation.ask("and now?", 271)
     assert "ms=800000" in systems[-1]
     assert "ms=10000" not in systems[-1]
+    # And which of the two contradicting facts is the live one, said out loud.
+    # The number alone was not enough: the model went on repeating its own
+    # "you're at chapter 2, about thirty-two minutes in" from the turn before
+    # while this block said 1:33:00, because a sentence in the conversation
+    # beats a line in the prompt that only disagrees with it.
+    assert "out of date" in systems[-1]
 
 
 def test_a_book_nobody_has_started_is_not_said_to_be_at_its_beginning(
