@@ -2335,10 +2335,19 @@ body.wake-screen #player-bar:not([hidden]) {
 /* The name on the rule, and the one label on this page that is meant to be
    read. `.section-label` sets 0.55rem — 11dp, the size of a thing the eye takes
    in as a divider and never as words — and at that size the sentence somebody
-   opened this screen to find, "you are here", was the smallest type on it. This
-   is 19dp: still mono, still uppercase, still tracked wide, so it is still a
-   rule with a word on it and not a heading; just a rule somebody can read at
-   arm's length in the dark.
+   opened this screen to find was the smallest type on it. This is 19dp: still
+   mono, still uppercase, still tracked wide, so it is still a rule with a word
+   on it and not a heading; just a rule somebody can read at arm's length in the
+   dark.
+
+   Two strings, not one: "you are here" while the sound is still on the moment
+   the question was asked, and "you were here" once it is not — app.js decides
+   which and hereRow says why. The past tense is the longer of the two, thirteen
+   characters against twelve, which at 0.95rem mono with `.section-label`'s
+   0.18em tracking is roughly 154px against 142px in a column of about 328px at
+   360dp. It fits with room, and it is `white-space: nowrap` against an `::after`
+   rule that is `flex: 1`, so the twelve pixels come off the rule and never off
+   the words. That arithmetic has not been photographed — see the PR for #66.
 
    The time went the other way and out of this string entirely — it is stated
    below at the size every other row states its time, which is where a number
