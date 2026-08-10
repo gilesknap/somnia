@@ -74,6 +74,10 @@ def _queue_line(row: "QueueRow") -> str:
         )
     elif row.error:
         detail = row.error
+    # Beside the progress rather than instead of it: a note is about the book,
+    # not about how far through it the render is, and both are wanted at once.
+    if row.note:
+        detail = f"{detail} — {row.note}" if detail else row.note
     return f"{row.id:>4}  {where:<14}  {name}" + (f"  ({detail})" if detail else "")
 
 
@@ -151,7 +155,13 @@ def main(args: Sequence[str] | None = None) -> None:
         # saying "Project Gutenberg" would be a column of noise; the whole
         # reason to print it at all is that an Australian book is somewhere
         # else, under an id that looks nothing like the others.
-        for entry in search_catalog(conn, ns.query, language=ns.language):
+        results = search_catalog(conn, ns.query, language=ns.language)
+        # Above the rows, because it is about the question rather than about any
+        # one answer, and reading it after ten lines of books would be reading it
+        # too late. Empty for every search that found what was asked for.
+        if results.said:
+            print(results.said)
+        for entry in results.entries:
             where = "  [PG Australia]" if entry.source == "australia" else ""
             print(f"{entry.gid:>10}  {entry.title} — {entry.authors}{where}")
     elif ns.command == "add":

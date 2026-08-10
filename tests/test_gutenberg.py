@@ -1,4 +1,4 @@
-from somnia.gutenberg import parse_book_html
+from somnia.gutenberg import Book, Chapter, implausible_shape, parse_book_html
 
 BOOK_HTML = """
 <html><head><title>Black Beauty | Project Gutenberg</title></head><body>
@@ -101,3 +101,133 @@ def test_parse_headingless_document_is_one_chapter():
     book = parse_book_html(99, html)
     assert len(book.chapters) == 1
     assert book.chapters[0].paragraphs == ["One.", "Two."]
+
+
+# ------------------------------------------------------- books bound as volumes
+#
+# The 1818 Frankenstein (gid 41445) is three volumes under one cover, and its
+# volume headings are the shallowest level that repeats — so the shallowest-wins
+# rule used to collect *those*, and every real chapter inside them was neither a
+# boundary nor a paragraph and simply disappeared. What came out was four
+# chapters, each hours long, from a book that has twenty-seven.
+
+ROMANS = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII")
+
+
+def volume_book(inner: str, volumes: int = 3, chapters: int = 4) -> str:
+    """A book bound as volumes, with its chapters marked up one level deeper.
+
+    Every chapter is long enough that the volumes clear the "far longer than any
+    chapter anybody writes" bar — which is what the descent is triggered by, so
+    a fixture of three-paragraph chapters would prove nothing.
+    """
+    parts = ["<html><head><title>Frankenstein</title></head><body>"]
+    parts.append("<h2>by Mary Shelley</h2>")
+    for v in range(volumes):
+        parts.append(f"<h2>VOLUME {ROMANS[v]}</h2>")
+        for c in range(chapters):
+            parts.append(f"<{inner}>CHAPTER {ROMANS[c]}</{inner}>")
+            parts.extend(
+                f"<p>Volume {v + 1} chapter {c + 1} paragraph {i + 1}.</p>"
+                for i in range(40)
+            )
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
+def test_parse_splits_a_volume_bound_book_at_its_real_chapters():
+    book = parse_book_html(41445, volume_book("h3"))
+    assert len(book.chapters) == 12
+    assert book.chapters[0].paragraphs[0] == "Volume 1 chapter 1 paragraph 1."
+
+
+def test_parse_keeps_the_volume_in_the_chapter_title():
+    """So "which chapter am I in" has an answer, and chapter I of volume III is
+    not confusable with chapter I of volume I."""
+    book = parse_book_html(41445, volume_book("h3"))
+    assert book.chapters[0].title == "VOLUME I — CHAPTER I"
+    assert book.chapters[-1].title == "VOLUME III — CHAPTER IV"
+
+
+def test_parse_descends_to_h4_when_that_is_where_the_chapters_are():
+    book = parse_book_html(41445, volume_book("h4"))
+    assert len(book.chapters) == 12
+    assert book.chapters[0].title == "VOLUME I — CHAPTER I"
+
+
+def test_parse_leaves_a_book_of_a_few_real_chapters_alone():
+    """The shape test is the whole guard. Four ordinary chapters marked up at h2
+    with subheadings inside them must not be re-split into subheadings."""
+    parts = ["<html><head><title>Short</title></head><body>"]
+    for c in range(4):
+        parts.append(f"<h2>Chapter {ROMANS[c]}</h2>")
+        parts.append("<p>A paragraph.</p>")
+        parts.append("<h3>A subheading</h3>")
+        parts.append("<p>Another paragraph.</p>")
+    parts.append("</body></html>")
+    book = parse_book_html(99, "".join(parts))
+    assert [c.title for c in book.chapters] == [
+        "Chapter I",
+        "Chapter II",
+        "Chapter III",
+        "Chapter IV",
+    ]
+
+
+def test_parse_keeps_a_skipped_part_skipped_all_the_way_down():
+    """A skipped heading owns everything under it, subheadings included.
+
+    Descending a level put the deeper headings inside "Contents" back in play —
+    each one cleared the skip and became a chapter — so a book whose front
+    matter is marked up in two levels had its table of contents read out loud.
+    """
+    html = volume_book("h3").replace(
+        "<h2>by Mary Shelley</h2>",
+        "<h2>CONTENTS</h2><h3>Letter I</h3><p>Not a chapter.</p>",
+        1,
+    )
+    book = parse_book_html(41445, html)
+    assert len(book.chapters) == 12
+    assert "Letter I" not in [c.title for c in book.chapters]
+    assert "Not a chapter." not in [p for c in book.chapters for p in c.paragraphs]
+
+
+def test_parse_keeps_prose_that_sits_before_a_volumes_first_chapter():
+    """A volume's epigraph belongs to something rather than to nothing."""
+    html = volume_book("h3").replace(
+        "<h2>VOLUME I</h2>", "<h2>VOLUME I</h2><p>An epigraph.</p>", 1
+    )
+    book = parse_book_html(41445, html)
+    assert book.chapters[0].title == "VOLUME I"
+    assert book.chapters[0].paragraphs == ["An epigraph."]
+    assert book.chapters[1].title == "VOLUME I — CHAPTER I"
+
+
+# ------------------------------------------------- noticing a parse gone wrong
+
+
+def long_book(chapters: int, words_each: int) -> Book:
+    return Book(
+        gid=1,
+        title="Something",
+        authors="",
+        chapters=[
+            Chapter(title=f"{i}", paragraphs=["word " * words_each])
+            for i in range(chapters)
+        ],
+    )
+
+
+def test_implausible_shape_says_nothing_about_an_ordinary_book():
+    assert implausible_shape(long_book(39, 4_000)) is None
+
+
+def test_implausible_shape_flags_chapters_that_are_hours_long():
+    said = implausible_shape(long_book(3, 40_000))
+    assert said is not None
+    assert "3 chapters" in said
+    assert "4.4 hours" in said
+
+
+def test_implausible_shape_survives_a_book_with_no_chapters():
+    assert implausible_shape(Book(gid=1, title="", authors="", chapters=[])) is None

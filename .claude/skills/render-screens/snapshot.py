@@ -214,11 +214,17 @@ PANELS = {
         # before the position the rest of the fixture is set at. It is a place
         # like the rest now — a time, words behind a press, and the way back —
         # so the picture has to hold all three.
+        #
+        # `still` is which of the two labels the rule wears. True here because
+        # this fixture is a list just answered, which is the common screen; set
+        # it False to photograph the list reopened after a `goto`, which is the
+        # wider of the two strings and the one worth measuring — see hereRow.
         "here": {
             "at": "1:12:08",
             "after": 2,
             "more": True,
             "back": True,
+            "still": True,
             "text": "and the tide had gone a long way out, further than he "
             "had ever seen it go.",
             "revealed": False,
@@ -581,7 +587,10 @@ FILL = """
           rule.className = "candidate here";
           rule.setAttribute("aria-current", "true");
           if (here.revealed) rule.classList.add("revealed");
-          rule.append(p("section-label here-mark", "you are here"));
+          // Both labels, because the past tense is a character wider and this
+          // is the only tool that can be pointed at a column to see it fit.
+          const tense = here.still ? "you are here" : "you were here";
+          rule.append(p("section-label here-mark", tense));
           const ask = document.createElement("button");
           ask.type = "button";
           ask.className = "candidate-show";

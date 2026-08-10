@@ -41,7 +41,16 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from .config import Config
-from .queue import Claim, beat, claim, finish, note_chapter, reconcile, requeue
+from .queue import (
+    Claim,
+    beat,
+    claim,
+    finish,
+    note_chapter,
+    note_warning,
+    reconcile,
+    requeue,
+)
 
 if TYPE_CHECKING:
     # Names for the two things a render is given, and nothing at runtime: both
@@ -282,6 +291,11 @@ class _Watch:
     sqlite writes is nothing; a write per sentence would put the renderer in
     front of the page for no reason at all.
 
+    :meth:`on_warning` goes down the same wire and is not about stopping
+    anything: it is the render saying the book it is about to spend six hours on
+    parsed into a shape that cannot be right, minutes in, where somebody can
+    still act on it.
+
     ``why`` is what the render was stopped *for*, which :class:`RenderStopped`
     itself does not say — and the three answers want three different things
     done about the row: put it back, leave it alone, or record that somebody
@@ -357,6 +371,9 @@ class _Watch:
     def on_chapter(self, _idx: int) -> None:
         note_chapter(self._conn, self._job.id, lease=self._lease)
 
+    def on_warning(self, said: str) -> None:
+        note_warning(self._conn, self._job.id, lease=self._lease, note=said)
+
 
 def render_one(
     cfg: Config,
@@ -431,6 +448,7 @@ def render_one(
             job.gid,
             should_stop=watch.should_stop,
             on_chapter=watch.on_chapter,
+            on_warning=watch.on_warning,
         )
     except RenderStopped:
         if watch.why == "shutdown":

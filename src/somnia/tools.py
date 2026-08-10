@@ -17,7 +17,7 @@ search.
 import sqlite3
 from dataclasses import dataclass
 
-from .catalog import CatalogEntry, search_catalog
+from .catalog import CatalogSearch, search_catalog
 from .config import Config
 from .embed import Embedder
 from .format import format_timestamp, shorten
@@ -225,8 +225,13 @@ class Library:
 
     # ------------------------------------------------------------------ books
 
-    def search_catalog(self, query: str, language: str = "en") -> list[CatalogEntry]:
-        """Search Project Gutenberg's catalog for a book to add."""
+    def search_catalog(self, query: str, language: str = "en") -> CatalogSearch:
+        """Search Project Gutenberg's catalog for a book to add.
+
+        The whole result rather than the rows, because a search that had to
+        correct or drop a word has answered a slightly different question and
+        the agent is the one thing here that can say so out loud.
+        """
         return search_catalog(self._conn, query, language=language)
 
     def books(self) -> list[Book]:

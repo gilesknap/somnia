@@ -491,6 +491,16 @@ function stepText(by) {
 function setText(size) {
   textSize = size;
   drawText();
+  // A press on `how big the words` moves the root with no resize behind it, and
+  // whether the reading fits is a question about the root. Without this the one
+  // control the reader has over the size of the page could not give them back
+  // the reading it had taken away, which is issue #65 in a sentence.
+  //
+  // Here and not in `drawText`: `restoreText` calls that one at boot, long
+  // before `unobscured` exists, and `readRoom` reading a `let` in the temporal
+  // dead zone would throw on the way up. Nothing calls `setText` before a thumb
+  // does.
+  readRoom();
   try {
     localStorage.setItem(TEXT_KEY, String(textSize));
   } catch (error) {
@@ -1349,8 +1359,13 @@ function seekGlobal(ms, { play = null } = {}) {
   // The book is going somewhere, so a list of places it might go is answered
   // however it got here — a row, a thumb on −30, the lock screen, or the agent
   // moving the book by the other route while they were still reading. A list
-  // left up over a book that has since moved offers rows whose "you are here"
-  // is a lie, and the next press acts on it.
+  // left up over a book that has since moved is a screen whose every row was
+  // sorted against a mark the book has left, and the next press acts on it.
+  //
+  // Not because of the label: reopened, that rule now reads `you were here` and
+  // says so — see hereRow. The label is redrawn and the rows are not, which is
+  // the whole reason this line is still the right call. Closing is about the
+  // ordering, which nothing redraws.
   closeCandidates();
   // And for the same reason one line up: a way back to where the book was
   // before the last `goto` is a lie the moment the book has been somewhere
@@ -3130,11 +3145,18 @@ placesOpen.addEventListener("click", showRemembered);
 // list took one away. See cancelCandidates.
 let rearmOnCancel = false;
 
-// Where the book is on this book's clock, read once per list and then written
-// into it — showCandidates stamps `here_ms` from this and every later rendering
-// uses the stamp. So this answers "where are they now", and the list answers
-// "where were they when they asked", and those stopped being the same question
-// the moment the rule became something to press.
+// Where the book is on this book's clock, read twice on every showing of a list
+// and for two different purposes. The first reading writes: showCandidates
+// stamps `here_ms` from it, once in the list's life, and every time and every
+// ordering on that screen is that stamp forever after. The second reading only
+// compares — it asks whether the sound is still where the stamp says, and the
+// answer is one word in the label. It must never write, because the stamp is
+// the way back and a way back that follows the playhead is a no-op.
+//
+// So this answers "where are they now", and the list answers "where were they
+// when they asked", and those stopped being the same question the moment the
+// rule became something to press. The row says both: the time is the second
+// question's answer, the tense is the first's.
 //
 // It is drawn into the list so that a glance says which rows are behind them
 // and which are ahead. That is the whole point of the row: "ahead" as a word is
@@ -3357,8 +3379,10 @@ function candidateRow(place) {
   return li;
 }
 
-// The rule drawn across the list at the point they have got to — and a place
-// now, which is the one place on this screen that goes nowhere new.
+// The rule drawn across the list at the point they had got to when they asked —
+// and a place now, which is the one place on this screen that goes nowhere new.
+// "Had got to", because the rule cannot promise the present tense: it is the
+// question's own moment, and the book can be somewhere else by the next showing.
 //
 // It was a rule and nothing else for a long time, and the argument was that the
 // listener's position is not a mark in this list: the places are search hits,
@@ -3383,20 +3407,39 @@ function candidateRow(place) {
 // followed the playhead would name the place the last press landed on, and
 // pressing it would be a no-op offered as an undo.
 //
+// The time is frozen; the word above it is not. The press is the reason for the
+// first — it has to remember a position nothing else wrote down — and the sound
+// is the reason for the second, because the sound is the only thing that can
+// make "you are here" false while the screen is away. `still` is the page
+// having just checked, and the label reads `you are here` only while it holds.
+//
 // `more` is whether there is anything under the rule. The sentence beneath it
 // is about what follows it, and printed with nothing following, it would be a
 // warning about an empty screen.
-function hereRow(list, ms, { more, back }) {
+function hereRow(list, ms, { more, back, still }) {
   const li = document.createElement("li");
   li.className = "candidate here";
-  li.setAttribute("aria-current", "true");
+  // On the same condition as the word, because it is the same claim said to a
+  // different reader. `aria-current` is what a screen reader announces this row
+  // as, so leaving it set under `you were here` hands the machine the sentence
+  // this whole change exists to stop the page making — and hands it to the one
+  // reader who cannot see the label disagreeing with it. Absent rather than
+  // `false`: the attribute's own vocabulary has no word for "was".
+  if (still) li.setAttribute("aria-current", "true");
   // The label on the rule, and only the label now. The time came out of it in
   // the same change that gave this row a time of its own at the size every
   // other row states its time in — one line saying it twice, once at 9px, was
   // the old row's whole problem in one string.
+  //
+  // Two words, and the tense is the only thing on this screen that is not the
+  // photograph. `you are here` said over a book that has moved is not an
+  // over-warning that a reader can discount, it is a false sentence on the one
+  // screen whose promise is that it says nothing nobody has checked — so the
+  // moment the sound is anywhere but the stamp, the row says so and keeps
+  // everything else exactly as it was.
   const mark = document.createElement("p");
   mark.className = "section-label here-mark";
-  mark.textContent = "you are here";
+  mark.textContent = still ? "you are here" : "you were here";
   li.append(mark);
 
   // The reading, in the shape candidateRow builds it: the same classes, so the
@@ -3564,13 +3607,44 @@ function showCandidates(list) {
   // which under the old rule recomputed `here` as the place the `goto` had just
   // landed on. The one press that had to remember was the one that could not.
   //
-  // Frozen, the whole screen is one photograph of the moment the question was
-  // asked, which is what the rest of it already was: `ahead` was decided by the
+  // Frozen, the rows are one photograph of the moment the question was asked,
+  // which is what the rest of them already were: `ahead` was decided by the
   // server against its own mark at that moment and has never been refreshed
   // either. The cost is that the rule can be older than the sound — they may
   // have listened past a row that still sits below the line — and that is the
   // direction this list is allowed to be wrong in. It over-warns. It cannot
   // print a sentence somebody has not heard.
+  //
+  // The label above the rule is the one thing that is not in the photograph,
+  // and it is the exception the over-warning argument does not cover: a warning
+  // that is too cautious is still readable, but `you are here` over a book that
+  // has moved is simply a false sentence, and this is the screen that cannot
+  // afford one. So the tense is decided fresh on every showing, against the
+  // time and nothing else — `still`, below. On every showing and only on a
+  // showing: a list left standing over a book that is still playing keeps the
+  // word it was drawn with, the same way it keeps its rows, and that one is not
+  // fixed here. What is fixed is the showing that comes back to a book which
+  // moved while the screen was away — the reported bug, and the case where a
+  // reader has no reason at all to suspect the screen of being old.
+  //
+  // Against the time and not against the splice, which is the tempting cleverer
+  // test and the wrong one. "Has the playhead crossed one of the places?" is
+  // false after a `goto` backwards that lands between the same two rows, which
+  // is precisely the reported bug: press a row at 0:05:00 from a rule at
+  // 0:16:40 and the mark's index has not moved an inch, and the screen would
+  // still claim they are somewhere they left. Exact equality has no such hole
+  // and needs no threshold — see ADR 4, which is explicit that this page has
+  // none.
+  //
+  // What it does not buy, and was claimed for it once: a word that comes back.
+  // `here` seeks to the stamp, so `still` is true for the instant after the
+  // press — and `returnHere` resumes the sound, and the press closed the list,
+  // so the only way to read the label is to open it again a second later, by
+  // which time the playhead has left the stamp and the word is past again. The
+  // press hands back the place, not the tense. Seeking without playing to
+  // rescue the sentence would be the label steering the book, which is the
+  // wrong way round; see the test, which advances the clock the way a thumb
+  // would.
   //
   // Unstamped rather than stamped with a lie when there is no number: a book
   // nobody has ever started has no position, and "never started" and "at
@@ -3596,6 +3670,11 @@ function showCandidates(list) {
 
   const rows = list.places.map(candidateRow);
   const here = list.here_ms;
+  // The second reading of hereTime, the one that only compares. On the first
+  // showing of any list this is the same call that stamped, with nothing
+  // between the two that can move the playhead, so an answer arriving always
+  // reads `you are here` — which is the showing that matters most.
+  const now = hereTime(list);
   if (typeof here === "number") {
     // Spliced in among them in book order, which is the only arrangement that
     // answers the question the list is for without reading a word: everything
@@ -3613,6 +3692,12 @@ function showCandidates(list) {
         // Pressable only where going there means anything: the book this list
         // is about is the book making the sound. See hereRow.
         back: list.gid === gid && Boolean(manifest),
+        // Present tense only while the sound has not left the stamp. For a list
+        // about another book `hereTime` hands back `list.position_ms`, which is
+        // what the stamp was taken from and never moves while the list is in
+        // hand, so that rule keeps the present tense — it is a claim about
+        // where they are in that book, and nothing here can make it stale.
+        still: now === here,
       }),
     );
   }
@@ -5373,14 +5458,29 @@ function jobWords(row) {
     // are what produce it — and it is what every book rendered before that
     // column existed says as well. "chapter 1 of 0" is the sentence this
     // prevents.
-    if (!row.chapters_total) return "fetching the text";
+    // The note is appended here as well as below, and not only for tidiness:
+    // there is a window — between the parse writing the note and the books row
+    // carrying the chapter count — where a row is both warned about and still
+    // counted as fetching. Dropping the note there would hide it at the one
+    // moment it is newest. `somnia queue` and the agent both say it in either
+    // state, and the page and the voice are not allowed to disagree.
+    if (!row.chapters_total) {
+      return row.note ? `fetching the text · ${row.note}` : "fetching the text";
+    }
     // The chapter being worked on, not the count that is finished: the same
     // number, and the same meaning, as the "rendering chapter 4/39" line the
     // renderer writes to the journal, so the two can be read side by side.
     const chapter = Math.min(row.chapters_done + 1, row.chapters_total);
     const words = `chapter ${chapter} of ${row.chapters_total}`;
     const ready = howMuch(row.rendered_ms);
-    return ready ? `${words} · ${ready} read so far` : words;
+    const line = ready ? `${words} · ${ready} read so far` : words;
+    // A note is the render saying the book parsed into a shape that cannot be
+    // right — three chapters, four hours each. It goes last because it is the
+    // long half of the line, and it goes on this row rather than into a warning
+    // of its own because this is the row somebody is already looking at when
+    // they wonder how the book is getting on, and the whole value of it is
+    // being seen while the render is still minutes rather than hours old.
+    return row.note ? `${line} · ${row.note}` : line;
   }
   if (row.state === "failed") return row.error || "something went wrong";
   if (row.state === "cancelled") {
@@ -5722,7 +5822,13 @@ async function findBooks() {
     if (workshop.hidden) return;
     queueFound = body.entries || [];
     drawResults();
+    // What the search had to do to the question, on the rare occasion it had to
+    // do anything: a word the catalog has never indexed was either corrected
+    // against the library's own vocabulary or left out so that the rest of the
+    // query could still answer. Four Frankensteins under the words "Mary
+    // Shelly" is only an honest answer with this line under it.
     if (!queueFound.length) queueSaid.textContent = "nothing in the catalog";
+    else queueSaid.textContent = body.said || "";
   } catch (error) {
     console.error(error);
     if (workshop.hidden) return;
@@ -6332,15 +6438,23 @@ if (!Recognition) {
 // is showing instead of the sheet working it out from the height of the window.
 //
 // The sheet used to ask `@media (max-height: 34rem)` and mean two things at
-// once: "is there room to draw the reading?", which is a fair question to ask a
-// height, and "is the keyboard up?", which is not. The second guess was wrong
-// twice over. A window dragged short has no keyboard in it, and 34rem is 34
-// times a root that is the OS text scale on purpose — so turning the text up,
-// which is the one setting this whole page is sized around, eventually put the
-// threshold above the height of the phone and left the player unreachable for
-// the rest of the night. The larger the reader's type, the sooner they lost the
-// book. The first question is still a height query in the sheet; this is the
-// second one, and it is a measurement.
+// once: "is there room to draw the reading?", which is a fair question, and "is
+// the keyboard up?", which is not. A window dragged short has no keyboard in it,
+// so a short page put the reader on the chat screen with the player gone and no
+// gesture that brought it back. That half is this measurement.
+//
+// Both halves are measurements now, and it took two passes to get there because
+// this comment used to give a wrong reason for a right answer. It said 34rem was
+// "34 times a root that is the OS text scale on purpose". It was neither: `rem`
+// in a MEDIA QUERY resolves against the browser's initial font size and never
+// against `html { font-size }`, so 34rem was a hard 544 CSS px that could not
+// see the type it existed to protect. The fix here was right anyway — a keyboard
+// is a thing you measure, not a height you guess from — but the fit question
+// kept a threshold that was blind to `--text-size`, and the reader who turned
+// the words up got the title landing on the clock with no warning while the
+// reader on a small phone got a void where the book is. `readRoom` below is that
+// second half, arriving late, and the pair of them is why no size query in
+// style.css is written in rem any more.
 //
 // It is a named screen rather than a `keyboard-up` boolean because the keyboard
 // is a route in and not the thing itself: the design's dock is a portal to this
@@ -6503,6 +6617,88 @@ function readKeyboard() {
   );
 }
 
+// ---------------------------------------------------------------- the room
+//
+// Whether there is height enough to draw the reading in, which is the other
+// question the old `@media (max-height: 34rem)` was asked and the one it could
+// never answer honestly.
+//
+// A stack of type either fits in the window or it does not, and how much room it
+// wants is a multiple of the page's own root — turn the words up and the same
+// stack needs more of them. That is exactly the question a media query cannot
+// ask: its `rem` is the browser's 16px, so 34rem was 544 CSS px whatever the
+// page had set, and since the root became a fraction of the screen the two units
+// are not even related. 544px was wrong in both directions at once. On a 309px
+// phone the root is 17.2 and the player wants 584px, so a 560px window kept a
+// reading it had no room for; on a 240px window the root is 13.3 and the player
+// wants 453px, so a 500px window lost a reading that fitted twice over.
+//
+// So the number is asked in roots and the arithmetic is done here, where the
+// root can be read. Roots are an approximation and style.css says where they
+// stop being one: the header's padding and the safe-area inset are device
+// pixels, so the same count of roots is not the same stack at two text sizes.
+//
+// The number came from pictures rather than from arithmetic, and the argument
+// for it is written out in style.css beside the rule that takes the reading
+// away, because that is where the loss is taken. The headline belongs here as
+// well: 32 is the largest number that leaves the reader's own control alone.
+// 360x780 with `how big the words` turned all the way up is a root of 24 and
+// wants 768 of the 780 there are — at 34 it wanted 816, and the design's own
+// phone at the top of its own text range went to a void.
+//
+// The class is written on every window, wide or narrow. What it means on a wide
+// one is only that 32 roots would not fit, which past 460 CSS px across is a
+// flat 818px and not a shape at all — so the sheet gates the rule it feeds, and
+// judges a wide window by the reading's own measured height instead.
+const PLAYER_NEEDS_ROOTS = 32;
+
+// And the room the two headings want for their second line, which is a different
+// number and is the one 34 was always measuring.
+//
+// Both are clamped to two lines and both carry `overflow: hidden` to do it, and
+// that is the whole of the bug this answers: a flex item whose overflow is not
+// `visible` has its automatic minimum size resolve to ZERO, so asking for the
+// clamp quietly took away the floor under the heading. Flex was then free to
+// shrink it to any fraction of a line, and it did — 1.6 lines at 360x640, which
+// `overflow: hidden` then cut through the middle of the letters. Not a truncation
+// and not an overlap: a horizontal slice, which reads as a font bug. The chapter
+// name is worse, because it loses its second line and takes the ellipsis with it:
+// the clamp is still 2, so the ellipsis is placed on a line that has just been
+// clipped away, and a long chapter name simply stops mid-title.
+//
+// Below this the headings take one line each and say so with an ellipsis, which
+// is the only failure here that a reader can tell from the page working. Measured
+// on the real page at three roots, because roots do not scale exactly: a two-line
+// title fits at 33.8 roots and is sliced at 32.6 with a root of 17.2; fits at 33.0
+// and is sliced at 32.5 with a root of 20; fits at 32.5 with a root of 24. 34
+// clears all three. It is deliberately the number #65 rejected — that pass had
+// measured where the second line stops fitting and then used it to hide the whole
+// reading, which is why it took the book off the design's own phone.
+const TITLE_NEEDS_ROOTS = 34;
+
+// Measured, and against `unobscured` rather than `viewport.height`. The height a
+// page is judged by is the one with nothing over it: a keyboard is not a page
+// with no room in it, and conflating the two is the whole of the bug the section
+// above fixed. A page that went "short" every time somebody started typing would
+// have thrown the reading away and then not brought it back until the next
+// resize.
+function readRoom() {
+  const root = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  // Nothing to measure against, so nothing is taken away. The same arm
+  // `readKeyboard` takes when it takes focus at its word: an engine with no
+  // visual viewport, or a root that came back as NaN, gets the whole reading and
+  // whatever overlap comes with it, which is the failure that leaves the reader
+  // something rather than the one that leaves them a void.
+  if (!(root > 0) || !(unobscured > 0)) return;
+  const roots = unobscured / root;
+  document.body.classList.toggle("short-page", roots < PLAYER_NEEDS_ROOTS);
+  // Asked of the page and not of the heading. Measuring the heading itself would
+  // be measuring this class's own output — clamp it to one line and it fits, so
+  // the answer becomes "there is room" and the page flickers between the two.
+  // The room is the stable thing.
+  document.body.classList.toggle("title-one-line", roots < TITLE_NEEDS_ROOTS);
+}
+
 viewport?.addEventListener("resize", () => {
   // With nothing focused, nothing is over the page: whatever it is now is what
   // "not obscured" means from here on. A window dragged shorter, a phone turned
@@ -6511,7 +6707,12 @@ viewport?.addEventListener("resize", () => {
   if (!typing) unobscured = viewport.height;
   fit();
   readKeyboard();
+  readRoom();
 });
+
+// The first reading, so a page opened on a phone with no room for the player
+// says so before it is looked at rather than a resize later.
+readRoom();
 
 // The way ON to the chat screen, and the whole of it: a press on the dock.
 //

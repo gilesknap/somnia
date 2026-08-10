@@ -302,10 +302,18 @@ def build_tools(
         Args:
             query: Title, author, or subject words to search for.
         """
-        entries = library.search_catalog(query)
-        if not entries:
+        results = library.search_catalog(query)
+        if not results.entries:
             return f"Nothing in the Gutenberg catalog matches {query!r}."
-        return "\n".join(f"gid {e.gid}: {e.title} — {e.authors}" for e in entries[:10])
+        lines = [f"gid {e.gid}: {e.title} — {e.authors}" for e in results.entries[:10]]
+        # First, because it changes what the rows below mean. A search that had
+        # to correct a misspelling or drop a word has answered a question
+        # slightly different from the one that was asked, and the model has to
+        # be able to say so — "there is no Shelly, but here is Mary Shelley" is
+        # the honest sentence, and it cannot be said if only the rows come back.
+        if results.said:
+            lines.insert(0, f"({results.said})")
+        return "\n".join(lines)
 
     @beta_tool
     def add_book(gid: int) -> str:
@@ -704,11 +712,16 @@ def _line(row: QueueRow) -> str:
     if row.state == "queued":
         return f"waiting to be rendered, {row.place} in the line"
     if not row.chapters_total:
-        return "being rendered now, still fetching the text"
-    return (
-        "being rendered now, chapter"
-        f" {min(row.chapters_done + 1, row.chapters_total)} of {row.chapters_total}"
-    )
+        said = "being rendered now, still fetching the text"
+    else:
+        said = (
+            "being rendered now, chapter"
+            f" {min(row.chapters_done + 1, row.chapters_total)} of {row.chapters_total}"
+        )
+    # Carried through so that somebody who asks how a book is getting on is told
+    # the one thing about it that is worth acting on tonight. It is a plain
+    # clause about the book, not a number to be turned into a promise.
+    return f"{said} ({row.note})" if row.note else said
 
 
 def _offered(offer: Offer) -> str:

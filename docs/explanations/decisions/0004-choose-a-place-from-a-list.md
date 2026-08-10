@@ -73,6 +73,50 @@ to be moved, so there is still no rule watching search results and raising a
 list; what is new is that the model says which kind of turn it is by which tool
 it calls, and the tools refuse a move or a list in a turn that answered.
 
+**Amended 2026-08-10 (#66): the rule's time is frozen and its word is not.** The
+marker read *you are here* on every showing of a list, including the showing
+after a `goto`, where the book is somewhere else and the frozen time is what the
+way back is for. The time stays exactly as it was — it is what `here` seeks to,
+what the passage is fetched at and what the rows are sorted around, and
+unfreezing it turns the one press that had to remember into an undo that undoes
+nothing. What changed is one string: the page compares the stamp against the
+live playhead on every showing and writes *you are here* only while they are
+equal, *you were here* otherwise. On a list about another book the present tense
+stays, because there the stamp is that book's stored position and nothing on
+this page can move it.
+
+Three alternatives were considered and are recorded so they are not re-argued.
+*Two rows*, a live rule plus a frozen way back, gives one screen two clocks
+among rows that are all a photograph of one moment, cannot be drawn for another
+book at all, and adds a sixth row to a list that already scrolls from the moment
+it opens. *A staleness threshold* — past tense only after N seconds — needs an N
+nobody can justify from a desk, and this page has no thresholds. *A crossing
+test* — past tense only once the playhead has passed one of the places — is the
+tempting clever version and it misses the reported bug: a `goto` backwards that
+lands between the same two rows leaves the mark's index unmoved, so the screen
+would go on claiming they are somewhere they have just left. Exact equality has
+no such hole and needs no number invented at a desk, so it is what the label is
+decided by. The cost accepted is that a second or two of sound under a cancelled
+list flips the word; that is under-claiming, which is the direction this screen
+is allowed to be wrong in.
+
+What exact equality does **not** buy, and was briefly claimed for it, is a word
+that comes back. `here` seeks to the stamp and resumes the sound, and the label
+can only be looked at by opening the list again — a second or more later, by
+which time the playhead has left the stamp and the rule reads *you were here*
+once more. The present tense holds for a quarter of a second and never while
+anybody is reading it. That is not a fault to fix by seeking without playing:
+the press is a way back into the book, not into a sentence, and the honest
+reading is that the row gives the place back and the tense stays past. The
+narrower true statement, which is what this decision rests on, is that the
+present tense is printed only on a showing where the page has just checked it.
+
+The caveat under the rule is deliberately unchanged. *Anything below this line
+you may not have heard* can only ever over-warn — `heard_to_ms` never falls —
+and that is the same trade already accepted for the never-refreshed `ahead`
+flags. Loading a second clause onto the one sentence the screen is arranged
+around buys nothing the tense above it has not already said.
+
 What was **not** taken from that revision is the per-row `strong match` /
 `possible match` / `faint match` line. It needs a distance threshold, which
 "A confidence threshold to decide when to offer" below rejects for reasons that
@@ -248,8 +292,9 @@ something that really happened reads no worse for the offer beside it having
 gone. Pressed after that it would be a fourth move wearing the word *undo*.
 
 It is a second way back and not the only one. The *you are here* row is the
-first: it is frozen at the moment the question was asked, so opening the list
-again an hour later still offers the place the `goto` left. The toast is for the
+first: it is frozen at the moment the question was asked, and says so — opening
+the list again an hour later still offers the place the `goto` left, under a
+rule that now reads *you were here*. The toast is for the
 press that has just happened and the row is for the one somebody has had time to
 regret, which is why both exist and why they say the same sentence.
 

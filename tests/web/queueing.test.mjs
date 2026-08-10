@@ -1584,6 +1584,47 @@ test("a render says which chapter it is on and how much is ready to play", async
   ]);
 });
 
+test("a book that parsed into a shape that cannot be right says so on its row", async (t) => {
+  // Parsing is minutes and rendering is hours, so this line exists to be seen
+  // while stopping the render is still worth doing — rather than the next
+  // night, by a listener holding a four-hour "chapter".
+  const page = await opened(t);
+  page.queueView([
+    job({
+      note:
+        "3 chapters, averaging 3.7 hours each — the chapter headings may have been missed",
+    }),
+  ]);
+  await workshop(page);
+  assert.equal(
+    jobs(page)[0].state,
+    "chapter 4 of 39 · 1h12m read so far · 3 chapters," +
+      " averaging 3.7 hours each — the chapter headings may have been missed",
+  );
+  // Still narrating. A note is not a failure, and the render carries on.
+  assert.equal(jobs(page)[0].stage, "narrating");
+});
+
+test("a note is said even before anybody has counted the chapters", async (t) => {
+  // The parse writes the note and the chapter count a moment apart, so there is
+  // a window where the row is warned about and still says it is fetching. That
+  // is the moment the note is newest, and the worst one to hide it in.
+  const page = await opened(t);
+  page.queueView([
+    job({
+      chapters_total: 0,
+      chapters_done: 0,
+      rendered_ms: 0,
+      note: "3 chapters, averaging 3.7 hours each",
+    }),
+  ]);
+  await workshop(page);
+  assert.equal(
+    jobs(page)[0].state,
+    "fetching the text · 3 chapters, averaging 3.7 hours each",
+  );
+});
+
 test("the corner says the stage, in the panel's word for it", async (t) => {
   const page = await opened(t);
   page.queueView([
@@ -1886,6 +1927,35 @@ test("a search asks once per press, not once per keystroke", async (t) => {
       add: "add this book",
     },
   ]);
+});
+
+test("a search that had to correct a word says so under the results", async (t) => {
+  // The box is on the panel built for somebody half asleep, and one misspelled
+  // word used to take the whole query to "nothing in the catalog" — about a
+  // library that has the book. It answers now, and this line is what keeps the
+  // answer honest: these are not the words that were typed.
+  const page = await opened(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries(
+    [entry()],
+    'nothing in the catalog says "shelly", so this is "shelley"',
+  );
+  await search(page, "mary shelly");
+  assert.equal(results(page).length, 1);
+  assert.equal(
+    page.el("queue-said").textContent,
+    'nothing in the catalog says "shelly", so this is "shelley"',
+  );
+});
+
+test("a search that found what was asked for says nothing extra", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries([entry()]);
+  await search(page, "treasure island");
+  assert.equal(page.el("queue-said").textContent, "");
 });
 
 test("a book from the Australian library says so, because that is the surprise", async (t) => {

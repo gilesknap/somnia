@@ -17,7 +17,7 @@ from .audio import ChapterAudio
 from .catalog import text_url
 from .config import Config
 from .embed import Embedder
-from .gutenberg import Chapter, fetch_book
+from .gutenberg import Chapter, fetch_book, implausible_shape
 from .index import add_chunks
 from .library import forget_the_chapters
 from .pgau import is_australian
@@ -163,6 +163,7 @@ def ingest_book(
     *,
     should_stop: Callable[[], bool] | None = None,
     on_chapter: Callable[[int], None] | None = None,
+    on_warning: Callable[[str], None] | None = None,
 ) -> None:
     """Fetch, render, and index a book, streaming chapter by chapter.
 
@@ -172,7 +173,11 @@ def ingest_book(
     the render on the next chapter boundary by raising :class:`RenderStopped`;
     ``on_chapter`` is told each chapter index as its row is written, which is
     the only moment anything outside this process can know a chapter is real.
-    Both are optional, and with neither of them this behaves as it always did.
+    ``on_warning`` is told, once, if the parse came out in a shape that cannot
+    be right — a book of three chapters four hours each — so that somebody can
+    see it while the render is still minutes old instead of finding out the
+    next night. All three are optional, and with none of them this behaves as
+    it always did.
     """
     # A Project Gutenberg Australia book keeps its address in the catalog rather
     # than in its id, so this lookup is what makes it fetchable at all. None is
@@ -187,6 +192,19 @@ def ingest_book(
         )
     book = fetch_book(gid, url)
     total = len(book.chapters)
+
+    # Before a word is rendered, because that is the point of it. The heading
+    # rule is a heuristic over eighty thousand books of hand-written HTML and it
+    # will be wrong again in a shape nobody has seen; this is what makes it wrong
+    # loudly and early rather than six hours later, in front of a listener.
+    # It never stops the render — a book really is sometimes one long piece of
+    # prose, and a heuristic does not get to overrule a person.
+    doubt = implausible_shape(book)
+    if doubt is not None:
+        logger.warning("book %d parsed into an unlikely shape: %s", gid, doubt)
+        if on_warning is not None:
+            on_warning(doubt)
+
     row = conn.execute(
         "SELECT title, authors FROM catalog WHERE gid = ?", (str(gid),)
     ).fetchone()

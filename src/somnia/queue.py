@@ -58,6 +58,7 @@ __all__ = [
     "claim",
     "finish",
     "note_chapter",
+    "note_warning",
     "reconcile",
     "requeue",
     "stop",
@@ -187,6 +188,12 @@ class QueueRow:
     another before it costs six hours. It is empty for a row that named none,
     and the readout says nothing at all in that case rather than guessing at the
     renderer's configuration, which this process cannot see.
+
+    ``note`` is something the render wants said about a book it is reading
+    perfectly happily — so far, only that the book parsed into a shape that
+    cannot be right. It is not ``error``: everything that draws that word reads
+    it as "this book failed", and this render has not failed and is not going
+    to be stopped by anything here. It is empty for almost every row.
     """
 
     id: int
@@ -202,6 +209,7 @@ class QueueRow:
     stopping: bool
     responding: bool
     error: str
+    note: str
     submitted_at: str
     started_at: str
 
@@ -481,6 +489,31 @@ def note_chapter(conn: sqlite3.Connection, job_id: int, *, lease: str) -> None:
         )
 
 
+def note_warning(
+    conn: sqlite3.Connection, job_id: int, *, lease: str, note: str
+) -> None:
+    """Say something about a render that is going fine but does not look right.
+
+    The one thing this carries today is a parse that came out as a handful of
+    chapters hours long, which is what a book bound as volumes used to look like
+    and what any markup shape nobody has anticipated will look like next. The
+    render is not stopped and this is not an error — but it is written down
+    within minutes of the parse, on the row the page and the agent are already
+    reading progress from, which is hours before a listener would otherwise
+    find out.
+
+    Last one wins, and there has only ever been one per render. Fenced on the
+    lease like every other write here.
+    """
+    if not lease:
+        return
+    with conn:
+        conn.execute(
+            "UPDATE queue SET note = ? WHERE id = ? AND lease = ?",
+            (note, job_id, lease),
+        )
+
+
 def finish(
     conn: sqlite3.Connection,
     job_id: int,
@@ -623,7 +656,7 @@ def view(conn: sqlite3.Connection, *, stale_s: int = STALE_S) -> list[QueueRow]:
     """
     rows = conn.execute(
         "SELECT q.id, q.gid, q.title, q.authors, q.voice, q.state, q.cancel, q.error,"
-        " q.submitted_at, q.started_at,"
+        " q.note, q.submitted_at, q.started_at,"
         " (SELECT COUNT(*) FROM chapters c WHERE c.book_gid = q.gid) AS chapters_done,"
         " COALESCE(b.chapters_total, 0) AS chapters_total,"
         " COALESCE(b.total_ms, 0) AS rendered_ms,"
@@ -662,6 +695,7 @@ def view(conn: sqlite3.Connection, *, stale_s: int = STALE_S) -> list[QueueRow]:
                 stopping=state == "rendering" and bool(r["cancel"]),
                 responding=state != "rendering" or bool(r["fresh"]),
                 error=str(r["error"]),
+                note=str(r["note"]),
                 submitted_at=str(r["submitted_at"]),
                 started_at=str(r["started_at"] or ""),
             )

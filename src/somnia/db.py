@@ -22,6 +22,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS catalog USING fts5(
     gid UNINDEXED, title, authors, subjects, bookshelves, language UNINDEXED
 );
 
+-- Every word the catalog has ever been asked to index, with how many books it
+-- appears in. FTS5 ships this: it is a read-only view over the index that is
+-- already there, so it costs one statement, no rows of its own, and nothing at
+-- import time — it cannot go stale because there is nothing in it to update.
+--
+-- It exists so that a search can tell "this word is not in the library" from
+-- "these words are not in one book together". Without it, one misspelling in a
+-- query vetoes the whole of it under FTS5's implicit AND, and searching for
+-- "Mary Shelly's Frankenstein" answers that the catalog holds nothing — about
+-- a library with four editions of it. See somnia.catalog.search_catalog.
+CREATE VIRTUAL TABLE IF NOT EXISTS catalog_vocab USING fts5vocab(catalog, row);
+
 -- Where to fetch a catalogued book's text, for the books whose address cannot
 -- be worked out from their id. Project Gutenberg's own can: every one of them
 -- is at cache/epub/<gid>/pg<gid>.html, which is why somnia has never needed
@@ -105,6 +117,7 @@ CREATE TABLE IF NOT EXISTS queue (
     attempts INTEGER NOT NULL DEFAULT 0,
     voice TEXT NOT NULL DEFAULT '',
     error TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
     submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
     started_at TEXT,
     ended_at TEXT
@@ -207,6 +220,18 @@ _ADDED_COLUMNS = (
     # submitted before this column existed and every one the agent adds by
     # voice at 2am — not a real conversation to have half asleep.
     ("queue", "voice", "TEXT NOT NULL DEFAULT ''"),
+    # Something worth saying about a render that is going perfectly well. The
+    # only free text a live row had was `error`, which is read as "this book
+    # failed" everywhere it is drawn, and a parse that came out looking wrong is
+    # not a failure — the render can and does carry on.
+    #
+    # There is one thing in here so far: the sentence
+    # :func:`somnia.gutenberg.implausible_shape` writes when a book parses into
+    # a handful of chapters hours long. Parsing is minutes and rendering is
+    # hours, so this is the difference between somebody seeing it while it is
+    # still worth stopping and discovering it the next night with a four-hour
+    # audio file in front of them.
+    ("queue", "note", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

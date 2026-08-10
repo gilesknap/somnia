@@ -146,6 +146,7 @@ def _ingest(
     engine: Any = None,
     should_stop: Callable[[], bool] | None = None,
     on_chapter: Callable[[int], None] | None = None,
+    on_warning: Callable[[str], None] | None = None,
 ) -> None:
     ingest_book(
         _cfg(tmp_path),
@@ -155,6 +156,7 @@ def _ingest(
         271,
         should_stop=should_stop,
         on_chapter=on_chapter,
+        on_warning=on_warning,
     )
 
 
@@ -384,6 +386,43 @@ def test_the_chapter_count_is_written_down_before_a_word_is_rendered(
         assert chapters(conn) == []
     finally:
         conn.close()
+
+
+def test_a_parse_that_cannot_be_right_is_said_before_a_word_is_rendered(
+    tmp_path: Path, unrendered: Fetched
+) -> None:
+    """Three chapters of forty thousand words is what a book bound as volumes
+    looked like, and the point of saying so is *when*: parsing is minutes and
+    rendering is hours, so this lands while stopping it is still worth doing."""
+    unrendered.book = Book(
+        gid=271,
+        title="Black Beauty",
+        authors="Sewell, Anna",
+        chapters=[
+            Chapter(title=f"Volume {i}", paragraphs=["word " * 40_000])
+            for i in range(3)
+        ],
+    )
+    said: list[str] = []
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        with pytest.raises(RenderStopped):
+            _ingest(conn, tmp_path, should_stop=lambda: True, on_warning=said.append)
+    finally:
+        conn.close()
+    assert len(said) == 1
+    assert "3 chapters" in said[0]
+
+
+@pytest.mark.usefixtures("unrendered")
+def test_an_ordinary_book_is_not_complained_about(tmp_path: Path) -> None:
+    said: list[str] = []
+    conn = connect(tmp_path / "fresh.db")
+    try:
+        _ingest(conn, tmp_path, on_warning=said.append)
+    finally:
+        conn.close()
+    assert said == []
 
 
 @pytest.mark.usefixtures("unrendered")

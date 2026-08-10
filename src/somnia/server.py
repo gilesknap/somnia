@@ -52,7 +52,7 @@ from .stream import build_stream, stream_path
 from .tools import CANDIDATE_TEXT_CHARS, Library
 from .voices import VOICES, known
 
-__all__ = ["Conversations", "Found", "Queue", "create_app", "serve"]
+__all__ = ["Conversations", "Found", "Queue", "Searched", "create_app", "serve"]
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +222,21 @@ class Found:
     source: str
 
 
+@dataclass
+class Searched:
+    """The rows a search found, and what it had to do to the query to find them.
+
+    ``said`` is empty for every search that found what was asked for, which is
+    almost all of them. It is not empty when a misspelled word was corrected
+    against the catalog's own vocabulary or dropped for matching nothing —
+    because a list of four Frankensteins under the words "Mary Shelly" is only
+    honest if the screen also says that nobody in the catalog is called Shelly.
+    """
+
+    entries: list[Found]
+    said: str
+
+
 class Queue:
     """The third lane: what is being rendered, and asking for one more book.
 
@@ -283,21 +298,24 @@ class Queue:
         with self._lock:
             return remove_book(self._cfg, self._conn, gid)
 
-    def search(self, query: str, language: str) -> list[Found]:
+    def search(self, query: str, language: str) -> Searched:
         """The local catalog, offline, with what somnia already has marked."""
         with self._lock:
-            entries = search_catalog(self._conn, query, language, CATALOG_LIMIT)
-            have = self._have([entry.gid for entry in entries])
-        return [
-            Found(
-                gid=entry.gid,
-                title=entry.title,
-                authors=entry.authors,
-                have=have.get(entry.gid),
-                source=entry.source,
-            )
-            for entry in entries
-        ]
+            results = search_catalog(self._conn, query, language, CATALOG_LIMIT)
+            have = self._have([entry.gid for entry in results.entries])
+        return Searched(
+            entries=[
+                Found(
+                    gid=entry.gid,
+                    title=entry.title,
+                    authors=entry.authors,
+                    have=have.get(entry.gid),
+                    source=entry.source,
+                )
+                for entry in results.entries
+            ],
+            said=results.said,
+        )
 
     def _have(self, gids: list[int]) -> dict[int, str]:
         """What somnia already knows about these books, in one statement.
@@ -647,9 +665,17 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         # So in practice this is English and the parameter exists to keep the
         # route honest rather than because anything varies it.
         language = request.query_params.get("language", "en")
-        entries = await run_in_threadpool(renders.search, query, language)
+        results = await run_in_threadpool(renders.search, query, language)
         return JSONResponse(
-            {"query": query, "entries": [asdict(entry) for entry in entries]}
+            {
+                "query": query,
+                "entries": [asdict(entry) for entry in results.entries],
+                # Usually "". It says what the search did to the query when a
+                # word was not in the catalog at all — corrected against the
+                # library's own vocabulary, or dropped so that the two right
+                # words in "Mary Shelly's Frankenstein" could still answer.
+                "said": results.said,
+            }
         )
 
     async def voices(request: Request) -> Response:
