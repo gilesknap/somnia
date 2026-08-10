@@ -22,6 +22,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS catalog USING fts5(
     gid UNINDEXED, title, authors, subjects, bookshelves, language UNINDEXED
 );
 
+-- Every word the catalog has ever been asked to index, with how many books it
+-- appears in. FTS5 ships this: it is a read-only view over the index that is
+-- already there, so it costs one statement, no rows of its own, and nothing at
+-- import time — it cannot go stale because there is nothing in it to update.
+--
+-- It exists so that a search can tell "this word is not in the library" from
+-- "these words are not in one book together". Without it, one misspelling in a
+-- query vetoes the whole of it under FTS5's implicit AND, and searching for
+-- "Mary Shelly's Frankenstein" answers that the catalog holds nothing — about
+-- a library with four editions of it. See somnia.catalog.search_catalog.
+CREATE VIRTUAL TABLE IF NOT EXISTS catalog_vocab USING fts5vocab(catalog, row);
+
 -- Where to fetch a catalogued book's text, for the books whose address cannot
 -- be worked out from their id. Project Gutenberg's own can: every one of them
 -- is at cache/epub/<gid>/pg<gid>.html, which is why somnia has never needed
