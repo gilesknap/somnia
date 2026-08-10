@@ -225,8 +225,28 @@ PANELS = {
         },
     },
     "workshop": {
-        "unhide": ["queue", "workshop", "queue-working", "queue-ended"],
-        "text": {"queue-note": "", "queue-said": ""},
+        "unhide": [
+            "queue",
+            "workshop",
+            "queue-working",
+            "queue-ended",
+            # The library at the foot of the screen, which app.js draws and a
+            # snapshot therefore cannot. Without it every render of Workshop
+            # stops at the queue and the densest half of the screen — the half
+            # a cap on the night shelf now sends people to — is not in the
+            # picture at all.
+            "have",
+            "have-finished-label",
+        ],
+        "text": {
+            "queue-note": "",
+            "queue-said": "",
+            "have-finished-label": "2 finished",
+        },
+        # Which way round the list is, drawn because drawHave draws it: without
+        # this the sort row photographs as three identical pills and the render
+        # cannot show that one of them is in force.
+        "chosen": "have-sort-recent",
         # The dim layer comes off while this screen is up — app.js does it in
         # drawDim, and drawDim does not run in a snapshot. Without this every
         # render of Workshop is the daylight screen photographed through 12% of
@@ -268,6 +288,21 @@ PANELS = {
                 "stopped part way — what was read still plays",
                 None,
             ],
+        ],
+        # The books somnia already has: a name, who wrote it, and how much of it
+        # is here. Three rows and not twenty, for the reason the shelf fixture
+        # gives — what is being looked at is how heavy a row is against the
+        # queue above it, and twenty repeats of one row photograph the scroller
+        # instead. One of them still being read, because the amber coverage line
+        # is the only thing on this screen that is not either ink or a control.
+        "mine": [
+            ["Black Beauty", "Sewell, Anna", "all 49 chapters"],
+            ["The Moonstone", "Collins, Wilkie · Reade, Charles", "read to 5 of 37"],
+            ["The Wind in the Willows", "Grahame, Kenneth", "all 27 chapters"],
+        ],
+        "finished": [
+            ["Kidnapped", "Stevenson, Robert Louis", "all 30 chapters"],
+            ["Treasure Island", "Stevenson, Robert Louis", "all 34 chapters"],
         ],
     },
     # Settings, the third night screen, and the one overlay with no list on it
@@ -435,6 +470,22 @@ FILL = """
       if (!gone) li.append(pill("job-stop", "stop reading this"));
       return li;
     };
+    // haveRow from app.js, class for class, caret included: the caret is drawn
+    // out of borders rather than as an svg, so leaving it off here would be a
+    // render of a row that is a different width from the real one.
+    const haveRow = ([name, by, cover]) => {
+      const li = document.createElement("li");
+      li.className = "have-book";
+      const text = div("have-text", p("have-name", name), p("have-by", by));
+      if (cover) text.append(p("have-cover", cover));
+      const caret = document.createElement("span");
+      caret.className = "have-caret";
+      li.append(text, caret);
+      return li;
+    };
+    put("have-list", (PANEL.mine || []).map(haveRow));
+    put("have-finished", (PANEL.finished || []).map(haveRow));
+
     put("queue-live", (PANEL.live || []).map(jobRow(false)));
     put("queue-gone", (PANEL.gone || []).map(jobRow(true)));
 

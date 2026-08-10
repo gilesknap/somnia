@@ -1236,10 +1236,21 @@
 
         <!-- Mono, uppercase and small enough that it cannot be mistaken for
              something to press or something to read: it is a rule with a word
-             on it. It says gutenberg because that is where the books come from
-             and it is the only warning that a search here is not a search of
-             the shelf. -->
-        <p class="section-label">project gutenberg</p>
+             on it. It says what the part of the screen under it is for, which
+             is what every other label on this page does, and it has to now that
+             there is a second list of books below: `project gutenberg` named
+             where the rows came from, and read against `books you already have`
+             it named a place rather than an act. -->
+        <p class="section-label">bring in a new book</p>
+        <!-- And where the search actually goes, in a sentence, because that is
+             the one thing the label above no longer says. It is the difference
+             between the two lists on this screen — seventy thousand books
+             nobody owns up here, and the ones somnia has down there — and
+             getting it the wrong way round means adding a book you already
+             have, or waiting for a render of one that has already been made. -->
+        <p id="bring-note">
+          Searching Project Gutenberg, not the books below.
+        </p>
         <!-- A search box, and a button, and one request per press.
 
              Not per keystroke, and not per typed word either, which is what the
@@ -1260,7 +1271,7 @@
             type="search"
             enterkeyhint="search"
             autocomplete="off"
-            placeholder="a title, or an author"
+            placeholder="search gutenberg"
             aria-label="Which book?"
           />
           <button id="queue-find" type="submit">find</button>
@@ -1295,6 +1306,79 @@
              said before the tailnet went. An empty queue and an unreachable
              server look identical and mean opposite things. -->
         <p id="queue-note"></p>
+
+        <!-- Everything somnia has, at the foot of the screen that is allowed to
+             manage it.
+
+             Books shows the twenty most recently touched and says at its foot
+             that the rest are here; this is that promise. It is the whole
+             library and not the remainder — a list that held only the books
+             Books had left out would be a list whose contents depend on what
+             somebody listened to last week, and nobody can search that.
+
+             It is last on this screen on purpose. The sentence this screen is
+             is still `find a book, add it, watch it being made`, and those
+             three are unbroken above; this answers a different question —
+             *what do I already have, and what state is it in* — and the two
+             would fight over the top of the screen. Somebody who came here to
+             look after a book they own scrolls past a search box once.
+
+             The filter, the ordering and the rows all live here and nowhere
+             else. A filter has states, and a filter on the night screen would
+             give it a second appearance — reachable by half-asleep typing — in
+             which the book you almost certainly want is missing. -->
+        <div id="have" hidden>
+          <p class="section-label">books you already have</p>
+          <!-- Filtered as the letters arrive, which the search above is
+               deliberately not: this list is already on the phone, so the cost
+               of a keystroke is redrawing a few rows rather than a round trip
+               over a tailnet, and there is no FTS5 on the far end to empty the
+               list between two words. -->
+          <input
+            id="have-filter"
+            type="search"
+            enterkeyhint="done"
+            autocomplete="off"
+            placeholder="filter your books"
+            aria-label="Which of your books?"
+          />
+          <!-- Which way round the list goes, and the only sort control in the
+               app. Three orders and not five: how new it is, and then the two
+               things printed on a spine. `recent` is the one it opens on,
+               because the book somebody has come to look after is usually the
+               one that has just arrived.
+
+               Pills rather than a <select>, for the reason the voices and the
+               rewind lengths are: a native picker on Android is a modal over a
+               screen the reader is trying to read, and three words in a row are
+               visible without being pressed at all. -->
+          <div id="have-sort">
+            <button id="have-sort-recent" class="have-pick" type="button">
+              recent
+            </button>
+            <button id="have-sort-title" class="have-pick" type="button">
+              title
+            </button>
+            <button id="have-sort-author" class="have-pick" type="button">
+              author
+            </button>
+          </div>
+          <ul id="have-list"></ul>
+          <!-- A filter that matched nothing has to say so. The list going empty
+               under a box somebody is typing into is the one moment on this
+               screen where an empty list means something specific, and it is
+               not "you have no books". -->
+          <p id="have-none" hidden>nothing here matches that</p>
+
+          <!-- The books somebody has said they are done with, under the ones
+               they are not, and counted rather than named as a section: the
+               number is the useful part — it is how much of the library is
+               behind you — and `4 finished` over four rows says both at once.
+               They are still here and still play; they are only not an answer
+               to the question the list above is asking. -->
+          <p id="have-finished-label" class="section-label" hidden></p>
+          <ul id="have-finished"></ul>
+        </div>
       </div>
     </section>
 

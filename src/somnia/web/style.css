@@ -3638,6 +3638,178 @@ body.keyboard-up #candidates-note {
   color: var(--mid);
 }
 
+/* Where the search actually looks, under the label that used to say it. Same
+   size and same ink as the sentence at the top of the screen, because it is the
+   same kind of line — a thing read once, on the first visit, that stops a whole
+   class of wasted press. Tucked up under its label rather than floating between
+   two sections: it belongs to the search box below it. */
+#bring-note {
+  margin: -0.35rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: var(--mid);
+}
+
+/* ----------------------------------------- the library, at the foot of it
+
+   Everything somnia has, on the one screen allowed to manage it. It is a
+   section rather than a run of siblings in the scroller because the whole of it
+   goes when there is nothing in it: a filter and three orders over an empty
+   list are four controls that cannot do anything.
+
+   Its own gap, since the scroller's belongs to the elements above. */
+#have[hidden] {
+  display: none;
+}
+
+#have {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  /* A clear step off the queue rows above, which is the only thing on this
+     screen that separates the two questions it now answers: what am I getting,
+     and what do I have. */
+  margin-top: 1.2rem;
+}
+
+/* The same box as the Gutenberg search above, at the same height and in the
+   same shape, because it is the same act on a different list — and a second box
+   that looked different would be read as a second kind of thing to type in.
+   Without a button beside it: this one answers as the letters arrive. */
+#have-filter {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 2.8rem;
+  background: var(--surface);
+  border: 1px solid var(--control-edge);
+  border-radius: 999px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.7rem 1.1rem;
+}
+
+#have-filter::placeholder {
+  color: var(--faint);
+}
+
+#have-filter::-webkit-search-cancel-button,
+#have-filter::-webkit-search-decoration {
+  display: none;
+}
+
+#have-filter:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+/* Three words in a row, all visible at once, which is the whole reason this is
+   not a native picker: a <select> is a modal over a screen somebody is reading,
+   and it hides the two orders they did not choose. */
+#have-sort {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* 48dp of target with the word in it. It is the smallest press on this screen
+   and it may be: it changes the order of a list nobody can get wrong by
+   pressing it, and pressing it again is the whole of undoing it. */
+.have-pick {
+  flex: none;
+  min-height: 2.4rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  color: var(--mid);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.9rem;
+}
+
+.have-pick:active {
+  background: var(--surface-active);
+  color: var(--ink);
+}
+
+/* The one in force, in the same amber a chosen voice takes, because it is the
+   same claim: this is the one the screen is currently doing. */
+.have-pick.chosen {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+/* A row: the reading on the left, the caret at the right edge saying where it
+   goes, and a hairline between one book and the next. The same arrangement as a
+   search result, so the two lists on this screen are read the same way — and
+   deliberately not the night shelf's whole-row slab, which is a target for a
+   thumb in the dark rather than a line in a library. */
+.have-book {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.have-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 18dp, the same as a search result's name and for the same reason: this is a
+   list scanned in daylight against a book already in mind, which is a different
+   act from picking one off a shelf in the dark at 26. */
+.have-name {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+/* Who wrote it, which the night shelf gives up and this screen keeps: here it
+   is how two editions of one title are told apart while looking after them. */
+.have-by {
+  margin: 0.1rem 0 0;
+  color: var(--mid);
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+
+/* How much of the book is here, in the amber, because it is the one line on the
+   row that can be news: a book still arriving says so here and nowhere else on
+   this screen. Tabular figures, so `read to 8 of 21` and `read to 9 of 21` are
+   the same width and the row does not twitch as the chapters land. */
+.have-cover {
+  margin: 0.1rem 0 0;
+  color: var(--accent);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Where the row goes, drawn out of borders because a row built in JavaScript
+   cannot be given an svg. Same size and same colour as the header carets: it
+   points forward, and it warms with nothing, because there is nothing to press
+   yet. */
+.have-caret {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-top: 0.25rem solid transparent;
+  border-bottom: 0.25rem solid transparent;
+  border-left: 0.3rem solid var(--faint);
+}
+
+/* A filter that matched nothing, said in the list's own place. Italic and
+   faint, the same voice the night shelf's tail line is in: it is an aside about
+   the screen rather than one of the things on it. */
+#have-none {
+  margin: 0;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--faint);
+}
+
 #workshop-scroll .section-label {
   margin-top: 0.6rem;
   margin-bottom: -0.35rem;
@@ -3664,7 +3836,10 @@ body.keyboard-up #workshop-title {
   font-size: 1.2rem;
 }
 
-body.keyboard-up #workshop-note {
+/* Both of the read-once sentences go with the keyboard. They are read on the
+   first visit and never again, and half a screen is gone. */
+body.keyboard-up #workshop-note,
+body.keyboard-up #bring-note {
   display: none;
 }
 
@@ -3677,13 +3852,16 @@ body.keyboard-up #queue-gone {
   gap: 0.7rem;
 }
 
-body.keyboard-up .found {
+body.keyboard-up .found,
+body.keyboard-up .have-book {
   padding: 0.6rem 0;
 }
 
-/* Both still over the 44dp floor. Nothing tappable goes under it, keyboard or
-   no keyboard. */
+/* All three still over the 44dp floor. Nothing tappable goes under it, keyboard
+   or no keyboard — and the sort pills are pressed with a keyboard up more often
+   than not, because the box they are under is what put it there. */
 body.keyboard-up .found-add,
+body.keyboard-up .have-pick,
 body.keyboard-up .job-stop {
   min-height: 2.6rem;
 }

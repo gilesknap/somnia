@@ -460,6 +460,10 @@ export function listed(book) {
     status: book.status,
     total_ms: book.total_ms,
     chapters: book.chapters.length,
+    // How many it HAS, which is the manifest's own field: the two are equal on
+    // a book that finished rendering and different on every book that did not,
+    // and a coverage line is the difference between them read out loud.
+    chapters_total: book.chapters_total,
     position_ms: book.position_ms,
     seq: book.seq,
     // When the reader said they were done with it, which no manifest carries —
@@ -467,6 +471,12 @@ export function listed(book) {
     // So a fixture that wants to be finished says so on itself, and everything
     // else is what every book somnia has is: still being read.
     finished_at: book.finished_at ?? null,
+    // When somnia was first asked for the book, which no manifest carries
+    // either. One date for every fixture unless a test says otherwise: a
+    // library where every book arrived at the same moment is a library whose
+    // order is decided by everything else, which is what most of these tests
+    // want. A test about the ordering itself puts its own dates on the rows.
+    created_at: book.created_at ?? "2026-01-01 00:00:00",
   };
 }
 
@@ -612,6 +622,13 @@ const BORN_HIDDEN = new Set([
   // because on most nights nothing is cut and a line that was always there
   // would be furniture rather than an answer.
   "shelf-more",
+  // The library at the foot of Workshop, and the two lines inside it that are
+  // answers rather than furniture: what a filter matched nothing with, and how
+  // many books are finished. The section itself ships hidden because a somnia
+  // with no books at all must not draw a filter and three orders over nothing.
+  "have",
+  "have-none",
+  "have-finished-label",
   "toast",
   // The way back inside it, which ships hidden separately: the box comes up for
   // every sentence the page says and this is on the one that has something to
@@ -635,6 +652,14 @@ const BORN_HIDDEN = new Set([
 // it that way and the page only ever changes it, so a fake that handed it back
 // live would let a control pass a test it fails in a browser.
 const BORN_DISABLED = new Set(["places-open"]);
+
+// And every id that is an <input> in the document. A browser hands back "" for
+// the value of an empty box and never undefined, so a fake that left the
+// property unset would make `.value.trim()` throw on a page that is perfectly
+// well behaved — which is a test failing for the fake's reasons rather than the
+// page's. The composer's box is here too, though tests write to it before
+// anything reads it.
+const BORN_TYPED = new Set(["question", "queue-query", "have-filter"]);
 
 // Enough of a DOM node to build a list of places out of, and no more.
 //
@@ -1204,6 +1229,7 @@ export async function boot(t, options = {}) {
       // nowhere at all.
       node.hidden = BORN_HIDDEN.has(id);
       node.disabled = BORN_DISABLED.has(id);
+      if (BORN_TYPED.has(id)) node.value = "";
       elements.set(id, node);
     }
     return elements.get(id);

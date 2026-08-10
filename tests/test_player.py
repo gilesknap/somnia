@@ -143,6 +143,33 @@ def test_the_book_list_says_which_one_was_playing_last(
     assert (listing.books[0].position_ms, listing.books[0].seq) == (12_500, 7)
 
 
+def test_a_listed_book_says_how_many_chapters_it_has_and_when_it_came_in(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """The two columns the Workshop reads, off the row they were always on.
+
+    ``chapters`` is what has been rendered and ``chapters_total`` is what the
+    book has, so a coverage line can say `all 3 chapters` here and `read to 3
+    of 39` the moment the book turns out to be longer than what is on disk.
+    ``created_at`` is when somnia was first asked for the book, which is the
+    only date on a shelf row that has nothing to do with where anybody has got
+    to — and the one an ordering by how new a book is has to be built on.
+    """
+    entry = player.books().books[0]
+    assert (entry.chapters, entry.chapters_total) == (len(CHAPTERS), len(CHAPTERS))
+    assert entry.created_at
+
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET chapters_total = 39,"
+            " created_at = '2000-01-01 00:00:00' WHERE gid = ?",
+            (GID,),
+        )
+    behind = player.books().books[0]
+    assert (behind.chapters, behind.chapters_total) == (len(CHAPTERS), 39)
+    assert behind.created_at == "2000-01-01 00:00:00"
+
+
 # ------------------------------------------------ choosing which book to open
 
 

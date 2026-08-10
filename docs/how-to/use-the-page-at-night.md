@@ -265,7 +265,7 @@ chosen for a dark room, and in daylight those same values are not quiet, they
 are gone. Nothing on it goes below 16dp. It asks one question too: *get me a new
 book, and tell me it worked*. The order down it is that sentence.
 
-At the top, under *project gutenberg*, is the search. Under the results is what
+At the top, under *bring in a new book*, is the search. Under the results is what
 is happening, in a box headed *the server is working* — on the same screen and
 directly beneath them on purpose, because somebody who has just pressed *add
 this book* wants to see it being made, and splitting the press from its
@@ -296,7 +296,11 @@ dismiss and no badge or count anywhere: a book finishing at 3am is
 not news to somebody asleep, and it is on a screen nobody opens at 3am.
 
 Searching is the top of this screen, and it is what you came here for: type part
-of a title or an author and press *find*. That searches
+of a title or an author into *search gutenberg* and press *find*. The line above
+it says where that goes — *searching Project Gutenberg, not the books below* —
+because there are two lists of books on this screen now and typing into the
+wrong one is either adding a book you already have or waiting for a render that
+has already been made. That searches
 the copy of the Gutenberg catalog on this machine, so it answers in the time a
 tap takes and works with the internet down — run `somnia catalog-update` if a
 book you know exists is not in it. A book somnia already has, or already has
@@ -339,6 +343,37 @@ queue is on, and it is two presses from the player behind a row that says
 *daytime*, no night has a five-second wake in it.
 
 *Workshop* holds no settings. They are all on *Settings*, below.
+
+## The books you already have, in *Workshop*
+
+At the foot of *Workshop*, under *books you already have*, is the whole library
+— including the book playing underneath and the ones you have said you are
+finished with. This is where the night shelf's *the rest of your books are in
+the workshop* sends you, and it is the whole of somnia rather than the
+remainder: a list whose contents depended on what you happened to listen to last
+week would not be a list anybody could search.
+
+Each row is the title, who wrote it, and how much of it is actually here — *all
+27 chapters*, or *read to 8 of 21* in amber for a book somnia has not finished
+reading yet. That second number is the number of chapters the book *has*, and it
+never shrinks to match a render that is behind: what moves is the count of what
+is ready. A book rendered before somnia counted chapters says nothing at all
+there rather than *all 0 chapters*.
+
+Every row carries a caret, and nothing happens when you press one: the caret is
+where the book's own page is going, and that page is not built yet.
+
+*filter your books* narrows the list as you type, on the title and on the
+author, and asks the server nothing: the books are already on the phone. The
+three words under it — *recent*, *title*, *author* — are the order the rows are
+in, and *recent* is when somnia was first asked for the book. This is the only
+sort control in the app, and it is deliberately on this screen and nowhere near
+the night one: a filter has states, and a filter at 2am is a shelf that can be
+left in a shape where the book you want is missing.
+
+Books you have finished are under the ones you have not, behind a count of them
+— *4 finished*. They are still here and still play. The count is of what is on
+the screen, so with a filter on it counts what the filter left.
 
 ## Changing how it behaves at night: *Settings*
 

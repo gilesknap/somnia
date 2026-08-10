@@ -94,6 +94,24 @@ const queueQuery = document.getElementById("queue-query");
 const queueResults = document.getElementById("queue-results");
 const queueSaid = document.getElementById("queue-said");
 const queueClose = document.getElementById("queue-close");
+// The library at the foot of Workshop: everything somnia has, the box that
+// narrows it, the three words that order it, and the finished books under a
+// count of themselves. The whole section goes when there is nothing in it,
+// because a filter over an empty list is a control that cannot do anything.
+const havePanel = document.getElementById("have");
+const haveFilter = document.getElementById("have-filter");
+// The three orders, held as pill-per-key rather than as the children of the row
+// they are in: the key is what HAVE_ORDERS is looked up by, so a pill and the
+// arrangement it asks for are one entry and cannot come apart.
+const havePicks = new Map([
+  ["recent", document.getElementById("have-sort-recent")],
+  ["title", document.getElementById("have-sort-title")],
+  ["author", document.getElementById("have-sort-author")],
+]);
+const haveList = document.getElementById("have-list");
+const haveNone = document.getElementById("have-none");
+const haveFinishedLabel = document.getElementById("have-finished-label");
+const haveFinished = document.getElementById("have-finished");
 // What is playing under the panel, at the top of it. `reading` and not `queue`
 // because this is the one part of that overlay that is about a book rather than
 // about the rows the server is holding, and the two must not be muddled here of
@@ -4067,6 +4085,12 @@ let queueFound = []; // the last search, and what has since been done about it
 // hours, and the queue changes while you watch it, which is why only one of the
 // two is worth a request every five seconds.
 let shelved = [];
+// Which way round the library at the foot of Workshop is drawn. It is on the
+// page rather than in storage, and it goes back to `recent` when the screen is
+// closed: an ordering somebody chose in order to find one book is not a
+// preference, and coming back tomorrow to a library sorted by author because of
+// something done last week is a screen that has changed by itself.
+let haveOrder = "recent";
 // The progress hairline of each row that has one, kept by job id across
 // redraws. The list is rebuilt from scratch every five seconds, and a bar
 // created a moment ago has no width to move from — so a fill that was made
@@ -4638,6 +4662,11 @@ async function askForTheShelf() {
   shelfNote.textContent = listing ? "" : "couldn't reach somnia";
   if (listing) shelved = listing.books || [];
   drawShelf();
+  // And the library on the screen over this one, if that is where somebody is:
+  // one answer, drawn twice, so the shelf and the Workshop's list cannot be
+  // holding two different accounts of what somnia has. drawHave draws nothing
+  // while Workshop is down.
+  drawHave();
 }
 
 // The press that changes which book the night is about, in a fixed order.
@@ -4710,6 +4739,161 @@ async function openShelved(entry, button) {
   // On the line after the switch and never on a timer, for the reason
   // chooseCandidate gives: what a toast says has to be true when it is written.
   toast(`opened · ${entry.title || `book ${entry.gid}`}`);
+}
+
+// -------------------------------------------------- books you already have
+
+// The library, on the screen that is allowed to manage it. Same books as the
+// shelf and a different verb: Books is for finding one to play in the dark and
+// this is for looking at what somnia has by daylight — which is why the filter
+// and the ordering are here and are nowhere else. Both have states, and a state
+// on the night screen is a second appearance of it that can be reached by
+// half-asleep typing, with the book somebody wanted missing from it.
+//
+// It is drawn out of `shelved`, which Books has already fetched, so opening this
+// screen costs nothing extra and the two lists cannot disagree about what
+// somnia has.
+
+// How much of a book is here, which is the one fact this row has that the shelf
+// does not: `chapters` is how many chapters have been rendered and
+// `chapters_total` is how many the book has.
+//
+// 0 for the total is nobody having written it down — true of anything rendered
+// before that column existed — and the line says nothing at all rather than
+// "all 0 chapters", which is the rule the player and the queue rows already
+// keep. The count of what is ready is what moves while a render runs; the total
+// never shrinks to meet it, because a book does not get shorter because somnia
+// is behind on reading it.
+function coverWords(entry) {
+  const total = entry.chapters_total || 0;
+  if (!total) return "";
+  return entry.chapters >= total
+    ? `all ${total} chapters`
+    : `read to ${entry.chapters} of ${total}`;
+}
+
+// The three orders, as comparators, and the words on the pills are their keys —
+// so a pill that has no order behind it is a pill that cannot be drawn rather
+// than one that quietly does nothing.
+//
+// `recent` is when somnia was first asked for the book, which is the only date
+// on a row that is about the reader rather than about the render. Newest first,
+// because the book somebody has come here to look after is nearly always the one
+// that has just arrived.
+const HAVE_ORDERS = {
+  recent: (a, b) => String(b.created_at).localeCompare(String(a.created_at)),
+  // localeCompare rather than < , because the shelf holds titles with accents
+  // and quotation marks in them and a codepoint sort files those after Z.
+  title: (a, b) =>
+    titleOf(a.title, a.gid).localeCompare(titleOf(b.title, b.gid)),
+  // Through whoWrote, so the row is filed under what it says: the catalog hands
+  // over `Surname, Forename, dates; Surname, Forename, dates`, and sorting the
+  // raw string would file a two-author book under nothing anybody can see.
+  author: (a, b) => whoWrote(a.authors).localeCompare(whoWrote(b.authors)),
+};
+
+// A book of somnia's own, as this screen reads it: what it is called, who wrote
+// it, and how much of it is here.
+//
+// The author is on it because this is the daylight screen — the shelf gave it up
+// at the night type scale, where it was two more lines of catalogue metadata
+// about a book somebody already owns, and here it is how you tell two editions
+// of the same title apart while looking after them.
+//
+// The caret is what the row will do and does not do yet: this row opens the
+// book's own page, which is not built. It is drawn inert rather than left off,
+// because putting it on afterwards would move every row on the screen on the day
+// the page lands, and a row that had never pointed anywhere would have to be
+// learnt twice.
+function haveRow(entry) {
+  const li = document.createElement("li");
+  li.className = "have-book";
+  li.id = `have-${entry.gid}`;
+  const text = document.createElement("div");
+  text.className = "have-text";
+  const name = document.createElement("p");
+  name.className = "have-name";
+  name.textContent = titleOf(entry.title, entry.gid);
+  text.append(name);
+  const by = document.createElement("p");
+  by.className = "have-by";
+  by.textContent = whoWrote(entry.authors);
+  text.append(by);
+  const cover = coverWords(entry);
+  if (cover) {
+    // Only where there is something to say. A row that carried an empty line
+    // for a book nobody counted would be a row a different height from the ones
+    // around it, saying nothing with the space.
+    const much = document.createElement("p");
+    much.className = "have-cover";
+    much.textContent = cover;
+    text.append(much);
+  }
+  li.append(text);
+  // A triangle drawn out of borders rather than the SVG the header pills use:
+  // an svg element cannot be made with createElement, which is namespaceless,
+  // and a caret typed as a character is whatever size and weight the phone's
+  // symbol font decided. Both of the others are drawn geometry, and so is this.
+  const caret = document.createElement("span");
+  caret.className = "have-caret";
+  li.append(caret);
+  return li;
+}
+
+// Whether a book is one of the ones being looked for. Title and author, because
+// those are the two things on the row — a filter that matched something the
+// reader cannot see would be a list that had lost books for no visible reason.
+function haveMatches(entry, wanted) {
+  if (!wanted) return true;
+  const words = `${titleOf(entry.title, entry.gid)} ${entry.authors || ""}`;
+  return words.toLowerCase().includes(wanted);
+}
+
+function drawHave() {
+  // Workshop may have gone while an answer was in flight, which over a tailnet
+  // is an ordinary thing for it to do — the same guard askForTheShelf and
+  // pollQueue both carry.
+  if (workshop.hidden) return;
+  // The whole section goes when somnia has no books at all. A filter and three
+  // orders over an empty list are four controls that cannot do anything, and a
+  // label over nothing is a claim that something should be there.
+  havePanel.hidden = !shelved.length;
+  if (!shelved.length) return;
+  const wanted = haveFilter.value.trim().toLowerCase();
+  // A copy, because sort works in place and `shelved` is the answer the server
+  // gave — in the order Books needs it, which is last touched first.
+  const found = shelved
+    .filter((entry) => haveMatches(entry, wanted))
+    .sort(HAVE_ORDERS[haveOrder]);
+  const reading = found.filter((entry) => !entry.finished_at);
+  const finished = found.filter((entry) => entry.finished_at);
+  haveList.replaceChildren(...reading.map(haveRow));
+  haveFinished.replaceChildren(...finished.map(haveRow));
+  // Counted rather than named, and the count is of what is under it: with a
+  // filter on, `1 finished` over one row is the truth about the screen, and the
+  // number of finished books in the whole library would be a number with
+  // nothing on the page to check it against.
+  haveFinishedLabel.textContent = `${finished.length} finished`;
+  haveFinishedLabel.hidden = !finished.length;
+  // A filter that matched nothing has to say so: the list going empty under a
+  // box somebody is typing into is the one moment here where an empty list means
+  // something specific, and it does not mean "you have no books".
+  haveNone.hidden = Boolean(found.length);
+  // Which order is in force, in the amber and in the word a reader who cannot
+  // see amber is given. Drawn from `haveOrder` on every pass rather than moved
+  // from pill to pill on the press, so the lit pill and the order the rows are
+  // in are the same fact read twice.
+  for (const [order, pill] of havePicks) {
+    pill.classList.toggle("chosen", order === haveOrder);
+    pill.setAttribute("aria-pressed", order === haveOrder ? "true" : "false");
+  }
+}
+
+// Choosing an order, which redraws the list and nothing else: no request, no
+// storage, and the same books in another arrangement.
+function sortHave(order) {
+  haveOrder = order;
+  drawHave();
 }
 
 // One job, in one line, for somebody who wants to know whether to wait up.
@@ -5238,6 +5422,18 @@ function showWorkshop() {
   // keyboard changes the geometry the fixed overlay just measured itself
   // against, so the screen would arrive with its way out under the letters.
   queueQuery.blur?.();
+  haveFilter.blur?.();
+  // Out of what Books already fetched, and nothing is asked for: this screen is
+  // only ever reached through Books, which asks for the shelf as it opens, so
+  // the library here is seconds old and is the same answer the shelf underneath
+  // was drawn from. A second request would be the same list fetched twice in
+  // one gesture, and the two copies would then be free to disagree.
+  //
+  // What it costs is a book that finishes rendering while somebody is standing
+  // on this screen, which is not in this list until Books is opened again. The
+  // card above is where that book is, saying `ready`, which is the better place
+  // for news anyway.
+  drawHave();
   pollQueue();
 }
 
@@ -5269,6 +5465,18 @@ function hideWorkshop() {
   queueNote.textContent = "";
   queueSaid.textContent = "";
   queueQuery.value = "";
+  // The library goes with the rest of the screen, filter and ordering included.
+  // The books themselves are not forgotten — `shelved` belongs to Books, which
+  // is still standing underneath — but a list narrowed to one word and sorted by
+  // author is a shape somebody made in order to find one book, and finding it is
+  // what the screen was closed for.
+  haveList.replaceChildren();
+  haveFinished.replaceChildren();
+  haveFinishedLabel.hidden = true;
+  haveNone.hidden = true;
+  havePanel.hidden = true;
+  haveFilter.value = "";
+  haveOrder = "recent";
 }
 
 // Settings, from the player's other corner. The quietest open and close on the
@@ -5345,6 +5553,15 @@ queueSearch.addEventListener("submit", (event) => {
   event.preventDefault();
   findBooks();
 });
+
+// The library at the foot of Workshop: narrowed as the letters arrive, and
+// rearranged on a press. Neither asks the server anything — the books are
+// already on the phone — which is what makes filtering here a keystroke where
+// searching Gutenberg above is a press.
+haveFilter.addEventListener("input", drawHave);
+for (const [order, pill] of havePicks) {
+  pill.addEventListener("click", () => sortHave(order));
+}
 
 // -------------------------------------------- a book that is still being read
 
@@ -5739,12 +5956,13 @@ showScreen(waking ? "wake" : whichScreen);
 // the screen — a tablet's keyboard is a smaller share of a taller page.
 const KEYBOARD_TAKES = 0.25;
 
-// The two boxes on this page anybody types into. A keyboard cannot be up over a
-// page with focus in neither of them, and that is what tells a window dragged
-// short from a keyboard arriving: nothing about a desktop resize implies
-// somebody is typing. A third field added to this page has to be added here as
-// well, or its keyboard is the one the page cannot see.
-const typingFields = [question, queueQuery];
+// The three boxes on this page anybody types into. A keyboard cannot be up
+// over a page with focus in none of them, and that is what tells a window
+// dragged short from a keyboard arriving: nothing about a desktop resize
+// implies somebody is typing. A field added to this page has to be added here
+// as well, or its keyboard is the one the page cannot see — two of these three
+// are on Workshop, which is the screen most of the typing happens on.
+const typingFields = [question, queueQuery, haveFilter];
 
 // Which of them is being typed into, or null. The element rather than a
 // boolean, because the composer's keyboard is the chat screen while the books

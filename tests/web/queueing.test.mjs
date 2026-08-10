@@ -1155,6 +1155,269 @@ test("close takes that line away with the rest of the shelf", async (t) => {
   assert.equal(page.el("shelf-more").hidden, true);
 });
 
+// ------------------------------------------- books you already have
+//
+// The same books as the shelf, on the screen that is allowed to manage them.
+// What is tested here is the whole of the difference between the two lists:
+// this one holds everything, it can be narrowed, it can be put in three
+// different orders, and it says how much of each book is actually here.
+//
+// Everything below reads the rows out of the DOM, as the shelf's tests do. And
+// none of it makes a second request: this screen is reached through Books,
+// which has just asked, so the library here is the shelf's own answer drawn a
+// second time.
+
+function library(page, id = "have-list") {
+  return page.el(id).children.map((li) => ({
+    name: words(li, "have-name"),
+    by: words(li, "have-by"),
+    // What is here of it, or null where nobody wrote the total down and the row
+    // says nothing rather than "all 0 chapters".
+    cover: words(li, "have-cover"),
+  }));
+}
+
+function names(page, id = "have-list") {
+  return library(page, id).map((row) => row.name);
+}
+
+// Typing in the filter, which answers as the letters arrive rather than on a
+// press: the books are already on the phone.
+function narrow(page, text) {
+  page.el("have-filter").value = text;
+  page.el("have-filter").fire("input");
+}
+
+// Which order the rows are in, as somebody looking at the pills would read it:
+// the class is the amber and the attribute is what a reader who cannot see
+// amber is told, and a page that set one without the other is half a control.
+function ordering(page) {
+  return ["recent", "title", "author"]
+    .map((order) => ({ order, pill: page.el(`have-sort-${order}`) }))
+    .filter(({ pill }) => pill.classList.contains("chosen"))
+    .map(({ order, pill }) => `${order}:${pill.getAttribute("aria-pressed")}`);
+}
+
+// Three books with nothing in common but the shape of the row: different
+// titles, different authors, brought in on three different days. One fixture is
+// enough for the ordering tests only if no two of the three orders it produces
+// are the same list, and these three give three different lists.
+const THREE = [
+  {
+    ...listed(OTHER_BOOK),
+    gid: 5101,
+    title: "Wuthering Heights",
+    authors: "Brontë, Emily",
+    created_at: "2026-06-01 09:00:00",
+  },
+  {
+    ...listed(OTHER_BOOK),
+    gid: 5102,
+    title: "A Tale of Two Cities",
+    authors: "Dickens, Charles",
+    created_at: "2026-01-04 09:00:00",
+  },
+  {
+    ...listed(OTHER_BOOK),
+    gid: 5103,
+    title: "Middlemarch",
+    authors: "Eliot, George",
+    created_at: "2026-03-11 09:00:00",
+  },
+];
+
+test("the workshop holds every book, including the one playing", async (t) => {
+  const page = await opened(t, {
+    library: [
+      { ...listed(TONE_BOOK), created_at: "2026-01-05 09:00:00" },
+      { ...listed(OTHER_BOOK), created_at: "2026-06-30 21:00:00" },
+      { ...listed(HALF_HEARD), created_at: "2026-03-11 12:00:00" },
+    ],
+  });
+  page.queueView([]);
+  await workshop(page);
+  // Newest first, which is `recent` and is what this screen opens on: somebody
+  // who has come to look after a book is nearly always looking after the one
+  // that has just arrived.
+  assert.deepEqual(names(page), ["Another Book", "Half Heard", "Three Tones"]);
+  assert.deepEqual(ordering(page), ["recent:true"]);
+  // The book playing underneath is on this list and is not on the shelf. Books
+  // holds it out because it is already at the top of that screen in its own
+  // block; here the question is what somnia has, and it has this.
+  assert.equal(names(page).includes("Half Heard"), true);
+  assert.deepEqual(
+    shelf(page).map((row) => row.name),
+    ["Three Tones", "Another Book"],
+  );
+  // And the author is on every row, which the shelf gives up: this is the
+  // daylight list, where two editions of one title have to be told apart.
+  assert.deepEqual(
+    library(page).map((row) => row.by),
+    ["Somnia Test", "Somnia Test", "Somnia Test"],
+  );
+});
+
+test("the sort row is three different orders of the same books", async (t) => {
+  const page = await opened(t, { library: THREE });
+  page.queueView([]);
+  await workshop(page);
+  const asked = page.fetches.length;
+  assert.deepEqual(names(page), [
+    "Wuthering Heights",
+    "Middlemarch",
+    "A Tale of Two Cities",
+  ]);
+
+  page.click("have-sort-title");
+  await page.settle();
+  assert.deepEqual(names(page), [
+    "A Tale of Two Cities",
+    "Middlemarch",
+    "Wuthering Heights",
+  ]);
+  // One pill lit and the other two not, in both of the ways a pill says so.
+  assert.deepEqual(ordering(page), ["title:true"]);
+
+  page.click("have-sort-author");
+  await page.settle();
+  // Filed under the name as the row prints it, which is the catalog's
+  // `Surname, Forename` — so the order on the screen is the order of the words
+  // on the screen.
+  assert.deepEqual(names(page), [
+    "Wuthering Heights",
+    "A Tale of Two Cities",
+    "Middlemarch",
+  ]);
+  assert.deepEqual(ordering(page), ["author:true"]);
+
+  // And nothing was asked of the server for any of it: the books are already
+  // on the phone, and an ordering is not something anybody else has an opinion
+  // about.
+  assert.deepEqual(page.fetches.slice(asked), []);
+});
+
+test("the filter narrows the library, and says when it matched nothing", async (t) => {
+  const page = await opened(t, { library: THREE });
+  page.queueView([]);
+  await workshop(page);
+
+  // The author as well as the title, because both are on the row: a filter that
+  // matched something the reader cannot see would be a list that had lost books
+  // for no visible reason.
+  narrow(page, "dickens");
+  assert.deepEqual(names(page), ["A Tale of Two Cities"]);
+  assert.equal(page.el("have-none").hidden, true);
+
+  narrow(page, "MIDDLE");
+  assert.deepEqual(names(page), ["Middlemarch"]);
+
+  narrow(page, "moby");
+  assert.deepEqual(names(page), []);
+  // An empty list under a box somebody is typing into is the one moment on this
+  // screen where an empty list means something specific, and it does not mean
+  // "you have no books".
+  assert.equal(page.el("have-none").hidden, false);
+
+  narrow(page, "");
+  assert.equal(names(page).length, 3);
+  assert.equal(page.el("have-none").hidden, true);
+});
+
+test("a row says how much of the book is here, or nothing at all", async (t) => {
+  const page = await opened(t, {
+    library: [TONE_BOOK, PART_READ, UNCOUNTED_BOOK].map(listed),
+  });
+  page.queueView([]);
+  await workshop(page);
+  assert.deepEqual(library(page), [
+    // Every chapter the book has is on the disk, which is what a finished
+    // render looks like and is the only state in which the total is the whole
+    // story.
+    { name: "Three Tones", by: "Somnia Test", cover: "all 3 chapters" },
+    // A render that stopped part way: one chapter of three. The count that
+    // moves is what is ready — the total is what the book has, and it does not
+    // shrink to meet a render that is behind.
+    { name: "Stopped Part Way", by: "Somnia Test", cover: "read to 1 of 3" },
+    // And a book nobody counted, which is every book rendered before that
+    // column existed. 0 means "don't know", so the row says nothing rather
+    // than "all 0 chapters" — the rule the player already keeps.
+    { name: "Nobody Counted", by: "Somnia Test", cover: null },
+  ]);
+});
+
+test("finished books are under a count of themselves", async (t) => {
+  const page = await opened(t, {
+    library: [
+      {
+        ...listed(TONE_BOOK),
+        created_at: "2026-01-05 09:00:00",
+        finished_at: "2026-07-02 22:40:00",
+      },
+      listed(OTHER_BOOK),
+      {
+        ...listed(HALF_HEARD),
+        created_at: "2026-05-05 09:00:00",
+        finished_at: "2026-08-01 21:14:00",
+      },
+    ],
+  });
+  page.queueView([]);
+  await workshop(page);
+  // Still here and still listed — a finished book plays, and one press on the
+  // page this row opens puts it back on the shelf. It is only not an answer to
+  // what the list above is asking.
+  assert.deepEqual(names(page), ["Another Book"]);
+  assert.deepEqual(names(page, "have-finished"), ["Half Heard", "Three Tones"]);
+  assert.equal(page.el("have-finished-label").textContent, "2 finished");
+  assert.equal(page.el("have-finished-label").hidden, false);
+
+  // The count is of what is under it. With a filter on, a number about the
+  // whole library would be a number with nothing on the screen to check it
+  // against.
+  narrow(page, "half");
+  assert.deepEqual(names(page), []);
+  assert.deepEqual(names(page, "have-finished"), ["Half Heard"]);
+  assert.equal(page.el("have-finished-label").textContent, "1 finished");
+  // Something matched, so there is nothing to say about the filter — the row it
+  // matched is simply in the other list.
+  assert.equal(page.el("have-none").hidden, true);
+});
+
+test("a somnia with no books draws no library at all", async (t) => {
+  const page = await opened(t, { library: [] });
+  page.queueView([]);
+  await workshop(page);
+  // A filter and three orders over an empty list are four controls that cannot
+  // do anything, and a label over nothing is a claim that something should be
+  // there — the rule the card of live rows and the shelf's own label follow.
+  assert.equal(page.el("have").hidden, true);
+});
+
+test("closing Workshop forgets the filter and the order", async (t) => {
+  const page = await opened(t, { library: THREE });
+  page.queueView([]);
+  await workshop(page);
+  narrow(page, "middle");
+  page.click("have-sort-title");
+  await page.settle();
+  assert.deepEqual(names(page), ["Middlemarch"]);
+
+  page.click("workshop-close");
+  await page.settle();
+  assert.equal(page.el("have").hidden, true);
+
+  page.click("to-workshop");
+  await page.settle();
+  await page.settle();
+  // A list narrowed to one word and sorted by author is a shape somebody made
+  // in order to find one book, and finding it is what the screen was closed
+  // for. Coming back to it tomorrow would be a screen that had changed by
+  // itself.
+  assert.equal(page.el("have-filter").value, "");
+  assert.deepEqual(ordering(page), ["recent:true"]);
+  assert.equal(names(page).length, 3);
+});
+
 // ------------------------------------------------- one screen, one sentence
 //
 // The cut that made two screens out of one is *when* each is used, and the only

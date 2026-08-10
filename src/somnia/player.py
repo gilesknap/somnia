@@ -84,6 +84,14 @@ class BookEntry:
     status: str
     total_ms: int
     chapters: int
+    # How many chapters the book has, against ``chapters`` above, which is how
+    # many of them have been rendered. They are the same number on a book that
+    # finished rendering and different on every book that did not, and the two
+    # are the whole of what a coverage line says: all of it is here, or this
+    # much of that much is. 0 means nobody wrote it down — true of anything
+    # rendered before the column existed — and a page that has 0 has to say
+    # nothing at all rather than "of 0", which the player already does.
+    chapters_total: int
     position_ms: int | None
     seq: int
     # When the reader said they were done with it, or None while they are not.
@@ -92,6 +100,12 @@ class BookEntry:
     # thing said about it rather than a reason to leave it out of the answer.
     # Which screens draw a finished book, and where, is the page's to decide.
     finished_at: str | None
+    # When somnia was first asked for it, which is the only date a book has
+    # that is about the reader rather than about the render: it is what "brought
+    # in" means and what an ordering by how new a book is has to be built on.
+    # It is already the tie-break under ``position_at`` in the ordering below,
+    # so this is that same column said out loud rather than a new fact.
+    created_at: str
 
 
 @dataclass
@@ -246,6 +260,7 @@ class Player:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT b.gid, b.title, b.authors, b.status, b.total_ms,"
+                " b.chapters_total, b.created_at,"
                 " b.position_ms, b.position_seq, b.position_at, b.finished_at,"
                 " (SELECT COUNT(*) FROM chapters c WHERE c.book_gid = b.gid)"
                 " AS chapters"
@@ -260,9 +275,11 @@ class Player:
                 status=row["status"],
                 total_ms=row["total_ms"],
                 chapters=row["chapters"],
+                chapters_total=row["chapters_total"],
                 position_ms=row["position_ms"],
                 seq=row["position_seq"],
                 finished_at=row["finished_at"],
+                created_at=row["created_at"],
             )
             for row in rows
         ]

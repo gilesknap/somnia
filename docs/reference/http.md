@@ -55,7 +55,8 @@ would tell you.
     {
       "gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
       "status": "done", "total_ms": 22320000, "chapters": 49,
-      "position_ms": 11560000, "seq": 3, "finished_at": null
+      "chapters_total": 49, "position_ms": 11560000, "seq": 3,
+      "finished_at": null, "created_at": "2026-03-11 21:40:02"
     }
   ]
 }
@@ -71,6 +72,18 @@ rows that really exist, and `0` means there is nothing to open yet: a render
 that has not produced its first chapter, or one that died before it. The books
 panel draws its shelf from this list, and that is the field that decides whether
 a row offers a press at all.
+
+`chapters_total` is how many chapters the book *has*, which is a different
+number from `chapters` on every book whose render has not finished — and the
+one number the player, the `reading now` line, the shelf row and the book page
+all read, so that they cannot disagree about how long a book is. `0` means
+nobody wrote it down, which is true of anything rendered before the column
+existed, and anything drawing it says nothing at all rather than "of 0".
+
+`created_at` is when somnia was first asked for the book. It is the only date on
+this row that is about the reader rather than the render, it is what the
+Workshop means by *brought in*, and it is what sorting the library by how new a
+book is is built on.
 
 `finished_at` is when the reader said they were done with the book, and `null`
 while they have not — which is every book somnia has ever had until somebody
