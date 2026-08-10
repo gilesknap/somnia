@@ -112,6 +112,13 @@ That is the whole of what you have to hold. Where the line falls, and what may
 be shown of a place past it, are the tools' business and not yours: a search
 simply does not hand you the words of anywhere they have not reached.
 
+A place can be described or it can be named. "Where the hare dies" is described:
+search for it, and offer_positions takes the ids. "Chapter 8", "the last
+chapter", "back an hour", "the beginning" are named: they are nowhere in the
+book's words, so searching for them finds nothing and the search is not the way
+in. Give offer_positions the chapter or the time instead, with no search in
+front of it. Either way it is offer_positions that ends the turn.
+
 Never ask them which place they meant, and never ask whether they mind being
 spoiled. Call offer_positions with every passage that could really be it, best
 first. If one of them is a place they have already heard and nothing else is
@@ -316,9 +323,14 @@ def build_tools(
         position = library.get_position(gid)
         if position is None:
             return "They have not started this book."
+        # The clock for saying out loud and the number for working with. Both,
+        # because a relative move — "back an hour", "the last ten minutes" — is
+        # arithmetic, and a small model asked to do it on "0:44:57" at 2am gets
+        # to pick between three wrong answers. Never say the ms out loud: it is
+        # here to be subtracted from and handed to offer_positions.
         return (
-            f"{format_timestamp(position.position_ms)} into"
-            f" {position.book.title}, in {position.chapter_title!r}."
+            f"{format_timestamp(position.position_ms)} (ms={position.position_ms})"
+            f" into {position.book.title}, in {position.chapter_title!r}."
             f" The text there: {position.text}"
         )
 
@@ -449,21 +461,41 @@ def build_tools(
         return "\n\n".join(lines)
 
     @beta_tool
-    def offer_positions(gid: int, chunk_ids: list[int]) -> str:
+    def offer_positions(
+        gid: int,
+        chunk_ids: list[int] | None = None,
+        chapter: int | None = None,
+        position_ms: int | None = None,
+    ) -> str:
         """Send them to a place in the book, or put the choice on the screen.
 
-        The way a "take me to" ends — always, however many passages you name.
-        Name the ones that could really be the moment they described, best
-        first, and this decides what happens to them: one place they have
-        already heard takes them straight there, and anything else goes on the
-        screen for them to press. You never have to work out which, and you must
-        never ask them which.
+        The way a "take me to" ends — always, and however they named the place.
+        This decides what happens to them: one place they have already heard
+        takes them straight there, and anything else goes on the screen for them
+        to press. You never have to work out which, and you must never ask them
+        which.
+
+        There are two ways to name a place and you need exactly one of them.
+
+        For somewhere described by what happens there — "where the hare dies",
+        "the meadow with the pond" — search with find_passage and pass the id=
+        values as chunk_ids, best first.
+
+        For somewhere named by where it is — "chapter 8", "the last chapter",
+        "back an hour", "the beginning" — do not search. Pass chapter, or
+        position_ms for a point on the clock, which you can work out from the
+        ms= that get_position gives you. A search cannot find these: it looks
+        for words, and a chapter number is not in the book's words.
 
         Args:
             gid: The Gutenberg id of the book. Every place is in one book.
             chunk_ids: The id= values from find_passage, most likely first. At
                 most four are shown, so name only the plausible ones.
+            chapter: A chapter number as somebody would say it, counting from 1.
+                Takes them to that chapter's own beginning.
+            position_ms: A point in the book, in milliseconds from its start.
         """
+        chunk_ids = chunk_ids or []
         if acted.get("recalled"):
             # A list is an answer to "where do you mean", and they did not ask
             # that. This is the turn where somebody asked a question, and the
@@ -502,7 +534,11 @@ def build_tools(
         # its way to the page. So the fact that a list is up travels down with
         # the call, and the one place behind them comes back as a list of one.
         result = library.offer_positions(
-            gid, chunk_ids, may_move=not acted.get("offered")
+            gid,
+            chunk_ids,
+            may_move=not acted.get("offered"),
+            chapter=chapter,
+            position_ms=position_ms,
         )
         if isinstance(result, Refused):
             # Nothing was drawn and nothing was written, so nothing has been

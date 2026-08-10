@@ -875,3 +875,129 @@ def test_neither_tool_embeds_the_query_more_than_once(
     counting.queries = 0
     fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
     assert counting.queries == 1
+
+
+# ------------------------------------------- places named rather than described
+
+# A chunk id can only ever say "the passage that matched", so a tool that takes
+# nothing else can send the book to places somebody can describe and to no
+# others. "Chapter 8" is not in the book's words, so no search will ever find
+# it — which is how ADR 12 came to cost by-position navigation without saying so
+# (issue #115). A number names the place directly, and everything after that is
+# the same arithmetic: heard is a move, unheard is a covered row and a press.
+
+
+def test_a_chapter_they_have_heard_is_a_move_to_its_own_beginning(
+    fixture: Fixture,
+) -> None:
+    """The boundary itself, not the nearest window to it.
+
+    A chapter start is an exact fact about the book, and the window covering it
+    can begin seconds either side. Landing on the window would put "chapter 2"
+    in the last sentence of chapter 1 about as often as not, which is the one
+    place somebody asking for a chapter certainly did not mean.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = 700000 WHERE gid = 271")
+
+    result = fixture.library.offer_positions(271, [], chapter=2)
+
+    assert isinstance(result, Moved), result
+    assert result.position_ms == CHAPTERS[1][1] == 240_000
+    assert night(fixture)["position_ms"] == 240_000
+
+
+def test_a_chapter_they_have_not_reached_is_a_press_and_not_a_jump(
+    fixture: Fixture,
+) -> None:
+    """The spoiler guard, reached by a route that never went near a search.
+
+    Naming a chapter is not having heard it, so the same rule applies as to a
+    passage found ahead of them: a covered row, and the press is the consent.
+    Nothing is written, because an offer is a question.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = 10000 WHERE gid = 271")
+    before = night(fixture)
+
+    offer = offered(fixture.library.offer_positions(271, [], chapter=3))
+
+    assert [(p.start_ms, p.ahead) for p in offer.places] == [(560_000, True)]
+    assert night(fixture) == before
+
+
+def test_a_chapter_the_book_does_not_have_is_refused_in_their_own_numbering(
+    fixture: Fixture,
+) -> None:
+    """Counted from one, because that is how the question was asked.
+
+    The table counts from zero and a refusal that answered in the table's
+    numbering would be a sentence about a book nobody is holding.
+    """
+    said = refused(fixture.library.offer_positions(271, [], chapter=9))
+
+    assert "3 chapters" in said
+    assert "chapter 9" in said
+
+
+def test_a_point_on_the_clock_is_a_place_without_a_search(
+    fixture: Fixture,
+) -> None:
+    """ "Back an hour" has no words to look for, and needs none.
+
+    The number is the whole of the place. It still meets the same arithmetic
+    below it, so a point they have heard is a move made there and then.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = 700000 WHERE gid = 271")
+
+    result = fixture.library.offer_positions(271, [], position_ms=400_000)
+
+    assert isinstance(result, Moved), result
+    assert result.position_ms == 400_000
+
+
+def test_a_named_place_carries_the_words_there_but_keeps_its_own_time(
+    fixture: Fixture,
+) -> None:
+    """The row is recognisable, and it is still the place they named.
+
+    The words are borrowed from whatever window covers the point, so a named
+    place reads on the screen like a found one. The time is not borrowed: a
+    window beginning earlier is a different place that merely has these words
+    near it.
+    """
+    with fixture.conn:
+        fixture.conn.execute("UPDATE books SET position_ms = 10000 WHERE gid = 271")
+
+    offer = offered(fixture.library.offer_positions(271, [], position_ms=305_000))
+
+    assert [p.start_ms for p in offer.places] == [305_000]
+    assert offer.places[0].text == "Rob Roy was shot after the hunt"
+
+
+def test_a_time_before_the_first_word_is_not_a_place(fixture: Fixture) -> None:
+    """Clamping would answer a different question and not say it had.
+
+    "Back an hour" in the first hour is a request that cannot be met, and
+    quietly turning it into "the beginning" is a move nobody asked for.
+    """
+    assert "before the beginning" in refused(
+        fixture.library.offer_positions(271, [], position_ms=-1)
+    )
+
+
+def test_a_chapter_and_a_time_at_once_name_no_place_at_all(
+    fixture: Fixture,
+) -> None:
+    """Refused rather than settled by precedence.
+
+    The two can only disagree when the model is confused, and silently taking
+    one of them is how somebody ends up where neither of them meant.
+    """
+    said = refused(
+        fixture.library.offer_positions(271, [], chapter=1, position_ms=400_000)
+    )
+
+    assert "not both" in said
+    assert night(fixture)["position_ms"] is not None
