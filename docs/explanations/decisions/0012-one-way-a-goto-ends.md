@@ -117,6 +117,28 @@ does not describe.
 apparatus that ADR 11 made unnecessary and the paragraphs that explained when to
 move and when to offer. What is left is routing, plausibility and how to speak.
 
+**It cost by-position navigation, and this section did not say so** — amended
+after the fact, which is the honest place to record it. A chunk id can only mean
+*the passage that matched*, so with ids as the only currency the book could be
+sent to places that can be described and to no others. "Chapter 8" is not in the
+book's words and no search will ever find it; nor is "the end", nor "back an
+hour". The sentence above about *"take me to the end"* costing one press was
+written as though that still worked, and it did not: there was no id for it.
+
+The gap survived review because `offer_positions` *contains* a move, so it reads
+as a replacement for `move_to` until you ask what is still addressable. The desk
+suite could not catch it either — every test names a passage a search returned,
+because that was the only thing the tools allowed.
+
+`offer_positions` takes a `chapter` or a `position_ms` as well now (issue #115).
+The decision above is unchanged and this is not a second way for a goto to end:
+a named place becomes one more candidate and meets exactly the same arithmetic,
+so a chapter they have heard is a move made there and then, and one they have
+not is a covered row and a press. The `recall` and offer-then-move exclusions
+hold on it, which matters more here than for ids — a route reachable with a bare
+number would otherwise be the way around those rules rather than an exception to
+them.
+
 **The model can still name four bad places.** The tool cannot tell a plausible
 passage from an implausible one — that is the judgement it deliberately keeps —
 so a poor search still produces a poor list. The listener cancels it, which is

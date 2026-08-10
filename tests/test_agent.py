@@ -1698,3 +1698,43 @@ def test_list_books_says_a_book_being_rendered_is_being_rendered(
     listed = ready.call("list_books")
 
     assert "still fetching the text" in listed
+
+
+def test_a_chapter_can_be_gone_to_without_a_search_in_front_of_it(
+    searchable: Searchable,
+) -> None:
+    """The regression #115 was filed for, from the model's side.
+
+    Every other route into this tool has to name an id a search returned in this
+    conversation, which is what stops a number read off the wrong line becoming
+    a place. A chapter is not that kind of number: it cannot be found by a
+    search at all, because chapter numbers are not in the book's words. So the
+    guard must not stand in front of it — and it did, by standing in front of
+    the only tool a goto may end in.
+    """
+    ready = wired(searchable)
+
+    said = ready.call("offer_positions", gid=271, chapter=2)
+
+    assert "Moved to 0:04:00" in said
+    assert [m.position_ms for m in ready.moves] == [240_000]
+    assert ready.notes == [said]
+
+
+def test_a_named_place_is_still_refused_after_a_question(
+    searchable: Searchable,
+) -> None:
+    """The recall exclusion holds on the route that never searched.
+
+    "Who is Rob Roy?" must not end with the book moved, and a tool that could be
+    reached with a bare number would be the way round that rule rather than an
+    exception to it.
+    """
+    ready = wired(searchable)
+    ready.call("recall", gid=271, question="who is Rob Roy?")
+
+    said = ready.call("offer_positions", gid=271, chapter=2)
+
+    assert "say it in words" in said
+    assert ready.moves == []
+    assert seq(searchable) == 0

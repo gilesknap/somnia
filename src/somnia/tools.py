@@ -432,7 +432,12 @@ class Library:
         )
 
     def offer_positions(
-        self, gid: int, chunk_ids: list[int], may_move: bool = True
+        self,
+        gid: int,
+        chunk_ids: list[int],
+        may_move: bool = True,
+        chapter: int | None = None,
+        position_ms: int | None = None,
     ) -> Offer | Moved | Refused:
         """Put the places somewhere they can be answered — a screen, or the book.
 
@@ -476,10 +481,32 @@ class Library:
         is not the same question. ``chunk_ids`` is deduplicated below and ids
         resolving to no row are dropped, so ``[7, 7]`` and ``[7, gone]`` are
         both one place and neither is one id.
+
+        ``chapter`` and ``position_ms`` are the other way to name a place, and
+        they are why this is not only a search's tool. A chunk id can only ever
+        say *the passage that matched*, so with ids alone the book can be sent
+        to places that can be described and to no others — "chapter 8", "the
+        end", "back an hour" have nothing to resolve to, which is what ADR 12
+        cost without recording it (issue #115). A number names them directly:
+        ``chapter`` is resolved to that chapter's own start, so the landing is
+        the boundary itself rather than wherever the nearest window happens to
+        begin, and ``position_ms`` is a point on the clock.
+
+        They arrive as one more :class:`Candidate` and change nothing after
+        that. The arithmetic below is the whole point of ADR 12 and it is not
+        worth having twice: a named chapter they have already heard is a move,
+        made here; one they have not is a covered row and a press, which is the
+        spoiler guard doing its job on a route that never went near a search.
         """
         book = self.book(gid)
         if book is None:
             return Refused(f"There is no book {gid} here.")
+        if chapter is not None and position_ms is not None:
+            # Two names for one place is a place nobody named. Refused rather
+            # than resolved by precedence, because the two would disagree
+            # exactly when the model was confused, and silently taking one of
+            # them is how a listener ends up somewhere neither of them meant.
+            return Refused("Name a chapter or a time, not both.")
 
         # The model's own order, kept: it ranked them, and if it named more than
         # will fit, the ones it thought least likely are the ones that go.
@@ -500,7 +527,37 @@ class Library:
             if int(row["book_gid"]) != gid:
                 return Refused(f"Passage {chunk_id} is not in book {gid}.")
             rows.append(row)
-        if not rows:
+        named: int | None = position_ms
+        if chapter is not None:
+            row = self._conn.execute(
+                "SELECT start_ms FROM chapters WHERE book_gid = ? AND idx = ?",
+                (gid, chapter - 1),
+            ).fetchone()
+            if row is None:
+                # Said with the number they used. Chapters are counted from one
+                # everywhere a person says one and from zero in the table, and a
+                # refusal that answered in the table's numbering would be a
+                # sentence about somebody else's book.
+                total = self._conn.execute(
+                    "SELECT COUNT(*) AS n FROM chapters WHERE book_gid = ?", (gid,)
+                ).fetchone()["n"]
+                if not total:
+                    return Refused(
+                        f"{book.title} has no chapters rendered yet, so there is"
+                        " no chapter to go to."
+                    )
+                return Refused(
+                    f"{book.title} has {total} chapters, so there is no chapter"
+                    f" {chapter}."
+                )
+            named = int(row["start_ms"])
+        if named is not None and named < 0:
+            # Before the first word is not a place. Clamping to zero would take
+            # "back an hour" in the first hour and call it the beginning, which
+            # is a different answer to the one they asked for and says nothing.
+            return Refused("That is before the beginning of the book.")
+
+        if not rows and named is None:
             return Refused("None of those are passages from a search. Search first.")
 
         # Read once for the whole offer. Asking per row would let two rows be
@@ -523,6 +580,35 @@ class Library:
             )
             for row in rows[:CANDIDATE_MAX]
         ]
+        if named is not None:
+            # The words at that point, borrowed from whatever window covers it,
+            # so a named place is as recognisable on the screen as a found one.
+            # It is a borrowing and not a match: the row's time is the number
+            # they named and never the window's, because "chapter 8" means the
+            # chapter's own boundary and a window beginning nine seconds earlier
+            # is a different place with the same words near it.
+            at = self._conn.execute(
+                "SELECT id, chapter_idx, text FROM chunks WHERE book_gid = ?"
+                " AND start_ms <= ? ORDER BY start_ms DESC LIMIT 1",
+                (gid, named),
+            ).fetchone()
+            places.append(
+                Candidate(
+                    # Zero where nothing is indexed there — a book still
+                    # rendering, or a point before its first word. The page uses
+                    # this to key the row and nothing else, and a named place is
+                    # only ever one row, so there is nothing for a zero to
+                    # collide with.
+                    chunk_id=int(at["id"]) if at else 0,
+                    start_ms=named,
+                    chapter_idx=int(at["chapter_idx"]) if at else 0,
+                    chapter_title=self._chapter_title(
+                        gid, int(at["chapter_idx"]) if at else 0
+                    ),
+                    ahead=ahead_of(named, here),
+                    text=shorten(str(at["text"]), CANDIDATE_TEXT_CHARS) if at else "",
+                )
+            )
         # Sorted for the screen after the ranking has been spent on the cut: the
         # list is a timeline, and a timeline out of order cannot be read at a
         # glance, which is the only way it will be read.
