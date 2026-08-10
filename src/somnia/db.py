@@ -67,7 +67,9 @@ CREATE TABLE IF NOT EXISTS books (
     -- migration ran over it, and this file's own schema disagreeing with the
     -- one somnia actually opens.
     chapters_total INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    finished_at TEXT,
+    renamed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS chapters (
@@ -174,6 +176,40 @@ _ADDED_COLUMNS = (
     # that was rendered before this column existed — not a book of no chapters,
     # which is not a thing. Anything reading it has to treat 0 as "don't know".
     ("books", "chapters_total", "INTEGER NOT NULL DEFAULT 0"),
+    # When the reader said they were done with this book, which is a fact about
+    # them and not about the render. `status` already holds the render's view —
+    # pending, rendering, done — and overloading it was the obvious thing and
+    # the wrong one: a book somebody has finished reading and a book that was
+    # never made would become the same row, and the shelf could not tell a book
+    # it should stop offering from one it never had anything to offer of.
+    #
+    # A date rather than a flag, because the only question anybody asks of it
+    # after the first one is "when", and a column that already answers it costs
+    # nothing over a 0/1 that would then need a second one beside it.
+    #
+    # NULL means still being read, which is every book somnia has ever had
+    # until somebody says otherwise. No default, for the reason position_at
+    # gives above: sqlite refuses a non-constant default on ADD COLUMN, so
+    # whoever marks a book finished writes datetime('now') itself.
+    ("books", "finished_at", "TEXT"),
+    # When a person last said what this book is called, which is the one thing
+    # that has to outrank the catalog. `title` and `authors` are written by
+    # every render out of the catalog row, so a book renamed on the page and
+    # then rendered again — the ordinary way to restart a render that died —
+    # came back under the name somebody had just changed. The alternative was
+    # to document the rename as lost, which is a screen offering an edit it
+    # quietly takes away again.
+    #
+    # A date rather than a flag, for the reason finished_at is one: the second
+    # question anybody asks of it is when, and the upsert only ever asks
+    # whether it is NULL. It is not a copy of the name and nothing reads it
+    # back — the name lives in `title`, where it always did.
+    #
+    # NULL means nobody has renamed this book, which is every book somnia has
+    # rendered so far, so the upsert goes on doing exactly what it did until
+    # somebody edits something. No default, as above: sqlite refuses a
+    # non-constant one on ADD COLUMN.
+    ("books", "renamed_at", "TEXT"),
     # Which voice this book was asked for in, held on the request rather than
     # taken from whatever the renderer's environment happened to say hours
     # later. The choice is made in front of the person making it and has to

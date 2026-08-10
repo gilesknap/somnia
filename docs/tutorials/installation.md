@@ -125,9 +125,9 @@ starts happily, answers questions happily, and 404s every chapter — the real
 reason is a warning in the journal, and what you see on the phone is only *that
 chapter didn't arrive*. Set it explicitly.
 
-Audiobookshelf is entirely optional now that the page is the player. somnia
-writes your position to it when you stop, as a courtesy, and never reads it
-except for the one-off `somnia seed-positions`.
+There is nothing else to point somnia at. It renders the book, serves it and
+keeps your place, and it talks to no other server but Anthropic's and Project
+Gutenberg's.
 
 ## Prove it works
 

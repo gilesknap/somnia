@@ -1,6 +1,6 @@
 # Command line
 
-Ten commands. `somnia` on its own prints the help and stops, and
+Nine commands. `somnia` on its own prints the help and stops, and
 `somnia --version` (or `-v`) prints the version and nothing else.
 
 Results go to **stdout** and progress to **stderr**, so `somnia search bee >
@@ -16,12 +16,11 @@ therefore leaves a database behind whatever else happens.
 | [`search`](#cli-search) | Find a book id in those catalogs | a catalog |
 | [`add`](#cli-add) | Ask for a book and render it here and now | `[ml]`, ffmpeg, espeak-ng |
 | [`queue`](#cli-queue) | Ask for a book, see what is rendering, stop one | nothing |
+| [`remove`](#cli-remove) | Take a book away for good, audio and all | nothing |
 | [`worker`](#cli-worker) | Empty the queue, one book at a time | `[ml]`, ffmpeg, espeak-ng |
 | [`find`](#cli-find) | Semantic search inside one rendered book | `[ml]` |
 | [`ask`](#cli-ask) | Put the agent in front of it | `ANTHROPIC_API_KEY` |
 | [`serve`](#cli-serve) | The page that plays the book | `ANTHROPIC_API_KEY` |
-| [`libraries`](#cli-libraries) | List Audiobookshelf library ids | `SOMNIA_ABS_TOKEN` |
-| [`seed-positions`](#cli-seed-positions) | Take your place across from ABS, once | `SOMNIA_ABS_TOKEN` |
 
 Settings come from the environment — there is no config file. One flag
 overrides one of them for a single run, and the rest are listed in
@@ -179,10 +178,6 @@ What it does not touch is where you have got to. A re-render writes the title,
 the authors, the voice and the status, and nothing about your position or how
 far you have heard.
 
-If `SOMNIA_ABS_TOKEN` and `SOMNIA_ABS_LIBRARY_ID` are both set, Audiobookshelf
-is rescanned and given chapter marks after each chapter. A failure there is
-logged and the render carries on.
-
 (cli-queue)=
 ## `queue`
 
@@ -266,6 +261,54 @@ What empties the queue is [`worker`](#cli-worker), and if nothing is running it
 nothing renders: rows sit there with their place in line and the readout says
 so honestly. See [Keep a long render
 running](../how-to/keep-renders-running.md) for the unit that runs it.
+
+(cli-remove)=
+## `remove`
+
+```bash
+somnia remove GID
+```
+
+Takes a book out of somnia for good: its row, its chapters, the indexed text
+and the vectors behind semantic seek, every queue row it ever had, the m4a
+files with the folders above them once those are empty, and the joined streams
+under `SOMNIA_DATA_DIR`. Nothing brings it back but rendering it again.
+
+```console
+$ somnia remove 271
+Black Beauty is gone, with everything rendered of it.
+```
+
+There is no confirmation prompt. Typing a Gutenberg id is already a deliberate
+act, and a command that stops to ask cannot be run over ssh from a phone, which
+is where this actually gets used. The asking belongs on the page, where a
+delete sits a tap away from everything else.
+
+Two refusals, and neither deletes anything at all:
+
+```console
+$ somnia remove 271
+Black Beauty is being rendered, so stop it first: job 14.
+```
+
+A book something is rendering is left alone rather than raced — a worker half
+way through chapter nineteen is about to write files back into the folder this
+would be emptying. The job id is in the sentence because
+[`queue stop`](#cli-queue) takes the job and not the book, so the number needed
+next is not the one just typed. A book that is only *waiting* is refused too:
+deleting it and leaving the row that asks for it would take the book away and
+bring it back hours later.
+
+The other refusal is a chapter whose file is not inside `SOMNIA_LIBRARY_DIR`.
+The rows hold absolute paths, so a database carried over from another machine —
+or edited by hand — can point at somebody else's files, and that stops the whole
+delete rather than skipping the one row. Which chapter it was goes to the
+journal. A chapter whose file has simply gone is not a refusal: there is
+nothing there to delete, and stopping at the first gap would orphan the rest.
+
+The files are found by walking the chapter rows rather than by rebuilding
+`SOMNIA_LIBRARY_DIR/<author>/<title>`, because the folder on disk is whatever
+the title was on the day it was rendered.
 
 (cli-worker)=
 ## `worker`
@@ -375,55 +418,10 @@ foreground; `curl localhost:8721/api/health` answers `{"ok": true}`.
 the authentication, and the only path in is meant to be `tailscale serve`. See
 [Serve the page that plays the book](../how-to/serve-the-chat-page.md).
 
-(cli-libraries)=
-## `libraries`
-
-```bash
-somnia libraries
-```
-
-Prints the id and name of each Audiobookshelf library, which is where
-`SOMNIA_ABS_LIBRARY_ID` comes from.
-
-```console
-$ somnia libraries
-lib_8x2k1p9  Audiobooks
-```
-
-It needs `SOMNIA_ABS_TOKEN` and a reachable server; without them it fails rather
-than returning nothing.
-
-(cli-seed-positions)=
-## `seed-positions`
-
-```bash
-somnia seed-positions
-```
-
-The one command that reads Audiobookshelf. Run it once, by hand, before the
-first night, if you have been listening in ABS: it brings each book's position
-and how far you had heard into somnia's own database.
-
-```console
-$ somnia seed-positions
-   271  Black Beauty: seeded at 3:12:40 (2026-08-01 22:41:03); heard to 3:12:40
-1 of 1 books changed.
-```
-
-It says what it did to every book, in a sentence, because the only person
-running it is watching a terminal and deciding whether to trust the night to it.
-Two rules make it safe to run again: a position somnia already holds is never
-overwritten, and the heard-to mark only ever rises.
-
-With no token it says there is nothing to read and stops. If Audiobookshelf
-cannot be reached it says so and changes nothing — every read happens before the
-first write, so an interrupted run really did leave the database alone.
-
 ## When something goes wrong
 
-These are not polished-failure commands. Beyond the two cases
-`seed-positions` handles by hand, a missing key, an unreachable server or a book
-Gutenberg does not have will end in a traceback and a non-zero exit.
+These are not polished-failure commands. A missing key, an unreachable server
+or a book Gutenberg does not have will end in a traceback and a non-zero exit.
 
 `somnia-doctor.sh` is the thing to run first: it checks the install, the
 settings, the catalog, and that every rendered chapter is still on disk and

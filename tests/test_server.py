@@ -12,7 +12,7 @@ from anthropic import Anthropic
 from starlette.testclient import TestClient
 
 from conftest import ToneBook
-from fakes import FakeEmbedder, RecordingAbs
+from fakes import FakeEmbedder
 from mp4 import duration_ms, payload
 from somnia import server
 from somnia.agent import OFFER_SENTENCE, Turn, open_library
@@ -746,11 +746,11 @@ def test_the_stream_is_the_chapters_themselves_in_the_order_they_are_read(
 def test_the_stream_is_written_beside_the_database_and_not_in_the_library(
     tone_client: TestClient, tone_book: ToneBook
 ) -> None:
-    """ADR 3 promises the Audiobookshelf app keeps working on the same files.
+    """The joined file is somnia's own cache, so it lives with somnia's own data.
 
-    ``library_dir`` is ABS's own layout, and a second copy of every book
-    appearing inside it would be somnia scanning as a library of doubles. The
-    concatenation is somnia's own cache, so it lives with somnia's own data.
+    ``library_dir`` holds one m4a per chapter and nothing besides, which is what
+    lets a folder there be read as a book; a whole second copy of every book
+    appearing among them would also double what that disk has to carry.
     """
     before = sorted(p.name for p in tone_book.book_dir.iterdir())
     assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
@@ -1068,46 +1068,6 @@ def test_a_report_that_says_nothing_about_playback_claims_none_of_it(
     assert (status, garbled["heard_to_ms"]) == (200, 4_000)
 
 
-def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
-    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """ABS is right whenever someone next opens it, for a few writes a night.
-
-    Telling it every fifteen seconds would be hundreds of requests to a server
-    nothing is reading, on a link that may not be there.
-
-    A switch is the book left behind when the agent takes them to another one.
-    It counts as stopping because for that book it is: the parting report is the
-    last thing the page will ever say about it, and if ABS does not hear it then
-    nothing does.
-    """
-    recorder = RecordingAbs()
-
-    def one_abs_client(base_url: str, token: str) -> RecordingAbs:
-        """create_app builds its own, so this is how a test gets a look at it."""
-        return recorder
-
-    monkeypatch.setattr(server, "Conversation", FakeConversation)
-    monkeypatch.setattr(server, "AbsClient", one_abs_client)
-    tone_book.cfg.abs_token = "a-token"
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET abs_item_id = 'abs-item-1' WHERE gid = ?", (GID,)
-        )
-
-    with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
-        report(client, position_ms=1_000, reason="tick")
-        assert recorder.moves == []
-        report(client, position_ms=2_000, reason="pause")
-        report(client, position_ms=3_000, reason="unload")
-        report(client, position_ms=4_000, reason="switch")
-    assert recorder.moves == [
-        ("abs-item-1", 2.0),
-        ("abs-item-1", 3.0),
-        ("abs-item-1", 4.0),
-    ]
-
-
 # ----------------------------------------------------------- switching books
 
 
@@ -1240,6 +1200,176 @@ def test_switching_books_is_a_post_and_a_get_does_not_do_it(
     report(tone_client, position_ms=5_000)
     assert tone_client.get(f"/api/book/{GID + 1}/open").status_code != 200
     assert tone_client.get("/api/books").json()["last_gid"] == GID
+
+
+def test_a_book_can_be_taken_away_and_then_there_is_no_book(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """DELETE on the path the manifest is read from, and it means it.
+
+    The GET afterwards is the assertion that matters: this is the one route in
+    somnia whose effect a later request cannot undo, so what it leaves behind
+    has to be the same nothing a gid that was never here leaves.
+    """
+    response = tone_client.delete(f"/api/book/{GID}")
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert "Three Tones" in response.json()["said"]
+    assert tone_client.get(f"/api/book/{GID}").status_code == 404
+    assert tone_client.get("/api/books").json()["books"] == []
+    assert not tone_book.book_dir.exists()
+
+
+def test_deleting_a_book_that_is_not_here_is_the_same_404_as_reading_one(
+    tone_client: TestClient,
+) -> None:
+    """A page holding an id from a database that has moved on, and its body says so.
+
+    404 rather than 200, because "there is no such book" is a different fact
+    from "there was, and it is refused" — and the sentence travels either way,
+    so the page has something to show whichever it turns out to be.
+    """
+    response = tone_client.delete("/api/book/404404")
+
+    assert response.status_code == 404
+    assert response.json()["ok"] is False
+    assert "404404" in response.json()["said"]
+
+
+def test_a_book_being_rendered_answers_200_and_stays_where_it_is(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """A refusal is an answer, in the shape /api/queue/{id}/stop already uses.
+
+    Nothing is wrong here: the book is there, a render holds it, and the reply
+    is the sentence saying which job to stop first. A 409 would put a red line
+    in the console for something working exactly as designed.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO queue (gid, title, state) VALUES (?, 'Three Tones',"
+            " 'rendering')",
+            (GID,),
+        )
+
+    response = tone_client.delete(f"/api/book/{GID}")
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+    assert "stop it first" in response.json()["said"]
+    assert tone_client.get(f"/api/book/{GID}").status_code == 200
+
+
+def test_a_book_can_be_finished_and_unfinished_on_the_same_route(
+    tone_client: TestClient,
+) -> None:
+    """The undo is the doing with a false in it, which is what makes it one control.
+
+    Both answers come back on `/api/books`, because that is the only thing the
+    day screen has to read to know: a stamp while it is finished, and null the
+    moment it is not.
+    """
+
+    def listed() -> dict[str, object]:
+        books = tone_client.get("/api/books").json()["books"]
+        return dict(next(book for book in books if book["gid"] == GID))
+
+    assert listed()["finished_at"] is None
+
+    done = tone_client.post(f"/api/book/{GID}/finished", json={})
+
+    assert done.status_code == 200
+    assert done.json()["ok"] is True
+    assert "Three Tones is finished" in done.json()["said"]
+    assert listed()["finished_at"] is not None
+
+    back = tone_client.post(f"/api/book/{GID}/finished", json={"finished": False})
+
+    assert back.json()["ok"] is True
+    assert listed()["finished_at"] is None
+
+
+def test_finishing_a_book_that_is_not_here_is_a_404_like_the_rest_of_the_path(
+    tone_client: TestClient,
+) -> None:
+    response = tone_client.post("/api/book/404404/finished", json={})
+
+    assert response.status_code == 404
+    assert response.json()["ok"] is False
+    assert "404404" in response.json()["said"]
+
+
+def test_a_book_marked_finished_is_still_a_book_that_plays(
+    tone_client: TestClient,
+) -> None:
+    """Finished is the reader's word and touches nothing the render owns.
+
+    Worth asserting on the route rather than only under it, because this is the
+    line between this verb and the delete beside it on the same path: one of
+    them leaves a book that can still be opened, and the other is the reason
+    the page asks twice.
+    """
+    tone_client.post(f"/api/book/{GID}/finished", json={})
+
+    manifest = tone_client.get(f"/api/book/{GID}")
+
+    assert manifest.status_code == 200
+    assert manifest.json()["status"] == "done"
+    assert tone_client.get(f"/api/audio/{GID}/0").status_code == 200
+
+
+def test_a_book_can_be_renamed_and_the_shelf_says_so_at_once(
+    tone_client: TestClient,
+) -> None:
+    """One route for both columns, because the page edits them in one breath.
+
+    Asserted through `/api/books` rather than through the answer, because the
+    answer is only the sentence: what a rename is for is the name on every
+    screen that lists this book afterwards.
+    """
+
+    def listed() -> dict[str, object]:
+        books = tone_client.get("/api/books").json()["books"]
+        return dict(next(book for book in books if book["gid"] == GID))
+
+    named = tone_client.post(
+        f"/api/book/{GID}/name",
+        json={"title": "Three Tones, remembered", "authors": "Nobody"},
+    )
+
+    assert named.status_code == 200
+    assert named.json()["ok"] is True
+    assert named.json()["title"] == "Three Tones, remembered"
+    assert listed()["title"] == "Three Tones, remembered"
+    assert listed()["authors"] == "Nobody"
+
+
+def test_a_book_asked_to_have_no_name_keeps_the_one_it_had(
+    tone_client: TestClient,
+) -> None:
+    """200 with a sentence and `ok` false, in the shape of the delete's refusal.
+
+    Not a 400: this is a book that is here, and what came back is something to
+    read on the page rather than a status code to interpret.
+    """
+    response = tone_client.post(
+        f"/api/book/{GID}/name", json={"title": "", "authors": "Nobody"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+    assert "needs a name" in response.json()["said"]
+    assert tone_client.get(f"/api/book/{GID}").json()["title"] == "Three Tones"
+
+
+def test_renaming_a_book_that_is_not_here_is_a_404_like_the_rest_of_the_path(
+    tone_client: TestClient,
+) -> None:
+    response = tone_client.post("/api/book/404404/name", json={"title": "Anything"})
+
+    assert response.status_code == 404
+    assert response.json()["ok"] is False
 
 
 # ---------------------------------------------------- coming back to the book

@@ -4,8 +4,8 @@
 #
 # Most of what goes wrong with somnia goes wrong quietly: a library directory
 # pointing at nothing serves a page that answers questions happily and 404s
-# every chapter, and a database that has never been near Audiobookshelf bounds
-# every search at the first minute of the book. This looks for those.
+# every chapter, and a chapter row pointing outside that directory is refused
+# even though the file is there. This looks for those.
 #
 # Usage: somnia-doctor.sh [options]
 #
@@ -201,15 +201,6 @@ else:
         say("fail", f"{plural(len(outside), 'chapter sits', 'chapters sit')} outside "
                     f"SOMNIA_LIBRARY_DIR ({library}), and the server refuses those "
                     f"— first: {outside[0][2]}")
-
-    # Audiobookshelf is written to and never read, apart from one seed-time
-    # read — so a box with ABS configured and no positions is almost always a
-    # seed that was never run.
-    if cfg.abs_token:
-        seeded = count("SELECT count(*) FROM books WHERE heard_to_ms > 0")
-        if books and not seeded:
-            say("warn", "Audiobookshelf is configured but no book has any listening "
-                        "recorded — run 'somnia seed-positions' once")
 
     db.close()
 

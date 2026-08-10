@@ -1140,6 +1140,26 @@
         <p id="shelf-label" class="section-label" hidden>on the shelf</p>
         <ul id="shelf"></ul>
 
+        <!-- Where the books that are not on the shelf went, and the only new
+             thing on this screen. The shelf stops at the twenty most recently
+             touched, and a book somebody has said they are finished with is not
+             on it at all — so a library that has been going a while has more
+             books than this screen shows, and a screen that showed twenty and
+             said nothing would be a screen that had quietly lost the rest.
+
+             Only when something really was left out. A line that was always
+             there would be furniture: read once, never again, and worthless on
+             the night it is actually true. So it is hidden until the drawing
+             finds it has cut something, which on most nights it has not.
+
+             Italic and quiet, and not a press. Nothing on Books manages
+             anything — that is the whole of the split with the Workshop, and
+             the way to the Workshop is the pill at the top of this screen,
+             which is where somebody looking for it would already be looking. A
+             second door here would be a control on a night screen, arrived at
+             by reading to the end of a list of books in the dark. -->
+        <p id="shelf-more" hidden>the rest of your books are in the workshop</p>
+
         <!-- Whether the shelf above is what somnia has, or the last thing it
              said before the tailnet went. This screen used to have no line of
              its own and did not need one: the queue was on it, the queue's poll
@@ -1216,10 +1236,21 @@
 
         <!-- Mono, uppercase and small enough that it cannot be mistaken for
              something to press or something to read: it is a rule with a word
-             on it. It says gutenberg because that is where the books come from
-             and it is the only warning that a search here is not a search of
-             the shelf. -->
-        <p class="section-label">project gutenberg</p>
+             on it. It says what the part of the screen under it is for, which
+             is what every other label on this page does, and it has to now that
+             there is a second list of books below: `project gutenberg` named
+             where the rows came from, and read against `books you already have`
+             it named a place rather than an act. -->
+        <p class="section-label">bring in a new book</p>
+        <!-- And where the search actually goes, in a sentence, because that is
+             the one thing the label above no longer says. It is the difference
+             between the two lists on this screen — seventy thousand books
+             nobody owns up here, and the ones somnia has down there — and
+             getting it the wrong way round means adding a book you already
+             have, or waiting for a render of one that has already been made. -->
+        <p id="bring-note">
+          Searching Project Gutenberg, not the books below.
+        </p>
         <!-- A search box, and a button, and one request per press.
 
              Not per keystroke, and not per typed word either, which is what the
@@ -1240,7 +1271,7 @@
             type="search"
             enterkeyhint="search"
             autocomplete="off"
-            placeholder="a title, or an author"
+            placeholder="search gutenberg"
             aria-label="Which book?"
           />
           <button id="queue-find" type="submit">find</button>
@@ -1275,6 +1306,208 @@
              said before the tailnet went. An empty queue and an unreachable
              server look identical and mean opposite things. -->
         <p id="queue-note"></p>
+
+        <!-- Everything somnia has, at the foot of the screen that is allowed to
+             manage it.
+
+             Books shows the twenty most recently touched and says at its foot
+             that the rest are here; this is that promise. It is the whole
+             library and not the remainder — a list that held only the books
+             Books had left out would be a list whose contents depend on what
+             somebody listened to last week, and nobody can search that.
+
+             It is last on this screen on purpose. The sentence this screen is
+             is still `find a book, add it, watch it being made`, and those
+             three are unbroken above; this answers a different question —
+             *what do I already have, and what state is it in* — and the two
+             would fight over the top of the screen. Somebody who came here to
+             look after a book they own scrolls past a search box once.
+
+             The filter, the ordering and the rows all live here and nowhere
+             else. A filter has states, and a filter on the night screen would
+             give it a second appearance — reachable by half-asleep typing — in
+             which the book you almost certainly want is missing. -->
+        <div id="have" hidden>
+          <p class="section-label">books you already have</p>
+          <!-- Filtered as the letters arrive, which the search above is
+               deliberately not: this list is already on the phone, so the cost
+               of a keystroke is redrawing a few rows rather than a round trip
+               over a tailnet, and there is no FTS5 on the far end to empty the
+               list between two words. -->
+          <input
+            id="have-filter"
+            type="search"
+            enterkeyhint="done"
+            autocomplete="off"
+            placeholder="filter your books"
+            aria-label="Which of your books?"
+          />
+          <!-- Which way round the list goes, and the only sort control in the
+               app. Three orders and not five: how new it is, and then the two
+               things printed on a spine. `recent` is the one it opens on,
+               because the book somebody has come to look after is usually the
+               one that has just arrived.
+
+               Pills rather than a <select>, for the reason the voices and the
+               rewind lengths are: a native picker on Android is a modal over a
+               screen the reader is trying to read, and three words in a row are
+               visible without being pressed at all. -->
+          <div id="have-sort">
+            <button id="have-sort-recent" class="have-pick" type="button">
+              recent
+            </button>
+            <button id="have-sort-title" class="have-pick" type="button">
+              title
+            </button>
+            <button id="have-sort-author" class="have-pick" type="button">
+              author
+            </button>
+          </div>
+          <ul id="have-list"></ul>
+          <!-- A filter that matched nothing has to say so. The list going empty
+               under a box somebody is typing into is the one moment on this
+               screen where an empty list means something specific, and it is
+               not "you have no books". -->
+          <p id="have-none" hidden>nothing here matches that</p>
+
+          <!-- The books somebody has said they are done with, under the ones
+               they are not, and counted rather than named as a section: the
+               number is the useful part — it is how much of the library is
+               behind you — and `4 finished` over four rows says both at once.
+               They are still here and still play; they are only not an answer
+               to the question the list above is asking. -->
+          <p id="have-finished-label" class="section-label" hidden></p>
+          <ul id="have-finished"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- One book, and everything that can be done to it — which is everything
+         that is not playing it.
+
+         It is reached from a row of `books you already have` and from nowhere
+         else, which is the whole of why it is allowed to exist. Books is one
+         press from the book starting to play; putting a page of controls
+         between the shelf and the sound would cost the night flow to serve a
+         daytime task, and a delete anywhere near a screen read at 2am is a
+         delete pressed by somebody who meant `play`.
+
+         Over Workshop, the way Workshop is over Books: `‹ workshop` puts it
+         away and the list is still there, at the row that opened it, filter
+         and ordering intact. So the dim layer stays where Workshop left it —
+         off — because this is the same daylight and the same act.
+
+         What is not here is as decided as what is. There is no repair and no
+         re-render, because there is no backend for either; no storage figures,
+         because a number of megabytes is not a thing anybody does anything
+         about; and no cover art. The coverage line is information and not a
+         call to act: a book somnia is behind on reading is a book to wait for,
+         and there is nothing on this screen to press about it. -->
+    <section id="book" hidden aria-label="One book, and what can be done to it">
+      <!-- Where it goes rather than what it does, in the corner every other
+           way back on this page is in. -->
+      <div id="book-head">
+        <button id="book-close" type="button">
+          <span class="pill">
+            <svg class="caret back" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+              <path d="M6 0 0 5 6 10Z" fill="currentColor" />
+            </svg>
+            workshop
+          </span>
+        </button>
+      </div>
+      <div id="book-scroll">
+        <!-- Two boxes, always editable, rather than a name with an `edit` press
+             beside it. A mode is a thing to get into and then out of, and the
+             only thing it would buy is protection from a keystroke on a screen
+             that is two presses deep in daylight and already asks twice about
+             the one press that matters. What somnia calls a book is a string in
+             a column; typing in it is the honest shape for that.
+
+             They are saved when the box is left rather than as the letters
+             arrive: a round trip per keystroke over a tailnet is a queue of
+             requests racing each other to say what a book is called, and the
+             last one to land wins by luck. Blurring is what a person does when
+             they have finished typing, and it is also what pressing anything
+             else on this screen does first.
+
+             A rename is somnia's and not the catalog's from then on: a render
+             asked for again will leave the name alone. See ingest_book. -->
+        <p class="section-label">what it is called</p>
+        <input
+          id="book-name"
+          type="text"
+          enterkeyhint="done"
+          autocomplete="off"
+          aria-label="What this book is called"
+        />
+        <input
+          id="book-author"
+          type="text"
+          enterkeyhint="done"
+          autocomplete="off"
+          placeholder="nobody"
+          aria-label="Who wrote it"
+        />
+
+        <!-- How far into the book they are, counted in chapters rather than in
+             hours, because a chapter is the unit somebody thinks in when they
+             are deciding whether to carry on with a book. The shelf says the
+             same fact as a clock time and a hairline; this is the daytime
+             reading of it, and neither is stored — both are the position and
+             the chapter list, read against each other. -->
+        <p id="book-read-to"></p>
+
+        <!-- Where the book came from, when it arrived, how long it is and how
+             much of it has been rendered. Four facts, drawn from what the shelf
+             already knows plus the chapter list this screen fetches, so nothing
+             here is a column somnia had to start keeping.
+
+             A fact with nothing behind it is left off rather than drawn empty.
+             `chapters_total` of 0 is nobody having written it down — true of
+             anything rendered before that column existed — and a book still
+             being rendered has a length that is how much audio exists so far
+             rather than how long the book is. -->
+        <p class="section-label">about this book</p>
+        <ul id="book-facts"></ul>
+
+        <!-- The two things a person does about a book they have looked at:
+             start it, or say they are done with it. `read it` is the same press
+             the shelf row is — it makes this the book a cold launch opens and
+             puts the player back in front — and `mark finished` is one column
+             with its own undo, which is why the label says which way it will
+             go. -->
+        <div id="book-acts">
+          <button id="book-read" type="button">read it</button>
+          <button id="book-finish" type="button">mark finished</button>
+        </div>
+
+        <!-- What somnia said about the last press, in its own words rather than
+             in the page's. Every one of these routes answers with a whole
+             sentence for a person, including the refusals — a book being
+             rendered cannot be removed, and the sentence says which job to stop
+             first — so a page that wrote its own would be a second account of
+             something that already has one. -->
+        <p id="book-said"></p>
+
+        <!-- The only irreversible press in somnia, at the foot of the screen,
+             on its own, and asking twice.
+
+             Two presses rather than a dialog, the way the queue's `stop reading
+             this` does it: an overlay over an overlay is a route wearing a hat,
+             and it would be the first thing on this page to take focus from
+             anybody. The button is the question, it forgets it was asked after
+             a few seconds, and the second press is the one that does it.
+
+             The sentence under it is the whole of what goes, said before either
+             press rather than after the first, because it is what somebody
+             deciding needs and not what somebody who has already decided needs
+             to be warned about. -->
+        <button id="book-remove" type="button">remove this book</button>
+        <p id="book-remove-note">
+          The audio, the text and where you had got to. There is no undo, and a
+          book removed can only come back by being rendered again.
+        </p>
       </div>
     </section>
 

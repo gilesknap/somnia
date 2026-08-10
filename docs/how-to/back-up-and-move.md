@@ -80,14 +80,6 @@ bash somnia-doctor.sh
 It checks every chapter row for a file that exists and sits inside
 `SOMNIA_LIBRARY_DIR`, and names the first one that does not.
 
-### Audiobookshelf, if you use it
-
-`books.abs_item_id` refers to whatever ABS instance you had configured. If ABS
-is not coming with you, point `SOMNIA_ABS_URL` at the new one — or unset
-`SOMNIA_ABS_TOKEN` and no client is built at all. There is no need to run
-`somnia seed-positions` again: your positions are in the database you just
-carried across, and seeding never lowers one anyway.
-
 ### What you do not need to move
 
 The catalog is a download: `somnia catalog-update` on the new box rebuilds it.

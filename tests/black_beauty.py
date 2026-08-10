@@ -23,7 +23,6 @@ from somnia.index import add_chunks
 from somnia.segment import Window
 
 __all__ = [
-    "ABS_ITEM_ID",
     "CHAPTERS",
     "GID",
     "PASSAGES",
@@ -35,7 +34,6 @@ GID = 271
 TITLE = "Black Beauty"
 AUTHORS = "Sewell, Anna"
 TOTAL_MS = 900_000
-ABS_ITEM_ID = "abs-item-1"
 
 CHAPTERS = [
     ("01 My Early Home", 0, 240_000),
@@ -75,9 +73,9 @@ def build_black_beauty(
     with conn:
         conn.execute(
             "INSERT INTO books (gid, title, authors, voice, status, total_ms,"
-            " abs_item_id, position_ms, heard_to_ms)"
-            " VALUES (?, ?, ?, 'af_heart', 'done', ?, ?, ?, ?)",
-            (GID, TITLE, AUTHORS, TOTAL_MS, ABS_ITEM_ID, position_ms, heard_to_ms),
+            " position_ms, heard_to_ms)"
+            " VALUES (?, ?, ?, 'af_heart', 'done', ?, ?, ?)",
+            (GID, TITLE, AUTHORS, TOTAL_MS, position_ms, heard_to_ms),
         )
         for idx, (title, start_ms, end_ms) in enumerate(CHAPTERS):
             conn.execute(

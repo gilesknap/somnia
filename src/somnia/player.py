@@ -12,8 +12,7 @@ The only thing it may not hand to the page is ``audio_file`` itself, which is an
 absolute path on the VPS. Chapters are addressed by index and resolved here.
 
 It writes one thing: where they have got to. That is the pivot in a sentence —
-the position is somnia's own record now, kept here rather than asked of
-Audiobookshelf, which is told afterwards as a courtesy and never read.
+the position is somnia's own record, kept here, and there is nobody else to ask.
 """
 
 import logging
@@ -22,9 +21,10 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from .abs import AbsClient, tell_abs
 from .config import Config
 from .db import connect
+from .library import Finished, Renamed, finish_book, inside_library, rename_book
+from .pgau import source_of
 
 __all__ = [
     "BookEntry",
@@ -84,8 +84,34 @@ class BookEntry:
     status: str
     total_ms: int
     chapters: int
+    # How many chapters the book has, against ``chapters`` above, which is how
+    # many of them have been rendered. They are the same number on a book that
+    # finished rendering and different on every book that did not, and the two
+    # are the whole of what a coverage line says: all of it is here, or this
+    # much of that much is. 0 means nobody wrote it down — true of anything
+    # rendered before the column existed — and a page that has 0 has to say
+    # nothing at all rather than "of 0", which the player already does.
+    chapters_total: int
     position_ms: int | None
     seq: int
+    # When the reader said they were done with it, or None while they are not.
+    # A book that is finished is still a book somnia has — it plays, it holds
+    # its position, and nothing about it is taken away — so this is one more
+    # thing said about it rather than a reason to leave it out of the answer.
+    # Which screens draw a finished book, and where, is the page's to decide.
+    finished_at: str | None
+    # When somnia was first asked for it, which is the only date a book has
+    # that is about the reader rather than about the render: it is what "brought
+    # in" means and what an ordering by how new a book is has to be built on.
+    # It is already the tie-break under ``position_at`` in the ordering below,
+    # so this is that same column said out loud rather than a new fact.
+    created_at: str
+    # Which of the two libraries the book came out of, in the same word a search
+    # result carries it in. Nothing stores it: it is the gid read against the
+    # Australian offset, which is arithmetic that belongs on this side of the
+    # wire — a page that worked it out for itself would be holding a copy of a
+    # constant it cannot see move.
+    source: str
 
 
 @dataclass
@@ -122,9 +148,9 @@ class Chapter:
 
     ``start_ms`` and ``end_ms`` are on the book's clock — the render clock,
     counted in PCM samples before encoding — which is the clock that search
-    results, ABS chapter marks and the saved position all speak. The page must
-    never derive them by summing what the decoder reports, which drifts by tens
-    of milliseconds a chapter and is a second out by chapter forty.
+    results and the saved position both speak. The page must never derive them
+    by summing what the decoder reports, which drifts by tens of milliseconds a
+    chapter and is a second out by chapter forty.
 
     ``url`` is relative because the app may be mounted under a path, and it is
     built here so the page never has to think about encoding a file name like
@@ -223,15 +249,10 @@ class Player:
     in a threadpool, and its own lock because sqlite connections are not
     thread-safe. Every statement is taken under it; nothing here waits on
     anything but the disk.
-
-    ``abs_client`` is only ever written to, never read, and only when the
-    listener has stopped. Audiobookshelf is no longer the player and no longer
-    the record — it is somewhere else they might one day open the book.
     """
 
-    def __init__(self, cfg: Config, abs_client: AbsClient | None = None) -> None:
+    def __init__(self, cfg: Config) -> None:
         self._cfg = cfg
-        self._abs = abs_client
         self._lock = threading.Lock()
         self._conn: sqlite3.Connection = connect(cfg.db_path, cross_thread=True)
 
@@ -245,7 +266,8 @@ class Player:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT b.gid, b.title, b.authors, b.status, b.total_ms,"
-                " b.position_ms, b.position_seq, b.position_at,"
+                " b.chapters_total, b.created_at,"
+                " b.position_ms, b.position_seq, b.position_at, b.finished_at,"
                 " (SELECT COUNT(*) FROM chapters c WHERE c.book_gid = b.gid)"
                 " AS chapters"
                 " FROM books b"
@@ -259,8 +281,12 @@ class Player:
                 status=row["status"],
                 total_ms=row["total_ms"],
                 chapters=row["chapters"],
+                chapters_total=row["chapters_total"],
                 position_ms=row["position_ms"],
                 seq=row["position_seq"],
+                finished_at=row["finished_at"],
+                created_at=row["created_at"],
+                source=source_of(int(row["gid"])),
             )
             for row in rows
         ]
@@ -320,6 +346,30 @@ class Player:
         if row is None:
             return None
         return Opened(gid=gid, position_ms=row["position_ms"], seq=row["position_seq"])
+
+    def finish(self, gid: int, finished: bool) -> Finished:
+        """Mark a book finished, or put it back on the shelf.
+
+        On this lane rather than the queue's, because it writes the ``books``
+        row and every other write to that row — the position reports, the open
+        — is taken under this lock. The delete is the exception and belongs
+        where it is: the first thing it has to do is ask the queue.
+
+        The work itself is :func:`somnia.library.finish_book`; this is the lock
+        around it, the same way :meth:`open_book` is the lock around one UPDATE.
+        """
+        with self._lock:
+            return finish_book(self._conn, gid, finished)
+
+    def rename(self, gid: int, title: str, authors: str) -> Renamed:
+        """Say what a book is called, under the lock the ``books`` row is kept.
+
+        Beside :meth:`finish` and for the same reason: it writes that row, and
+        every other write to it is taken here. The work is
+        :func:`somnia.library.rename_book`.
+        """
+        with self._lock:
+            return rename_book(self._conn, gid, title, authors)
 
     def manifest(self, gid: int) -> Manifest | None:
         """The whole timeline of one book, or None if there is no such book."""
@@ -490,26 +540,6 @@ class Player:
             reason="moved",
         )
 
-    def tell_abs(self, gid: int, position_ms: int) -> None:
-        """Look the item up, then hand the position to the courtesy write.
-
-        Off the critical path: the reply has already gone out by the time this
-        runs, and what it buys is that the position is right at the moment
-        someone next opens ABS somewhere else — which is why it is only worth
-        doing when they have stopped, and never on a tick.
-
-        The lookup is here rather than inside :func:`somnia.abs.tell_abs`
-        because this connection is shared with every audio request and is only
-        safe under ``_lock``. The lock is given back before the write goes out:
-        held across it, an ABS that hangs for its five seconds would stall the
-        chapter swap this exists to stay out of the way of.
-        """
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT abs_item_id FROM books WHERE gid = ?", (gid,)
-            ).fetchone()
-        tell_abs(self._abs, row["abs_item_id"] if row else "", position_ms)
-
     def sentence_start(self, gid: int, ms: int) -> int | None:
         """Where the sentence being spoken at ``ms`` began, if anything knows.
 
@@ -635,20 +665,14 @@ class Player:
     def _playable(self, audio_file: str, what: str) -> Path | None:
         """A row's path, if it is inside the library and really there.
 
-        Containment is checked after resolving, because the row is not beyond
-        suspicion either: a symlink in the library, or a database carried over
-        from a machine whose SOMNIA_LIBRARY_DIR was somewhere else, can both
-        point outside. That case is logged rather than silently dropped — a
-        library that has moved should be explicable from the journal, not
-        guessed at.
+        The containment half is :func:`somnia.library.inside_library`, which is
+        also what a delete asks before it unlinks anything. Two answers to
+        "is this file the library's" would be one answer too many.
+
+        The other half stays here, because it is only true of serving. A
+        chapter that has been deleted, or has not finished rendering, is an
+        absence rather than a traceback — but it is nothing to delete either,
+        so a delete must not treat the same missing file as a refusal.
         """
-        path = Path(audio_file).resolve()
-        # expanduser as well as resolve: Config's default library_dir is the
-        # literal "~/library/audiobooks", and only load_config expands it.
-        library = self._cfg.library_dir.expanduser().resolve()
-        if not path.is_relative_to(library):
-            logger.warning("%s lies outside %s: %s", what, library, path)
-            return None
-        # A chapter that has been deleted, or has not finished rendering, is an
-        # absence rather than a traceback.
-        return path if path.is_file() else None
+        path = inside_library(self._cfg, audio_file, what)
+        return path if path is not None and path.is_file() else None

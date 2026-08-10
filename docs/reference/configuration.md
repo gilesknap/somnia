@@ -25,9 +25,6 @@ expansion**, so write paths out in full: `/home/you/library` and not
 | `SOMNIA_AGENT_MODEL` | `claude-haiku-4-5` | The model behind the conversation. `claude-sonnet-5` is the alternative — twice the wait, five times the cost, and no better on any case that has been measured |
 | `SOMNIA_AGENT_EFFORT` | `medium` | How hard that model may think before answering: `low`, `medium`, `high`, `xhigh` or `max`. **Only for models that have the dial** — Haiku has not, so on the default this is not sent and changes nothing. Anything else is ignored with a warning in the journal |
 | `SOMNIA_EMBED_MODEL` | `intfloat/e5-small-v2` | The sentence embedding model. Must be 384-dimensional |
-| `SOMNIA_ABS_URL` | `http://127.0.0.1:13378` | Audiobookshelf. A trailing slash is stripped for you |
-| `SOMNIA_ABS_TOKEN` | — | Unset means no ABS client is built at all, and nothing is written there |
-| `SOMNIA_ABS_LIBRARY_ID` | — | Which ABS library to rescan. From `somnia libraries` |
 
 `ANTHROPIC_API_KEY` is the Anthropic SDK's own variable rather than one of ours,
 so a key already exported for other tools is picked up without being named
@@ -116,9 +113,9 @@ sit in the same table answering the same questions.
 
 Everything opens the database, so `SOMNIA_DATA_DIR` matters everywhere. Beyond
 that, `ask` and `serve` need the key; `add` needs `SOMNIA_LIBRARY_DIR` and
-`SOMNIA_VOICE`; `libraries` and `seed-positions` need `SOMNIA_ABS_TOKEN`; and
-`serve` needs `SOMNIA_LIBRARY_DIR` to be the same one `add` used. The per-command
-detail is in the [command line reference](cli.md).
+`SOMNIA_VOICE`; and `serve` needs `SOMNIA_LIBRARY_DIR` to be the same one `add`
+used. The per-command detail is in the
+[command line reference](cli.md).
 
 ## Checking what is actually set
 

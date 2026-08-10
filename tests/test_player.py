@@ -12,13 +12,11 @@ sent it there.
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, cast
 
 import pytest
 
 from conftest import ToneBook
-from fakes import BrokenAbs, RecordingAbs
-from somnia.abs import AbsClient
+from somnia.pgau import PGAU_GID_BASE
 from somnia.player import Player
 from somnia.tools import Library, Offer
 from tone_book import CHAPTERS, GID, TOTAL_MS
@@ -144,6 +142,57 @@ def test_the_book_list_says_which_one_was_playing_last(
     listing = player.books()
     assert listing.last_gid == GID
     assert (listing.books[0].position_ms, listing.books[0].seq) == (12_500, 7)
+
+
+def test_a_listed_book_says_how_many_chapters_it_has_and_when_it_came_in(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """The two columns the Workshop reads, off the row they were always on.
+
+    ``chapters`` is what has been rendered and ``chapters_total`` is what the
+    book has, so a coverage line can say `all 3 chapters` here and `read to 3
+    of 39` the moment the book turns out to be longer than what is on disk.
+    ``created_at`` is when somnia was first asked for the book, which is the
+    only date on a shelf row that has nothing to do with where anybody has got
+    to — and the one an ordering by how new a book is has to be built on.
+    """
+    entry = player.books().books[0]
+    assert (entry.chapters, entry.chapters_total) == (len(CHAPTERS), len(CHAPTERS))
+    assert entry.created_at
+
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET chapters_total = 39,"
+            " created_at = '2000-01-01 00:00:00' WHERE gid = ?",
+            (GID,),
+        )
+    behind = player.books().books[0]
+    assert (behind.chapters, behind.chapters_total) == (len(CHAPTERS), 39)
+    assert behind.created_at == "2000-01-01 00:00:00"
+
+
+def test_a_listed_book_says_which_library_it_came_out_of(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """The same word a search result carries, worked out in the same place.
+
+    Which library a book came from is the gid read against the Australian
+    offset, and the offset lives in :mod:`somnia.pgau`. Saying it on the row
+    keeps that comparison on the side of the wire that owns the constant: the
+    book page draws *where from* out of this field rather than doing the
+    arithmetic on the phone.
+    """
+    assert player.books().books[0].source == "gutenberg"
+
+    over_the_offset = PGAU_GID_BASE + 123
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO books (gid, title, voice, status, total_ms)"
+            " VALUES (?, 'A Book From Australia', 'af_heart', 'done', 8000)",
+            (over_the_offset,),
+        )
+    entries = {book.gid: book.source for book in player.books().books}
+    assert entries[over_the_offset] == "australia"
 
 
 # ------------------------------------------------ choosing which book to open
@@ -739,61 +788,6 @@ def test_a_report_about_a_book_that_is_gone_says_so(player: Player) -> None:
     report = player.report(404_404, 1_000, seq=0, played_ms=0)
     assert (report.accepted, report.reason) == (False, "gone")
     assert report.position_ms is None
-
-
-# ------------------------------------------- the courtesy write to Audiobookshelf
-
-
-def scanned_by_abs(tone_book: ToneBook, item_id: str = "abs-item-1") -> None:
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET abs_item_id = ? WHERE gid = ?", (item_id, GID)
-        )
-
-
-def with_abs(tone_book: ToneBook, fake: Any) -> Player:
-    return Player(tone_book.cfg, cast(AbsClient, fake))
-
-
-def test_audiobookshelf_is_told_where_they_stopped(tone_book: ToneBook) -> None:
-    """So the book is in the right place if they ever open ABS somewhere else."""
-    scanned_by_abs(tone_book)
-    abs_client = RecordingAbs()
-    player = with_abs(tone_book, abs_client)
-    try:
-        player.tell_abs(GID, 12_500)
-    finally:
-        player.close()
-    assert abs_client.moves == [("abs-item-1", 12.5)]
-
-
-def test_an_audiobookshelf_that_is_down_does_not_break_the_night(
-    tone_book: ToneBook,
-) -> None:
-    """It is a courtesy, off the critical path, and the reply has already gone.
-
-    The whole point of the pivot is that nothing playing depends on ABS being
-    there, so a write that fails must cost exactly nothing.
-    """
-    scanned_by_abs(tone_book)
-    player = with_abs(tone_book, BrokenAbs())
-    try:
-        player.tell_abs(GID, 12_500)  # says nothing, raises nothing
-    finally:
-        player.close()
-
-
-def test_a_book_audiobookshelf_has_never_seen_is_simply_not_told(
-    tone_book: ToneBook,
-) -> None:
-    """somnia renders books ABS may never scan, and they must still play."""
-    abs_client = RecordingAbs()
-    player = with_abs(tone_book, abs_client)
-    try:
-        player.tell_abs(GID, 12_500)
-    finally:
-        player.close()
-    assert abs_client.moves == []
 
 
 def test_a_list_of_places_neither_raises_the_mark_nor_stops_it_rising(

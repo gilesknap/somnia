@@ -92,7 +92,7 @@ def main(args: Sequence[str] | None = None) -> None:
     p_search.add_argument("query")
     p_search.add_argument("--language", default="en")
 
-    p_add = sub.add_parser("add", help="render + index a book (streams into ABS)")
+    p_add = sub.add_parser("add", help="render + index a book")
     p_add.add_argument("gid", type=int, help="Gutenberg book id")
     p_add.add_argument("--voice", default=None)
 
@@ -111,6 +111,9 @@ def main(args: Sequence[str] | None = None) -> None:
     )
     p_queue_stop.add_argument("job_id", type=int, metavar="ID", help="the queue row id")
 
+    p_remove = sub.add_parser("remove", help="take a book out of the library for good")
+    p_remove.add_argument("gid", type=int, help="Gutenberg book id")
+
     p_find = sub.add_parser("find", help="semantic search within an ingested book")
     p_find.add_argument("gid", type=int)
     p_find.add_argument("query")
@@ -121,13 +124,6 @@ def main(args: Sequence[str] | None = None) -> None:
     p_serve = sub.add_parser("serve", help="serve the chat page (tailnet only)")
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=8721)
-
-    sub.add_parser("libraries", help="list Audiobookshelf libraries (to get the id)")
-
-    sub.add_parser(
-        "seed-positions",
-        help="once: take where you had got to from Audiobookshelf",
-    )
 
     ns = parser.parse_args(args)
     if ns.command is None:
@@ -252,6 +248,15 @@ def main(args: Sequence[str] | None = None) -> None:
                 print("Nothing in the queue.")
             for row in rows:
                 print(_queue_line(row))
+    elif ns.command == "remove":
+        from .library import remove_book  # noqa: PLC0415
+
+        # No confirmation prompt. Typing a Gutenberg id is already a deliberate
+        # act — nothing offers this command a gid to press — and a terminal
+        # that stops to ask cannot be run from a script or over ssh from a
+        # phone, which is where this actually gets used. The asking belongs on
+        # the page, where a delete is one tap away from everything else.
+        print(remove_book(cfg, conn, ns.gid).said)
     elif ns.command == "find":
         from .embed import Embedder  # noqa: PLC0415
         from .index import find_passage  # noqa: PLC0415
@@ -280,31 +285,6 @@ def main(args: Sequence[str] | None = None) -> None:
         from .server import serve  # noqa: PLC0415
 
         serve(cfg, conn, ns.host, ns.port)
-    elif ns.command == "libraries":
-        from .abs import AbsClient  # noqa: PLC0415
-
-        abs_client = AbsClient(cfg.abs_url, cfg.abs_token)
-        for lib in abs_client.libraries():
-            print(f"{lib['id']}  {lib['name']}")
-    elif ns.command == "seed-positions":
-        import httpx  # noqa: PLC0415
-
-        from .abs import AbsClient  # noqa: PLC0415
-        from .seed import seed_positions  # noqa: PLC0415
-
-        if not cfg.abs_token:
-            print("No Audiobookshelf token set, so there is nothing to read.")
-            return
-        try:
-            seeds = seed_positions(conn, AbsClient(cfg.abs_url, cfg.abs_token))
-        except httpx.HTTPError as error:
-            # Every read happens before the first write, so this really did
-            # change nothing and can simply be run again.
-            print(f"Could not reach Audiobookshelf ({error}). Nothing changed.")
-            return
-        for seed in seeds:
-            print(f"{seed.gid:>6}  {seed.title}: {seed.sentence}")
-        print(f"{sum(s.changed for s in seeds)} of {len(seeds)} books changed.")
 
 
 if __name__ == "__main__":

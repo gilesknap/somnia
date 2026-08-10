@@ -13,16 +13,16 @@ from somnia.stream import concat_list, forget_streams, stream_path
 
 
 def test_a_stream_is_named_by_how_much_of_the_book_it_covers(tmp_path: Path) -> None:
-    """Two promises in one path, and the second one is ADR 3's.
+    """Two promises in one path.
 
     A version is a chapter count, so a book that grew while somebody was
     listening gets a new file rather than a rewrite of the one their phone is
     reading — a version rewritten under a playing element is a corrupt read
     mid-sentence.
 
-    And it lives under ``data_dir``. ``library_dir`` is Audiobookshelf's own
-    layout, and a second copy of every book appearing in it would be somnia
-    breaking the promise that the ABS app keeps working.
+    And it lives under ``data_dir``. ``library_dir`` holds one m4a per chapter
+    and nothing besides, so a whole second copy of every book has no business
+    among them.
     """
     cfg = Config(data_dir=tmp_path / "data", library_dir=tmp_path / "library")
     path = stream_path(cfg, 900_001, 12)

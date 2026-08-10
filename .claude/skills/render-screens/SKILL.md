@@ -242,10 +242,11 @@ layout that was right.
 
 ## Doing it
 
-The three overlays are `--panel books`, `--panel workshop` and `--panel places`.
-Each fills its own lists, which app.js builds and a snapshot otherwise cannot
-see — without the fixture those screens photograph as a heading over nothing,
-which is a picture that looks fine and is not the page.
+The overlays are `--panel books`, `--panel workshop`, `--panel book` — one
+book's own page, over Workshop — `--panel places` and `--panel settings`. Each
+fills its own lists, which app.js builds and a snapshot otherwise cannot see —
+without the fixture those screens photograph as a heading over nothing, which is
+a picture that looks fine and is not the page.
 
 ```bash
 S=.claude/skills/render-screens

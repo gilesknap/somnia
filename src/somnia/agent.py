@@ -24,7 +24,6 @@ from typing import Any
 from anthropic import Anthropic, Omit, beta_tool, omit
 from anthropic.types.beta import BetaOutputConfigParam, BetaTextBlockParam
 
-from .abs import AbsClient
 from .config import Config
 from .format import format_timestamp
 from .queue import QueueRow
@@ -749,9 +748,8 @@ def _offered(offer: Offer) -> str:
 
 
 def open_library(cfg: Config, conn: sqlite3.Connection) -> Library:
-    """The tool layer, wired to Audiobookshelf if a token is configured."""
-    abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
-    return Library(cfg, conn, abs_client)
+    """The tool layer, on this connection."""
+    return Library(cfg, conn)
 
 
 class Conversation:

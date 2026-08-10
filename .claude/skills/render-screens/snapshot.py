@@ -130,7 +130,19 @@ FIXTURE = {
 # are two views of one moment.
 PANELS = {
     "books": {
-        "unhide": ["queue", "reading-now", "reading-track", "shelf-label"],
+        # `shelf-more` is up because the night it is drawn on is the night worth
+        # looking at: the shelf stops at twenty books and this line is the only
+        # thing that says so. Three rows and the line is not the twenty-book
+        # case, and deliberately — twenty repeats of one row would photograph
+        # the scroller rather than the thing being decided, which is how heavy
+        # an italic aside is against the titles above it.
+        "unhide": [
+            "queue",
+            "reading-now",
+            "reading-track",
+            "shelf-label",
+            "shelf-more",
+        ],
         "text": {
             "reading-title": "The Wind in the Willows",
             # The time is in this line now — it used to be the label of a pill
@@ -219,8 +231,28 @@ PANELS = {
         },
     },
     "workshop": {
-        "unhide": ["queue", "workshop", "queue-working", "queue-ended"],
-        "text": {"queue-note": "", "queue-said": ""},
+        "unhide": [
+            "queue",
+            "workshop",
+            "queue-working",
+            "queue-ended",
+            # The library at the foot of the screen, which app.js draws and a
+            # snapshot therefore cannot. Without it every render of Workshop
+            # stops at the queue and the densest half of the screen — the half
+            # a cap on the night shelf now sends people to — is not in the
+            # picture at all.
+            "have",
+            "have-finished-label",
+        ],
+        "text": {
+            "queue-note": "",
+            "queue-said": "",
+            "have-finished-label": "2 finished",
+        },
+        # Which way round the list is, drawn because drawHave draws it: without
+        # this the sort row photographs as three identical pills and the render
+        # cannot show that one of them is in force.
+        "chosen": "have-sort-recent",
         # The dim layer comes off while this screen is up — app.js does it in
         # drawDim, and drawDim does not run in a snapshot. Without this every
         # render of Workshop is the daylight screen photographed through 12% of
@@ -262,6 +294,47 @@ PANELS = {
                 "stopped part way — what was read still plays",
                 None,
             ],
+        ],
+        # The books somnia already has: a name, who wrote it, and how much of it
+        # is here. Three rows and not twenty, for the reason the shelf fixture
+        # gives — what is being looked at is how heavy a row is against the
+        # queue above it, and twenty repeats of one row photograph the scroller
+        # instead. One of them still being read, because the amber coverage line
+        # is the only thing on this screen that is not either ink or a control.
+        "mine": [
+            ["Black Beauty", "Sewell, Anna", "all 49 chapters"],
+            ["The Moonstone", "Collins, Wilkie · Reade, Charles", "read to 5 of 37"],
+            ["The Wind in the Willows", "Grahame, Kenneth", "all 37 chapters"],
+        ],
+        "finished": [
+            ["Kidnapped", "Stevenson, Robert Louis", "all 30 chapters"],
+            ["Treasure Island", "Stevenson, Robert Louis", "all 34 chapters"],
+        ],
+    },
+    # One book's own page, over Workshop, which is over Books — so all three
+    # are unhidden and the dim layer is off, exactly as it is on the screen
+    # underneath. It is the only panel here with anything typed into it: the
+    # name and the author are inputs, and an input's value is not its
+    # textContent, so `text` cannot reach them and `typed` is what does.
+    #
+    # The book is the fixture's own, so a render of this and a render of the
+    # player are two views of one book. The armed state of the delete is not
+    # photographed: what is being looked at is the screen somebody arrives at,
+    # and the armed button is drawn from the same rule as the queue's stop,
+    # which has its own render.
+    "book": {
+        "unhide": ["queue", "workshop", "book"],
+        "typed": {
+            "book-name": "The Wind in the Willows",
+            "book-author": "Grahame, Kenneth",
+        },
+        "text": {"book-read-to": "read up to chapter 4 of 37"},
+        "styles": {"dim": {"opacity": "0"}},
+        "facts": [
+            ["where from", "gutenberg #289"],
+            ["brought in", "17 July 2026"],
+            ["how long", "9h41m"],
+            ["how much is here", "all 37 chapters"],
         ],
     },
     # Settings, the third night screen, and the one overlay with no list on it
@@ -399,7 +472,10 @@ FILL = """
 
     put("queue-results", (PANEL.found || []).map(([name, by, have, press]) => {
       const li = document.createElement("li");
-      li.className = "found";
+      // No press and greyed are the same fact in app.js: a book somnia already
+      // has gets neither. Deriving one from the other here keeps the fixture
+      // from being able to draw a row the page cannot.
+      li.className = press ? "found" : "found owned";
       const meta = p("found-meta", "");
       const who = document.createElement("span");
       who.className = "found-by";
@@ -429,6 +505,46 @@ FILL = """
       if (!gone) li.append(pill("job-stop", "stop reading this"));
       return li;
     };
+    // haveRow from app.js, class for class, caret included: the caret is drawn
+    // out of borders rather than as an svg, so leaving it off here would be a
+    // render of a row that is a different width from the real one.
+    //
+    // The whole row is a button now, and the readings inside it are spans, the
+    // way the night shelf's rows are — a <p> inside a <button> is invalid even
+    // where a browser draws it. Built as a div here it would photograph without
+    // the press's own padding and sit a few dp shorter than the real one.
+    const haveRow = ([name, by, cover]) => {
+      const li = document.createElement("li");
+      li.className = "have-book";
+      const press = document.createElement("button");
+      press.type = "button";
+      press.className = "have-open";
+      const text = span("have-text", "");
+      text.append(span("have-name", name), span("have-by", by));
+      if (cover) text.append(span("have-cover", cover));
+      const caret = document.createElement("span");
+      caret.className = "have-caret";
+      press.append(text, caret);
+      li.append(press);
+      return li;
+    };
+    put("have-list", (PANEL.mine || []).map(haveRow));
+    put("have-finished", (PANEL.finished || []).map(haveRow));
+
+    // The four facts on a book's own page, which app.js builds and a snapshot
+    // therefore cannot see: without them the render is two boxes over an empty
+    // list, and the densest part of that screen is the part missing from it.
+    put("book-facts", (PANEL.facts || []).map(([name, said]) => {
+      const li = document.createElement("li");
+      li.className = "book-fact";
+      li.append(span("book-fact-name", name), span("book-fact-said", said));
+      return li;
+    }));
+    for (const [id, value] of Object.entries(PANEL.typed || {})) {
+      const box = need(id);
+      if (box) box.value = value;
+    }
+
     put("queue-live", (PANEL.live || []).map(jobRow(false)));
     put("queue-gone", (PANEL.gone || []).map(jobRow(true)));
 
@@ -564,7 +680,8 @@ if __name__ == "__main__":
     ap.add_argument(
         "--panel",
         choices=sorted(PANELS),
-        help="raise an overlay and fill its lists: books, or workshop over it",
+        help="raise an overlay and fill its lists: books, workshop over it,"
+        " or one book's page over that",
     )
     args = ap.parse_args()
     if args.panel and args.panel not in PANELS:

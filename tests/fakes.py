@@ -1,7 +1,7 @@
-"""Stand-ins for the two things somnia cannot have in a test.
+"""The stand-in for the one thing somnia cannot have in a test.
 
-The embedder would load torch and a sentence-transformer model; Audiobookshelf
-would be a server. Both are shared by more than one test module.
+The embedder would load torch and a sentence-transformer model, and more than
+one test module needs one.
 """
 
 from typing import Any
@@ -33,42 +33,3 @@ class FakeEmbedder:
     def encode_query(self, text: str) -> Any:
         self.queries += 1
         return self._vec(text)
-
-
-class RecordingAbs:
-    """Audiobookshelf as the player now uses it: written to, never read."""
-
-    def __init__(self) -> None:
-        self.moves: list[tuple[str, float]] = []
-
-    def set_position(self, item_id: str, time_s: float) -> None:
-        self.moves.append((item_id, time_s))
-
-
-class BrokenAbs:
-    """An Audiobookshelf that is down, or behind a tailnet that just dropped."""
-
-    def set_position(self, item_id: str, time_s: float) -> None:
-        raise RuntimeError("connection refused")
-
-
-class FakeAbs:
-    """Audiobookshelf, remembering only what somnia asks of it.
-
-    It used to model a player fighting somnia for the position — sessions to
-    close, a position put back the moment it was written. Nothing plays the book
-    there any more, so all that is left is a record of what it was told.
-    """
-
-    def __init__(self, current_time: float | None = None) -> None:
-        self.current_time = current_time
-        self.moves: list[tuple[str, float]] = []
-
-    def progress(self, item_id: str) -> dict[str, Any] | None:
-        if self.current_time is None:
-            return None
-        return {"libraryItemId": item_id, "currentTime": self.current_time}
-
-    def set_position(self, item_id: str, time_s: float) -> None:
-        self.moves.append((item_id, time_s))
-        self.current_time = time_s

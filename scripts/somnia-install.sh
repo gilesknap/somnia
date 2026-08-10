@@ -310,12 +310,6 @@ ANTHROPIC_API_KEY=
 
 # Must be 384-dimensional.
 #SOMNIA_EMBED_MODEL=intfloat/e5-small-v2
-
-# Audiobookshelf, if you run one. Leave the token unset and no ABS client is
-# built at all. The library id comes from 'somnia libraries'.
-#SOMNIA_ABS_URL=http://127.0.0.1:13378
-#SOMNIA_ABS_TOKEN=
-#SOMNIA_ABS_LIBRARY_ID=
 EOF
     chmod 600 "$env_file"
 fi

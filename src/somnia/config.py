@@ -27,7 +27,7 @@ def _default_data_dir() -> Path:
 class Config:
     """All somnia settings.
 
-    Nine of these are read from the environment by :func:`load_config`. The
+    Six of these are read from the environment by :func:`load_config`. The
     rest — the silence lengths, the window shape, the bitrate and the agent's
     token ceiling — are settable only in code, because changing them changes
     what a render or an index means and should not be a stray variable in a
@@ -36,9 +36,6 @@ class Config:
 
     data_dir: Path = field(default_factory=_default_data_dir)
     library_dir: Path = Path("~/library/audiobooks")
-    abs_url: str = "http://127.0.0.1:13378"
-    abs_token: str = ""
-    abs_library_id: str = ""
     # What a render uses when the request did not say. Every submission from the
     # page names a voice; the agent's never does, and neither does a bare
     # `somnia add`. See :mod:`somnia.voices` for the roster and for why the
@@ -117,12 +114,6 @@ def load_config() -> Config:
     # may the override, and expanding the override here as well was a second
     # pass over a path that had already had one.
     cfg.library_dir = cfg.library_dir.expanduser()
-    if v := os.environ.get("SOMNIA_ABS_URL"):
-        cfg.abs_url = v.rstrip("/")
-    if v := os.environ.get("SOMNIA_ABS_TOKEN"):
-        cfg.abs_token = v
-    if v := os.environ.get("SOMNIA_ABS_LIBRARY_ID"):
-        cfg.abs_library_id = v
     if v := os.environ.get("SOMNIA_VOICE"):
         cfg.voice = v
     if v := os.environ.get("SOMNIA_EMBED_MODEL"):
