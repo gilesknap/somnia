@@ -2,6 +2,8 @@
 
 ## Status
 
+**Superseded in part on 2026-08-10 by [ADR 9](0009-drop-audiobookshelf.md)**, which drops Audiobookshelf entirely: the write-through, the seeding, and the promise that the ABS app goes on working on the library files.
+
 Accepted. **Amended on 2026-08-07**: the sentence below saying "changing books
 is done by asking" no longer holds, and the paragraph headed *Choosing a book is
 a press now* at the end of this file says what replaced it and why. **Amended

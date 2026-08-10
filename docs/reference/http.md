@@ -168,7 +168,10 @@ a book that grew while somebody was listening is offered a *new* url and the
 file their phone has open is never rewritten under an in-flight range request.
 Versions are built on the first ask — a second or two of ffmpeg, `-c copy`, so
 not a byte of audio is re-encoded — and kept under `SOMNIA_DATA_DIR/streams`,
-never in the library, because the library is Audiobookshelf's own layout.
+never in the library. The library holds what a render produced, one file per
+chapter, and every one of those paths is in the database; a join is a cache
+that can be deleted at any time and rebuilt in a second or two, so it is kept
+where nothing has to tell the two apart.
 
 404 if the book has fewer than `n` chapters, if any of their audio has gone, or
 if the join could not honestly be made. The reason is in the journal. The page
@@ -382,9 +385,8 @@ missing it claims no playback rather than an impossible amount of it.
 
 `reason` is one of `load`, `play`, `tick`, `seek`, `chapter`, `pause`, `hidden`,
 `unload`, `ended`, `switch`. An unknown one is taken as a tick and noted in the
-journal. The five that mean the sound stopped — `pause`, `hidden`, `unload`,
-`ended`, `switch` — also send the position to Audiobookshelf, as a background
-task after the reply is on the wire.
+journal. Nothing branches on which one it is: the list is a vocabulary rather
+than a decision, kept so that a word nobody wrote can be noticed on the way in.
 
 **Always 200**, in one of three:
 

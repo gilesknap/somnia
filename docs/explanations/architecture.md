@@ -47,7 +47,6 @@ flowchart LR
 
   gut["Project Gutenberg /<br>PG Australia"]
   api["Anthropic API"]
-  abs["Audiobookshelf"]
 
   page <--> ts
   ts --> serve
@@ -61,21 +60,19 @@ flowchart LR
   files -->|"joined on the first ask,<br>-c copy"| joins
   serve --> joins
   serve -->|"the agent lane only"| api
-  serve -.->|"on a stop"| abs
-  child -.->|"rescan, chapter marks"| abs
 ```
 
-The dotted edges are the ones the page never waits on. Audiobookshelf is
-**written to and, while a night is running, never read** — it is somewhere else
-the book might be opened, not the record of anything, and a write that fails is
-logged and forgotten. The single exception is `somnia seed-positions`, which
-reads it once by hand before the first night and never again. Asking for a
-book — from the panel or by voice — writes a queue row and nothing else, so the
-answer comes back at once and the render happens in the other unit entirely,
-minutes or hours later. That is how a book gets added at 2am without anything
-waiting for it — and how two books asked for a minute apart cannot both be
-rendering, because the worker claims one at a time and the claim is a single
-guarded UPDATE.
+Nothing leaves the box but the model calls and the book being fetched, and the
+player waits on neither: the sound comes off the disk beside it and where they
+have got to is a row in the file the two units share. There is no other server
+for a night to be held up by.
+
+Asking for a book — from the panel or by voice — writes a queue row and nothing
+else, so the answer comes back at once and the render happens in the other unit
+entirely, minutes or hours later. That is how a book gets added at 2am without
+anything waiting for it — and how two books asked for a minute apart cannot
+both be rendering, because the worker claims one at a time and the claim is a
+single guarded UPDATE.
 
 There is no login anywhere. Reachability *is* the authentication: the server
 binds to localhost, and only `tailscale serve` can reach the port. The box it
@@ -86,7 +83,7 @@ connection into the tailnet.
 ## One clock
 
 Every timestamp in somnia — index hit, chapter mark, saved position, what the
-page shows, what ABS is told — is **global milliseconds from the start of the
+page shows — is **global milliseconds from the start of the
 book**. It is the render clock, counted in PCM samples before encoding, and
 never what a decoder reports: summing durations off the files drifts tens of
 milliseconds a chapter and is a second out by chapter forty.
@@ -136,7 +133,6 @@ flowchart TD
     F --> H["windows — 3 sentences, stride 2<br>Embedder — e5-small-v2, 384-dim"]
     H --> J[("chunks + vec_chunks")]
     J --> K[("chapters row: idx, start_ms,<br>end_ms, audio_file<br>books.total_ms bumped")]
-    K --> M["ABS rescan, then set_chapters"]
   end
 
   K --> N["listenable now — the page re-asks<br>for the manifest while status is 'rendering'"]
@@ -193,7 +189,6 @@ erDiagram
     int position_ms "nullable: never started"
     int position_seq "agent moves only"
     text position_at "last report taken, or opened; newest is last_gid"
-    text abs_item_id
   }
   queue {
     int id PK
@@ -260,9 +255,8 @@ sentence rather than the middle of a clause.
 Serving audio and answering questions are separate lanes. A model turn blocks
 for tens of seconds on the API and on the embedder, and a seek must never queue
 behind it — a dead player while a question is being answered is exactly the
-moment the phone gets put down. So `Player` has its own sqlite connection, its
-own lock and its own ABS client, and shares nothing with a conversation but the
-file on disk.
+moment the phone gets put down. So `Player` has its own sqlite connection and
+its own lock, and shares nothing with a conversation but the file on disk.
 
 The queue panel is a third lane in the same shape, and it is the same argument a
 second time: a submit button that sits there for twenty seconds because somebody
@@ -317,8 +311,7 @@ with a body rather than a 409: the last report of the night is a `sendBeacon`,
 and a beacon can read nothing else.
 
 Only the player and an agent move may write those four columns; what ingest may
-touch, and the one-off `somnia seed-positions` that never lowers a position, are
-in [design.md](design.md).
+touch is in [design.md](design.md).
 
 ## How far a question may see
 
@@ -359,10 +352,10 @@ same code as a search and marks the turn so that `move_to` and
 
 ## What the page has to survive
 
-Three things the Audiobookshelf app used to absorb, which nothing absorbs any
-more. All three end the same way if unhandled — silence, under a notification
-that says paused — and none can be seen without unlocking the phone, so each
-also says what is happening on the status line.
+Three things nothing absorbs on the page's behalf, and there is nothing else
+left to absorb them. All three end the same way if unhandled — silence, under a
+notification that says paused — and none can be seen without unlocking the
+phone, so each also says what is happening on the status line.
 
 | What happens | What the page does |
 |---|---|
@@ -400,9 +393,7 @@ fling them past the spoiler guard into the ending.
 | `player` | The fast lane: manifest, audio files, position reports |
 | `stream` | The chapters joined into one file per version, so a boundary touches nothing |
 | `server` | Starlette routes, conversation storage, the mounted page |
-| `abs` | The Audiobookshelf client — a courtesy write and one seed-time read |
 | `config` | Where everything is and what it is set to, from the environment |
-| `seed` | The one-off read of Audiobookshelf, before the first night |
 | `web/` | The PWA: `index.html`, `app.js`, `sw.js`, the manifest and icons |
 
 ## The HTTP surface

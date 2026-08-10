@@ -82,14 +82,12 @@ name, since a chapter called *How Ginger Died* gives away as much as the
 sentence under it. What it says instead is *tap to reveal · may spoil*: press
 anywhere on the row's reading and it uncovers, and you decide having read it;
 press it again and it goes back under, name and all; press *goto* and you go
-there without reading it at all. Two
-things follow from measuring it that way. A book
-somnia has never played is bounded at its opening minute, so if a book you have
-been listening to for a fortnight puts everything on the list as *ahead*, the
-listening happened in Audiobookshelf and somnia does not know about it — run
-`somnia seed-positions`. And skipping forward while the sound is on stops the
-mark where it was until you come back behind it, which is the price of one
-press of *+30* not marking the rest of the book as heard.
+there without reading it at all. Two things follow from measuring it that way.
+A book somnia has never played is bounded at its opening minute, so a book you
+know well but have never played here puts everything on the list as *ahead*
+until some of it has come out of the speaker. And skipping forward while the
+sound is on stops the mark where it was until you come back behind it, which is
+the price of one press of *+30* not marking the rest of the book as heard.
 
 Conversations are held in memory, keyed by a token the page mints when it
 starts, and nothing is written to disk. *Start over* drops the history when the
