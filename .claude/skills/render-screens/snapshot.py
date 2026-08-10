@@ -305,6 +305,32 @@ PANELS = {
             ["Treasure Island", "Stevenson, Robert Louis", "all 34 chapters"],
         ],
     },
+    # One book's own page, over Workshop, which is over Books — so all three
+    # are unhidden and the dim layer is off, exactly as it is on the screen
+    # underneath. It is the only panel here with anything typed into it: the
+    # name and the author are inputs, and an input's value is not its
+    # textContent, so `text` cannot reach them and `typed` is what does.
+    #
+    # The book is the fixture's own, so a render of this and a render of the
+    # player are two views of one book. The armed state of the delete is not
+    # photographed: what is being looked at is the screen somebody arrives at,
+    # and the armed button is drawn from the same rule as the queue's stop,
+    # which has its own render.
+    "book": {
+        "unhide": ["queue", "workshop", "book"],
+        "typed": {
+            "book-name": "The Wind in the Willows",
+            "book-author": "Grahame, Kenneth",
+        },
+        "text": {"book-read-to": "read up to chapter 4 of 37"},
+        "styles": {"dim": {"opacity": "0"}},
+        "facts": [
+            ["where from", "gutenberg #289"],
+            ["brought in", "17 July 2026"],
+            ["how long", "9h41m"],
+            ["how much is here", "all 27 chapters"],
+        ],
+    },
     # Settings, the third night screen, and the one overlay with no list on it
     # at all: three controls and the sentences under them. It is raised over the
     # player rather than over Books — the pill that opens it is in the player's
@@ -473,18 +499,42 @@ FILL = """
     // haveRow from app.js, class for class, caret included: the caret is drawn
     // out of borders rather than as an svg, so leaving it off here would be a
     // render of a row that is a different width from the real one.
+    //
+    // The whole row is a button now, and the readings inside it are spans, the
+    // way the night shelf's rows are — a <p> inside a <button> is invalid even
+    // where a browser draws it. Built as a div here it would photograph without
+    // the press's own padding and sit a few dp shorter than the real one.
     const haveRow = ([name, by, cover]) => {
       const li = document.createElement("li");
       li.className = "have-book";
-      const text = div("have-text", p("have-name", name), p("have-by", by));
-      if (cover) text.append(p("have-cover", cover));
+      const press = document.createElement("button");
+      press.type = "button";
+      press.className = "have-open";
+      const text = span("have-text", "");
+      text.append(span("have-name", name), span("have-by", by));
+      if (cover) text.append(span("have-cover", cover));
       const caret = document.createElement("span");
       caret.className = "have-caret";
-      li.append(text, caret);
+      press.append(text, caret);
+      li.append(press);
       return li;
     };
     put("have-list", (PANEL.mine || []).map(haveRow));
     put("have-finished", (PANEL.finished || []).map(haveRow));
+
+    // The four facts on a book's own page, which app.js builds and a snapshot
+    // therefore cannot see: without them the render is two boxes over an empty
+    // list, and the densest part of that screen is the part missing from it.
+    put("book-facts", (PANEL.facts || []).map(([name, said]) => {
+      const li = document.createElement("li");
+      li.className = "book-fact";
+      li.append(span("book-fact-name", name), span("book-fact-said", said));
+      return li;
+    }));
+    for (const [id, value] of Object.entries(PANEL.typed || {})) {
+      const box = need(id);
+      if (box) box.value = value;
+    }
 
     put("queue-live", (PANEL.live || []).map(jobRow(false)));
     put("queue-gone", (PANEL.gone || []).map(jobRow(true)));
@@ -618,7 +668,8 @@ if __name__ == "__main__":
     ap.add_argument(
         "--panel",
         choices=sorted(PANELS),
-        help="raise an overlay and fill its lists: books, or workshop over it",
+        help="raise an overlay and fill its lists: books, workshop over it,"
+        " or one book's page over that",
     )
     args = ap.parse_args()
     if args.panel and args.panel not in PANELS:

@@ -19,7 +19,7 @@ import sqlite3
 from pathlib import Path
 
 from conftest import ToneBook
-from somnia.library import finish_book, remove_book
+from somnia.library import finish_book, remove_book, rename_book
 from tone_book import CHAPTERS, GID
 
 
@@ -305,3 +305,78 @@ def test_a_book_that_is_not_here_cannot_be_finished_either(
 
     assert (done.ok, done.found) == (False, False)
     assert done.said == "There is no book 404404 here."
+
+
+def named(conn: sqlite3.Connection) -> tuple[str, str, str | None]:
+    row = conn.execute(
+        "SELECT title, authors, renamed_at FROM books WHERE gid = ?", (GID,)
+    ).fetchone()
+    return row["title"], row["authors"], row["renamed_at"]
+
+
+def test_a_renamed_book_keeps_its_audio_exactly_where_it_was(
+    tone_book: ToneBook,
+) -> None:
+    """Two columns, and nothing on disk moves.
+
+    The folder is named after whatever the book was called on the day it was
+    rendered, and it stays that way: chapters are found by the absolute path in
+    their own row, so renaming cannot lose the sound of a book — and moving
+    files to match a string somebody is still typing is how that would happen.
+    """
+    renamed = rename_book(tone_book.conn, GID, "Three Tones, remembered", "Nobody")
+
+    assert (renamed.ok, renamed.found) == (True, True)
+    assert renamed.said == "It is called Three Tones, remembered now."
+    assert named(tone_book.conn)[:2] == ("Three Tones, remembered", "Nobody")
+    assert tone_book.book_dir.is_dir()
+    assert (tone_book.book_dir / CHAPTERS[0].file_name).is_file()
+
+
+def test_a_rename_is_written_down_as_having_happened(tone_book: ToneBook) -> None:
+    """`renamed_at` is the whole of how a render knows to leave the name alone.
+
+    Nothing reads it back as a name — the name is in `title`, where it always
+    was. It is only the record that somebody has had an opinion, which is what
+    `ingest_book`'s upsert asks about before it writes the catalog's title over
+    the top of theirs.
+    """
+    assert named(tone_book.conn)[2] is None
+
+    rename_book(tone_book.conn, GID, "Three Tones", "")
+
+    assert named(tone_book.conn)[2] is not None
+
+
+def test_a_book_cannot_be_renamed_to_nothing_at_all(tone_book: ToneBook) -> None:
+    """The one refusal here, and it is about what every screen would then show.
+
+    A book with no title is drawn as "book 900001" everywhere on the page,
+    which is what a book the catalog never named looks like — so a blanked name
+    reads as a rename that failed rather than as one that worked.
+    """
+    renamed = rename_book(tone_book.conn, GID, "   ", "Nobody")
+
+    assert (renamed.ok, renamed.found) == (False, True)
+    assert renamed.said == "Three Tones needs a name, so nothing has changed."
+    assert named(tone_book.conn) == ("Three Tones", "Somnia Test", None)
+
+
+def test_a_book_with_no_author_is_a_book_with_no_author(tone_book: ToneBook) -> None:
+    """Plenty of them really do not have one, so an empty author is stored."""
+    renamed = rename_book(tone_book.conn, GID, " Three Tones ", "  ")
+
+    assert renamed.ok
+    # Trimmed, and the answer says what was stored rather than what was typed:
+    # a box that quietly kept a trailing space would be saving something
+    # nobody can see.
+    assert (renamed.title, renamed.authors) == ("Three Tones", "")
+    assert named(tone_book.conn)[:2] == ("Three Tones", "")
+
+
+def test_a_book_that_is_not_here_cannot_be_renamed(tone_book: ToneBook) -> None:
+    """The same split the other two verbs make, turned into a 404 by the route."""
+    renamed = rename_book(tone_book.conn, 404_404, "Anything", "")
+
+    assert (renamed.ok, renamed.found) == (False, False)
+    assert renamed.said == "There is no book 404404 here."

@@ -479,6 +479,30 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         done = await run_in_threadpool(player.finish, gid, finished)
         return JSONResponse(asdict(done), 200 if done.found else 404)
 
+    async def rename_the_book(request: Request) -> Response:
+        """Say what a book is called here, whatever the catalog called it.
+
+        POST for the same reason the one above it is: two columns are written
+        and nothing is taken away. The body carries both — a book's name and
+        who wrote it are edited in the same breath on the page, and two routes
+        would let a phone that lost its connection between them leave a book
+        with one of the pair changed.
+
+        A missing field means the empty string rather than "leave it alone",
+        which is what a form that has been cleared actually says. An empty
+        author is stored; an empty title is refused with a sentence, because
+        every screen names a book by its title.
+
+        404 for a gid that is not here, the same answer as the GET, the DELETE
+        and the finished route on this path.
+        """
+        gid = int(request.path_params["gid"])
+        payload = await _payload(request)
+        title = str(payload.get("title") or "")
+        authors = str(payload.get("authors") or "")
+        named = await run_in_threadpool(player.rename, gid, title, authors)
+        return JSONResponse(asdict(named), 200 if named.found else 404)
+
     async def sentence(request: Request) -> Response:
         """Where the sentence being spoken at a point began.
 
@@ -757,6 +781,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/book/{gid:int}", remove_the_book, methods=["DELETE"]),
             Route("/api/book/{gid:int}/open", open_book, methods=["POST"]),
             Route("/api/book/{gid:int}/finished", finish_the_book, methods=["POST"]),
+            Route("/api/book/{gid:int}/name", rename_the_book, methods=["POST"]),
             Route("/api/audio/{gid:int}/{idx:int}", audio),
             Route("/api/stream/{gid:int}/{n:int}", stream),
             Route("/api/sentence/{gid:int}/{ms:int}", sentence),

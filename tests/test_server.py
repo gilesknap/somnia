@@ -1318,6 +1318,59 @@ def test_a_book_marked_finished_is_still_a_book_that_plays(
     assert tone_client.get(f"/api/audio/{GID}/0").status_code == 200
 
 
+def test_a_book_can_be_renamed_and_the_shelf_says_so_at_once(
+    tone_client: TestClient,
+) -> None:
+    """One route for both columns, because the page edits them in one breath.
+
+    Asserted through `/api/books` rather than through the answer, because the
+    answer is only the sentence: what a rename is for is the name on every
+    screen that lists this book afterwards.
+    """
+
+    def listed() -> dict[str, object]:
+        books = tone_client.get("/api/books").json()["books"]
+        return dict(next(book for book in books if book["gid"] == GID))
+
+    named = tone_client.post(
+        f"/api/book/{GID}/name",
+        json={"title": "Three Tones, remembered", "authors": "Nobody"},
+    )
+
+    assert named.status_code == 200
+    assert named.json()["ok"] is True
+    assert named.json()["title"] == "Three Tones, remembered"
+    assert listed()["title"] == "Three Tones, remembered"
+    assert listed()["authors"] == "Nobody"
+
+
+def test_a_book_asked_to_have_no_name_keeps_the_one_it_had(
+    tone_client: TestClient,
+) -> None:
+    """200 with a sentence and `ok` false, in the shape of the delete's refusal.
+
+    Not a 400: this is a book that is here, and what came back is something to
+    read on the page rather than a status code to interpret.
+    """
+    response = tone_client.post(
+        f"/api/book/{GID}/name", json={"title": "", "authors": "Nobody"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+    assert "needs a name" in response.json()["said"]
+    assert tone_client.get(f"/api/book/{GID}").json()["title"] == "Three Tones"
+
+
+def test_renaming_a_book_that_is_not_here_is_a_404_like_the_rest_of_the_path(
+    tone_client: TestClient,
+) -> None:
+    response = tone_client.post("/api/book/404404/name", json={"title": "Anything"})
+
+    assert response.status_code == 404
+    assert response.json()["ok"] is False
+
+
 # ---------------------------------------------------- coming back to the book
 
 

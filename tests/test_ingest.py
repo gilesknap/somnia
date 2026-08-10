@@ -15,6 +15,7 @@ from somnia.db import connect
 from somnia.embed import Embedder
 from somnia.gutenberg import Book, Chapter
 from somnia.ingest import RenderStopped, ingest_book
+from somnia.library import rename_book
 from somnia.stream import stream_path
 from somnia.tts import TTSEngine
 
@@ -691,5 +692,60 @@ def test_a_book_the_catalog_never_heard_of_keeps_the_scraped_name(
         _ingest(conn, tmp_path)
         row = conn.execute("SELECT title FROM books WHERE gid = 271").fetchone()
         assert row["title"] == "Something Only The File Knows"
+    finally:
+        conn.close()
+
+
+def test_a_book_somebody_renamed_keeps_that_name_through_a_re_render(
+    unrendered: Fetched, tmp_path: Path
+) -> None:
+    """The one thing a render is no longer the authority on.
+
+    Re-rendering is the ordinary way to restart a render that died, and the
+    upsert used to write the catalog's title and authors back over the pair
+    every time. So a book renamed on the Workshop's book page came back under
+    the catalog's name hours later, with nobody watching — an edit the page
+    offered and then quietly took away again.
+    """
+    conn = connect(tmp_path / "renamed.db")
+    try:
+        update_catalog(conn, csv_text=CATALOG_CSV, index_text="")
+        unrendered.book = _headline_book()
+        _ingest(conn, tmp_path)
+        rename_book(conn, 271, "Beauty, the horse", "Sewell, Anna")
+
+        _ingest(conn, tmp_path)
+
+        row = conn.execute(
+            "SELECT title, authors, chapters_total FROM books WHERE gid = 271"
+        ).fetchone()
+        assert (row["title"], row["authors"]) == ("Beauty, the horse", "Sewell, Anna")
+        # And everything the render really does know is still written: the
+        # rename takes two columns out of the upsert's hands and not the rest
+        # of it.
+        assert row["chapters_total"] == 1
+    finally:
+        conn.close()
+
+
+def test_a_book_nobody_has_renamed_is_still_named_by_the_catalog(
+    unrendered: Fetched, tmp_path: Path
+) -> None:
+    """Which is nearly every book somnia has, and the case the guard must not touch.
+
+    A catalog that has been rebuilt since the first render is the reason this
+    matters: the name in it may have been corrected, and until somebody has an
+    opinion of their own the catalog's is the one worth having.
+    """
+    conn = connect(tmp_path / "unnamed.db")
+    try:
+        unrendered.book = _headline_book()
+        _ingest(conn, tmp_path)
+        update_catalog(conn, csv_text=CATALOG_CSV, index_text="")
+
+        _ingest(conn, tmp_path)
+
+        row = conn.execute("SELECT title FROM books WHERE gid = 271").fetchone()
+        assert row["title"] == "Black Beauty"
     finally:
         conn.close()

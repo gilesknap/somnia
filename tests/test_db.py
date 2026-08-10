@@ -99,6 +99,37 @@ def test_a_database_from_before_this_feature_says_nothing_has_been_finished(
     assert row["finished_at"] is None
 
 
+def test_a_database_from_before_this_feature_says_nobody_has_renamed_anything(
+    tmp_path: Path,
+) -> None:
+    """NULL, which is what keeps every one of those books named by the catalog.
+
+    The column exists so that a render can tell a name somebody chose from the
+    one it was going to write anyway, and on a database that predates it the
+    answer is that nobody has chosen anything — so the upsert goes on doing
+    exactly what it has always done.
+    """
+    db_path = tmp_path / "unnamed.db"
+    old = sqlite3.connect(db_path)
+    old.executescript(_OLD_SCHEMA)
+    old.execute(
+        "INSERT INTO books (gid, title, voice, status, total_ms) VALUES"
+        " (271, 'Black Beauty', 'af_heart', 'done', 900000)"
+    )
+    old.commit()
+    old.close()
+
+    conn = connect(db_path)
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM books WHERE gid = 271").fetchone()
+    finally:
+        conn.close()
+
+    assert row["renamed_at"] is None
+    assert row["title"] == "Black Beauty"
+
+
 def test_a_finished_book_gets_its_chapter_count_written_from_its_chapters(
     tmp_path: Path,
 ) -> None:

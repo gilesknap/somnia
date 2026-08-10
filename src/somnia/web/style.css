@@ -2411,6 +2411,7 @@ body.wake-screen #player-bar:not([hidden]) {
 #candidates-head,
 #queue-head,
 #workshop-head,
+#book-head,
 #settings-head {
   flex: none;
   /* The header's own 48dp target on the player, so the pill sits at the same
@@ -2441,6 +2442,7 @@ body.wake-screen #player-bar:not([hidden]) {
 #queue-close,
 #to-workshop,
 #workshop-close,
+#book-close,
 #settings-close {
   display: flex;
   align-items: center;
@@ -2455,6 +2457,7 @@ body.wake-screen #player-bar:not([hidden]) {
 #queue-close:active .pill,
 #to-workshop:active .pill,
 #workshop-close:active .pill,
+#book-close:active .pill,
 #settings-close:active .pill {
   border-color: var(--accent-line);
   background: var(--accent-tint);
@@ -3551,6 +3554,13 @@ body.keyboard-up #candidates-note {
   display: none;
 }
 
+/* The same trap, one screen up. An id rule beats the browser's own
+   [hidden] { display: none }, and forgetting it here is a page about one book
+   standing over the library for ever. */
+#book[hidden] {
+  display: none;
+}
+
 /* z-index 11, one above Books, because this comes up over Books and Books is
    still standing behind it. `‹ books` puts this away and the screen it came
    from is where it was left, at the row that opened it.
@@ -3571,8 +3581,15 @@ body.keyboard-up #candidates-note {
    about the colour and not about the light.
 
    The layer that dims all this is taken to zero while the screen is up, which
-   app.js does rather than the sheet: #dim's opacity is set inline. */
-#workshop {
+   app.js does rather than the sheet: #dim's opacity is set inline.
+
+   The book page takes the whole of this rule rather than a copy of it. It is
+   the same daylight, reached from this screen and standing over it, and two
+   blocks of the same eleven values would be one screen quietly drifting off
+   the other the first time a number here was touched. What it does not share
+   is the layer it sits on, which is the rule under this one. */
+#workshop,
+#book {
   --ink: #f4ece0;
   --mid: rgba(244, 236, 224, 0.62);
   --dim: rgba(244, 236, 224, 0.55);
@@ -3603,7 +3620,17 @@ body.keyboard-up #candidates-note {
     calc(env(safe-area-inset-left) + 1rem);
 }
 
-#workshop-scroll {
+/* One above Workshop, because it comes up over Workshop and Workshop is still
+   standing behind it: `‹ workshop` puts this away and the library is where it
+   was left, at the row that opened it, filter and ordering intact. The dim
+   layer is already off — drawDim reads whether Workshop is up, and it still is
+   — which is right, because this is the same daylight and the same act. */
+#book {
+  z-index: 12;
+}
+
+#workshop-scroll,
+#book-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -3744,16 +3771,48 @@ body.keyboard-up #candidates-note {
    deliberately not the night shelf's whole-row slab, which is a target for a
    thumb in the dark rather than a line in a library. */
 .have-book {
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* The row is the press, and the whole of it is — the reading, the caret and the
+   space between them — because there is one question being asked of a row in a
+   list of books and a second target on it would invent a second. It was a plain
+   div until the page it opens existed.
+
+   Everything that used to shape the row is on this element now: a button brings
+   its own padding, border, background and alignment, and a row that took them
+   from the <li> would sit inside a slab of browser default. Left-aligned for
+   the same reason — a button centres its text, and a list of books does not. */
+.have-open {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 0.8rem;
   padding: 0.7rem 0;
-  border-bottom: 1px solid var(--hairline);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.have-open:active {
+  background: var(--surface-active);
 }
 
 .have-text {
   flex: 1;
   min-width: 0;
+}
+
+/* Spans, because a <p> inside a <button> is invalid even where a browser draws
+   it — the same reason the night shelf's rows are built out of them. The block
+   display they lost coming out of the paragraph is given back here, once, for
+   all three. */
+.have-name,
+.have-by,
+.have-cover {
+  display: block;
 }
 
 /* 18dp, the same as a search result's name and for the same reason: this is a
@@ -3815,6 +3874,218 @@ body.keyboard-up #candidates-note {
   margin-bottom: -0.35rem;
 }
 
+/* -------------------------------------------------- one book's own page
+
+   Over Workshop, in the same daylight, reached from a row of the library and
+   from nowhere else. Everything on it is either a box somebody types in or a
+   press that writes one thing on the server, which is why it is allowed to be
+   two presses from the player and not one.
+
+   Nothing here goes under 16dp either — it is Workshop's floor and this is
+   Workshop's screen. */
+
+/* The name, at 21dp, which is the loudest thing on the screen and should be:
+   it is what the screen is about. A filled box rather than a heading with an
+   `edit` press beside it — a mode is a thing to get into and then out of, and
+   the fill is what says the words in it can be changed. */
+#book-name {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 2.8rem;
+  background: var(--surface);
+  border: 1px solid var(--control-edge);
+  border-radius: 0.6rem;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.05rem;
+  padding: 0.6rem 0.9rem;
+}
+
+/* And who wrote it, under it, in the size the library's rows say it in. Same
+   box, one step quieter, because it is the same act on the lesser of the two
+   strings. */
+#book-author {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 2.6rem;
+  background: var(--surface);
+  border: 1px solid var(--control-edge);
+  border-radius: 0.6rem;
+  color: var(--mid);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.5rem 0.9rem;
+  margin-top: -0.4rem;
+}
+
+#book-name::placeholder,
+#book-author::placeholder {
+  color: var(--faint);
+}
+
+#book-name:focus,
+#book-author:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+/* How far into the book they have got, in the amber the library's rows keep for
+   the one line on them that can be news. Tabular figures so that `chapter 9 of
+   37` and `chapter 24 of 37` are the same width, and the line does not move
+   when the screen is opened again after an evening's listening. */
+#book-read-to {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+#book-read-to:empty {
+  display: none;
+}
+
+/* Four facts, each a name on the left and an answer on the right, with a
+   hairline under it. A list and not a paragraph because they are read by
+   looking for one of them rather than by reading all four. */
+#book-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.book-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.85rem;
+}
+
+.book-fact-name {
+  color: var(--mid);
+}
+
+/* The answer, in full ink and with the figures aligned: a column of gids and
+   dates that shifted by a digit's width would be a table that is harder to read
+   than the four sentences it replaced. */
+.book-fact-said {
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The two things a person does about a book they have just looked at, side by
+   side and the same size, because neither of them is the obvious one: which is
+   wanted depends entirely on which end of the book they are at. */
+#book-acts {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+#book-read,
+#book-finish {
+  flex: 1;
+  min-height: 2.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  color: var(--mid);
+  font-size: 0.85rem;
+  padding: 0.5rem 0.8rem;
+}
+
+#book-read:active,
+#book-finish:active {
+  background: var(--surface-active);
+  color: var(--ink);
+}
+
+/* Starting the book is the one press here that ends on the player, and the only
+   amber one — the same warmth `add this book again` takes on the row above,
+   because it is the same kind of press: somebody arrived having already decided
+   to make it. */
+#book-read {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+#book-read:active {
+  background: var(--accent-surface);
+  color: var(--accent);
+}
+
+/* A book with nothing rendered of it cannot be read, and the server says so as
+   well. Drawn as unavailable rather than left off, because it is one of a pair
+   and a pair that changes shape is a screen that has to be read twice. */
+#book-read:disabled {
+  border-color: var(--hairline);
+  background: none;
+  color: var(--faint);
+}
+
+/* What somnia said about the last press, in its own words. The same amber
+   sentence as the Workshop's line under the search, at this screen's size. */
+#book-said {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+  opacity: 0.75;
+}
+
+#book-said:empty {
+  display: none;
+}
+
+/* The one irreversible press in somnia, at the foot of the screen, on its own
+   and no wider than its words. Dashed and unfilled, which is this page's mark
+   for the press somebody would rather not have to make — the same drawing as
+   the queue's `stop reading this`, which is the only other control here that
+   throws work away. */
+#book-remove {
+  align-self: flex-start;
+  margin-top: 1.4rem;
+  min-height: 2.4rem;
+  background: none;
+  border: 1px dashed var(--hairline);
+  border-radius: 999px;
+  color: var(--dim);
+  font-size: 0.8rem;
+  padding: 0.4rem 1rem;
+}
+
+#book-remove:active {
+  background: var(--surface-active);
+  color: var(--ink);
+}
+
+/* Asked once and about to be answered. Both stops of the failure ramp, exactly
+   as the armed stop takes them: the lighter one on the words, the darker on the
+   edge. It is not itself a failure — it is the press that causes one on purpose
+   — and it borrows the colour because losing a rendered book is the same news
+   arriving a second earlier. Not darker than the amber, which would read as
+   unavailable rather than as urgent. */
+#book-remove.armed {
+  border-style: solid;
+  border-color: var(--failed-line);
+  color: var(--failed);
+}
+
+/* What goes, said before either press rather than after the first: it is what
+   somebody deciding needs, and somebody who has already decided does not need
+   warning. Faint and italic, the voice this page keeps for an aside about the
+   screen rather than one of the things on it. */
+#book-remove-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  font-style: italic;
+  line-height: 1.35;
+  color: var(--faint);
+}
+
 /* A keyboard over half the screen, which on this screen is not the exception —
    searching for a book is what it is for. The rows shrink, the list scrolls,
    and the way out stays where a thumb left it.
@@ -3843,8 +4114,19 @@ body.keyboard-up #bring-note {
   display: none;
 }
 
-body.keyboard-up #workshop-scroll {
+body.keyboard-up #workshop-scroll,
+body.keyboard-up #book-scroll {
   gap: 0.7rem;
+}
+
+/* The sentence under the delete goes with the keyboard, for the reason the two
+   read-once lines above it do: it is read while deciding, and nobody is
+   deciding to remove a book with a keyboard up over the name of it. The button
+   itself stays, at its own size — a control that shrank when the screen got
+   shorter would be one aimed at from a smaller target for no reason anybody
+   chose. */
+body.keyboard-up #book-remove-note {
+  display: none;
 }
 
 body.keyboard-up #queue-live,
@@ -3853,7 +4135,7 @@ body.keyboard-up #queue-gone {
 }
 
 body.keyboard-up .found,
-body.keyboard-up .have-book {
+body.keyboard-up .have-open {
   padding: 0.6rem 0;
 }
 

@@ -32,10 +32,12 @@ from .stream import forget_streams
 __all__ = [
     "Finished",
     "Removed",
+    "Renamed",
     "finish_book",
     "forget_the_chapters",
     "inside_library",
     "remove_book",
+    "rename_book",
 ]
 
 logger = logging.getLogger(__name__)
@@ -113,6 +115,74 @@ def finish_book(conn: sqlite3.Connection, gid: int, finished: bool = True) -> Fi
     said = f"{name} is finished." if finished else f"{name} is back on the shelf."
     logger.info("book %s (%s) finished=%s", gid, name, finished)
     return Finished(True, True, said)
+
+
+@dataclass
+class Renamed:
+    """What happened to a request to change what a book is called.
+
+    The same three fields as :class:`Removed` and :class:`Finished`, for the
+    same reason. The one refusal here is a book asked to have no name at all,
+    which is `ok` false on a book that is very much `found`.
+
+    ``title`` and ``authors`` are what the book is called now, so a page that
+    has just written a name can draw what was stored rather than what it typed
+    — they differ by the whitespace this trims, and a box that quietly kept a
+    trailing space would be a box saving something nobody could see.
+    """
+
+    ok: bool
+    found: bool
+    said: str
+    title: str = ""
+    authors: str = ""
+
+
+def rename_book(
+    conn: sqlite3.Connection, gid: int, title: str, authors: str
+) -> Renamed:
+    """Say what a book is called, in this library, whatever the catalog thinks.
+
+    Two plain columns, and the whole verb is writing them — the shelf, the
+    player, the queue's own sentences and the folder a future render writes
+    into all read `title` and would have read whatever was in it anyway. What
+    makes this more than an UPDATE is the third column: ``renamed_at`` is the
+    record that a person has had an opinion about this name, and
+    :func:`somnia.ingest.ingest_book`'s upsert reads it and then leaves the two
+    alone. Without it a re-render — which is the ordinary way to restart one
+    that died — puts the catalog's name back, hours later, with nobody
+    watching.
+
+    The audio does not move. Chapters are found by the absolute paths in their
+    own rows, so a renamed book plays out of a folder named after whatever it
+    was called on the day it was rendered, and that is the arrangement rather
+    than a thing to tidy: renaming a book must not be able to lose the sound of
+    it, and moving files to match a string somebody is still typing is the way
+    that happens.
+
+    An empty title is refused, and it is the only refusal here. Everything on
+    the page names a book by ``title`` and falls back to "book 1342" for a book
+    the catalog never named — a book that somebody blanked would be
+    indistinguishable from one that was never named at all, which is a rename
+    that reads as a bug. An empty author is allowed: plenty of books really do
+    not have one.
+    """
+    wanted = title.strip()
+    book = conn.execute("SELECT title FROM books WHERE gid = ?", (gid,)).fetchone()
+    if book is None:
+        return Renamed(False, False, f"There is no book {gid} here.")
+    if not wanted:
+        name = book_name(str(book["title"]), gid)
+        return Renamed(False, True, f"{name} needs a name, so nothing has changed.")
+    by = authors.strip()
+    with conn:
+        conn.execute(
+            "UPDATE books SET title = ?, authors = ?, renamed_at = datetime('now')"
+            " WHERE gid = ?",
+            (wanted, by, gid),
+        )
+    logger.info("renamed book %s to %r by %r", gid, wanted, by)
+    return Renamed(True, True, f"It is called {wanted} now.", wanted, by)
 
 
 def inside_library(cfg: Config, audio_file: str, what: str) -> Path | None:

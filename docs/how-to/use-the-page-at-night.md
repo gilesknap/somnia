@@ -360,8 +360,8 @@ never shrinks to match a render that is behind: what moves is the count of what
 is ready. A book rendered before somnia counted chapters says nothing at all
 there rather than *all 0 chapters*.
 
-Every row carries a caret, and nothing happens when you press one: the caret is
-where the book's own page is going, and that page is not built yet.
+Every row is a press, and where it goes is that book's own page — the section
+below.
 
 *filter your books* narrows the list as you type, on the title and on the
 author, and asks the server nothing: the books are already on the phone. The
@@ -374,6 +374,50 @@ left in a shape where the book you want is missing.
 Books you have finished are under the ones you have not, behind a count of them
 — *4 finished*. They are still here and still play. The count is of what is on
 the screen, so with a filter on it counts what the filter left.
+
+## One book: renaming it, finishing it, removing it
+
+Press a row of *books you already have* and you get that book's own page, over
+*Workshop*. *‹ workshop* comes back, and the list is exactly where you left it,
+filter and ordering intact.
+
+The title and the author at the top are boxes, not headings: type in them, and
+what you typed is saved when you leave the box. There is no *edit* to press
+first, because a mode is a thing to get into and then out of, and this screen is
+two presses deep in daylight. A book cannot be renamed to nothing — every screen
+in somnia names a book by its title, so a blank one would look exactly like a
+book the catalog never named — but it can be given no author at all.
+
+A name you choose is yours from then on. Rendering a book again is the ordinary
+way to restart a render that died, and it used to write the catalog's title back
+over yours hours later; it no longer touches either column once a person has.
+
+Under the boxes, how far into the book you are, counted in chapters — *read up
+to chapter 24 of 37*. Nothing anywhere stores that: it is where the book was
+left and the list of chapters, read against each other. It is information and
+not something to act on. A book somnia is behind on reading says so in *how much
+is here* below, and the answer to that is to wait.
+
+Then four facts: where the book came from — *gutenberg #289*, or *gutenberg
+australia #900000123* for the other library — when somnia was first asked for
+it, how long it is, and how much of it has been rendered. A fact somnia does not
+have is left off rather than drawn empty, so a book still being rendered has no
+length on it: while a render runs, the length somnia knows is how much audio
+exists rather than how long the book is.
+
+*read it* is the same press a shelf row is: it makes this the book a cold launch
+opens, starts it, and puts all three screens away. *mark finished* takes the
+book off the night shelf and puts it under the count of finished ones in the
+list you came from — it changes nothing else, the book still plays, and the
+label then says *back on the shelf*, which is the whole of undoing it.
+
+*remove this book* is the only press in somnia that cannot be undone, and it
+asks twice: the button becomes *really remove it?* and forgets it was ever asked
+after a few seconds. The second press takes the book away — the audio, the text,
+the chunks the agent searches, every queue row it ever had, and where you had
+got to. A book being rendered right now is refused rather than raced, with a
+sentence saying which job to stop first. There is no undo behind any of it: a
+removed book comes back only by being rendered again.
 
 ## Changing how it behaves at night: *Settings*
 

@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS books (
     -- one somnia actually opens.
     chapters_total INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    finished_at TEXT
+    finished_at TEXT,
+    renamed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS chapters (
@@ -178,6 +179,24 @@ _ADDED_COLUMNS = (
     # gives above: sqlite refuses a non-constant default on ADD COLUMN, so
     # whoever marks a book finished writes datetime('now') itself.
     ("books", "finished_at", "TEXT"),
+    # When a person last said what this book is called, which is the one thing
+    # that has to outrank the catalog. `title` and `authors` are written by
+    # every render out of the catalog row, so a book renamed on the page and
+    # then rendered again — the ordinary way to restart a render that died —
+    # came back under the name somebody had just changed. The alternative was
+    # to document the rename as lost, which is a screen offering an edit it
+    # quietly takes away again.
+    #
+    # A date rather than a flag, for the reason finished_at is one: the second
+    # question anybody asks of it is when, and the upsert only ever asks
+    # whether it is NULL. It is not a copy of the name and nothing reads it
+    # back — the name lives in `title`, where it always did.
+    #
+    # NULL means nobody has renamed this book, which is every book somnia has
+    # rendered so far, so the upsert goes on doing exactly what it did until
+    # somebody edits something. No default, as above: sqlite refuses a
+    # non-constant one on ADD COLUMN.
+    ("books", "renamed_at", "TEXT"),
     # Which voice this book was asked for in, held on the request rather than
     # taken from whatever the renderer's environment happened to say hours
     # later. The choice is made in front of the person making it and has to

@@ -24,7 +24,7 @@ from pathlib import Path
 
 from .config import Config
 from .db import connect
-from .library import Finished, finish_book, inside_library
+from .library import Finished, Renamed, finish_book, inside_library, rename_book
 
 __all__ = [
     "BookEntry",
@@ -353,6 +353,16 @@ class Player:
         """
         with self._lock:
             return finish_book(self._conn, gid, finished)
+
+    def rename(self, gid: int, title: str, authors: str) -> Renamed:
+        """Say what a book is called, under the lock the ``books`` row is kept.
+
+        Beside :meth:`finish` and for the same reason: it writes that row, and
+        every other write to it is taken here. The work is
+        :func:`somnia.library.rename_book`.
+        """
+        with self._lock:
+            return rename_book(self._conn, gid, title, authors)
 
     def manifest(self, gid: int) -> Manifest | None:
         """The whole timeline of one book, or None if there is no such book."""

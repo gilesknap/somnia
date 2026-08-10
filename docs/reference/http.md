@@ -40,6 +40,7 @@ would tell you.
 | `/api/book/{gid}` | DELETE | Take a book away — rows, audio and all |
 | `/api/book/{gid}/open` | POST | Make this the book a cold launch opens — or 404 |
 | `/api/book/{gid}/finished` | POST | Say the reader is done with a book, or that they are not |
+| `/api/book/{gid}/name` | POST | Say what a book is called here, and who wrote it |
 | `/api/ask` | POST | The agent's reply, and a move if it made one |
 | `/api/forget` | POST | Drops one conversation |
 | `/api/position` | POST | What became of a report — always 200 |
@@ -234,6 +235,45 @@ all — a hold-to-talk request at 2am is the wrong way to say a book is over.
 
 **404** for a gid that is not here, the same answer as the GET and the DELETE
 on this path.
+
+## `POST /api/book/{gid}/name`
+
+```json
+{"title": "Beauty, the horse", "authors": "Sewell, Anna"}
+```
+```json
+{"ok": true, "found": true, "said": "It is called Beauty, the horse now.",
+ "title": "Beauty, the horse", "authors": "Sewell, Anna"}
+```
+
+Two plain columns, `books.title` and `books.authors`, and a third that is the
+point of the route: `books.renamed_at` records that a person has had an opinion
+about this name, and `ingest_book`'s upsert reads it and leaves the pair alone
+from then on. Without that, re-rendering a book — which is the ordinary way to
+restart a render that died — put the catalog's name back hours later with
+nobody watching.
+
+Both columns in one request because a name and an author are one edit on the
+screen that makes it, and two routes would let a phone that lost the tailnet
+between them leave a book with half the change on it. A missing field means the
+empty string rather than "leave it alone", which is what a form that has been
+cleared actually says.
+
+The stored strings come back, trimmed, so the page can draw what was saved
+rather than what was typed.
+
+**200 with `"ok": false`** for a book asked to have no title at all. Every
+screen names a book by `title` and falls back to `book 1342` for a book the
+catalog never named, so a blanked one would be indistinguishable from a book
+that was never named — a rename that reads as a bug. An empty `authors` is
+stored: plenty of books really do not have one.
+
+The audio does not move. Chapters are found by the absolute path in their own
+row, so a renamed book goes on playing out of a folder named after whatever it
+was called on the day it was rendered.
+
+**404** for a gid that is not here, the same answer as the GET, the DELETE and
+the finished route on this path.
 
 ## `GET /api/audio/{gid}/{idx}`
 

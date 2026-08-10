@@ -247,12 +247,29 @@ def ingest_book(
     # is minutes and rendering is hours and the number is wanted for all of them:
     # it is the only denominator there is, and without it nothing can tell the
     # end of the book from the end of what has been rendered of it so far.
+    #
+    # And the name is the render's to write only until a person has written it.
+    # A render knows what the catalog calls this book; it does not know that
+    # somebody stood on the Workshop's book page and called it something else,
+    # and re-rendering — which is the ordinary way to restart a render that
+    # died — used to put the catalog's name back hours later with nobody
+    # watching. `renamed_at` is the whole of the test: NULL is every book
+    # nobody has had an opinion about, which is nearly all of them, and those
+    # go on being named by the catalog exactly as before.
+    #
+    # It is the sentence above amended rather than contradicted. A render still
+    # writes what it knows and nothing else — it has simply stopped being the
+    # authority on one of the five, on the books where somebody else is.
     with conn:
         conn.execute(
             "INSERT INTO books (gid, title, authors, voice, status, chapters_total)"
             " VALUES (?, ?, ?, ?, 'rendering', ?)"
-            " ON CONFLICT(gid) DO UPDATE SET title = excluded.title,"
-            " authors = excluded.authors, voice = excluded.voice,"
+            " ON CONFLICT(gid) DO UPDATE SET"
+            " title = CASE WHEN books.renamed_at IS NULL"
+            "  THEN excluded.title ELSE books.title END,"
+            " authors = CASE WHEN books.renamed_at IS NULL"
+            "  THEN excluded.authors ELSE books.authors END,"
+            " voice = excluded.voice,"
             " chapters_total = excluded.chapters_total, status = 'rendering'",
             (gid, title, authors, engine.voice, total),
         )
