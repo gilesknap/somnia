@@ -502,8 +502,10 @@ def test_a_book_nobody_has_started_has_no_words_to_offer(
     here — the comparison does the work rather than a branch above it.
     """
     assert player.passage_at(GID + 1, 5_000) is None
-    assert player.passage_at(GID, -1) is None
     assert player.passage_at(GID, 5_000) is None
+    # Set a valid position, then check out-of-range independently
+    listening_at(tone_book, 8_000)
+    assert player.passage_at(GID, -1) is None
 
 
 # ------------------------------------------------- what the page reports back

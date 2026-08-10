@@ -112,7 +112,7 @@ A second library sits in the same FTS5 table — Project Gutenberg Australia,
 which publishes no CSV and no API, only a text index meant for a person to
 read, and whose ids are offset clear of Gutenberg's so that one integer goes on
 meaning one book in the queue, the player and every saved position
-([ADR 10](decisions/0008-a-second-library-under-the-same-ids.md)).
+([ADR 8](decisions/0008-a-second-library-under-the-same-ids.md)).
 
 ## Playback: the page is the player, and the position is somnia's own
 

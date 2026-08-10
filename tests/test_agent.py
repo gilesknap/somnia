@@ -1169,8 +1169,8 @@ def test_a_silent_turn_that_offered_answers_with_the_sentence_not_with_what_it_d
 ) -> None:
     """The fallback has two things to choose between, and the list wins.
 
-    A turn can do something worth reporting and then offer — here a move at a
-    book that is not there — and the note it left is true but is not what is on
+    A turn can do something worth reporting and then offer — here an add_book
+    that records a note — and the note it left is true but is not what is on
     the screen. There is nothing useful to say beside a list that the list does
     not already say better, so the one sentence that belongs there is used.
     """
@@ -1180,11 +1180,11 @@ def test_a_silent_turn_that_offered_answers_with_the_sentence_not_with_what_it_d
         client_that_acts(
             [said()],
             calls=[
+                ("add_book", {"gid": 2554}),
                 (
                     "find_passage",
                     {"gid": 271, "description": "the meadow with the pond"},
                 ),
-                ("offer_positions", {"gid": 999, "chunk_ids": [1]}),
                 (
                     "offer_positions",
                     {

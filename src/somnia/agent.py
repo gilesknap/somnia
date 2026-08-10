@@ -483,6 +483,12 @@ def build_tools(
                 "You have already taken them somewhere; do not do it twice."
                 " They are where you put them."
             )
+        if acted.get("offered") and len(chunk_ids) == 1:
+            return (
+                "You have already offered them a list of places. A single passage"
+                " now would move them without choosing — offer another list or"
+                " say where the first one took them."
+            )
         unknown = [i for i in chunk_ids if i not in seen]
         if unknown:
             # Refused outright rather than resolved to whatever is nearest. An
@@ -495,6 +501,7 @@ def build_tools(
                 " conversation. A passage id is the id= on a find_passage"
                 " result line. Search first."
             )
+        acted["offered"] = True
         result = library.offer_positions(gid, chunk_ids)
         if isinstance(result, Refused):
             return result.reason
@@ -509,7 +516,6 @@ def build_tools(
                 record(result)
                 acted["moved"] = True
             return result.sentence
-        acted["offered"] = True
         offer(result)
         # Counts and instructions, and deliberately not one time, title or word
         # of what is on the list: everything it would need to narrate the places
