@@ -1,0 +1,32 @@
+somnia {{ .Chart.AppVersion }} is installed as {{ include "somnia.fullname" . }}.
+
+{{ if .Values.ingress.enabled -}}
+The page is at https://{{ .Values.ingress.host }}
+{{- else -}}
+There is no ingress, so the page is only reachable inside the cluster:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "somnia.fullname" . }} {{ .Values.serve.port }}
+
+then open http://localhost:{{ .Values.serve.port }}. Note that installing it as
+a PWA needs a secure context, so port-forward will play a book but will not
+give you the lock-screen controls — see the chart README.
+{{- end }}
+
+{{ if not .Values.node -}}
+WARNING: `node` is not set. The page and the renderer share one sqlite file in
+WAL mode, which cannot work if they are scheduled onto different machines. Set
+`node` to the hostname holding the volume unless your storage class genuinely
+follows the pod.
+
+{{ end -}}
+{{ if not .Values.secret.name -}}
+NOTE: no `secret.name`, so ANTHROPIC_API_KEY is not set. Books will render and
+play; asking the agent a question will not work until you point it at a Secret.
+
+{{ end -}}
+Add a book with:
+
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "somnia.fullname" . }}-worker -- somnia catalog-update
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "somnia.fullname" . }}-worker -- somnia queue add 271
+
+The worker picks it up within ten seconds. Watch it with `somnia queue`.

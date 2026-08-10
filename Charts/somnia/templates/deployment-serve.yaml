@@ -1,0 +1,96 @@
+{{- if .Values.serve.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "somnia.fullname" . }}-serve
+  labels:
+    {{- include "somnia.labels" . | nindent 4 }}
+    app.kubernetes.io/component: serve
+spec:
+  replicas: {{ .Values.serve.replicas }}
+  # Not RollingUpdate. The new pod would have to mount the same volume and open
+  # the same database as the one it is replacing, and for a moment there would
+  # be two servers with two opinions about where the listener is. A few seconds
+  # of downtime on a deploy is the cheaper mistake — and restarting the page has
+  # never cost a render anything, because the render is the other deployment.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "somnia.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: serve
+  template:
+    metadata:
+      labels:
+        {{- include "somnia.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: serve
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "somnia.podCommon" . | trim | nindent 6 }}
+      containers:
+        - name: serve
+          image: {{ include "somnia.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # 0.0.0.0 rather than the 127.0.0.1 default, because a pod's
+          # localhost is reachable by nothing at all — not even the kubelet's
+          # probes. This is the line that takes somnia's "reachability is the
+          # authentication" away, and why ingress.enabled defaults to false and
+          # says so at length in values.yaml.
+          args:
+            - serve
+            - --host
+            - 0.0.0.0
+            - --port
+            - {{ .Values.serve.port | quote }}
+          env:
+            {{- include "somnia.env" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.serve.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.dataDir }}
+          # /api/health is a static 200 and touches neither the database nor
+          # the embedder, which is what makes it usable as a liveness probe: a
+          # long render holding the write lock must not read as a dead page.
+          #
+          # The startup probe is generous because the way up is not: the server
+          # warms the embedder in a background thread, and on an RK1 loading
+          # torch and a sentence-transformer off an NVMe is tens of seconds. It
+          # answers before that finishes, so this mostly covers a cold start
+          # where the model is still being downloaded.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          {{- with .Values.serve.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

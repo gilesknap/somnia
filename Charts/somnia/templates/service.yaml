@@ -1,0 +1,22 @@
+{{- if .Values.serve.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "somnia.fullname" . }}
+  labels:
+    {{- include "somnia.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.serve.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "somnia.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: serve
+{{- end }}

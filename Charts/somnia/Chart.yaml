@@ -1,0 +1,16 @@
+apiVersion: v2
+name: somnia
+description: |
+  Bedtime audiobook reader with semantic seek — the page, and the renderer
+  that feeds it, as two deployments pinned to one node.
+type: application
+# Both are stamped from the git tag by .github/workflows/_helm.yml. The values
+# here are what a local `helm template` sees and are deliberately not real.
+version: 0.0.0
+appVersion: "0.0.0"
+home: https://github.com/gilesknap/somnia
+sources:
+  - https://github.com/gilesknap/somnia
+maintainers:
+  - name: Giles Knap
+    email: gilesknap@gmail.com

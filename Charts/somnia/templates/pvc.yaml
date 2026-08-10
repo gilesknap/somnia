@@ -1,0 +1,22 @@
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "somnia.fullname" . }}
+  labels:
+    {{- include "somnia.labels" . | nindent 4 }}
+  annotations:
+    # The database, the audio and the downloaded models are all in here, and
+    # none of it is reproducible in any reasonable time — a book is hours of
+    # rendering. Keep the volume if the release is ever deleted.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- if .Values.persistence.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName | quote }}
+  {{- end }}
+{{- end }}
