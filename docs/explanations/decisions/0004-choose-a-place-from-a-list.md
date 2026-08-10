@@ -62,6 +62,14 @@ returns anything the sound has not already said out loud. If the request fails o
 the book has nothing indexed, the row offers no press at all, which is what it
 was before.
 
+Amended by [ADR 11](0011-the-guard-belongs-on-the-row.md), which takes away
+`Search.better_ahead` — called "the crux of the guard" below — along with the
+bound that made it necessary. A search now reads the whole book and the guard is
+applied to what may be said of each hit, so the case built below out of
+`better_ahead` firing on nearly every search of a barely-played book is answered
+by there being no such field: every plausible place goes on the list, covered.
+Everything this record decides about the list itself stands.
+
 Amended by [ADR 10](0010-draw-the-line-where-they-are.md), which takes away the
 high-water mark this record measures `ahead` against. Everything below that says
 `heard_to_ms` now reads `position_ms`, and the sentence about the two ends of

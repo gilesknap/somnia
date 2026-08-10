@@ -106,45 +106,41 @@ def test_a_book_still_rendering_is_not_called_finished_at_the_frontier(
     assert done.finished
 
 
-def test_find_passage_will_not_search_past_where_they_are(fixture: Fixture) -> None:
+def test_find_passage_reaches_the_whole_book_and_says_what_is_out_of_reach(
+    fixture: Fixture,
+) -> None:
     """The late passage is at 700_000ms; the listener is at 300_000ms.
 
-    Nearest-neighbour search has no relevance floor, so the guarantee is not
-    "no results" — it is that the unheard passage is never among them.
+    ADR 11 took the bound off the search itself. Somewhere to be taken is not a
+    spoiler — a time on the clock says nothing about what happens at it — so the
+    passage they have not reached is found like any other, and what the guard
+    decides is whether anything may be *said* about it.
     """
-    query = "a later scene the listener has not reached"
-    heard = fixture.library.find_passage(271, query)
-    assert 700_000 not in [p.start_ms for p in heard.hits]
-    assert heard.searched_to_ms == 360_000
-
-    spoiled = fixture.library.find_passage(271, query, spoiler_free=False)
-    assert spoiled.hits[0].start_ms == 700_000
-    assert spoiled.searched_to_ms is None
+    search = fixture.library.find_passage(
+        271, "a later scene the listener has not reached"
+    )
+    assert search.hits[0].start_ms == 700_000
+    assert search.here_ms == 300_000
+    assert search.ahead(search.hits[0]) is True
 
 
-def test_a_book_nobody_has_listened_to_yet_is_bounded_at_its_start(
+def test_a_book_nobody_has_listened_to_yet_holds_all_of_itself_back(
     fixture: Fixture,
 ) -> None:
     """No position at all is nothing heard, which is the opposite of no limit.
 
-    A book somnia has rendered and nobody has played has no position, and
-    reading that as "search the whole thing" would turn the guard off on
-    exactly the books that have never been opened.
+    The search still finds everything — it always does now — but every hit in a
+    book nobody has started is one they may not be told about, including the one
+    that begins at the very first millisecond.
     """
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET position_ms = NULL WHERE gid = 271")
-    search = fixture.library.find_passage(
-        271, "a later scene the listener has not reached"
-    )
-    assert search.searched_to_ms == 60_000
-    assert 700_000 not in [p.start_ms for p in search.hits]
-    # And the answer is not silence: what lies ahead is reported, so the agent
-    # can offer to take them there instead of saying the book does not have it.
-    assert search.better_ahead is not None
-    assert search.better_ahead.start_ms == 700_000
+    search = fixture.library.find_passage(271, "the meadow with the pond")
+    assert search.here_ms == 0
+    assert all(search.ahead(p) for p in search.hits)
 
 
-def test_a_book_they_have_been_moved_through_is_bounded_where_they_landed(
+def test_a_book_they_have_been_moved_through_says_less_is_ahead_of_them(
     fixture: Fixture,
 ) -> None:
     """Where they were put is where they are, and the guard follows them there.
@@ -160,26 +156,37 @@ def test_a_book_they_have_been_moved_through_is_bounded_where_they_landed(
     search = fixture.library.find_passage(
         271, "a later scene the listener has not reached"
     )
-    assert search.searched_to_ms == 760_000
     assert search.hits[0].start_ms == 700_000
+    assert search.ahead(search.hits[0]) is True
 
-
-def test_a_book_they_have_finished_is_searched_whole(fixture: Fixture) -> None:
-    """There is nothing left to spoil once they have heard the end of it."""
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET position_ms = 900000 WHERE gid = 271")
-    search = fixture.library.find_passage(
+    stood_at_the_end = fixture.library.find_passage(
         271, "a later scene the listener has not reached"
     )
-    assert search.searched_to_ms is None
-    assert search.hits[0].start_ms == 700_000
+    assert stood_at_the_end.ahead(stood_at_the_end.hits[0]) is False
 
 
 def test_find_passage_finds_what_they_have_already_heard(fixture: Fixture) -> None:
+    search = fixture.library.find_passage(271, "the meadow with the pond")
+    assert search.hits[0].start_ms == 10_000
+    assert search.hits[0].chapter_title == "01 My Early Home"
+    assert search.ahead(search.hits[0]) is False
+
+
+def test_the_passage_beginning_exactly_where_they_are_is_one_they_have_not_heard(
+    fixture: Fixture,
+) -> None:
+    """``>=`` and not ``>``, asserted on the search side as well as the list's.
+
+    The fixture stands at 300_000 and a passage begins there. It is the sentence
+    about to be spoken, not one that has been — so its words are held back from
+    the model, and the row for it on the screen keeps its chapter title. Both
+    ends read the same predicate out of the same function for exactly this case.
+    """
     search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
-    assert search.hits[0].start_ms == 300_000
-    assert search.hits[0].chapter_title == "02 The Hunt"
-    assert search.better_ahead is None
+    assert search.hits[0].start_ms == search.here_ms == 300_000
+    assert search.ahead(search.hits[0]) is True
 
 
 def test_moving_writes_the_position_the_page_will_read(fixture: Fixture) -> None:
@@ -243,28 +250,19 @@ def test_being_moved_back_narrows_the_guard_and_playing_on_widens_it(
     a skip had stopped it.
     """
     fixture.library.move_to(271, 10_000)
-    narrowed = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    narrowed = fixture.library.recall(271, "Rob Roy was shot after the hunt")
     assert narrowed.searched_to_ms == 70_000
-    assert 300_000 not in [p.start_ms for p in narrowed.hits]
+    assert 300_000 not in [p.start_ms for p in narrowed.passages]
 
     fixture.library.move_to(271, 300_000)
-    again = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    again = fixture.library.recall(271, "Rob Roy was shot after the hunt")
     assert again.searched_to_ms == 360_000
-    assert again.hits[0].start_ms == 300_000
+    assert again.passages[0].start_ms == 300_000
 
 
 def test_format_timestamp_reads_as_a_listening_position() -> None:
     assert format_timestamp(0) == "0:00:00"
     assert format_timestamp(8_412_000) == "2:20:12"
-
-
-def test_find_passage_says_when_the_answer_lies_ahead(fixture: Fixture) -> None:
-    search = fixture.library.find_passage(
-        271, "a later scene the listener has not reached"
-    )
-    assert search.better_ahead is not None
-    assert search.better_ahead.start_ms == 700_000
-    assert 700_000 not in [p.start_ms for p in search.hits]
 
 
 # --------------------------------------------- answering rather than moving
@@ -285,25 +283,26 @@ def test_a_question_is_answered_from_what_they_have_already_heard(
     assert recalled.searched_to_ms == 360_000
 
 
-def test_a_question_is_never_told_that_a_closer_answer_lies_further_on(
+def test_a_question_never_reads_past_the_line_even_though_a_search_does(
     fixture: Fixture,
 ) -> None:
-    """The nudge that is right for "take me there" and wrong for "who is he".
+    """The two tools part company here, and it is the point of there being two.
 
-    A search reports the better match past the mark so it can be offered. There
-    is nothing to offer here — they asked to be told something, not moved — and
-    saying it lies further on would be a spoiler in its own right: "he hasn't
-    come up yet in what you've heard" and "he comes up an hour and a half from
-    here" are different sentences, and the second one gives away that he
-    arrives at all. So the field is not ignored downstream, it is not there.
+    A search reads the whole book, because what it finds is a time to be offered
+    and its words can be held back behind a press. An answer is prose with
+    nobody's finger on it, so there is nothing to hold it back with — the only
+    safe bound is on what is read at all. Saying the answer lies further on
+    would be a spoiler in its own right: "he hasn't come up yet in what you've
+    heard" and "he comes up an hour and a half from here" are different
+    sentences, and the second gives away that he arrives.
     """
     query = "a later scene the listener has not reached"
-    assert fixture.library.find_passage(271, query).better_ahead is not None
+    assert fixture.library.find_passage(271, query).hits[0].start_ms == 700_000
 
     recalled = fixture.library.recall(271, query)
 
     assert 700_000 not in [p.start_ms for p in recalled.passages]
-    assert not hasattr(recalled, "better_ahead")
+    assert not hasattr(recalled, "here_ms")
 
 
 def test_a_question_about_a_book_they_have_finished_may_be_answered_whole(
@@ -466,11 +465,12 @@ def test_the_passage_the_guard_held_back_is_offered_and_marked_ahead(
     search = fixture.library.find_passage(
         271, "a later scene the listener has not reached"
     )
-    assert search.better_ahead is not None
+    unheard = search.hits[0]
+    assert search.ahead(unheard)
 
     offer = offered(
         fixture.library.offer_positions(
-            271, [search.better_ahead.chunk_id, chunk_at(fixture, 10_000)]
+            271, [unheard.chunk_id, chunk_at(fixture, 10_000)]
         )
     )
     assert [(p.start_ms, p.ahead) for p in offer.places] == [
@@ -784,8 +784,6 @@ def test_a_book_they_have_reached_the_end_of_holds_nothing_back(
     """
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET position_ms = 900000 WHERE gid = 271")
-    assert fixture.library.find_passage(271, "anything").searched_to_ms is None
-
     offer = offered(
         fixture.library.offer_positions(
             271, [chunk_at(fixture, 10_000), chunk_at(fixture, 700_000)]
@@ -840,16 +838,17 @@ def test_add_book_refuses_a_book_that_is_already_coming(fixture: Fixture) -> Non
     assert fixture.conn.execute("SELECT COUNT(*) AS n FROM queue").fetchone()["n"] == 1
 
 
-def test_a_recall_does_not_pay_for_a_search_it_throws_away(
+def test_neither_tool_embeds_the_query_more_than_once(
     fixture: Fixture,
 ) -> None:
-    """`better_ahead` costs a second search of the whole book, and recall drops it.
+    """A search used to cost two, and dropping the second is most of ADR 11.
 
-    Not an optimisation for its own sake: recall drops the field deliberately
-    and says why at length — a question must not be followed by a nudge towards
-    somewhere further on, because that is a spoiler in itself. So the second
-    search was buying something the method exists to refuse to say, on the
-    screen where every second of the wait is felt.
+    A bounded search had to run again over the whole book to find out whether a
+    closer match lay past the bound, because otherwise a search that excluded
+    the answer looked exactly like a book that never held it. That was a second
+    embedding of the query and a second scan of the vectors, on the screen where
+    every second of the wait is felt. An unbounded search contains the answer
+    instead of going back for it.
 
     A search is one embedded query, which is what is counted here.
     """
@@ -860,9 +859,6 @@ def test_a_recall_does_not_pay_for_a_search_it_throws_away(
     fixture.library.recall(271, "Rob Roy was shot after the hunt")
     assert counting.queries == 1
 
-    # And a move still gets it, because "take me there" is the question the
-    # nudge is right for.
     counting.queries = 0
-    search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
-    assert counting.queries == 2
-    assert search.searched_to_ms is not None
+    fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    assert counting.queries == 1

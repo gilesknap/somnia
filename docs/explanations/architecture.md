@@ -293,7 +293,7 @@ sequenceDiagram
   P->>AG: POST /api/ask
   AG->>AN: tool runner turn
   AN->>AG: find_passage
-  AG->>DB: search, bounded at position_ms
+  AG->>DB: search, whole book
   AN->>AG: move_to
   AG->>DB: position_seq + 1
   AG-->>P: reply, and where to go
@@ -325,10 +325,12 @@ search and by the one route that hands back book text.
 ```mermaid
 flowchart TD
   R["a report arrives: position_ms"] --> U["the line moves to it — forwards or back"]
-  U --> S["a search is bounded at the line + 60 seconds"]
-  S --> Q{"does a closer match lie past the bound?"}
-  Q -- yes --> O["say it is ahead of them and offer to go —<br>never what happens there"]
-  Q -- no --> A["answer from what they could have heard"]
+  U --> F["find_passage reads the whole book"]
+  U --> C["recall reads as far as the line + 60 seconds"]
+  F --> H{"is this hit past the line?"}
+  H -- yes --> T["the model gets a time and an id —<br>no words, no chapter"]
+  H -- no --> W["the model gets the passage whole"]
+  C --> A["answer from what they could have heard,<br>and offer nothing past it"]
 ```
 
 It was a high-water mark until [ADR
@@ -341,14 +343,15 @@ a forward skip is such a report, so one press of +30 stopped the mark for the
 rest of the book. [design.md](design.md) argues what replaced it and what that
 gives up.
 
-The mark bounds what is *said* as well as what is searched, and those are two
-different distances. The agent may answer a question about a book out of what it
-already knows of it, as far as that line and no further
-([ADR 6](decisions/0006-answer-a-question-about-the-book.md)); `allow_spoilers`
-lets it read past the line to pick the right place to send somebody, and never
-lets it describe what it read. The question tool, `recall`, is bounded by the
-same code as a search and marks the turn so that `move_to` and
-`offer_positions` refuse — a question must not cost the listener their place.
+The line bounds what is *said*, not what may be found. The agent may answer a
+question about a book out of what it already knows of it, as far as that line
+and no further ([ADR 6](decisions/0006-answer-a-question-about-the-book.md)) —
+and it is never handed the words of a passage past it, so there is nothing there
+to be careless with ([ADR 11](decisions/0011-the-guard-belongs-on-the-row.md)).
+The question tool, `recall`, is the one that stops at the line when it reads,
+because prose has no press in front of it; it also marks the turn so that
+`move_to` and `offer_positions` refuse — a question must not cost the listener
+their place.
 
 ## What the page has to survive
 

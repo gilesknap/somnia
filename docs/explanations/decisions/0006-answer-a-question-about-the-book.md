@@ -2,6 +2,14 @@
 
 ## Status
 
+Amended by [ADR 11](0011-the-guard-belongs-on-the-row.md), which widens the gap
+this record opened between the two tools rather than narrowing it: `find_passage`
+now reads the whole book and holds back the *words* of anywhere they have not
+reached, while `recall` still stops at the line when it reads. The argument
+below against `recall` taking `allow_spoilers` is unchanged and is now the only
+place that word appears in the reasoning — `find_passage` has no such argument
+any more.
+
 Amended by [ADR 10](0010-draw-the-line-where-they-are.md): the line a recall may
 not cross is the position rather than a high-water mark. What this record says
 about there being such a line, and about the answer being bounded by it rather

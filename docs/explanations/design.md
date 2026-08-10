@@ -218,10 +218,20 @@ backwards really does make the stretch above them unsayable, and playing on
 puts it back a minute at a time. A skip forward is taken as meant — somebody
 who skips is somebody who decided to — and what it steps over goes with it.
 
-A bounded search does not simply come back empty. It also runs unbounded and
-says whether a closer match lies past the line — never what it is — which is
-what lets the agent offer rather than shrug, and `find_passage(allow_spoilers)`
-is the way through, asked for by them and by nobody else.
+**A search is not bounded at all**
+([ADR 11](decisions/0011-the-guard-belongs-on-the-row.md)). A place is not a
+spoiler — a time on the clock says nothing about what happens at it — so
+`find_passage` reads the whole book, and the guard is applied to what may be
+said and shown about each hit instead. A hit at or past the line reaches the
+model as a time and an id, with no words and no chapter title; a hit behind it
+arrives whole. So the words of a passage nobody has heard are never in the
+model's context at any point, which is a stronger thing to be able to say than
+any prompt could enforce, and it is what makes every place in the book reachable
+by one covered press instead of by a consent argument.
+
+`recall` is the tool that stays bounded, and for the reason the two are separate
+at all: an answer is prose, said out loud, with nobody's finger on it, so there
+is nothing to hold it back with and the only safe bound is on what is read.
 
 **The line is also how far the agent may speak**, which used to be a different
 rule entirely. The prompt's strongest line was that everything said about a book
@@ -233,12 +243,13 @@ agent may now answer a question about a book out of what it already knows, and
 the line it may not cross is that one: everything behind it may be talked about
 freely, nothing in front of it may be said at all, and a character who has not
 appeared yet gets "he hasn't come up yet in what you've heard" and nothing after
-that sentence. What may be *read* and what may be *said* are two different
-distances — `allow_spoilers` moves the first and never the second, which was
-always true and is now the sentence the paragraph turns on. The tool that
-answers, `recall`, is bounded exactly as a search is, hands back no `id=` and no
-`position_ms`, drops `better_ahead` rather than reporting it, and marks the turn
-so that `move_to` and `offer_positions` both refuse: asking who somebody is used
+that sentence. What may be *found* and what may be *said* are two different
+distances, and ADR 11 is what stopped that being a rule the model had to hold:
+a search reads everywhere, and the words of anywhere they have not reached
+simply never arrive. The tool that answers, `recall`, is the one still bounded
+when it reads; it hands back no `id=` and no `position_ms`, offers nothing past
+the line, and marks the turn so that `move_to` and `offer_positions` both
+refuse: asking who somebody is used
 to drag the audio to a passage about them, and it is the tools that stop it
 rather than a paragraph asking them not to. What the tools cannot hold is the
 turn where nothing was called at all — the line is a number the model only

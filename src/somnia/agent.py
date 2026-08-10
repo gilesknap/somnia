@@ -95,12 +95,14 @@ front of it may be said at all: not a name, not a death, not a marriage, not
 that somebody turns up later, not that a question they are asking is one the
 book answers. Someone who has not appeared yet gets "he hasn't come up yet in
 what you've heard" and nothing after it — that he arrives at all is theirs to
-find out by listening. Reading past the line with allow_spoilers does not move
-it: what you may read and what you may say are two different distances.
+find out by listening. A search reaches past the line and that does not move it:
+finding somewhere is not being told what is there, and the tool hands you no
+words for a place they have not reached.
 
 You do not know where that line is. It is somewhere different every night and
-only a tool can tell you: recall names it every time you call it, and so does
-find_passage. So look first. Never say anything about what happens in a book
+only a tool can tell you: recall names it every time you call it, and
+find_passage shows you where it falls by which of its results have words on
+them. So look first. Never say anything about what happens in a book
 without one of them having told you, this turn, how far they have got — and
 least of all on the question you are sure you already know the answer to, which
 is the one it does not occur to you to look up. An answer straight out of your
@@ -145,14 +147,18 @@ and they press the one they meant. A list of times is something a thumb can
 answer; a question is something they would have to compose a sentence to
 answer, half asleep, in the dark.
 
-Searches are limited to how far they have listened. When find_passage reports
-that a closer match lies further on, offer it with offer_positions — on its own
-if nothing in range was plausible. The page marks it as ahead of where they have
-got and will not show what is there unless they ask it to. Say nothing about
-what happens there: you have not been told, only that it is there. recall never
-tells you this and has nothing to offer when it happens, because somewhere to be
-taken is not an answer to a question — there the whole of the answer is that it
-has not come up yet in what they have heard.
+find_passage searches the whole book, so some of what comes back may be further
+on than they have got. Those lines carry a time and an id and nothing else — no
+words, no chapter — because you have not been told what happens there, only that
+there is a there. Offer them like any other place; the screen marks them and
+keeps them covered until they ask. Never guess at what is in one, and never say
+that a passage further on is about the thing they asked: you do not know.
+
+recall is bounded and stays bounded. It searches only as far as they have
+listened and has nothing to offer past it, because somewhere to be taken is not
+an answer to a question — there the whole of the answer is that it has not come
+up yet in what they have heard. If they want taking there, they will ask, and
+that is a different turn with a different tool.
 
 When you offer, say exactly "{OFFER_SENTENCE}" and
 nothing else — no times, no chapter names, no description of any of them, not
@@ -160,15 +166,9 @@ even of the ones they have already heard. The screen says all of that better
 than a sentence can. Never offer and move in the same turn: the list is the
 question, and the answer is theirs to give.
 
-If they say in so many words that they want to be taken past where they have
-listened, search again with allow_spoilers so you can read those passages and
-pick the right one. The timestamp alone is the top-ranked guess and the ranking
-is often a near miss; moving them there unread lands them minutes from the
-moment they asked for. Reading the passage does not oblige you to describe it —
-move them there and tell them only that you have.
-
-Moving them forward is a real jump: they will hear what is there. Never do it
-past where they have listened unless they have just asked you to.
+Moving them forward is a real jump: they will hear what is there. A place past
+where they have got is theirs to choose from the screen, not yours to move them
+to — offer it and let the press be the answer.
 
 The last line of this prompt says which book is open. Take every question to be
 about that book unless they plainly name another one: asking "which book?" over
@@ -353,7 +353,7 @@ def build_tools(
         )
 
     @beta_tool
-    def find_passage(gid: int, description: str, allow_spoilers: bool = False) -> str:
+    def find_passage(gid: int, description: str) -> str:
         """Find places in a book to take them to, by what happens there.
 
         Works on concrete events, characters and places ("the horse dies",
@@ -362,52 +362,46 @@ def build_tools(
         This is the tool for "take me to". A question about the book — who
         somebody is, what became of them — is recall's, and answering one off
         these lines is how a question turns into a jump: every line here carries
-        an id and a position because everything it finds is somewhere to be
-        sent.
+        an id because everything it finds is somewhere to be sent.
+
+        It searches the whole book. Places further on than they have got come
+        back as a time and an id with no words and no chapter, because you are
+        not told what happens there — you are told that there is a there. Offer
+        those like any other; the screen keeps them covered until they ask.
 
         Args:
             gid: The Gutenberg id of the book.
             description: What happens in the passage they want.
-            allow_spoilers: Search the whole book rather than only the part
-                they have heard. Only set this if they have said they don't
-                mind being spoiled.
         """
-        search = library.find_passage(gid, description, spoiler_free=not allow_spoilers)
-        # Remembered before anything is written out, and the withheld one too:
-        # it is the passage offer_positions exists for, and the only handle on
-        # it the model is ever given is its id.
+        search = library.find_passage(gid, description)
+        # Every id, including the ones whose words are held back below: an id is
+        # the only handle the model is ever given on a passage it may not read,
+        # and offer_positions checks against this set before it will draw one.
         seen.update(p.chunk_id for p in search.hits)
-        if search.better_ahead is not None:
-            seen.add(search.better_ahead.chunk_id)
+        if not search.hits:
+            return "Nothing like that in this book."
+        # The whole of the guard on this side, and it is a line-formatting rule
+        # rather than a search parameter — which is what makes it hold on a
+        # model that does not read prompts carefully. A passage they have not
+        # reached has never been in the context to be narrated out of; there is
+        # nothing here for a prompt to have to forbid.
+        #
+        # The chapter title goes with the words, not with the time: "How Ginger
+        # Died" gives away as much as the sentence under it. `position_ms` is on
+        # no line at all any more — offers are made by id, so the number the
+        # guard most wants to withhold is not printed anywhere.
         lines: list[str] = []
-        if search.searched_to_ms is not None:
-            lines.append(
-                f"Searched the first {format_timestamp(search.searched_to_ms)},"
-                " which is as far as they have listened."
-            )
-        if search.hits:
-            lines.append(
-                "\n\n".join(
-                    f"[{format_timestamp(p.start_ms)} in {p.chapter_title!r},"
-                    f" id={p.chunk_id}, position_ms={p.start_ms}] {p.text}"
-                    for p in search.hits
+        for p in search.hits:
+            when = format_timestamp(p.start_ms)
+            if search.ahead(p):
+                lines.append(
+                    f"[{when}, id={p.chunk_id}] further on than they have got —"
+                    " you have not been told what is there."
                 )
-            )
-        else:
-            lines.append("Nothing in that stretch.")
-        if search.better_ahead is not None:
-            # Its id and its time, and still nothing else — not its words, not
-            # its chapter, not its position_ms. The id is enough to offer it
-            # with, and offering it is the one thing that can be done with a
-            # passage nobody has heard. Widening this line to make the model's
-            # job easier would hand it the very words the screen withholds.
-            lines.append(
-                "A closer match lies further on than they have listened, at"
-                f" {format_timestamp(search.better_ahead.start_ms)}"
-                f" (id={search.better_ahead.chunk_id}). Offer it with"
-                " offer_positions, on its own if nothing above was plausible."
-                " Do not say what happens there: you have not been told."
-            )
+            else:
+                lines.append(
+                    f"[{when} in {p.chapter_title!r}, id={p.chunk_id}] {p.text}"
+                )
         return "\n\n".join(lines)
 
     @beta_tool

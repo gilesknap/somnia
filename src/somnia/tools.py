@@ -60,50 +60,66 @@ class Book:
 
 @dataclass
 class Search:
-    """Search results, plus what the spoiler guard held back.
+    """Places to be taken to, and the line that decides what may be said of them.
 
-    ``better_ahead`` is the crux: without it, a spoiler-bounded search that
-    excludes the answer is indistinguishable from a book that never contained
-    it, and the only honest thing left to say is "not found". Knowing that a
-    closer match lies ahead lets the answer be the true one instead: there is
-    somewhere further on than you have got, and here is the time of it.
+    Every hit, from anywhere in the book. There is no bound on the search since
+    ADR 11 and nothing held back from this list, because a place is not a
+    spoiler — a time on the clock says nothing about what happens at it.
 
-    That used to be asked as a question — "shall I take you there anyway?" —
-    and is now a row on a list, offered by :meth:`Library.offer_positions`,
-    with its words covered up until they ask to see them. The only thing that
-    changed here is what is done with it; it is still one passage, still chosen
-    only when it beats everything in range.
+    ``here_ms`` is where the book is, carried beside the hits rather than looked
+    up again by whoever formats them, so the whole of one search is judged
+    against one number. :meth:`ahead` is the judgement, and it is the same
+    predicate :class:`Candidate` uses, out of the same function: a hit it is
+    true of reaches the model as an id and a time with no words attached.
     """
 
     hits: list[Passage]
-    searched_to_ms: int | None
-    better_ahead: Passage | None
+    here_ms: int
+
+    def ahead(self, passage: Passage) -> bool:
+        """Is this one they have not reached yet, and so may not be told?"""
+        return ahead_of(passage.start_ms, self.here_ms)
 
 
 @dataclass
 class Recall:
     """Passages to answer a question from, and how far the answer may go.
 
-    Deliberately not a :class:`Search`, though it is built out of one. A search
-    is looking for somewhere to be taken; this is looking for something to say,
-    and the two want different things back. There is no ``better_ahead`` here at
-    all — see :meth:`Library.recall` for why dropping it is the point rather
-    than an omission — and nothing downstream is given a chunk id or a
-    ``position_ms``, because the answer to a question is a sentence and not a
-    place.
+    Deliberately not a :class:`Search`, and the two have grown further apart
+    rather than closer. A search is looking for somewhere to be taken, so it
+    reads the whole book and holds back the words of anywhere they have not
+    reached; this is looking for something to say, so it never reads past the
+    line at all. Nothing downstream is given a chunk id or a ``position_ms``
+    either, because the answer to a question is a sentence and not a place.
 
-    ``searched_to_ms`` is the same number :class:`Search` carries and means the
-    same thing: how far the passages were allowed to come from, or None on a
-    book they have finished, where there is nothing left to hold back. It is not
-    only a fact about the retrieval. It is the line the answer itself may not
-    cross, which is a wider job than it used to be: since ADR 6 what the agent
-    says is no longer confined to passages a tool handed it, so this number is
-    the whole of what stands between its own knowledge of the book and the part
-    of it nobody has heard.
+    ``searched_to_ms`` is how far the passages were allowed to come from, or
+    None on a book they have finished, where there is nothing left to hold back.
+    It is not only a fact about the retrieval. It is the line the answer itself
+    may not cross, which is a wider job than it used to be: since ADR 6 what the
+    agent says is no longer confined to passages a tool handed it, so this
+    number is the whole of what stands between its own knowledge of the book and
+    the part of it nobody has heard.
     """
 
     passages: list[Passage]
     searched_to_ms: int | None
+
+
+def ahead_of(start_ms: int, here_ms: int) -> bool:
+    """Does a passage beginning here lie in front of the listener?
+
+    One expression, in one place, because two ends of somnia read it and a
+    boundary they disagreed about would be a boundary the guard has a hole at.
+    :class:`Candidate` uses it to decide whether a row keeps its chapter title;
+    :meth:`Search.ahead` uses it to decide whether the model is handed a
+    passage's words at all.
+
+    ``>=`` and not ``>``. A passage that begins exactly where the book has got
+    to is the sentence they have not heard yet — and on a book nobody has
+    started, where the line is zero, ``>`` would call the opening words already
+    heard and print them in the clear.
+    """
+    return start_ms >= here_ms
 
 
 @dataclass
@@ -345,101 +361,75 @@ class Library:
         ).fetchone()
         return int(row["position_ms"] or 0) if row else 0
 
-    def find_passage(
-        self,
-        gid: int,
-        query: str,
-        k: int = 5,
-        spoiler_free: bool = True,
-        look_ahead: bool = True,
-    ) -> Search:
-        """Search a book for a passage — an event, a character, a moment.
+    def find_passage(self, gid: int, query: str, k: int = 5) -> Search:
+        """Search the whole book for a passage — an event, a character, a moment.
 
-        With ``spoiler_free`` (the default) the search stops where the book is,
-        and reports separately whether a closer match lies beyond it. Pass False
-        once they have said they don't mind.
+        The whole book, with no spoiler bound at all, which is the change
+        ADR 11 made and the thing to understand about this method. A search for
+        somewhere to be taken is not a thing that can spoil anybody: what comes
+        back is a list of times, and the guard is applied to what may be *said*
+        and *shown* about each of them rather than to whether it may be found.
 
-        The bound is the position and nothing else. It was a high-water mark
-        until ADR 10, on the argument that being taken back to chapter two must
-        not un-hear chapters three to twenty — true, and paid for at a rate
-        nobody expected, because the mark could only rise over ground the sound
-        had really covered and so stopped dead at the first press of the skip
-        button. What it protects against now costs a stretch of book until they
-        play back over it, which the next few minutes of listening undo. What
-        the mark cost lasted the rest of the night.
+        That is what removed ``spoiler_free``, ``allow_spoilers`` and
+        ``better_ahead`` together. A bounded search had to report separately
+        that a closer match lay past the bound — otherwise a search that
+        excluded the answer was indistinguishable from a book that never
+        contained it — and that report cost a second embedding of the query and
+        a second scan of the vectors, on the screen where seconds are felt. One
+        unbounded search says the same thing by containing it.
 
-        A position of zero therefore bounds the search at the beginning of the
-        book rather than leaving it unbounded. Zero means nothing has been
-        heard, and that is precisely when the whole book is ahead of them;
-        reading it as "no limit" would turn the guard off on every book the page
-        has never played, and have the agent free to quote the ending of
-        something they are three chapters into.
-
-        Not a status of done either — that says the rendering finished, not that
-        anybody listened to it.
+        The guard did not go anywhere; it moved one step later and got stricter.
+        Each hit past :meth:`position_ms` reaches the model as an id and a time
+        and nothing else — see :func:`somnia.agent.build_tools` — and reaches
+        the page as a row whose words are behind a press. The words of a passage
+        nobody has heard are never in the model's context at any point, which is
+        a stronger guarantee than the prompt could give and the reason this is
+        safe on a small model.
         """
-        before_ms: int | None = None
-        if spoiler_free:
-            position = self.get_position(gid)
-            if position is None or not position.finished:
-                # Include the sentence being spoken, not just what precedes it.
-                before_ms = self.position_ms(gid) + 60_000
-
-        hits = find_passage(
-            self._conn, self.embedder, gid, query, k=k, before_ms=before_ms
+        return Search(
+            hits=find_passage(self._conn, self.embedder, gid, query, k=k),
+            here_ms=self.position_ms(gid),
         )
-        better_ahead: Passage | None = None
-        # `look_ahead` is what stops this being paid for by callers that throw
-        # it — and it is not called `ahead` because eight lines down `ahead` is the
-        # list of passages past the mark, and one name for a bool and a list of
-        # Passages is a trap set for whoever edits this next.
-        # away. Working it out means a second search of the whole book — another
-        # embedding of the query and another vector scan — and `recall` drops
-        # the answer on the way out, deliberately and at length: see its
-        # docstring for why a question must not be followed by a nudge towards
-        # somewhere further on. So it was buying a spoiler it then refused to
-        # tell anybody, twice a night, on the screen where seconds are felt.
-        if before_ms is not None and look_ahead:
-            whole_book = find_passage(self._conn, self.embedder, gid, query, k=k)
-            ahead = [p for p in whole_book if p.start_ms > before_ms]
-            floor = hits[0].distance if hits else float("inf")
-            if ahead and ahead[0].distance < floor:
-                better_ahead = ahead[0]
-        return Search(hits=hits, searched_to_ms=before_ms, better_ahead=better_ahead)
 
     def recall(self, gid: int, question: str, k: int = 5) -> Recall:
         """Read the book back, to answer a question about it in words.
 
-        The same search underneath — there is only one index, and a question and
-        a request to be moved genuinely do look for the same passages — but what
-        comes back is framed for saying rather than for going, and two things
-        are taken away on the way out.
+        The same index underneath — a question and a request to be moved
+        genuinely do look for the same passages — but this one stops at the
+        line, and :meth:`find_passage` no longer does at all. That is the whole
+        difference between them now, and it is the right way round.
 
-        ``better_ahead`` is dropped, and dropping it is the reason this method
-        exists rather than the agent simply ignoring the field. It is a nudge
-        towards offering a place further on, which is exactly right for "take me
-        there" and exactly wrong for "who is he": the answer to a question about
-        somebody who has not appeared yet is that they have not appeared yet,
-        and it must not be followed by a list of places, because the reason they
-        asked is that they wanted to carry on listening. It is also a spoiler in
-        its own right. "He hasn't come up yet in what you've heard" and "he
-        comes up an hour and a half from here" are different sentences, and the
-        second one tells them the character arrives — which is a thing about the
-        book they have not heard yet, and therefore not ours to say.
+        A search reads past the line because a place is not a spoiler: it comes
+        back as a time to be offered, with its words held back until a thumb
+        asks for them. An answer has no such shape. It is prose, said out loud,
+        with nobody's finger on it — so there is nothing here to hold back
+        *with*, and the only safe bound is on what is read in the first place.
 
-        There is no ``allow_spoilers`` either, and there will not be one. A move
-        past the mark cannot be done spoiler-free — going there is hearing it —
-        so consent is the only way to serve "take me to the end", and the tool
-        takes it. An answer has no such necessity: whatever they are asking
-        about, listening on tells them, and a yes given at 2am by somebody half
-        asleep is the least deliberate consent in the whole system. So this one
-        never widens, and a question about what has not happened yet is answered
-        with the truth that it has not happened yet.
+        Nothing is offered off the back of one either. The answer to a question
+        about somebody who has not appeared yet is that they have not appeared
+        yet, and it must not be followed by a list of places, because the reason
+        they asked is that they wanted to carry on listening. Saying where they
+        would have to go is itself a spoiler: "he hasn't come up yet in what
+        you've heard" and "he comes up an hour and a half from here" are
+        different sentences, and the second tells them the character arrives.
+
+        There is no ``allow_spoilers`` here and there will not be one. Somebody
+        who wants to know what happens later can ask to be taken there, which is
+        a deliberate act with a screen in front of it; a yes given at 2am by
+        somebody half asleep is the least deliberate consent in the system, and
+        this tool declines to collect one.
         """
-        search = self.find_passage(
-            gid, question, k=k, spoiler_free=True, look_ahead=False
+        before_ms: int | None = None
+        position = self.get_position(gid)
+        if position is None or not position.finished:
+            # Include the sentence being spoken, not just what precedes it.
+            before_ms = self.position_ms(gid) + 60_000
+        return Recall(
+            passages=find_passage(
+                self._conn, self.embedder, gid, question, k=k, before_ms=before_ms
+            ),
+            searched_to_ms=before_ms,
         )
-        return Recall(passages=search.hits, searched_to_ms=search.searched_to_ms)
 
     def offer_positions(self, gid: int, chunk_ids: list[int]) -> Offer | Refused:
         """Build the list of places to put on screen, from passages that matched.
@@ -500,15 +490,12 @@ class Library:
                 start_ms=int(row["start_ms"]),
                 chapter_idx=int(row["chapter_idx"]),
                 chapter_title=self._chapter_title(gid, int(row["chapter_idx"])),
-                # Not `>`. A chunk that begins exactly where they are is the
-                # sentence they have not heard yet, and on a book nobody has
-                # started — position 0, which is every book until it is played —
-                # `>` would print the opening words in the clear. No slack
-                # either: the search bound is the position plus a minute (see
-                # find_passage), so a passage inside that minute is in range to
-                # be found and still covered up here. That is the safe
-                # direction, and it costs one press.
-                ahead=int(row["start_ms"]) >= here,
+                # The same call the search made about the same passage when it
+                # decided whether to show the model its words. Two ends of one
+                # rule, and they must agree: a row drawn as heard whose text the
+                # model was never given reads as a bug, and a row drawn as ahead
+                # whose text the model was given is the guard with a hole in it.
+                ahead=ahead_of(int(row["start_ms"]), here),
                 text=shorten(str(row["text"]), CANDIDATE_TEXT_CHARS),
             )
             for row in rows[:CANDIDATE_MAX]

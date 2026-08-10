@@ -885,21 +885,27 @@ def test_what_the_model_is_told_after_a_list_holds_no_time_and_no_words(
     assert len(ready.offers) == 1
 
 
-def test_a_search_names_a_passage_it_can_offer_without_giving_the_ahead_one_away(
+def test_a_search_hands_over_the_words_it_may_and_only_a_time_for_the_rest(
     searchable: Searchable,
 ) -> None:
-    """The id is the whole of the new handle, and the only one that ahead one gets.
+    """The guard, in the one place it now lives: the shape of a result line.
 
-    A list may only name passages a search really returned, and an id is how
-    the model says which. For the passage past the mark that is all it is ever
-    told beside the time — not the words, not the chapter, not the position —
-    because offering it is the one thing that can be done with a passage nobody
-    has heard, and offering it needs nothing more.
+    ADR 11 took the bound off the search, so the whole book comes back — and the
+    words of anywhere they have not reached are dropped here, on the way to the
+    model, rather than never having been looked up. That is a stronger promise
+    than the prompt could make. The text of an unheard passage is never in the
+    context, so there is nothing there for a model that reads its instructions
+    carelessly to narrate.
+
+    An id and a time, and nothing else. Not the words, not the chapter title —
+    "47 Hard Times" gives away as much as the sentence under it — and not the
+    position, which is on no line at all now that offers are made by id.
     """
-    ahead = searchable.library.find_passage(
+    search = searchable.library.find_passage(
         271, "a later scene the listener has not reached"
-    ).better_ahead
-    assert ahead is not None
+    )
+    ahead = search.hits[0]
+    assert search.ahead(ahead)
 
     result = wired(searchable).call(
         "find_passage",
@@ -907,11 +913,19 @@ def test_a_search_names_a_passage_it_can_offer_without_giving_the_ahead_one_away
         description="a later scene the listener has not reached",
     )
 
-    assert f"id={place(searchable, 10_000)}, position_ms=10000" in result
-    assert f"(id={ahead.chunk_id})" in result
+    assert f"id={ahead.chunk_id}" in result
     assert "a later scene the listener has not reached" not in result
     assert "47 Hard Times" not in result
     assert "700000" not in result
+    assert "position_ms" not in result
+
+    # And the one behind them keeps everything, because they have heard it.
+    heard = wired(searchable).call(
+        "find_passage", gid=271, description="the meadow with the pond"
+    )
+    assert f"id={place(searchable, 10_000)}" in heard
+    assert "the meadow with the pond" in heard
+    assert "01 My Early Home" in heard
 
 
 def test_a_turn_that_offered_a_list_will_not_also_move_the_book(
