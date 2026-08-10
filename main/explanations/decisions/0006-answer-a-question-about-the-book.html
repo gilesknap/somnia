@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>6. Answer a question about the book, out of what you know, as far as they have listened &#8212; somnia 0.8.dev72+g274f4cc9f documentation</title>
+    <title>6. Answer a question about the book, out of what you know, as far as they have listened &#8212; somnia 0.8.dev79+g187524ec5 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=50b56472"></script>
+    <script src="../../_static/documentation_options.js?v=b29d4a1d"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -433,6 +433,9 @@
 <li class="toctree-l2"><a class="reference internal" href="0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0009-drop-audiobookshelf.html">9. Drop Audiobookshelf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0010-draw-the-line-where-they-are.html">10. Draw the spoiler line where they are</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0011-the-guard-belongs-on-the-row.html">11. Put the guard on the row, not on the search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0012-one-way-a-goto-ends.html">12. One way a goto ends</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../design.html">Design decisions</a></li>
@@ -503,6 +506,21 @@
 <h1>6. Answer a question about the book, out of what you know, as far as they have listened<a class="headerlink" href="#answer-a-question-about-the-book-out-of-what-you-know-as-far-as-they-have-listened" title="Link to this heading">#</a></h1>
 <section id="status">
 <h2>Status<a class="headerlink" href="#status" title="Link to this heading">#</a></h2>
+<p>Amended by <a class="reference internal" href="0012-one-way-a-goto-ends.html"><span class="std std-doc">ADR 12</span></a> in one particular: the two
+refusals below — <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> each declining a turn that has
+answered — are one refusal now, because a goto has one tool. What that refusal
+protects is exactly what this record says it protects.</p>
+<p>Amended by <a class="reference internal" href="0011-the-guard-belongs-on-the-row.html"><span class="std std-doc">ADR 11</span></a>, which widens the gap
+this record opened between the two tools rather than narrowing it: <code class="docutils literal notranslate"><span class="pre">find_passage</span></code>
+now reads the whole book and holds back the <em>words</em> of anywhere they have not
+reached, while <code class="docutils literal notranslate"><span class="pre">recall</span></code> still stops at the line when it reads. The argument
+below against <code class="docutils literal notranslate"><span class="pre">recall</span></code> taking <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code> is unchanged and is now the only
+place that word appears in the reasoning — <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> has no such argument
+any more.</p>
+<p>Amended by <a class="reference internal" href="0010-draw-the-line-where-they-are.html"><span class="std std-doc">ADR 10</span></a>: the line a recall may
+not cross is the position rather than a high-water mark. What this record says
+about there being such a line, and about the answer being bounded by it rather
+than by what a tool handed back, is unchanged.</p>
 <p>Accepted. It reverses the strongest sentence in the system prompt — <em>Everything
 you say about a book must come from a tool result in this conversation</em> — which
 had been there since the agent was written, and replaces the bound it drew with
@@ -704,9 +722,10 @@ That is right — the ids it never received cannot be smuggled in from a
 conversation turn where nothing was offerable — and a second search is
 milliseconds.</p>
 <p><strong>Nothing about answering touches the night.</strong> <code class="docutils literal notranslate"><span class="pre">recall</span></code> issues SELECTs only, by
-way of <code class="docutils literal notranslate"><span class="pre">find_passage</span></code>, so <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>, <code class="docutils literal notranslate"><span class="pre">position_seq</span></code> and above all
-<code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> are exactly as they were. Reading the book back to answer a
-question is not listening to it.</p>
+way of <code class="docutils literal notranslate"><span class="pre">find_passage</span></code>, so <code class="docutils literal notranslate"><span class="pre">position_ms</span></code> and <code class="docutils literal notranslate"><span class="pre">position_seq</span></code> are exactly as they
+were. Reading the book back to answer a question is not listening to it — and
+since ADR 10 the first of those is the guard itself, so a question that nudged
+it would widen what the next question may be answered from.</p>
 </section>
 </section>
 

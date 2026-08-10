@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.8.dev72+g274f4cc9f documentation</title>
+    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.8.dev79+g187524ec5 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=50b56472"></script>
+    <script src="../../_static/documentation_options.js?v=b29d4a1d"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -433,6 +433,9 @@
 <li class="toctree-l2"><a class="reference internal" href="0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
 <li class="toctree-l2"><a class="reference internal" href="0009-drop-audiobookshelf.html">9. Drop Audiobookshelf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0010-draw-the-line-where-they-are.html">10. Draw the spoiler line where they are</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0011-the-guard-belongs-on-the-row.html">11. Put the guard on the row, not on the search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0012-one-way-a-goto-ends.html">12. One way a goto ends</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../design.html">Design decisions</a></li>
@@ -557,6 +560,27 @@ argues against — there is no identifier to guess and no way of asking that
 returns anything the sound has not already said out loud. If the request fails or
 the book has nothing indexed, the row offers no press at all, which is what it
 was before.</p>
+<p>Amended by <a class="reference internal" href="0012-one-way-a-goto-ends.html"><span class="std std-doc">ADR 12</span></a>, which takes away the choice
+this record hands the model: a goto now always ends in <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code>, and
+whether that draws the list or simply moves the book is decided by the server
+from the count and the guard. “A confident single hit is untouched” below is
+still true of what the listener sees — one place they have already heard moves
+the book with no screen in front of it — but it is no longer the model that
+works that out. <code class="docutils literal notranslate"><span class="pre">move_to</span></code> is gone from the tool list, and with it the second
+half of the mutual exclusion described under <em>Consequences</em>.</p>
+<p>Amended by <a class="reference internal" href="0011-the-guard-belongs-on-the-row.html"><span class="std std-doc">ADR 11</span></a>, which takes away
+<code class="docutils literal notranslate"><span class="pre">Search.better_ahead</span></code> — called “the crux of the guard” below — along with the
+bound that made it necessary. A search now reads the whole book and the guard is
+applied to what may be said of each hit, so the case built below out of
+<code class="docutils literal notranslate"><span class="pre">better_ahead</span></code> firing on nearly every search of a barely-played book is answered
+by there being no such field: every plausible place goes on the list, covered.
+Everything this record decides about the list itself stands.</p>
+<p>Amended by <a class="reference internal" href="0010-draw-the-line-where-they-are.html"><span class="std std-doc">ADR 10</span></a>, which takes away the
+high-water mark this record measures <code class="docutils literal notranslate"><span class="pre">ahead</span></code> against. Everything below that says
+<code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> now reads <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>, and the sentence about the two ends of
+somnia not disagreeing about a boundary case is stronger for it: there is one
+number left to disagree about. What the guard costs and what it gives up moved
+with it, and are argued there.</p>
 <p>Amended once more by
 <a class="reference internal" href="0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR 6</span></a>, in one particular. The
 rejected alternative below rests part of its case on <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> being both

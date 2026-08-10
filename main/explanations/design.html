@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design decisions &#8212; somnia 0.8.dev72+g274f4cc9f documentation</title>
+    <title>Design decisions &#8212; somnia 0.8.dev79+g187524ec5 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=50b56472"></script>
+    <script src="../_static/documentation_options.js?v=b29d4a1d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -60,7 +60,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Reference" href="../reference.html" />
-    <link rel="prev" title="9. Drop Audiobookshelf" href="decisions/0009-drop-audiobookshelf.html" />
+    <link rel="prev" title="12. One way a goto ends" href="decisions/0012-one-way-a-goto-ends.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -433,6 +433,9 @@
 <li class="toctree-l2"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0009-drop-audiobookshelf.html">9. Drop Audiobookshelf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0010-draw-the-line-where-they-are.html">10. Draw the spoiler line where they are</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0011-the-guard-belongs-on-the-row.html">11. Put the guard on the row, not on the search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0012-one-way-a-goto-ends.html">12. One way a goto ends</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Design decisions</a></li>
@@ -689,7 +692,7 @@ way of ever catching up.</p>
 row rather than replacing it, and updates only what a render knows — title,
 authors, voice, and that it is running. It used to be <code class="docutils literal notranslate"><span class="pre">INSERT</span> <span class="pre">OR</span> <span class="pre">REPLACE</span></code>,
 which is <code class="docutils literal notranslate"><span class="pre">DELETE</span></code> then <code class="docutils literal notranslate"><span class="pre">INSERT</span></code>, so restarting a render that died wiped the
-position and the mark, and left the count below the one a still-open page was
+position, and left the count below the one a still-open page was
 holding: every report that page made for the rest of the night was refused, and
 nothing was written again until it was reloaded.</p>
 <p><strong>Nothing outside somnia is told where the book is.</strong> A courtesy write to
@@ -698,53 +701,58 @@ position nobody read, and it had already stopped running on the live box —
 the token was commented out and nothing noticed
 (<a class="reference internal" href="decisions/0009-drop-audiobookshelf.html"><span class="std std-doc">ADR 9</span></a>). The row is the record, and
 there is nothing anywhere else for it to disagree with.</p>
-<p><strong>The spoiler guard is bounded by the furthest point ever played through</strong>, not
-by the current position, because the agent can move that position anywhere:
-backwards, where being taken to chapter two must not un-hear chapters three to
-twenty, and forwards, where treating where they were put as what they have
-heard would unlock the whole book behind a single move. <code class="docutils literal notranslate"><span class="pre">books.heard_to_ms</span></code>
-records the mark and only ever rises, and it rises only as far as sound really
-came out of the speaker. Only the page can know that — a skip and a stretch of
-listening both arrive at the server as a position further on than the last one
-— so every report says how much of the book has actually played since the last
-report the server took, counted off the media clock, and the mark rises to the
-reported position only when the report stands no further past the mark than
-that playback accounts for. The wall clock is a ceiling on the claim and not
-the answer to it (<a class="reference internal" href="architecture.html"><span class="std std-doc">Architecture</span></a> has the arithmetic). A pause
-raises the mark like anything else, because a pause is the best evidence in the
-protocol that they listened right up to it; and playback the server never
-acknowledged stays owed and is sent again, because a mark left even a heartbeat
-behind the position refuses every report after it and never recovers — except
-across a jump, where it is given up instead, since it was earned over the
-ground behind the jump and would otherwise be spent on the distance by the
-report from the far side. Two costs, both chosen: after a skip forward the mark
-stops until they go back over it, and a book nobody has played is bounded at
-its start rather than left unbounded, so on night one the passage they asked
-for is somewhere to be offered rather than somewhere to be played from. Failing
-that way costs a press in the dark; failing the other way costs them the book.</p>
-<p>A bounded search does not simply come back empty. It also runs unbounded and
-says whether a closer match lies past the mark — never what it is — which is
-what lets the agent offer rather than shrug, and <code class="docutils literal notranslate"><span class="pre">find_passage(allow_spoilers)</span></code>
-is the way through, asked for by them and by nobody else.</p>
-<p><strong>The mark is also how far the agent may speak</strong>, which used to be a different
+<p><strong>The spoiler guard is bounded by where the book is</strong>, and by nothing else
+(<a class="reference internal" href="decisions/0010-draw-the-line-where-they-are.html"><span class="std std-doc">ADR 10</span></a>). <code class="docutils literal notranslate"><span class="pre">books.position_ms</span></code>
+is the line, a book with no position is bounded at its start rather than left
+unbounded, and there is no second number anywhere to keep in step with it.</p>
+<p>It was a high-water mark until then — the furthest point ever played <em>through</em>,
+raised only as far as sound really came out of the speaker, which every report
+had to prove by counting the media clock. The argument for it was the rewind:
+being taken back to chapter two must not un-hear chapters three to twenty. The
+argument against it was what it cost to be sure. A report standing further past
+the mark than it had playback to show for could not be credited, and after any
+forward skip every report stands past a stretch nothing was heard over — so one
+press of +30 stopped the mark for the rest of the book, and the gap in front of
+it only grew. Every question afterwards was answered against the place they
+last listened straight through, which after an evening of skipping is nowhere
+near where they are, and the agent spent the night saying that things behind
+them lay ahead.</p>
+<p>So the rewind is paid for instead, and it is the cheaper of the two: a move
+backwards really does make the stretch above them unsayable, and playing on
+puts it back a minute at a time. A skip forward is taken as meant — somebody
+who skips is somebody who decided to — and what it steps over goes with it.</p>
+<p><strong>A search is not bounded at all</strong>
+(<a class="reference internal" href="decisions/0011-the-guard-belongs-on-the-row.html"><span class="std std-doc">ADR 11</span></a>). A place is not a
+spoiler — a time on the clock says nothing about what happens at it — so
+<code class="docutils literal notranslate"><span class="pre">find_passage</span></code> reads the whole book, and the guard is applied to what may be
+said and shown about each hit instead. A hit at or past the line reaches the
+model as a time and an id, with no words and no chapter title; a hit behind it
+arrives whole. So the words of a passage nobody has heard are never in the
+model’s context at any point, which is a stronger thing to be able to say than
+any prompt could enforce, and it is what makes every place in the book reachable
+by one covered press instead of by a consent argument.</p>
+<p><code class="docutils literal notranslate"><span class="pre">recall</span></code> is the tool that stays bounded, and for the reason the two are separate
+at all: an answer is prose, said out loud, with nobody’s finger on it, so there
+is nothing to hold it back with and the only safe bound is on what is read.</p>
+<p><strong>The line is also how far the agent may speak</strong>, which used to be a different
 rule entirely. The prompt’s strongest line was that everything said about a book
 had to come from a tool result in this conversation, and it was doing two jobs
 at once — the guard, and a fence against the model’s own knowledge — by drawing
 one fence around the retrieval. <a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR
 6</span></a> takes them apart. The
 agent may now answer a question about a book out of what it already knows, and
-the line it may not cross is the mark: everything behind it may be talked about
+the line it may not cross is that one: everything behind it may be talked about
 freely, nothing in front of it may be said at all, and a character who has not
 appeared yet gets “he hasn’t come up yet in what you’ve heard” and nothing after
-that sentence. What may be <em>read</em> and what may be <em>said</em> are two different
-distances — <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code> moves the first and never the second, which was
-always true and is now the sentence the paragraph turns on. The tool that
-answers, <code class="docutils literal notranslate"><span class="pre">recall</span></code>, is bounded exactly as a search is, hands back no <code class="docutils literal notranslate"><span class="pre">id=</span></code> and no
-<code class="docutils literal notranslate"><span class="pre">position_ms</span></code>, drops <code class="docutils literal notranslate"><span class="pre">better_ahead</span></code> rather than reporting it, and marks the turn
-so that <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> both refuse: asking who somebody is used
+that sentence. What may be <em>found</em> and what may be <em>said</em> are two different
+distances, and ADR 11 is what stopped that being a rule the model had to hold:
+a search reads everywhere, and the words of anywhere they have not reached
+simply never arrive. The tool that answers, <code class="docutils literal notranslate"><span class="pre">recall</span></code>, is the one still bounded
+when it reads; it hands back no <code class="docutils literal notranslate"><span class="pre">id=</span></code> and no <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>, offers nothing past
+the line, and marks the turn so that <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> refuses: asking who somebody is used
 to drag the audio to a passage about them, and it is the tools that stop it
 rather than a paragraph asking them not to. What the tools cannot hold is the
-turn where nothing was called at all — the mark is a number the model only
+turn where nothing was called at all — the line is a number the model only
 learns by asking for it, so an answer given without looking is bounded by
 nothing, where under the old rule it was impossible. That one the prompt has to
 carry, and it does: look before you speak, and hardest on the question you are
@@ -758,7 +766,7 @@ general way to read unheard book text, one guessed integer wide, sitting on the
 server for the life of the deployment. <code class="docutils literal notranslate"><span class="pre">/api/passage/{gid}/{ms}</span></code> is the one
 exception and proves the rule — addressed by a point on the book’s clock rather
 than by an identifier, and answering out of a statement whose own <code class="docutils literal notranslate"><span class="pre">WHERE</span></code>
-carries <code class="docutils literal notranslate"><span class="pre">start_ms</span> <span class="pre">&lt;</span> <span class="pre">heard_to_ms</span></code>, so there is nothing to guess and no refusal to
+carries <code class="docutils literal notranslate"><span class="pre">start_ms</span> <span class="pre">&lt;</span> <span class="pre">position_ms</span></code>, so there is nothing to guess and no refusal to
 read a frontier off.</p>
 </section>
 <section id="getting-through-the-night-is-the-page-s-job-now">
@@ -836,17 +844,19 @@ not merely a separate connection is
 waiting to be rendered as well as what exists, since a book asked for
 tonight has no <code class="docutils literal notranslate"><span class="pre">books</span></code> row for hours), <code class="docutils literal notranslate"><span class="pre">search_catalog</span></code>, <code class="docutils literal notranslate"><span class="pre">add_book</span></code> (which
 writes a queue row and starts nothing, so what it can honestly say is where
-in the line the book landed), <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> (places to be taken to, bounded
-by the guard unless they say otherwise), <code class="docutils literal notranslate"><span class="pre">recall</span></code> (the same search framed to
-be answered from, with no place in it and no way past the guard),
-<code class="docutils literal notranslate"><span class="pre">get_position</span></code> (reads somnia’s own record of where they are), <code class="docutils literal notranslate"><span class="pre">move_to</span></code>
-(writes it, and counts the move so the page follows), and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code>
-(writes nothing, and puts several places on the screen for them to choose
-between). The model is never told to tell them to press play, because there is
-nothing to press. Which <em>book</em> they meant is still one short spoken question;
-which <em>passage</em> they meant never is; and whether they wanted moving or telling
-is the model’s to judge, which it declares by which of the two searches it
-calls.</p></li>
+in the line the book landed), <code class="docutils literal notranslate"><span class="pre">find_passage</span></code> (places to be taken to, the whole
+book, with the words of anywhere they have not reached left off the result),
+<code class="docutils literal notranslate"><span class="pre">recall</span></code> (the same index framed to be answered from, stopping at the line,
+with no place in it and no way past it), <code class="docutils literal notranslate"><span class="pre">get_position</span></code> (reads somnia’s own
+record of where they are), and <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code>, which is the one way a goto
+ends: several places go on the screen for a thumb, and a single place they
+have already heard simply takes them there
+(<a class="reference internal" href="decisions/0012-one-way-a-goto-ends.html"><span class="std std-doc">ADR 12</span></a>). The model is never told to
+tell them to press play, because there is nothing to press. Which <em>book</em> they
+meant is still one short spoken question; which <em>passage</em> they meant never is;
+whether they wanted moving or telling is the model’s to judge, which it
+declares by which of the two searches it calls; and whether a goto ends in a
+screen or a jump is not its judgement at all.</p></li>
 <li><p>2am surface: the installed PWA, which is the player as well as the
 conversation, served over the tailnet. The server runs the agent loop
 (Anthropic Python SDK tool runner) with an API key held server-side — no
@@ -867,7 +877,7 @@ is gone: if a name is ever read as a book title again, Sonnet is one
 environment variable away. See <code class="docutils literal notranslate"><span class="pre">somnia/config.py</span></code> for the table.</p></li>
 <li><p><strong>The spoiler guard is two things and only one of them is sound.</strong> In that
 same run, retrieval never once crossed the line — checked mechanically, every
-passage handed to the model began before the mark. What leaked, on both
+passage handed to the model began before the line. What leaked, on both
 models, at two to four turns in a hundred, was the model’s own knowledge of
 the book. That is precisely the surface ADR 6 opened when it let the agent
 answer out of what it already knows: everything behind the line is a prompt
@@ -968,12 +978,12 @@ query (“there are three horses that die in this — which one?”).</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="decisions/0009-drop-audiobookshelf.html"
+       href="decisions/0012-one-way-a-goto-ends.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">9. Drop Audiobookshelf</p>
+        <p class="prev-next-title">12. One way a goto ends</p>
       </div>
     </a>
     <a class="right-next"

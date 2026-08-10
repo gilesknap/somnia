@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; somnia 0.8.dev72+g274f4cc9f documentation</title>
+    <title>Architecture &#8212; somnia 0.8.dev79+g187524ec5 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=50b56472"></script>
+    <script src="../_static/documentation_options.js?v=b29d4a1d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -789,6 +789,9 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0009-drop-audiobookshelf.html">9. Drop Audiobookshelf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0010-draw-the-line-where-they-are.html">10. Draw the spoiler line where they are</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0011-the-guard-belongs-on-the-row.html">11. Put the guard on the row, not on the search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0012-one-way-a-goto-ends.html">12. One way a goto ends</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="design.html">Design decisions</a></li>
@@ -1024,8 +1027,7 @@ chapter timelines, the indexed text windows, and the vectors.</p>
     text status &quot;pending, rendering, done&quot;
     int total_ms &quot;grows while rendering&quot;
     int chapters_total &quot;how many it HAS; 0 = unknown&quot;
-    int heard_to_ms &quot;high-water mark&quot;
-    int position_ms &quot;nullable: never started&quot;
+    int position_ms &quot;nullable: never started. Also the spoiler guard's line&quot;
     int position_seq &quot;agent moves only&quot;
     text position_at &quot;last report taken, or opened; newest is last_gid&quot;
     text created_at &quot;brought in; the Workshop's other sort&quot;
@@ -1070,7 +1072,14 @@ chapter timelines, the indexed text windows, and the vectors.</p>
   books ||--o{ chunks : &quot;index&quot;
   chunks ||--|| vec_chunks : &quot;rowid&quot;
   books ||--o{ queue : &quot;every time it was asked for&quot;
-    </pre><p><code class="docutils literal notranslate"><span class="pre">queue</span></code> has no foreign key to <code class="docutils literal notranslate"><span class="pre">books</span></code>, and that is not an oversight: a book is
+    </pre><p>That is what somnia reads and writes, which is not quite the same list as what
+<code class="docutils literal notranslate"><span class="pre">PRAGMA</span> <span class="pre">table_info</span></code> would say. A database written before ADR 10 also carries
+<code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code>, and nothing removes it: a column nobody selects costs a few bytes
+a row, where <code class="docutils literal notranslate"><span class="pre">DROP</span> <span class="pre">COLUMN</span></code> costs a rewrite of the one table somnia cannot lose.
+It is not drawn above because a database made today has no such column, and a
+diagram that showed one would be wrong about every new install to be right about
+the old ones.</p>
+<p><code class="docutils literal notranslate"><span class="pre">queue</span></code> has no foreign key to <code class="docutils literal notranslate"><span class="pre">books</span></code>, and that is not an oversight: a book is
 asked for before it exists, and its <code class="docutils literal notranslate"><span class="pre">books</span></code> row is not written until the parse
 finishes. A partial unique index on <code class="docutils literal notranslate"><span class="pre">gid</span></code> over the waiting and rendering states
 is what keeps one live job per book — enforced by the database rather than by a
@@ -1112,23 +1121,23 @@ to refuse.</p>
   P-&gt;&gt;PL: GET /api/books
   PL--&gt;&gt;P: last_gid
   P-&gt;&gt;PL: GET /api/book/{gid}
-  PL--&gt;&gt;P: timeline, position, heard_to_ms
+  PL--&gt;&gt;P: timeline, position
   P-&gt;&gt;PL: GET /api/stream/{gid}/{n}, Range
   Note over P,PL: one file for the whole book so far —&lt;br&gt;a chapter at a time is the fallback
 
   loop every 15s, and at every jump and stop
-    P-&gt;&gt;PL: position_ms, seq, played_ms
+    P-&gt;&gt;PL: position_ms, seq
     PL-&gt;&gt;DB: UPDATE ... WHERE position_seq = ?
-    PL--&gt;&gt;P: accepted, heard_to_ms
+    PL--&gt;&gt;P: accepted, seq
   end
 
   Note over P,AN: &quot;where does the horse die?&quot;
   P-&gt;&gt;AG: POST /api/ask
   AG-&gt;&gt;AN: tool runner turn
   AN-&gt;&gt;AG: find_passage
-  AG-&gt;&gt;DB: search, bounded at heard_to_ms
-  AN-&gt;&gt;AG: move_to
-  AG-&gt;&gt;DB: position_seq + 1
+  AG-&gt;&gt;DB: search, whole book
+  AN-&gt;&gt;AG: offer_positions
+  AG-&gt;&gt;DB: position_seq + 1, or a list to the page
   AG--&gt;&gt;P: reply, and where to go
   P-&gt;&gt;P: jump there and play
 
@@ -1148,36 +1157,35 @@ touch is in <a class="reference internal" href="design.html"><span class="std st
 </section>
 <section id="how-far-a-question-may-see">
 <h2>How far a question may see<a class="headerlink" href="#how-far-a-question-may-see" title="Link to this heading">#</a></h2>
-<p>The spoiler guard is bounded by the <strong>furthest point ever played through</strong>, not
-by where they are now, because the agent can move the position anywhere. Only
-the page can tell a skip from a stretch of listening, so every report says how
-much audio really came out of the speaker since the last one taken.</p>
+<p>The spoiler guard is bounded by <strong>where the book is</strong>, and by nothing else. One
+column, written by the page’s own reports and by an agent move, read by every
+search and by the one route that hands back book text.</p>
 <pre  class="mermaid">
         flowchart TD
-  R[&quot;a report arrives: position_ms, and the playback behind it&quot;] --&gt; C{&quot;is it backed by playback that really happened?&quot;}
-  C -- yes --&gt; U[&quot;the mark rises to position_ms&quot;]
-  C -- no --&gt; K[&quot;the mark stands — a skip is not listening&quot;]
-  U --&gt; S[&quot;a search is bounded at the mark + 60 seconds&quot;]
-  K --&gt; S
-  S --&gt; Q{&quot;does a closer match lie past the bound?&quot;}
-  Q -- yes --&gt; O[&quot;say it is ahead of them and offer to go —&lt;br&gt;never what happens there&quot;]
-  Q -- no --&gt; A[&quot;answer from what they could have heard&quot;]
-    </pre><p>The comparison allows five seconds of slack, and takes the smaller of the
-playback claimed and the wall clock since the last accepted report. The clock is
-a ceiling on the claim, not the answer to it: a phone asleep in a pocket for
-eight hours banks eight hours of clock and no listening at all. Because the
-playback appears on both sides of the comparison, the slack <em>is</em> the largest
-jump that can be laundered as listening — which is why it sits well below
-thirty seconds, the smallest forward jump the page has a button for. Two costs
-are accepted, and <a class="reference internal" href="design.html"><span class="std std-doc">design.md</span></a> argues both.</p>
-<p>The mark bounds what is <em>said</em> as well as what is searched, and those are two
-different distances. The agent may answer a question about a book out of what it
-already knows of it, as far as that line and no further
-(<a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR 6</span></a>); <code class="docutils literal notranslate"><span class="pre">allow_spoilers</span></code>
-lets it read past the line to pick the right place to send somebody, and never
-lets it describe what it read. The question tool, <code class="docutils literal notranslate"><span class="pre">recall</span></code>, is bounded by the
-same code as a search and marks the turn so that <code class="docutils literal notranslate"><span class="pre">move_to</span></code> and
-<code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> refuse — a question must not cost the listener their place.</p>
+  R[&quot;a report arrives: position_ms&quot;] --&gt; U[&quot;the line moves to it — forwards or back&quot;]
+  U --&gt; F[&quot;find_passage reads the whole book&quot;]
+  U --&gt; C[&quot;recall reads as far as the line + 60 seconds&quot;]
+  F --&gt; H{&quot;is this hit past the line?&quot;}
+  H -- yes --&gt; T[&quot;the model gets a time and an id —&lt;br&gt;no words, no chapter&quot;]
+  H -- no --&gt; W[&quot;the model gets the passage whole&quot;]
+  C --&gt; A[&quot;answer from what they could have heard,&lt;br&gt;and offer nothing past it&quot;]
+    </pre><p>It was a high-water mark until <a class="reference internal" href="decisions/0010-draw-the-line-where-they-are.html"><span class="std std-doc">ADR
+10</span></a>, raised only over ground the
+sound had really covered — which every report had to prove by counting its own
+playback off the media clock, against a wall-clock ceiling and five seconds of
+slack. It could not be made to work: a report standing further past the mark
+than it had playback to show for could not be credited, and every report after
+a forward skip is such a report, so one press of +30 stopped the mark for the
+rest of the book. <a class="reference internal" href="design.html"><span class="std std-doc">design.md</span></a> argues what replaced it and what that
+gives up.</p>
+<p>The line bounds what is <em>said</em>, not what may be found. The agent may answer a
+question about a book out of what it already knows of it, as far as that line
+and no further (<a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html"><span class="std std-doc">ADR 6</span></a>) —
+and it is never handed the words of a passage past it, so there is nothing there
+to be careless with (<a class="reference internal" href="decisions/0011-the-guard-belongs-on-the-row.html"><span class="std std-doc">ADR 11</span></a>).
+The question tool, <code class="docutils literal notranslate"><span class="pre">recall</span></code>, is the one that stops at the line when it reads,
+because prose has no press in front of it; it also marks the turn so that
+<code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> refuses — a question must not cost the listener their place.</p>
 </section>
 <section id="what-the-page-has-to-survive">
 <h2>What the page has to survive<a class="headerlink" href="#what-the-page-has-to-survive" title="Link to this heading">#</a></h2>

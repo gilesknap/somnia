@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architectural Decision Records &#8212; somnia 0.8.dev72+g274f4cc9f documentation</title>
+    <title>Architectural Decision Records &#8212; somnia 0.8.dev79+g187524ec5 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=50b56472"></script>
+    <script src="../_static/documentation_options.js?v=b29d4a1d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -433,6 +433,9 @@
 <li class="toctree-l2"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0009-drop-audiobookshelf.html">9. Drop Audiobookshelf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0010-draw-the-line-where-they-are.html">10. Draw the spoiler line where they are</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0011-the-guard-belongs-on-the-row.html">11. Put the guard on the row, not on the search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0012-one-way-a-goto-ends.html">12. One way a goto ends</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="design.html">Design decisions</a></li>
@@ -510,6 +513,9 @@
 <li class="toctree-l1"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 <li class="toctree-l1"><a class="reference internal" href="decisions/0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
 <li class="toctree-l1"><a class="reference internal" href="decisions/0009-drop-audiobookshelf.html">9. Drop Audiobookshelf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="decisions/0010-draw-the-line-where-they-are.html">10. Draw the spoiler line where they are</a></li>
+<li class="toctree-l1"><a class="reference internal" href="decisions/0011-the-guard-belongs-on-the-row.html">11. Put the guard on the row, not on the search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="decisions/0012-one-way-a-goto-ends.html">12. One way a goto ends</a></li>
 </ul>
 </div>
 <p>A record here is usually amended in place rather than superseded by a later
@@ -519,6 +525,10 @@ Records 3, 4 and 5 all carry amendments, and record 3 carries a retraction — a
 claim it made about the handset that turned out to have been checked only one
 way. The retraction is kept beside the claim on purpose. A decision record that
 quietly loses its mistakes is a record of what we would like to have decided.</p>
+<p>Records 10, 11 and 12 all amend 4 and 6, and none disturbs a conclusion: 10
+takes away the high-water mark both argue partly from, 11 takes the spoiler
+bound off the search and puts it on what may be said of each result, and 12
+takes away the model’s choice between moving the book and drawing the list.</p>
 <p>Record 9 is the exception that makes the rule worth stating. Dropping
 Audiobookshelf could have been done by editing it out of records 3 and 7, and
 that would have left record 3 arguing at length against a thing it never

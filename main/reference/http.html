@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.8.dev72+g274f4cc9f documentation</title>
+    <title>HTTP surface &#8212; somnia 0.8.dev79+g187524ec5 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=50b56472"></script>
+    <script src="../_static/documentation_options.js?v=b29d4a1d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -658,7 +658,7 @@ left with a player showing nothing.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">  </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">22320000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapters_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">&quot;chapters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span><span class="nt">&quot;idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;01. My Early Home&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;start_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">     </span><span class="nt">&quot;end_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">455000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;api/audio/271/0&quot;</span><span class="p">}</span>
@@ -668,10 +668,10 @@ left with a player showing nothing.</p>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">status</span></code> is <code class="docutils literal notranslate"><span class="pre">pending</span></code>, <code class="docutils literal notranslate"><span class="pre">rendering</span></code> or <code class="docutils literal notranslate"><span class="pre">done</span></code> — how the page tells a book still
-growing from a render that died. <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> is the high-water mark the
-spoiler guard uses, which is not <code class="docutils literal notranslate"><span class="pre">position_ms</span></code>: the agent can move someone
-backwards, and doing so must not shrink what may be searched. Chapter <code class="docutils literal notranslate"><span class="pre">url</span></code> is
-relative, because the app may be mounted under a path.</p>
+growing from a render that died. <code class="docutils literal notranslate"><span class="pre">position_ms</span></code> is where the book is, and since
+ADR 10 it is also the line the spoiler guard is drawn at; there is no second
+number, and the page has none to keep in step. Chapter <code class="docutils literal notranslate"><span class="pre">url</span></code> is relative,
+because the app may be mounted under a path.</p>
 <p><code class="docutils literal notranslate"><span class="pre">stream_url</span></code> is the whole of what has been read of this book down one URL, and
 <code class="docutils literal notranslate"><span class="pre">stream_ms</span></code> is how much book that is. The page loads it once and crosses every
 chapter inside it without touching the media element — see <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code>. It is <code class="docutils literal notranslate"><span class="pre">null</span></code> when there is nothing to join, which is a
@@ -728,8 +728,7 @@ orphaned for good.</p>
 remembered.</p>
 <p>Nothing else on the row is touched. <code class="docutils literal notranslate"><span class="pre">position_ms</span></code> stays where the last report
 put it, which is what makes the book resume exactly where it was left;
-<code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> stays because pressing a button has not heard anything; and
-<code class="docutils literal notranslate"><span class="pre">position_seq</span></code> stays because that counts agent moves and nothing else, so the
+and <code class="docutils literal notranslate"><span class="pre">position_seq</span></code> stays because that counts agent moves and nothing else, so the
 page’s next report is accepted rather than refused and the listener is not
 dragged anywhere. The two numbers in the answer are the book’s own, from before
 the press — they say where the page is about to resume, and the page then asks
@@ -853,9 +852,9 @@ with the answer that named it.</p>
 was never indexed, or a book nobody has played a second of. The row then offers
 no reveal, which is what it did before this existed.</p>
 <p>The bound is inside the statement: the row must satisfy
-<code class="docutils literal notranslate"><span class="pre">start_ms</span> <span class="pre">&lt;</span> <span class="pre">heard_to_ms</span></code>, applied to the row and not to the argument. Ask about
-a point an hour past where anybody has listened and the answer is the last
-passage that really was spoken — not a refusal, which is a frontier to read off.
+<code class="docutils literal notranslate"><span class="pre">start_ms</span> <span class="pre">&lt;</span> <span class="pre">position_ms</span></code>, applied to the row and not to the argument. Ask about
+a point an hour past where the book has got to and the answer is the last
+passage behind them — not a refusal, which is a frontier to read off.
 The words are cut to 240 characters, the same limit as the places the row sits
 among.</p>
 </section>
@@ -1001,20 +1000,21 @@ computes nothing.</p>
 <section id="post-api-position">
 <h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/position</span></code><a class="headerlink" href="#post-api-position" title="Link to this heading">#</a></h2>
 <p>The only position write the page makes.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;played_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tick&quot;</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tick&quot;</span><span class="p">}</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">played_ms</span></code> is sound that really came out of the speaker since the last report —
-not time that passed — and it is what may raise the heard-to mark. A body
-missing it claims no playback rather than an impossible amount of it.</p>
+<p>There was a <code class="docutils literal notranslate"><span class="pre">played_ms</span></code> here until ADR 10 — sound that really came out of the
+speaker since the last report, which was what a report had to prove before the
+high-water mark would follow it. Nothing reads it now. A page that still sends
+one is taken at its word about the position anyway, which matters because a
+phone holds the app it last loaded for as long as it likes.</p>
 <p><code class="docutils literal notranslate"><span class="pre">reason</span></code> is one of <code class="docutils literal notranslate"><span class="pre">load</span></code>, <code class="docutils literal notranslate"><span class="pre">play</span></code>, <code class="docutils literal notranslate"><span class="pre">tick</span></code>, <code class="docutils literal notranslate"><span class="pre">seek</span></code>, <code class="docutils literal notranslate"><span class="pre">chapter</span></code>, <code class="docutils literal notranslate"><span class="pre">pause</span></code>, <code class="docutils literal notranslate"><span class="pre">hidden</span></code>,
 <code class="docutils literal notranslate"><span class="pre">unload</span></code>, <code class="docutils literal notranslate"><span class="pre">ended</span></code>, <code class="docutils literal notranslate"><span class="pre">switch</span></code>. An unknown one is taken as a tick and noted in the
 journal. Nothing branches on which one it is: the list is a vocabulary rather
 than a decision, kept so that a word nobody wrote can be noticed on the way in.</p>
 <p><strong>Always 200</strong>, in one of three:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">  </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;moved&quot;</span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">  </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;moved&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gone&quot;</span><span class="p">}</span>
 </pre></div>
 </div>

@@ -2,6 +2,24 @@
 
 ## Status
 
+Amended by [ADR 12](0012-one-way-a-goto-ends.md) in one particular: the two
+refusals below — `move_to` and `offer_positions` each declining a turn that has
+answered — are one refusal now, because a goto has one tool. What that refusal
+protects is exactly what this record says it protects.
+
+Amended by [ADR 11](0011-the-guard-belongs-on-the-row.md), which widens the gap
+this record opened between the two tools rather than narrowing it: `find_passage`
+now reads the whole book and holds back the *words* of anywhere they have not
+reached, while `recall` still stops at the line when it reads. The argument
+below against `recall` taking `allow_spoilers` is unchanged and is now the only
+place that word appears in the reasoning — `find_passage` has no such argument
+any more.
+
+Amended by [ADR 10](0010-draw-the-line-where-they-are.md): the line a recall may
+not cross is the position rather than a high-water mark. What this record says
+about there being such a line, and about the answer being bounded by it rather
+than by what a tool handed back, is unchanged.
+
 Accepted. It reverses the strongest sentence in the system prompt — *Everything
 you say about a book must come from a tool result in this conversation* — which
 had been there since the agent was written, and replaces the bound it drew with
@@ -222,6 +240,7 @@ conversation turn where nothing was offerable — and a second search is
 milliseconds.
 
 **Nothing about answering touches the night.** `recall` issues SELECTs only, by
-way of `find_passage`, so `position_ms`, `position_seq` and above all
-`heard_to_ms` are exactly as they were. Reading the book back to answer a
-question is not listening to it.
+way of `find_passage`, so `position_ms` and `position_seq` are exactly as they
+were. Reading the book back to answer a question is not listening to it — and
+since ADR 10 the first of those is the guard itself, so a question that nudged
+it would widen what the next question may be answered from.
