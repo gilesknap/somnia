@@ -73,6 +73,12 @@ ROOT_CAP = 460
 # window carries the class and keeps the whole reading, exactly as the page does.
 PLAYER_NEEDS_ROOTS = 32
 
+# And how many it needs before the two headings give up their second line.
+# `TITLE_NEEDS_ROOTS` in app.js. Under this the clamp goes to one line and the
+# ellipsis lands where it can be seen; over it, and under `PLAYER_NEEDS_ROOTS`,
+# the whole reading goes instead.
+TITLE_NEEDS_ROOTS = 34
+
 
 def effective_root(width, root=None, text_size=None):
     """The root the page would have at this width, or the one being forced."""
@@ -146,8 +152,16 @@ def render(
     # keyboard render of some other device wants `--height` given as that
     # device's own full height and the keyboard drawn over it.
     unobscured = HEIGHT if (keyboard or screen == "chat") else height
-    if unobscured < PLAYER_NEEDS_ROOTS * effective_root(width, root, text_size):
+    roots = unobscured / effective_root(width, root, text_size)
+    if roots < PLAYER_NEEDS_ROOTS:
         classes.append("short-page")
+    # The step before that one: room for the headings but not for their second
+    # line. Derived here for the same reason and with more force, because the
+    # failure it prevents is one a render is the only way to see — a heading cut
+    # horizontally through the letters looks like a broken font, and a picture
+    # taken without this class is a picture of that bug rather than of the page.
+    if roots < TITLE_NEEDS_ROOTS:
+        classes.append("title-one-line")
     # Anything being forced is injected rather than edited into style.css: what
     # is being photographed has to stay byte-for-byte the page that ships.
     scaled = src.with_name(f".scaled-{src.name}")
