@@ -105,19 +105,17 @@ of a shrinking total:
 
     width_css = W/S      height_css = H/S − C      (C constant)
 
-If you need a height threshold that follows the type, ask about **shape**
-(`min-aspect-ratio`), or measure it in app.js and write a class as #23 did for
-the keyboard. Do not reach for `rem`. As of #65 there is no `rem` left in any
-media query in `style.css`, and there is a test in `tests/web/fitting.test.mjs`
-that fails if one comes back.
+If you need a height threshold that follows the type, measure it in app.js and
+write a class, as #23 did for the keyboard. Do not reach for `rem`. As of #65
+there is no `rem` left in any media query in `style.css`, and there is a test in
+`tests/web/fitting.test.mjs` that fails if one comes back.
 
 ## `short-page` — whether there is room, and why a render can get it wrong
 
 **app.js writes it, and a snapshot has no app.js.** The page compares the height
-with nothing over it against **34 of its own roots** — `PLAYER_NEEDS_ROOTS` in
+with nothing over it against **32 of its own roots** — `PLAYER_NEEDS_ROOTS` in
 app.js — and puts `short-page` on `<body>`; `style.css` hides `#now-playing` on
-that class, the landscape block lays the player out in two columns on it, and the
-272px floor takes the reading back off it.
+that class and nothing else reads it.
 
 That means **a short render without the class photographs a player the phone
 would never draw**, with the whole reading in a window that has no room for it.
@@ -128,22 +126,37 @@ by the height with **nothing over it**, as app.js judges it: `--keyboard --heigh
 470` is the design's phone with a panel over it and carries no `short-page` at
 all.
 
-Three consequences worth carrying around:
+Four consequences worth carrying around:
 
-- `how big the words` on Settings now moves this. At `360x780 --text-size 1.2`
-  the root is 24 and the page is 32.5 roots, so the reading goes — that is new,
-  and 32.5 is the height style.css measures a two-line chapter name overlapping
-  the strip under it at. At `309x540 --text-size 0.9` the page is 35.0 roots and
-  the reading comes back; `--text-size 0.8` makes it 39.3. Render both when you
-  touch the player's column.
+- `how big the words` on Settings now moves this, and it is the reader's only way
+  out. At `309x540 --text-size 0.9` the page is 35.0 roots and the reading comes
+  back where the design size has it hidden. Render both ends of that control when
+  you touch the player's column.
+- **32, not 34, and the number came from pictures.** 34 was arithmetic and it took
+  the reading off `360x780 --text-size 1.2` — the design's own phone at the top of
+  the reader's own control, on a page that renders entirely legible. Roots are an
+  approximation: the header padding and safe-area inset are device pixels, so 32.5
+  roots overlap at a root of 20 and are clean at a root of 24. Do not move this
+  number without rendering `360x780 --text-size 1.2`, `360x640` and `309x540`.
 - **The class is only half of it; the sheet asks a size as well.** The reading is
-  taken away only under `max-width: 460px`, the width the 34 was measured at, and
-  the two-column landscape player is laid out only under `540px` of height. A
-  desk window is short by the arithmetic — the root stops growing at 460 across,
-  so 34 of them is a flat 869px — and neither of those rules touches it. Render
-  at `1280x720` if you change either, and expect the ordinary upright player.
+  taken away only under `max-width: 460px` — the width the 32 was measured at — or
+  under `540px` of height, the reading's own measured height. A desk window is
+  short by the arithmetic, since the root stops growing at 460 across and 32 of
+  them is a flat 818px, and neither half touches it. Render at `1280x720` if you
+  change either, and expect the ordinary upright player.
 - `snapshot.py` composes the page without running app.js at all, so anything you
   read out of a snapshot is a page with none of these classes on it.
+
+**There is no landscape layout any more.** A two-column player for a phone on its
+side used to live under `(max-height: 34rem) and (min-width: 34rem)` — 544 CSS px
+on both halves, so the display-+3 phone lying down at 540 across fell straight
+through the block that existed for it. Rebuilt on shape during #65 it reached that
+phone and photographed broken: the clock wrapped onto two lines, the sleep-timer
+pill was clipped off the left edge and `+30` off the right, on a grid drawn for
+669px. It is gone. A phone on its side, and any window dragged to a letterbox, now
+gets the same page a short window gets — the header, the transport and the dock,
+with the reading away. Do not add a `min-aspect-ratio` query back without a render
+at `540x309`; there is a test that fails if one appears.
 
 ## Three screens, not one — and the size picks none of them
 
@@ -282,7 +295,9 @@ with a table of measurements saying so. Rendering the *real* page with a
 nine-hour book open showed `1:12:08 of 9:41:33` wrapping in a column 60px too
 narrow, and the wrapped line pushing the sleep timer below the fold — the one
 control that block exists to keep reachable. The probe had left `#whereabouts`
-short, so the only element that mattered was the one it had not filled.
+short, so the only element that mattered was the one it had not filled. (That
+block has since been removed altogether — see above — but the lesson is about the
+probe, not the layout, and it applies to every screen still here.)
 
 The three strings that break a column here, and none of them is the title:
 

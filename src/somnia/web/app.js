@@ -5820,23 +5820,23 @@ function readKeyboard() {
 // wants 453px, so a 500px window lost a reading that fitted twice over.
 //
 // So the number is asked in roots and the arithmetic is done here, where the
-// root can be read.
+// root can be read. Roots are an approximation and style.css says where they
+// stop being one: the header's padding and the safe-area inset are device
+// pixels, so the same count of roots is not the same stack at two text sizes.
 //
-// What it costs is written out in style.css beside the rule that takes the
-// reading away, because that is where the loss is taken, but the headline
-// belongs here as well: 34 roots is a TALLER window than the flat 544px it
-// replaces on any page wider than 288, so at the design's own text size the
-// reading now goes on a 16:9 phone where it used to be drawn. One press of `how
-// big the words` down brings it back, which is the remedy this measurement
-// exists to hand the reader and which the old query handed nobody.
+// The number came from pictures rather than from arithmetic, and the argument
+// for it is written out in style.css beside the rule that takes the reading
+// away, because that is where the loss is taken. The headline belongs here as
+// well: 32 is the largest number that leaves the reader's own control alone.
+// 360x780 with `how big the words` turned all the way up is a root of 24 and
+// wants 768 of the 780 there are — at 34 it wanted 816, and the design's own
+// phone at the top of its own text range went to a void.
 //
-// And the sheet only asks it of a page the width this was measured on. Past 460
-// CSS px across the root stops growing, so 34 roots stops being a shape and
-// becomes a flat 869px on a page whose title and chapter name have stopped
-// wrapping — which is a stack nobody has photographed. The class is still
-// written on a wide window, because the landscape block wants to know, but what
-// it buys there is the player laid out sideways and not the reading taken away.
-const PLAYER_NEEDS_ROOTS = 34;
+// The class is written on every window, wide or narrow. What it means on a wide
+// one is only that 32 roots would not fit, which past 460 CSS px across is a
+// flat 818px and not a shape at all — so the sheet gates the rule it feeds, and
+// judges a wide window by the reading's own measured height instead.
+const PLAYER_NEEDS_ROOTS = 32;
 
 // Measured, and against `unobscured` rather than `viewport.height`. The height a
 // page is judged by is the one with nothing over it: a keyboard is not a page

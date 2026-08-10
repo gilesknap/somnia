@@ -565,112 +565,29 @@ test("the reading is not on the chat screen either", async (t) => {
   assert.ok(RULES.includes("body.chat-screen #now-playing { display: none; }"));
 });
 
-// #now-playing is `display: contents` everywhere but one block, and that one
-// block is why this test exists. It was written when the base rule was a flex
-// column, so it said `display: flex` and left the direction to be inherited from
-// a rule that is no longer there — and a flex container with no direction is a
-// row. A phone on its side then laid the book's name, its position, the chapter,
-// the clock and the circles out beside each other, each squeezed to about the
-// width of a letter, with the strip of circles off the right of the screen.
-// Rendered at 844x390 the title was 51px wide and the strip started at x=897.
+// #now-playing is `display: contents` everywhere now, and this is the trap that
+// leaves behind. The one block that made it a box was the landscape layout, and
+// it said `display: flex` while leaving the direction to be inherited from a rule
+// that had since stopped being a flex column — and a flex container with no
+// direction is a ROW. A phone on its side laid the book's name, its position, the
+// chapter, the clock and the circles out beside each other, each squeezed to
+// about the width of a letter, with the strip of circles off the right of the
+// screen. Rendered at 844x390 the title was 51px wide and the strip started at
+// x=897.
 //
-// The assertion is on the invariant rather than on that block, because the bug
-// was not a typo in it: it was a rule at a distance changing under it. Any
-// future rule that makes this element a box has the same hole to fall into.
+// That block is gone, so this now guards the hole rather than the block: the bug
+// was never a typo, it was a rule at a distance changing under one that had
+// assumed it. Anything that makes this element a box again inherits the same
+// hole, and has to say which way it runs on its own line.
 test("nothing makes the reading a flex box without saying which way it runs", async (t) => {
-  let boxes = 0;
   for (const [selector, body] of rules(SHEET)) {
     const named = selector
       .split(",")
       .some((one) => one.trim().endsWith("#now-playing"));
     if (!named || !/display\s*:\s*flex/.test(body)) continue;
-    boxes++;
     assert.ok(
       /flex-direction\s*:\s*column/.test(body),
       `the reading is a flex ROW here: ${selector.trim()}`,
-    );
-  }
-  // A sheet that stopped making it a box at all would pass the loop above
-  // without running it once, and the landscape layout would be gone rather than
-  // fixed.
-  assert.equal(boxes, 1, "exactly one block turns the reading into a box");
-});
-
-// The other half of the same bug, and the reason the grid drew two columns and
-// filled neither. `#player-bar` is `display: contents`, so the grid's items are
-// not the two the block names — they are Spacer A, the reading, Spacer C and the
-// transport. Four things in two columns is two rows: the left column was one
-// empty spacer, and the transport sat under the reading rather than beside it.
-test("the player's spacers are not items of the landscape grid", async (t) => {
-  const landscape = mediaBlocks(RULES).filter((block) =>
-    block.includes("min-aspect-ratio: 1/1"),
-  );
-  assert.equal(landscape.length, 1, "the landscape block is not where it was");
-  assert.ok(
-    landscape[0].includes(
-      "body.player-screen.short-page #player-bar:not([hidden]) .rhythm { display: none; }",
-    ),
-    "the landscape grid is holding the portrait rhythm",
-  );
-});
-
-// What is left of the reading when the phone is on its side, and why it is not
-// all of it. The block's first paragraph says nothing has to go because nothing
-// is short of room across — true of width and false of height, which is the
-// dimension that gets this block onto the screen. With the whole reading in it
-// the left column stands 421px tall under a 61px header and a 41px status line,
-// so it wants about 540px of window, and nothing that reaches this block has
-// that: the block asks `max-height: 540px` and that measurement is where the
-// number comes from.
-//
-// So the chapter, its clock and its circles go, and the name gets one line. What
-// stays is the name, the clock and the sleep button — the control this block
-// exists to keep reachable and the one thing here that a turn of the wrist is
-// not a workaround for.
-//
-// The numbers below come from photographing the real page with a nine-hour book
-// open, not from measuring the bare markup, and the difference between the two
-// is the whole of why this comment was rewritten. Measured that way at 669x309 —
-// a Pixel 6 Pro on its side at the text scale this page is read at — the first
-// version of this block still put the sleep pill 45px under the bottom of the
-// window: `1:12:08 of 9:41:33` wrapped in a column 60px too narrow, and the
-// wrapped line pushed the pill off. Hence even columns rather than 1fr to
-// 1.4fr, and hence the scrub line and the places count going too. As it stands
-// the pill's bottom edge is at 295 in a 309px window.
-test("the landscape reading keeps the name and the sleep timer", async (t) => {
-  const [landscape] = mediaBlocks(RULES).filter((block) =>
-    block.includes("min-aspect-ratio: 1/1"),
-  );
-  // The columns the reading has to fit in. Named because the wrap that lost the
-  // sleep timer was a width problem showing up as a height one.
-  assert.ok(
-    landscape.includes("grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);"),
-    "the landscape columns are uneven again, and the clock wraps when they are",
-  );
-  for (const gone of [
-    "#chapter-title",
-    "#chapter-clock",
-    ".chapter-strip",
-    "#whole-progress",
-    "#places-found",
-  ]) {
-    assert.ok(
-      landscape.includes(`body.player-screen.short-page ${gone}`),
-      `${gone} is drawn in landscape, where there is no height for it`,
-    );
-  }
-  assert.ok(
-    landscape.includes(
-      "body.player-screen.short-page #book-title { white-space: nowrap;",
-    ),
-    "the landscape title is free to take a second line",
-  );
-  // And the two that must not go, said as an assertion so that trimming this
-  // block further has to be deliberate.
-  for (const kept of ["#whereabouts", "#clock", "#sleep"]) {
-    assert.ok(
-      !landscape.includes(`body.player-screen.short-page ${kept} { display: none;`),
-      `landscape has taken away ${kept}`,
     );
   }
 });

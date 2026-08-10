@@ -1422,54 +1422,47 @@ button:disabled {
    still hidden. The rule protecting the layout could not see the layout.
 
    So the question is asked where the root can be read: app.js measures the
-   height with nothing over it against 34 of the page's own roots and writes
-   `short-page`. The threshold is the same 34 and it means what it always said.
+   height with nothing over it against `PLAYER_NEEDS_ROOTS` of the page's own
+   roots and writes `short-page`.
 
-   34 roots is on the measurement, not over it, and it is not a number to shave.
-   Rendered at 360x780 with this rule taken out and the root turned up a notch at
-   a time: with a two-line title and a one-line chapter name the player still
-   fits at 32.5rem and the title has run into the clock by 31.2rem; with the
-   chapter name on two lines as well — which is the case a long chapter title
-   gives you and the one the number has to hold — it fits at 35.4rem, is touching
-   by 33.9rem, and overlaps by 32.5rem. Nothing scrolls on the way: the column is
-   `flex: 1` all the way down, so the spacers give until there is nothing left to
-   give and then the type lands on top of the type below it, which is a failure
-   that looks like a font bug rather than like a page out of room.
+   What that buys is the only thing the reader has ever been able to do about
+   this. `how big the words` on Settings moves the root, so a phone that has lost
+   the reading gets it back a press down — at 309x540 the page is 31.5 roots at
+   the design size and 35.0 one press below it. Under the old query those presses
+   changed nothing at all, which is the whole of the issue.
 
-   What the honest question buys, and what it costs, both need saying, because
-   asking it honestly moved the line in both directions at once. It buys the
-   reader a way out: `how big the words` on Settings moves the root, so a short
-   phone that has lost the reading gets it back a press down — at 309x540 the
-   page is 31.5 roots at the design size, 35.0 one step below it and 39.3 two.
-   Under the old query those presses changed nothing at all, which is the whole
-   of the issue.
+   32 is where the pictures put it, and the pictures disagree with the arithmetic
+   that used to stand here. Rendered at 360 across with a nine-hour book open, a
+   step of window at a time: the title has landed on the clock by 32 roots
+   (360x640) and is clear again by 33 (360x660). But the same 32.5 roots that
+   overlap at a root of 20 (360x650) are clean at a root of 24 — 360x780 with the
+   words turned all the way up. The header's padding and the safe-area inset are
+   device pixels rather than roots, so the stack is not the same shape at two
+   sizes, and roots are an approximation rather than a law. 34 came from
+   arithmetic over the taller of those two, and it took the reading off 360x780
+   at `--text-size 1.2`: the design's own phone, at the top of the reader's own
+   control, on a page that photographs entirely legible. 32 keeps the whole of
+   that control on the phone the design was drawn for, with 12px to spare at the
+   top of it.
 
-   What it costs is that 34 roots is a taller window than 544 CSS px on anything
-   wider than 288, so at the design's own text size this fires where the flat
-   number never did, and the list is written out here rather than left to be
-   found. At the design's own text size the reading goes on any phone shorter
-   than 1.889 times its own width: every 16:9 phone, 360x640 and 375x667 among
-   them, where the old number drew it. Turn `how big the words` all the way up
-   and the same arithmetic reaches 360x780, the phone the design was drawn for.
-   All of them are one press of the words away from having the reading back, and
-   all of them are pages the measurement above puts at or under 32.5 roots, where
-   a two-line chapter name overlaps the strip beneath it. That is the trade this
-   number makes and 34 is where the measurement put it; a pass that wants those
-   phones back should shave it knowing what it is buying them, which is not room
-   but type landing on type.
+   What 32 does not do is stop the title landing on the clock at 360x640, which
+   is 32.0 roots exactly and so sits just outside this rule. That is the page
+   `@media (max-height: 34rem)` drew there as well, so nothing is lost against
+   what shipped — and it is a title that wants clamping rather than a page that
+   wants emptying. Taking the whole reading away would cost more than the overlap
+   does.
 
-   And it is asked only of a page the size the measurement was taken on, which is
-   what `max-width: 460px` is doing here — the same 460 the root stops growing at,
-   in the `html` rule at the top of this sheet. Past it, 34 roots stops being a
-   shape and becomes a flat 869px, asked of a page wider than the design where the
-   book's name and the chapter name have stopped wrapping: two of the lines the 34
-   was counting on them spending. A 1280x720 browser window comes out at 28 roots
-   and would be asked for 869px it has not got, on a stack nobody has
-   photographed at that width. Without this line the reading came off a laptop,
-   and off any desk window under 869px tall, for want of room the window plainly
-   has. A wide window that really is short is the landscape block's below: it
-   lays the reading beside the transport instead of taking it away, and it beats
-   this rule on weight wherever the two both match.
+   And it is asked only of a window that has not got the room for some other
+   reason, which is what the two-part condition is for. Under 460 CSS px across —
+   the width the root stops growing at, in the `html` rule at the top of this
+   sheet — roots are the right question and the measurement answers it. Past that
+   width the root is fixed, so 32 roots stops being a shape and becomes a flat
+   818px, asked of a page whose title and chapter name have stopped wrapping:
+   a 1280x720 browser window would lose the reading for want of room it plainly
+   has. What a wide window is judged by instead is 540px, the reading's own
+   measured height at that size, which `max-height: 34rem` was standing in for at
+   544 by luck. A laptop keeps the reading; a window dragged down to a letterbox
+   does not.
 
    What this is NOT is a way of asking whether the keyboard is up. That was the
    other half of the same block and the other half of the same bug: a window
@@ -1482,14 +1475,12 @@ button:disabled {
 
    Source order is load-bearing here where it was not. A media query around a
    bare `#now-playing` weighed (1,0,0); a class on <body> weighs (1,1,1), which
-   ties with `body.chat-screen #now-playing` below and loses to the landscape
-   rule's (1,2,1). Both of those are later in the file and both still win, but
-   they win by position now and not by weight, so nothing below may be moved
-   above this line. The query around it changes none of that: a media query is
-   not specificity, and where it and the landscape block both match — a narrow
-   window somebody has dragged wider than it is tall — the landscape block wins
-   on weight and lays the reading out, as it did before. */
-@media (max-width: 460px) {
+   ties with `body.chat-screen #now-playing` below. That rule is later in the
+   file and still wins, but it wins by position now and not by weight, so it may
+   not be moved above this line. The query around it changes none of that: a
+   media query gates whether a block applies and adds nothing to the weight of
+   what is inside it. */
+@media (max-width: 460px), (max-height: 540px) {
   body.short-page #now-playing {
     display: none;
   }
@@ -1858,181 +1849,6 @@ body.wake-screen #player-bar:not([hidden]) {
 
 #wake-keep:active {
   color: var(--ink);
-}
-
-/* Short and wide is not a window with no room in it, it is a phone lying on its
-   side, and the fit query above was measured at 390x400 and never at 844x390. In
-   landscape it took away the chapter, the clock, and the only place the sleep
-   timer can be read or set — so the one control that decides when the night ends
-   was reachable only by turning the phone back over.
-
-   Nothing has to go, because nothing is short of room across: the reading moves
-   alongside the transport instead of above it, where it costs no height at all.
-   The transport keeps the larger share, since it is what gets pressed without
-   looking.
-
-   Both selectors are held to the player screen, and the reason is that this
-   block has to lose to the chat screen: a grid of two columns with the reading
-   gone is one empty column and a transport squeezed into the other, and that is
-   what a phone on its side with a keyboard up used to get. It also has to beat
-   the fit rule above, which it now does on weight as well as on position —
-   `body.player-screen.short-page #now-playing` is (1,2,1) against that rule's
-   (1,1,1). It used to be that a plain `#now-playing` would have done, the fit
-   query being a bare id later in the file; that is no longer true, and a pass
-   that trimmed these selectors back would take the reading off a phone lying
-   down rather than laying it out beside the transport.
-
-   `:not([hidden])` is the price of that class. `#player-bar` is `display:
-   contents`, so `#player-bar[hidden]` has to say `display: none` again by hand
-   — and a class on <body> outranks an attribute, which a bare `#player-bar` did
-   not. Without the exclusion, a short wide window with no book open lays the
-   whole player out for a book that is not there: a blank title, a scrub line
-   under it, a sleep timer, and a transport whose play button has nothing to
-   start.
-
-   Asked as a shape and a height, and the old condition's two halves went three
-   ways. "Is it lying down?" is `min-aspect-ratio: 1/1`, which a sheet can ask
-   honestly and which no rem can reach. "Is it short?" is `max-height: 540px`,
-   which is the reading's own measured height — the paragraph further down is
-   where that number comes from, and `max-height: 34rem` was standing in for it
-   at 544 by luck. "Is there room to stack it upright?" is `.short-page` on the
-   selectors, because that is a measurement app.js takes against the page's own
-   root and no query can make it.
-
-   The width half is what went. It was the paragraph that stood here, arguing
-   `min-width: 34rem` as a way of telling a phone upright with a keyboard over it
-   from a phone on its side, and it was failing on its own terms — 34rem in a
-   media query is 544 CSS px, and a phone at display size +3 lying down is 540
-   across, so the one phone this was reported on fell straight through this block
-   to the reading being hidden entirely. Shape asks what the width was reaching
-   for and asks it at every size: something wide, short and still called portrait
-   — a tablet held upright, typing — gets the layout that fits rather than the
-   one its orientation is named after. The installed app asks for portrait in the
-   webmanifest, but that binds nothing in a browser tab, which is where the page
-   is read before it is ever installed.
-
-   The height had to stay, and a pass that struck it out for being a pixel number
-   would put a laptop into a phone's layout. `.short-page` on its own is not
-   "short" at a desk: the root stops growing at 460 CSS px, so 34 of them is a
-   flat 869px, and every browser window under that — 1280x720, 1366x768 — is
-   measured out of room. Without the height they would arrive here and be laid
-   out in two columns with the chapter, the chapter clock, the circles, the
-   whole-book progress and the tail of the book's name taken off them, on a
-   screen with room for all of it.
-
-   Every selector below carries `.short-page` as well as `.player-screen`, and
-   with the height back that class does exactly one job. A phone held upright
-   with a keyboard over it is 360 across by about 300 down, which matches both
-   halves of this query and is not a phone lying down at all — the keyboard took
-   the height, and `interactive-widget=resizes-content` means it took it out of
-   the layout where a query can see it. The class is what says so: the room is
-   measured against the height with nothing over it, so a phone being typed into
-   never carries it. Nothing else is turned away. Anything that genuinely reaches
-   here — wider than it is high and under 540px — is under 21 roots, which is
-   short by any reckoning. */
-@media (min-aspect-ratio: 1/1) and (max-height: 540px) {
-  body.player-screen.short-page #player-bar:not([hidden]) {
-    display: grid;
-    /* Even, and it was 1fr to 1.4fr. The transport was given the larger share
-       because it is what gets pressed without looking, which is true — but the
-       narrower column has one line in it that must not wrap, and at the real
-       landscape measure it did. `1:12:08 of 9:41:33` is the widest thing the
-       reading has, and broken over two lines it pushes the sleep timer off the
-       bottom of a 309px window: the one control this whole block exists to keep
-       reachable, lost to a column 60px too narrow. Photographed at 669x309 —
-       the phone on its side at the text scale this page is read at — with a
-       nine-hour book open, which is what put the wrap on screen where a
-       measurement of the bare markup had not. The transport keeps three targets
-       well over the 44dp floor at this width; the clock has nowhere else to go. */
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: center;
-    gap: 1.2rem;
-  }
-
-  /* The spacers are the portrait rhythm, and this is not a column. Left standing
-     they are grid items like everything else, so the two columns drawn for the
-     reading and the transport got four things to hold: Spacer A took the whole
-     left column, the reading went in the right, and the transport dropped onto a
-     second row under it. `display: none` for the reason the chat screen gives —
-     what is wrong here is that they exist. */
-  body.player-screen.short-page #player-bar:not([hidden]) .rhythm {
-    display: none;
-  }
-
-  body.player-screen.short-page #now-playing {
-    /* A box again, because a column of the grid needs something to put in it and
-       `display: contents` is not a grid item.
-
-       `flex-direction` is the half that used to go without saying. The base rule
-       was a column when this block was written; it is `display: contents` now,
-       and a flex container with no direction is a ROW — which laid the book's
-       name, its position, the chapter, the clock and the circles out side by
-       side, each squeezed to the width of a letter or two, with the strip pushed
-       off the edge of the screen. This is the one place the sheet turns this
-       element back into a box, so it is the one place that has to say which way
-       it runs. */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    margin: 0;
-  }
-
-  /* And the reading is only its top half here, which is this block conceding
-     something it was written believing: that nothing has to go, because nothing
-     is short of room across. Height is what it is short of. Measured at the two
-     sizes this actually fires at, with the fix above in place and a two-line
-     title: the reading stands 421px tall under a 61px header, so it wants about
-     540px of window — which is where the query above gets its number, and
-     nothing that reaches this block has it. It overflowed at 844x390 by 241px,
-     and at 669x309 — a Pixel 6 Pro on its side at the text scale this page is
-     read at — by very much more. The chapter and its circles went off the bottom
-     instead of off the right, which is not a fix.
-
-     So what stays is what this block exists for. Its own first paragraph names
-     it: the fit query took away "the only place the sleep timer can be read or
-     set", and that is #whereabouts — the clock, the progress line and the sleep
-     button. Above it the book's name, which index.html calls the only thing true
-     all night. Those two under a header come to 299px, which fits 309. The
-     chapter name, the chapter clock and the strip of circles are the reading's
-     lower half and they are what a phone on its side cannot have; they are all
-     still one turn of the wrist away, which is not true of the sleep timer. */
-  body.player-screen.short-page #chapter-title,
-  body.player-screen.short-page #chapter-clock,
-  body.player-screen.short-page .chapter-strip,
-  /* And the two lines inside the reading that say nothing the clock does not.
-     Measured at 669x309 with a nine-hour book open: what is left of the reading
-     still stood 45px past the bottom of the window, and the 45px was the sleep
-     pill — so this is not tidying, it is the difference between the timer being
-     on the screen and under it. The scrub line is the clock as a picture, and
-     `4 places found` is a count of something the places screen is one press
-     away from showing in full. Both are on the phone the moment it is upright.
-   */
-  body.player-screen.short-page #whole-progress,
-  body.player-screen.short-page #places-found {
-    display: none;
-  }
-
-  /* And the name gets one line here, which is the last 56px and the one that
-     decides whether this block does its job at all.
-
-     `#book-title` is the page's largest type and wraps to a second line by
-     design — the rule above says so, and says a two-line title is the case the
-     numbers have to hold. Two lines is 112px, and with them the reading stands
-     339px under a 61px header and a 41px status line in a 309px window: the
-     sleep button goes off the bottom, untappable. That is worse than what this
-     block was written to stop, not better — before this pass the timer was at
-     least on the screen, squeezed into a column a word wide.
-
-     One line brings the reading to 283px and puts the button back. What it
-     costs is the tail of a long name, which is the cheapest thing on this
-     screen to lose: the name is there to answer "am I in the right book?" and
-     its first line answers that. It is the whole name again the moment the
-     phone comes back upright. */
-  body.player-screen.short-page #book-title {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 
 /* ----------------------------------------------------- places you might be
@@ -2612,45 +2428,6 @@ body.keyboard-up #candidates-note {
    pill in the corner is not in the list's way, and the one control that leaves
    the screen is the last one that should get smaller on the screen that is
    hardest to read. */
-
-/* Shorter than this and there is nothing left to arrange, even lying down: the
-   reading has to go after all or it takes the bottom off whatever is under it.
-   Well under any phone on its side with nothing over it — those are 320px and up
-   — so what reaches this is a window somebody has dragged down to a letterbox,
-   and it has to fire there and nowhere above it.
-
-   The paragraph that stood here also claimed the 220px a keyboard leaves of an
-   upright phone, and that is not this rule's to claim any more. `.short-page` is
-   measured against the height with nothing over it, so a phone being typed into
-   never carries the class and this rule cannot fire there. Nothing is lost by
-   that: both panels that bring a keyboard are `position: fixed; inset: 0` over
-   an opaque background, so the player underneath is covered rather than tidied,
-   and it is the whole of the change above that a keyboard is not a window with
-   no room in it.
-
-   The number was always device pixels and it is now written as device pixels.
-   It read `17rem` while the comment above it reasoned entirely in CSS px — 320px
-   phones, 220px left under a keyboard — which was two units for one number, and
-   17rem in a media query has only ever been 272 CSS px anyway. Nothing about the
-   behaviour changes; what changes is that the query and the argument for it are
-   in the same unit. This one stays a query rather than joining the measurement
-   above because it is not asking about the type at all: it is the point at which
-   there is nothing left to arrange whatever size the words are.
-
-   The only thing this says that the fit rule further up does not is that it also
-   applies in landscape, where the reading is beside the transport rather than
-   over it: it is written after the landscape rule and it wins. That is what it
-   was for before and it is what it is for now. It carries `.short-page` as well
-   as `.player-screen`, because a class cannot be beaten by a selector that does
-   not have one and the landscape rule now has two — without the second class
-   this would be (1,1,1) against that block's (1,2,1) and would silently stop
-   winning, which is the cascade trap this paragraph already existed to warn
-   about. */
-@media (max-height: 272px) {
-  body.player-screen.short-page #now-playing {
-    display: none;
-  }
-}
 
 /* ---------------------------------------------------------------- settings
 

@@ -33,7 +33,7 @@ and app.js is exactly what a snapshot drops. So `--height 470` alone photographs
 a squashed player, and the chat screen is `--screen chat --height 470`.
 
 **Whether there is room for the reading is measured too, and this file derives
-it.** app.js compares the height with nothing over it against 34 of the page's
+it.** app.js compares the height with nothing over it against 32 of the page's
 own roots and writes `short-page`; the sheet hides the reading on that class. It
 used to be a media query, and a media query's `rem` is the browser's 16px and
 never the page's root, which is issue #65. There is no `--short` flag: the width,
@@ -67,7 +67,11 @@ ROOT_CAP = 460
 # How many of its own roots the player needs to draw the reading without the
 # book's title landing on the clock. `PLAYER_NEEDS_ROOTS` in app.js, which is
 # where the class this derives is really written.
-PLAYER_NEEDS_ROOTS = 34
+#
+# Stamping the class is not the same as hiding the reading: style.css asks this
+# only of a window under 460 across or under 540 tall, so a render of a laptop
+# window carries the class and keeps the whole reading, exactly as the page does.
+PLAYER_NEEDS_ROOTS = 32
 
 
 def effective_root(width, root=None, text_size=None):

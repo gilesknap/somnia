@@ -13,15 +13,20 @@
 // The page's root has been a fraction of the screen since #64 —
 // `calc(var(--text-size) * min(100vw, 460px) / 18)` — so the query's rem and the
 // page's rem are not even the same length any more. How much height the player
-// wants is 34 of the page's, and only app.js can read those.
+// wants is 32 of the page's, and only app.js can read those.
 //
 // And the thing the issue got wrong, which matters because it decides what a fix
 // is allowed to be: 309x540 at the design's text size genuinely has no room. The
-// page is 31.5 roots tall and the player wants 34, so drawing it anyway is the
+// page is 31.5 roots tall and the player wants 32, so drawing it anyway is the
 // title landing on the clock. The fix is not to draw it. The fix is that `how
 // big the words` decides it — one press down makes the page 35.0 roots tall and
-// the reading comes back, two makes it 39.3 — and under the old query those
-// presses changed nothing at all.
+// the reading comes back — and under the old query that press changed nothing at
+// all.
+//
+// 32 rather than the 34 this file first shipped with, and the number came from
+// pictures. 34 took the reading off 360x780 at `--text-size 1.2`: the design's
+// own phone at the top of the reader's own control, on a page that renders
+// entirely legible. style.css carries the sweep it was set from.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -53,48 +58,44 @@ function short(page) {
 
 test("the design's own phone has room for the reading", async (t) => {
   const page = await boot(t);
-  // 360 across is a root of 20, and the player wants 680 of the 780 there are.
+  // 360 across is a root of 20, and the player wants 640 of the 780 there are.
   assert.equal(short(page), false);
 });
 
-// The case the old query could never see, and one of the two this change newly
-// loses. Two presses up is `--text-size` at 1.2, which is a root of 24 and a page
-// 32.5 roots tall — and 32.5 is the height style.css measures a two-line chapter
-// name overlapping the strip under it at. So the reading goes where it used to
-// stay, and what it used to be is type on type rather than missing.
-test("the words turned all the way up take the reading off the design's own phone", async (t) => {
+// The regression 34 shipped with, pinned so it cannot come back. `how big the
+// words` at its maximum is `--text-size` 1.2, a root of 24 and a page 32.5 roots
+// tall. At 34 the player wanted 816px of a 780px phone and the reader who turns
+// the words up because they cannot see got a void where the book is — which is
+// issue #65's own symptom, handed back to the reader it was reported by. At 32
+// it wants 768 and there are 12px to spare.
+test("the words turned all the way up keep the reading on the design's own phone", async (t) => {
   const page = await boot(t);
   page.click("text-up");
   page.click("text-up");
   assert.equal(page.probe().text, "1.2");
-  assert.equal(short(page), true);
-});
-
-// And the other one, which is the cost of asking the question honestly and is
-// pinned here rather than left to be found on somebody's phone. 34 roots is a
-// taller window than the flat 544px it replaced on every page wider than 288, so
-// at the size the app ships at the reading now goes on a 16:9 phone: 360 across
-// is a root of 20, the player wants 680, and 640 has not got it. The old query
-// drew it there. What the reader has that they did not have before is the way
-// back, and it is one press.
-test("a sixteen-by-nine phone loses the reading and gets it back with one press", async (t) => {
-  const page = await boot(t);
-  page.resize(640, 360);
-  assert.equal(short(page), true);
-  page.click("text-down");
-  assert.equal(page.probe().text, "0.9");
-  // A root of 18, so the player wants 612 of the 640 there are.
   assert.equal(short(page), false);
 });
 
+// And the bottom of the same control, which is where the room actually runs out
+// on this phone. 360x640 is 32 roots exactly and sits just outside the rule; one
+// press up is a root of 22 and 704px wanted of 640, which is a page with no room
+// in it however the arithmetic is written.
+test("the words turned up on a shorter phone take the reading away", async (t) => {
+  const page = await boot(t);
+  page.resize(640, 360);
+  assert.equal(short(page), false);
+  page.click("text-up");
+  assert.equal(page.probe().text, "1.1");
+  assert.equal(short(page), true);
+});
+
 // A desk window is measured too, and it comes out short, because the root stops
-// growing at 460 across: 34 of them is a flat 869px and a laptop window has 720.
-// That is the class doing what the landscape block needs it to do — a wide short
-// window is where the two-column player comes from — and it is the stylesheet,
-// not this measurement, that keeps the reading's own rule off a window wider
-// than the page it was measured on. Asserted so that a pass which decided a wide
-// window should not be short would have to look at the landscape block on the
-// way.
+// growing at 460 across: 32 of them is a flat 818px and a laptop window has 720.
+// The class is written all the same and means only that — it is the stylesheet
+// that keeps the reading's own rule off a window wider than the page it was
+// measured on, by asking `max-width: 460px` before it reads the class. Asserted
+// so that a pass which decided a wide window should not be short would have to
+// go and look at that gate on the way.
 test("a wide window is short and is not thereby a page with the reading taken out", async (t) => {
   const page = await boot(t);
   page.resize(720, 1280);
@@ -102,7 +103,7 @@ test("a wide window is short and is not thereby a page with the reading taken ou
 });
 
 // The issue, in one test. At 309x540 the reading really does have to go — the
-// page is 31.5 roots and the player wants 34 — and the page has owned the remedy
+// page is 31.5 roots and the player wants 32 — and the page has owned the remedy
 // all along. Under the old query pressing it changed nothing, which is what the
 // issue's own table shows: root forced to 13.85px, reading still hidden.
 test("the words turned down give the reading back on a short phone", async (t) => {
@@ -110,8 +111,7 @@ test("the words turned down give the reading back on a short phone", async (t) =
   page.resize(REPORTED_HEIGHT, REPORTED_WIDTH);
   assert.equal(short(page), true);
   page.click("text-down");
-  page.click("text-down");
-  assert.equal(page.probe().text, "0.8");
+  assert.equal(page.probe().text, "0.9");
   assert.equal(short(page), false);
 });
 
@@ -160,18 +160,33 @@ test("a window dragged short takes the reading and leaves the player where it is
 
 // ------------------------------------------------------- the number was wrong
 
-// Not conservative, not "errs on the side of hiding" — wrong in both directions,
-// because 544 is a constant and what the player needs is not.
-test("544 pixels was wrong in both directions", async (t) => {
+// 544 was a constant and what the player needs is not, so it was wrong in both
+// directions. This rule fixes one of them and not the other, and which is which
+// is worth pinning, because the reason is the limit of the whole model.
+//
+// A page 240 across has a root of 13.3 and wants 427px: 500px has that and to
+// spare, and the old query hid the reading anyway for being under 544. That one
+// the measurement gets right, and it is the direction the reader can feel —
+// pressing `how big the words` down moves the root and moves this answer.
+//
+// The other one it does not reach. At 309 across the root is 17.2, and rendering
+// a nine-hour book at 309x560 puts the title through the clock — but that page is
+// 32.6 roots, over the 32 the player is given, so the reading stays and the
+// overlap with it. It cannot be fixed by raising the number: the chrome the stack
+// sits in is device pixels, so the same count of roots is a different stack at
+// two text sizes, and the smallest number that catches 309x560 is above the 32.5
+// roots that the design's own phone has with the words turned all the way up.
+// Between hiding the book from the reader who turned the words up and letting a
+// title touch a clock on a display-size phone, the reader keeps their book. The
+// old query drew that page too, so nothing regresses; it is simply still wrong
+// there, and the fix for it is clamping the title rather than emptying the page.
+test("544 pixels was wrong in the direction the reader can feel", async (t) => {
   const page = await boot(t);
-  // Above the old threshold, so the old query left the reading in. The root at
-  // 309 across is 17.2 and the player wants 584, which 560 has not got: the
-  // title lands on the clock and the old rule said nothing.
-  page.resize(560, REPORTED_WIDTH);
-  assert.equal(short(page), true);
-  // Below the old threshold, so the old query took the reading away. The root at
-  // 240 across is 13.3 and the player wants 453, which 500 has and to spare.
   page.resize(500, 240);
+  assert.equal(short(page), false);
+  // And the direction the roots model cannot separate, asserted so that a pass
+  // which moves the number has to come and read the paragraph above.
+  page.resize(560, REPORTED_WIDTH);
   assert.equal(short(page), false);
 });
 
@@ -225,10 +240,9 @@ test("no media query in the stylesheet asks a question in rem", async (t) => {
 });
 
 // Where the reading is taken away, and where it is not. Exactly one rule hides
-// it for want of room, it is keyed on the measurement, and the only media blocks
-// allowed to mention it at all are the three that ask the size the measurement
-// was taken at, the shape of the window, and whether there is anything left to
-// arrange. None of them is a height standing in for the type.
+// it for want of room, it is keyed on the measurement, and the one media block
+// allowed to mention it asks the size the measurement was taken at. None of it
+// is a height standing in for the type.
 test("the reading is taken away by a class and not by a height", async (t) => {
   assert.ok(
     RULES.includes("body.short-page #now-playing { display: none; }"),
@@ -238,29 +252,56 @@ test("the reading is taken away by a class and not by a height", async (t) => {
     if (!block.includes("#now-playing")) continue;
     const asks = condition(block);
     assert.ok(
-      asks.includes("min-aspect-ratio: 1/1") ||
-        asks.includes("max-width: 460px") ||
-        asks.includes("max-height: 272px"),
+      asks.includes("max-width: 460px") || asks.includes("max-height: 540px"),
       `a media query is deciding whether the reading is drawn: ${asks}`,
     );
   }
 });
 
-// And the width it is held to, which is the difference between a phone with no
-// room and a desk with room to spare. The root stops growing at 460 across, so
-// past that 34 roots is a flat 869px and every browser window under that is
+// And the two sizes it is held to, which are the difference between a phone with
+// no room and a desk with room to spare. The root stops growing at 460 across, so
+// past that 32 roots is a flat 818px and every browser window under that is
 // measured short — on a page where the book's name and the chapter name have
-// stopped wrapping, which is two of the lines the 34 was counting on them
-// spending. Nobody has photographed that stack, so nothing is taken off it: a
-// 1280x720 window keeps the whole reading, as it did before any of this.
+// stopped wrapping, which is two of the lines the 32 was counting on them
+// spending. A 1280x720 window keeps the whole reading, as it did before any of
+// this. What judges a wide window instead is 540px, the reading's own measured
+// height, so a letterbox still loses it.
 test("the reading is only taken away from a page the size it was measured on", async (t) => {
   const [measured] = mediaBlocks(RULES).filter((block) =>
     block.includes("body.short-page #now-playing"),
   );
   assert.ok(measured, "the fit rule is not inside a query at all");
+  const asks = condition(measured);
   assert.ok(
-    condition(measured).includes("max-width: 460px"),
-    `the fit rule is asked of windows it was never measured on: ${condition(measured)}`,
+    asks.includes("max-width: 460px"),
+    `the fit rule is asked of windows it was never measured on: ${asks}`,
+  );
+  assert.ok(
+    asks.includes("max-height: 540px"),
+    `a window dragged to a letterbox keeps a reading with no room: ${asks}`,
+  );
+});
+
+// The whole of the landscape layout came out on the way through, and this is
+// what says so. It was a two-column player for a phone on its side, gated on
+// `(max-height: 34rem) and (min-width: 34rem)` — 544 CSS px on both halves — and
+// the phone this issue was reported on is 540 across lying down, so it fell
+// straight through the block that existed for it. Rebuilt on shape it reached
+// that phone and photographed broken: the clock wrapped onto two lines, the
+// sleep-timer pill was clipped off the left edge and `+30` off the right, on a
+// grid drawn for 669px. It is a layout nobody arrives at on purpose and one
+// nobody had looked at, so it is gone rather than half-repaired, and a phone on
+// its side gets the same missing reading a short window gets.
+test("there is no landscape layout to keep working", async (t) => {
+  for (const block of mediaBlocks(RULES)) {
+    assert.ok(
+      !condition(block).includes("aspect-ratio"),
+      `a media query is laying the player out by shape again: ${condition(block)}`,
+    );
+  }
+  assert.ok(
+    !RULES.includes("body.player-screen.short-page"),
+    "a rule is still drawing the player differently on a page with no room",
   );
 });
 
@@ -280,58 +321,4 @@ test("the harness measures the root the sheet does", async (t) => {
   // the cap the root follows the width, over it the root stops.
   assert.equal(rootFor(VIEWPORT_WIDTH, 1), 20);
   assert.equal(rootFor(1200, 1), 460 / 18);
-});
-
-// The cascade, said out loud because it is the trap this block's own comment has
-// been warning about for two passes. `body.short-page #now-playing` is (1,1,1)
-// and the landscape rule is (1,2,1), so the landscape rule wins and the reading
-// comes back beside the transport. The 272px rule has to beat that in turn, and
-// a selector with one class cannot beat one with two however late it is written.
-test("the last word on a page with nothing left to arrange still has the last word", async (t) => {
-  const [floor] = mediaBlocks(RULES).filter((block) =>
-    condition(block).includes("max-height: 272px"),
-  );
-  assert.ok(floor, "the 272px floor is not where it was");
-  assert.ok(
-    floor.includes("body.player-screen.short-page #now-playing { display: none; }"),
-    "the floor rule has fewer classes than the landscape rule it must beat",
-  );
-  // Later in the file, which is the other half of winning a tie.
-  assert.ok(
-    RULES.indexOf("min-aspect-ratio: 1/1") <
-      RULES.indexOf("max-height: 272px"),
-    "the floor is written before the landscape block and no longer beats it",
-  );
-});
-
-// Shape is a question a sheet can answer honestly. Room is not, so the landscape
-// block asks the sheet for the first and app.js for the second. It used to ask
-// `(max-height: 34rem) and (min-width: 34rem)`, whose width half was 544 CSS px
-// — and a phone at display +3 lying down is 540 across, so the phone in the
-// issue fell straight through this block to the reading being hidden entirely.
-test("the landscape reading is asked for by shape and by height", async (t) => {
-  const landscape = mediaBlocks(RULES).filter((block) =>
-    condition(block).includes("min-aspect-ratio: 1/1"),
-  );
-  assert.equal(landscape.length, 1, "the landscape block is not where it was");
-  // And by a height, which is the half that cannot come out. `.short-page` is
-  // not "short" at a desk — the root stops growing at 460 across, so 34 of them
-  // is 869px and a 1280x720 window is under it — so without this the phone's own
-  // two-column layout, with the chapter, the clocks, the circles and the tail of
-  // the book's name taken off, lands on a laptop with room for all of it. 540px
-  // is the reading's own measured height and the number style.css argues from.
-  assert.ok(
-    condition(landscape[0]).includes("max-height: 540px"),
-    `the landscape block would lay a laptop out as a phone: ${condition(landscape[0])}`,
-  );
-  for (const rule of landscape[0].split("}")) {
-    if (!rule.includes("body.player-screen")) continue;
-    for (const selector of rule.split("{")[0].split(",")) {
-      if (!selector.includes("body.player-screen")) continue;
-      assert.ok(
-        selector.includes("body.player-screen.short-page"),
-        `a landscape selector lays out the player on a page with room in it: ${selector.trim()}`,
-      );
-    }
-  }
 });
