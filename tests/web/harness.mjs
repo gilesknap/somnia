@@ -1233,6 +1233,9 @@ export async function boot(t, options = {}) {
   const samplers = [];
   let queueItems = [];
   let catalogFound = [];
+  // What the search had to do to the question, which is "" for every search
+  // that found what was asked for — see somnia.catalog.search_catalog.
+  let catalogSaid = "";
   // The roster the picker draws, as /api/voices answers it. Two of the six the
   // server really ships, which is enough for every question a test has — which
   // one is chosen, that the choice is remembered, that it reaches the submit —
@@ -1451,7 +1454,7 @@ export async function boot(t, options = {}) {
       if (url.startsWith("api/catalog")) {
         if (gone.catalog) throw new Error("no route to host");
         searches.push(url);
-        return json({ query: url, entries: catalogFound });
+        return json({ query: url, entries: catalogFound, said: catalogSaid });
       }
       // The voices a book may be asked for in. Counted, because the page is
       // supposed to ask for this once and keep it: it changes when somnia is
@@ -1586,8 +1589,9 @@ export async function boot(t, options = {}) {
     queueView: (items) => {
       queueItems = items;
     },
-    catalogEntries: (entries) => {
+    catalogEntries: (entries, said = "") => {
       catalogFound = entries;
+      catalogSaid = said;
     },
     // The roster the server would serve, and what the picker has since played.
     voices: (roster) => {
