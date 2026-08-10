@@ -88,14 +88,12 @@ name, since a chapter called *How Ginger Died* gives away as much as the
 sentence under it. What it says instead is *tap to reveal · may spoil*: press
 anywhere on the row's reading and it uncovers, and you decide having read it;
 press it again and it goes back under, name and all; press *goto* and you go
-there without reading it at all. Two
-things follow from measuring it that way. A book
-somnia has never played is bounded at its opening minute, so if a book you have
-been listening to for a fortnight puts everything on the list as *ahead*, the
-listening happened in Audiobookshelf and somnia does not know about it — run
-`somnia seed-positions`. And skipping forward while the sound is on stops the
-mark where it was until you come back behind it, which is the price of one
-press of *+30* not marking the rest of the book as heard.
+there without reading it at all. Two things follow from measuring it that way.
+A book somnia has never played is bounded at its opening minute, so a book you
+know well but have never played here puts everything on the list as *ahead*
+until some of it has come out of the speaker. And skipping forward while the
+sound is on stops the mark where it was until you come back behind it, which is
+the price of one press of *+30* not marking the rest of the book as heard.
 
 Conversations are held in memory, keyed by a token the page mints when it
 starts, and nothing is written to disk. *Start over* drops the history when the
@@ -223,8 +221,8 @@ is still being rendered, because until the render is over the book's length is
 only how much of it exists so far. Tapping the block starts it and puts the
 panel away — the same press as the play button, made from up here.
 
-Under it, *on the shelf* is every other book somnia has, each with where you
-left it — *0:27:42 in*, or *not started*. Tapping a row opens that book at that
+Under it, *on the shelf* are the books you are most likely to want, each with
+where you left it — *0:27:42 in*, or *not started*. Tapping a row opens that book at that
 place and takes the panel away with it. Changing your mind costs one press back:
 nothing is written to the book you left, so it is still exactly where it was,
 and so is the one you looked at. A book still being rendered says so and is not
@@ -233,6 +231,15 @@ nothing to play. A book whose render stopped part way says *part rendered* and
 can still be opened — what was read plays. If the box cannot be reached, the
 shelf you last saw stays on screen with *couldn't reach somnia* under it: an
 empty shelf and an unreachable server look identical and mean opposite things.
+
+The shelf stops at twenty books — the twenty you were nearest to most recently,
+which after a year of somnia is not all of them. A book you have said you are
+finished with is not on it either, and does not take up one of the twenty. When
+anything has been left out, the foot of the list says *the rest of your books
+are in the workshop*, and on a night when nothing has been, it says nothing:
+the line is an answer rather than a fixture. Nothing is hidden by any of this —
+every book somnia has is in *Workshop*, and a finished book still plays if you
+open it there.
 
 The rows say the title and nothing else — no author, no dates, no cover. At this
 size the catalogue's *Title — Surname, Forename, dates* is three lines of a
@@ -264,7 +271,7 @@ chosen for a dark room, and in daylight those same values are not quiet, they
 are gone. Nothing on it goes below 16dp. It asks one question too: *get me a new
 book, and tell me it worked*. The order down it is that sentence.
 
-At the top, under *project gutenberg*, is the search. Under the results is what
+At the top, under *bring in a new book*, is the search. Under the results is what
 is happening, in a box headed *the server is working* — on the same screen and
 directly beneath them on purpose, because somebody who has just pressed *add
 this book* wants to see it being made, and splitting the press from its
@@ -295,7 +302,11 @@ dismiss and no badge or count anywhere: a book finishing at 3am is
 not news to somebody asleep, and it is on a screen nobody opens at 3am.
 
 Searching is the top of this screen, and it is what you came here for: type part
-of a title or an author and press *find*. That searches
+of a title or an author into *search gutenberg* and press *find*. The line above
+it says where that goes — *searching Project Gutenberg, not the books below* —
+because there are two lists of books on this screen now and typing into the
+wrong one is either adding a book you already have or waiting for a render that
+has already been made. That searches
 the copy of the Gutenberg catalog on this machine, so it answers in the time a
 tap takes and works with the internet down — run `somnia catalog-update` if a
 book you know exists is not in it. A book somnia already has, or already has
@@ -338,6 +349,81 @@ queue is on, and it is two presses from the player behind a row that says
 *daytime*, no night has a five-second wake in it.
 
 *Workshop* holds no settings. They are all on *Settings*, below.
+
+## The books you already have, in *Workshop*
+
+At the foot of *Workshop*, under *books you already have*, is the whole library
+— including the book playing underneath and the ones you have said you are
+finished with. This is where the night shelf's *the rest of your books are in
+the workshop* sends you, and it is the whole of somnia rather than the
+remainder: a list whose contents depended on what you happened to listen to last
+week would not be a list anybody could search.
+
+Each row is the title, who wrote it, and how much of it is actually here — *all
+27 chapters*, or *read to 8 of 21* in amber for a book somnia has not finished
+reading yet. That second number is the number of chapters the book *has*, and it
+never shrinks to match a render that is behind: what moves is the count of what
+is ready. A book rendered before somnia counted chapters says nothing at all
+there rather than *all 0 chapters*.
+
+Every row is a press, and where it goes is that book's own page — the section
+below.
+
+*filter your books* narrows the list as you type, on the title and on the
+author, and asks the server nothing: the books are already on the phone. The
+three words under it — *recent*, *title*, *author* — are the order the rows are
+in, and *recent* is when somnia was first asked for the book. This is the only
+sort control in the app, and it is deliberately on this screen and nowhere near
+the night one: a filter has states, and a filter at 2am is a shelf that can be
+left in a shape where the book you want is missing.
+
+Books you have finished are under the ones you have not, behind a count of them
+— *4 finished*. They are still here and still play. The count is of what is on
+the screen, so with a filter on it counts what the filter left.
+
+## One book: renaming it, finishing it, removing it
+
+Press a row of *books you already have* and you get that book's own page, over
+*Workshop*. *‹ workshop* comes back, and the list is exactly where you left it,
+filter and ordering intact.
+
+The title and the author at the top are boxes, not headings: type in them, and
+what you typed is saved when you leave the box. There is no *edit* to press
+first, because a mode is a thing to get into and then out of, and this screen is
+two presses deep in daylight. A book cannot be renamed to nothing — every screen
+in somnia names a book by its title, so a blank one would look exactly like a
+book the catalog never named — but it can be given no author at all.
+
+A name you choose is yours from then on. Rendering a book again is the ordinary
+way to restart a render that died, and it used to write the catalog's title back
+over yours hours later; it no longer touches either column once a person has.
+
+Under the boxes, how far into the book you are, counted in chapters — *read up
+to chapter 24 of 37*. Nothing anywhere stores that: it is where the book was
+left and the list of chapters, read against each other. It is information and
+not something to act on. A book somnia is behind on reading says so in *how much
+is here* below, and the answer to that is to wait.
+
+Then four facts: where the book came from — *gutenberg #289*, or *gutenberg
+australia #900000123* for the other library — when somnia was first asked for
+it, how long it is, and how much of it has been rendered. A fact somnia does not
+have is left off rather than drawn empty, so a book still being rendered has no
+length on it: while a render runs, the length somnia knows is how much audio
+exists rather than how long the book is.
+
+*read it* is the same press a shelf row is: it makes this the book a cold launch
+opens, starts it, and puts all three screens away. *mark finished* takes the
+book off the night shelf and puts it under the count of finished ones in the
+list you came from — it changes nothing else, the book still plays, and the
+label then says *back on the shelf*, which is the whole of undoing it.
+
+*remove this book* is the only press in somnia that cannot be undone, and it
+asks twice: the button becomes *really remove it?* and forgets it was ever asked
+after a few seconds. The second press takes the book away — the audio, the text,
+the chunks the agent searches, every queue row it ever had, and where you had
+got to. A book being rendered right now is refused rather than raced, with a
+sentence saying which job to stop first. There is no undo behind any of it: a
+removed book comes back only by being rendered again.
 
 ## Changing how it behaves at night: *Settings*
 

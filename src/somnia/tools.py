@@ -17,7 +17,6 @@ search.
 import sqlite3
 from dataclasses import dataclass
 
-from .abs import AbsClient, tell_abs
 from .catalog import CatalogSearch, search_catalog
 from .config import Config
 from .embed import Embedder
@@ -212,12 +211,10 @@ class Library:
         self,
         cfg: Config,
         conn: sqlite3.Connection,
-        abs_client: AbsClient | None = None,
         embedder: Embedder | None = None,
     ) -> None:
         self._cfg = cfg
         self._conn = conn
-        self._abs = abs_client
         self._embedder = embedder
 
     @property
@@ -290,28 +287,8 @@ class Library:
 
     # -------------------------------------------------------------- listening
 
-    def _abs_item_id(self, gid: int) -> str:
-        """What Audiobookshelf calls this book, or "" if it has never seen it.
-
-        An absence, not an error. A book somnia rendered before ABS last scanned
-        the library has no item there, and since the page is the player that no
-        longer stops anything — it only means there is nowhere to send the
-        courtesy write.
-        """
-        row = self._conn.execute(
-            "SELECT abs_item_id FROM books WHERE gid = ?", (gid,)
-        ).fetchone()
-        item_id: str = row["abs_item_id"] if row else ""
-        return item_id
-
     def get_position(self, gid: int) -> Position | None:
         """Where the listener left off, and the text at that point.
-
-        Read from somnia's own record, not from Audiobookshelf. The page is the
-        player now and reports here every few seconds while it plays; ABS only
-        ever hears about a position afterwards, as a courtesy, so asking it
-        would answer with whatever it was last told — seconds out at best, and
-        a whole night out on a book played entirely from the page.
 
         A NULL position means they have never started this book. Nobody is at
         0:00:00, and collapsing the two would make "you haven't begun this one"
@@ -568,8 +545,7 @@ class Library:
         There used to be a fight here — sessions to close, a wait to settle, and
         three attempts at outlasting a running Audiobookshelf player that kept
         syncing its own position back over this one. Nothing but the page plays
-        the book now, so there is nobody left to argue with. ABS is told
-        afterwards, out of courtesy, and can fail without anyone noticing.
+        the book now, so there is nobody left to argue with.
         """
         seq = self._write_position(gid, position_ms)
         if seq is None:
@@ -577,7 +553,6 @@ class Library:
             # at 2am than a traceback, and there is no move for the page to
             # follow — which a seq of zero is exactly how to say.
             return Moved(gid, position_ms, 0, f"There is no book {gid} here.")
-        tell_abs(self._abs, self._abs_item_id(gid), position_ms)
         return Moved(
             gid=gid,
             position_ms=position_ms,

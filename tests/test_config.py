@@ -20,9 +20,6 @@ from somnia.config import Config, load_config
 VARIABLES = (
     "SOMNIA_DATA_DIR",
     "SOMNIA_LIBRARY_DIR",
-    "SOMNIA_ABS_URL",
-    "SOMNIA_ABS_TOKEN",
-    "SOMNIA_ABS_LIBRARY_ID",
     "SOMNIA_VOICE",
     "SOMNIA_EMBED_MODEL",
     "SOMNIA_AGENT_MODEL",
@@ -45,7 +42,6 @@ def test_the_defaults_are_the_dataclass(tmp_path: Path) -> None:
     cfg = load_config()
     plain = Config()
     assert cfg.voice == plain.voice
-    assert cfg.abs_url == plain.abs_url
     assert cfg.agent_model == plain.agent_model
     assert cfg.agent_effort == plain.agent_effort
     assert cfg.embed_model == plain.embed_model
@@ -80,33 +76,21 @@ def test_a_tilde_is_expanded_wherever_it_comes_from(
     assert load_config().library_dir.is_absolute()
 
 
-def test_a_trailing_slash_on_the_abs_url_is_taken_off(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Because every caller appends a path to it, and // is a different route."""
-    monkeypatch.setenv("SOMNIA_ABS_URL", "http://nuc2:13378/")
-    assert load_config().abs_url == "http://nuc2:13378"
-
-
 def test_every_plain_string_setting_comes_through(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """One test for the settings that are read and stored and nothing else.
 
-    Written as a table rather than five near-identical tests, because what
+    Written as a table rather than three near-identical tests, because what
     would actually go wrong here is a variable read into the wrong field — and
     that is only visible when they are all set to different things at once.
     """
-    monkeypatch.setenv("SOMNIA_ABS_TOKEN", "a-token")
-    monkeypatch.setenv("SOMNIA_ABS_LIBRARY_ID", "lib-7")
     monkeypatch.setenv("SOMNIA_VOICE", "bm_george")
     monkeypatch.setenv("SOMNIA_EMBED_MODEL", "some/other-model")
     monkeypatch.setenv("SOMNIA_AGENT_MODEL", "claude-sonnet-5")
 
     cfg = load_config()
 
-    assert cfg.abs_token == "a-token"
-    assert cfg.abs_library_id == "lib-7"
     assert cfg.voice == "bm_george"
     assert cfg.embed_model == "some/other-model"
     assert cfg.agent_model == "claude-sonnet-5"
@@ -139,7 +123,7 @@ def test_an_empty_variable_is_not_an_override(
     with no narrator named at all.
     """
     monkeypatch.setenv("SOMNIA_VOICE", "")
-    monkeypatch.setenv("SOMNIA_ABS_URL", "")
+    monkeypatch.setenv("SOMNIA_EMBED_MODEL", "")
     cfg = load_config()
     assert cfg.voice == Config().voice
-    assert cfg.abs_url == Config().abs_url
+    assert cfg.embed_model == Config().embed_model

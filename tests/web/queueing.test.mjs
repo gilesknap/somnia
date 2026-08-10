@@ -1030,6 +1030,394 @@ test("a somnia with one book has no shelf and no label over it", async (t) => {
   assert.equal(page.el("shelf-label").hidden, true);
 });
 
+// ------------------------------------------------------- twenty, and the rest
+//
+// The night shelf stops at twenty. Somebody at 2am is going back to a book they
+// were reading this month, and a list long enough to need scrolling in the dark
+// is a list somnia has made worse by being used for a year.
+//
+// Two things are held out of the twenty rather than counted by it: the book
+// playing underneath, which is named at the top of this screen, and a book
+// somebody has said they are finished with, which is not an answer to what this
+// screen asks. Both would otherwise spend the cap on rows that are either
+// already on the screen or already read.
+//
+// And the line at the foot only ever appears on a night when something really
+// was left out — which is what these tests are mostly about, because a line
+// that is always there is furniture and a line that is never there is a screen
+// that has quietly lost half a library.
+
+// As many books as a test needs, each one distinguishable from the others by
+// its name so that an assertion can say which twenty were kept. Built off one
+// real fixture, so a row here is shaped exactly as /api/books shapes a row.
+function manyBooks(count, overrides = () => ({})) {
+  return Array.from({ length: count }, (_, n) => ({
+    ...listed(OTHER_BOOK),
+    gid: 5000 + n,
+    title: `Book ${n}`,
+    ...overrides(n),
+  }));
+}
+
+// Whether the foot of the shelf is saying that there are more books elsewhere.
+// The words themselves are in index.html and are read out of the markup by the
+// test at the bottom of this file — the fake DOM knows ids and nothing the
+// document says.
+function moreInTheWorkshop(page) {
+  return !page.el("shelf-more").hidden;
+}
+
+test("twenty books all fit on the shelf, and nothing says otherwise", async (t) => {
+  const page = await opened(t, { library: manyBooks(20) });
+  page.queueView([]);
+  await books(page);
+  assert.equal(shelf(page).length, 20);
+  // Nothing was cut, so there is nothing to say. The boundary is tested here
+  // and at twenty-one because an off-by-one shows up as a line claiming books
+  // are elsewhere when every one of them is on the screen.
+  assert.equal(moreInTheWorkshop(page), false);
+});
+
+test("a twenty-first book stays behind, and the shelf says where it went", async (t) => {
+  const page = await opened(t, { library: manyBooks(21) });
+  page.queueView([]);
+  await books(page);
+  const names = shelf(page).map((row) => row.name);
+  assert.equal(names.length, 20);
+  // The first twenty of the order the server sent, which is last-touched: the
+  // one left behind is the book nobody has been near for longest, and cutting
+  // from the other end would take the one somebody was reading yesterday.
+  assert.equal(names[0], "Book 0");
+  assert.equal(names[19], "Book 19");
+  assert.equal(moreInTheWorkshop(page), true);
+});
+
+test("a book somebody has finished is not offered at night", async (t) => {
+  const page = await opened(t, {
+    library: [
+      { ...listed(OTHER_BOOK), finished_at: "2026-08-01 21:14:00" },
+      listed(PART_READ),
+    ],
+  });
+  page.queueView([]);
+  await books(page);
+  // Not hidden and not gone — it plays, it is in the Workshop, and one press
+  // there puts it back. It is only not an answer to what this screen asks.
+  assert.deepEqual(
+    shelf(page).map((row) => row.name),
+    ["Stopped Part Way"],
+  );
+  assert.equal(moreInTheWorkshop(page), true);
+});
+
+test("a finished book does not spend one of the twenty", async (t) => {
+  const page = await opened(t, {
+    library: manyBooks(21, (n) =>
+      n === 3 ? { finished_at: "2026-07-30 22:02:00" } : {},
+    ),
+  });
+  page.queueView([]);
+  await books(page);
+  const names = shelf(page).map((row) => row.name);
+  // Twenty books left to listen to and all twenty drawn: the finished one was
+  // held out before the cap rather than counted by it. Counting it would make
+  // the shelf shorter every time somebody finished something, which is the cap
+  // making the screen worse the longer somnia is used.
+  assert.equal(names.length, 20);
+  assert.equal(names.includes("Book 3"), false);
+  assert.equal(names.includes("Book 20"), true);
+  assert.equal(moreInTheWorkshop(page), true);
+});
+
+test("the book playing underneath is not what puts that line there", async (t) => {
+  const page = await opened(t, {
+    library: [HALF_HEARD, OTHER_BOOK, PART_READ].map(listed),
+  });
+  page.queueView([]);
+  await books(page);
+  assert.equal(shelf(page).length, 2);
+  // It is off the shelf, but it is at the top of this very screen and one tap
+  // away — a line sending somebody to the Workshop to find it would be false in
+  // the most confusing way available.
+  assert.equal(moreInTheWorkshop(page), false);
+});
+
+test("close takes that line away with the rest of the shelf", async (t) => {
+  const page = await opened(t, { library: manyBooks(21) });
+  page.queueView([]);
+  await books(page);
+  assert.equal(moreInTheWorkshop(page), true);
+  page.click("queue-close");
+  await page.settle();
+  // The panel forgets everything it held. A line left standing about a shelf
+  // that is no longer in the DOM would be there at the next opening, read as a
+  // claim about a list that has not arrived yet.
+  assert.equal(page.el("shelf-more").hidden, true);
+});
+
+// ------------------------------------------- books you already have
+//
+// The same books as the shelf, on the screen that is allowed to manage them.
+// What is tested here is the whole of the difference between the two lists:
+// this one holds everything, it can be narrowed, it can be put in three
+// different orders, and it says how much of each book is actually here.
+//
+// Everything below reads the rows out of the DOM, as the shelf's tests do. And
+// none of it makes a second request: this screen is reached through Books,
+// which has just asked, so the library here is the shelf's own answer drawn a
+// second time.
+
+function library(page, id = "have-list") {
+  return page.el(id).children.map((li) => ({
+    name: words(li, "have-name"),
+    by: words(li, "have-by"),
+    // What is here of it, or null where nobody wrote the total down and the row
+    // says nothing rather than "all 0 chapters".
+    cover: words(li, "have-cover"),
+  }));
+}
+
+function names(page, id = "have-list") {
+  return library(page, id).map((row) => row.name);
+}
+
+// Typing in the filter, which answers as the letters arrive rather than on a
+// press: the books are already on the phone.
+function narrow(page, text) {
+  page.el("have-filter").value = text;
+  page.el("have-filter").fire("input");
+}
+
+// Which order the rows are in, as somebody looking at the pills would read it:
+// the class is the amber and the attribute is what a reader who cannot see
+// amber is told, and a page that set one without the other is half a control.
+function ordering(page) {
+  return ["recent", "title", "author"]
+    .map((order) => ({ order, pill: page.el(`have-sort-${order}`) }))
+    .filter(({ pill }) => pill.classList.contains("chosen"))
+    .map(({ order, pill }) => `${order}:${pill.getAttribute("aria-pressed")}`);
+}
+
+// Three books with nothing in common but the shape of the row: different
+// titles, different authors, brought in on three different days. One fixture is
+// enough for the ordering tests only if no two of the three orders it produces
+// are the same list, and these three give three different lists.
+const THREE = [
+  {
+    ...listed(OTHER_BOOK),
+    gid: 5101,
+    title: "Wuthering Heights",
+    authors: "Brontë, Emily",
+    created_at: "2026-06-01 09:00:00",
+  },
+  {
+    ...listed(OTHER_BOOK),
+    gid: 5102,
+    title: "A Tale of Two Cities",
+    authors: "Dickens, Charles",
+    created_at: "2026-01-04 09:00:00",
+  },
+  {
+    ...listed(OTHER_BOOK),
+    gid: 5103,
+    title: "Middlemarch",
+    authors: "Eliot, George",
+    created_at: "2026-03-11 09:00:00",
+  },
+];
+
+test("the workshop holds every book, including the one playing", async (t) => {
+  const page = await opened(t, {
+    library: [
+      { ...listed(TONE_BOOK), created_at: "2026-01-05 09:00:00" },
+      { ...listed(OTHER_BOOK), created_at: "2026-06-30 21:00:00" },
+      { ...listed(HALF_HEARD), created_at: "2026-03-11 12:00:00" },
+    ],
+  });
+  page.queueView([]);
+  await workshop(page);
+  // Newest first, which is `recent` and is what this screen opens on: somebody
+  // who has come to look after a book is nearly always looking after the one
+  // that has just arrived.
+  assert.deepEqual(names(page), ["Another Book", "Half Heard", "Three Tones"]);
+  assert.deepEqual(ordering(page), ["recent:true"]);
+  // The book playing underneath is on this list and is not on the shelf. Books
+  // holds it out because it is already at the top of that screen in its own
+  // block; here the question is what somnia has, and it has this.
+  assert.equal(names(page).includes("Half Heard"), true);
+  assert.deepEqual(
+    shelf(page).map((row) => row.name),
+    ["Three Tones", "Another Book"],
+  );
+  // And the author is on every row, which the shelf gives up: this is the
+  // daylight list, where two editions of one title have to be told apart.
+  assert.deepEqual(
+    library(page).map((row) => row.by),
+    ["Somnia Test", "Somnia Test", "Somnia Test"],
+  );
+});
+
+test("the sort row is three different orders of the same books", async (t) => {
+  const page = await opened(t, { library: THREE });
+  page.queueView([]);
+  await workshop(page);
+  const asked = page.fetches.length;
+  assert.deepEqual(names(page), [
+    "Wuthering Heights",
+    "Middlemarch",
+    "A Tale of Two Cities",
+  ]);
+
+  page.click("have-sort-title");
+  await page.settle();
+  assert.deepEqual(names(page), [
+    "A Tale of Two Cities",
+    "Middlemarch",
+    "Wuthering Heights",
+  ]);
+  // One pill lit and the other two not, in both of the ways a pill says so.
+  assert.deepEqual(ordering(page), ["title:true"]);
+
+  page.click("have-sort-author");
+  await page.settle();
+  // Filed under the name as the row prints it, which is the catalog's
+  // `Surname, Forename` — so the order on the screen is the order of the words
+  // on the screen.
+  assert.deepEqual(names(page), [
+    "Wuthering Heights",
+    "A Tale of Two Cities",
+    "Middlemarch",
+  ]);
+  assert.deepEqual(ordering(page), ["author:true"]);
+
+  // And nothing was asked of the server for any of it: the books are already
+  // on the phone, and an ordering is not something anybody else has an opinion
+  // about.
+  assert.deepEqual(page.fetches.slice(asked), []);
+});
+
+test("the filter narrows the library, and says when it matched nothing", async (t) => {
+  const page = await opened(t, { library: THREE });
+  page.queueView([]);
+  await workshop(page);
+
+  // The author as well as the title, because both are on the row: a filter that
+  // matched something the reader cannot see would be a list that had lost books
+  // for no visible reason.
+  narrow(page, "dickens");
+  assert.deepEqual(names(page), ["A Tale of Two Cities"]);
+  assert.equal(page.el("have-none").hidden, true);
+
+  narrow(page, "MIDDLE");
+  assert.deepEqual(names(page), ["Middlemarch"]);
+
+  narrow(page, "moby");
+  assert.deepEqual(names(page), []);
+  // An empty list under a box somebody is typing into is the one moment on this
+  // screen where an empty list means something specific, and it does not mean
+  // "you have no books".
+  assert.equal(page.el("have-none").hidden, false);
+
+  narrow(page, "");
+  assert.equal(names(page).length, 3);
+  assert.equal(page.el("have-none").hidden, true);
+});
+
+test("a row says how much of the book is here, or nothing at all", async (t) => {
+  const page = await opened(t, {
+    library: [TONE_BOOK, PART_READ, UNCOUNTED_BOOK].map(listed),
+  });
+  page.queueView([]);
+  await workshop(page);
+  assert.deepEqual(library(page), [
+    // Every chapter the book has is on the disk, which is what a finished
+    // render looks like and is the only state in which the total is the whole
+    // story.
+    { name: "Three Tones", by: "Somnia Test", cover: "all 3 chapters" },
+    // A render that stopped part way: one chapter of three. The count that
+    // moves is what is ready — the total is what the book has, and it does not
+    // shrink to meet a render that is behind.
+    { name: "Stopped Part Way", by: "Somnia Test", cover: "read to 1 of 3" },
+    // And a book nobody counted, which is every book rendered before that
+    // column existed. 0 means "don't know", so the row says nothing rather
+    // than "all 0 chapters" — the rule the player already keeps.
+    { name: "Nobody Counted", by: "Somnia Test", cover: null },
+  ]);
+});
+
+test("finished books are under a count of themselves", async (t) => {
+  const page = await opened(t, {
+    library: [
+      {
+        ...listed(TONE_BOOK),
+        created_at: "2026-01-05 09:00:00",
+        finished_at: "2026-07-02 22:40:00",
+      },
+      listed(OTHER_BOOK),
+      {
+        ...listed(HALF_HEARD),
+        created_at: "2026-05-05 09:00:00",
+        finished_at: "2026-08-01 21:14:00",
+      },
+    ],
+  });
+  page.queueView([]);
+  await workshop(page);
+  // Still here and still listed — a finished book plays, and one press on the
+  // page this row opens puts it back on the shelf. It is only not an answer to
+  // what the list above is asking.
+  assert.deepEqual(names(page), ["Another Book"]);
+  assert.deepEqual(names(page, "have-finished"), ["Half Heard", "Three Tones"]);
+  assert.equal(page.el("have-finished-label").textContent, "2 finished");
+  assert.equal(page.el("have-finished-label").hidden, false);
+
+  // The count is of what is under it. With a filter on, a number about the
+  // whole library would be a number with nothing on the screen to check it
+  // against.
+  narrow(page, "half");
+  assert.deepEqual(names(page), []);
+  assert.deepEqual(names(page, "have-finished"), ["Half Heard"]);
+  assert.equal(page.el("have-finished-label").textContent, "1 finished");
+  // Something matched, so there is nothing to say about the filter — the row it
+  // matched is simply in the other list.
+  assert.equal(page.el("have-none").hidden, true);
+});
+
+test("a somnia with no books draws no library at all", async (t) => {
+  const page = await opened(t, { library: [] });
+  page.queueView([]);
+  await workshop(page);
+  // A filter and three orders over an empty list are four controls that cannot
+  // do anything, and a label over nothing is a claim that something should be
+  // there — the rule the card of live rows and the shelf's own label follow.
+  assert.equal(page.el("have").hidden, true);
+});
+
+test("closing Workshop forgets the filter and the order", async (t) => {
+  const page = await opened(t, { library: THREE });
+  page.queueView([]);
+  await workshop(page);
+  narrow(page, "middle");
+  page.click("have-sort-title");
+  await page.settle();
+  assert.deepEqual(names(page), ["Middlemarch"]);
+
+  page.click("workshop-close");
+  await page.settle();
+  assert.equal(page.el("have").hidden, true);
+
+  page.click("to-workshop");
+  await page.settle();
+  await page.settle();
+  // A list narrowed to one word and sorted by author is a shape somebody made
+  // in order to find one book, and finding it is what the screen was closed
+  // for. Coming back to it tomorrow would be a screen that had changed by
+  // itself.
+  assert.equal(page.el("have-filter").value, "");
+  assert.deepEqual(ordering(page), ["recent:true"]);
+  assert.equal(names(page).length, 3);
+});
+
 // ------------------------------------------------- one screen, one sentence
 //
 // The cut that made two screens out of one is *when* each is used, and the only
@@ -1105,6 +1493,28 @@ test("the way to Workshop is in Books' header, above the scroll", async (t) => {
   // corner would be the wordmark's kind of thing, which takes no presses.
   const head = queue.slice(queue.indexOf('id="queue-head"'), scroll);
   assert.equal(head.match(/class="pill"/g).length, 2, "queue-head lost a pill");
+});
+
+// The words at the foot of a shortened shelf, which the fake DOM cannot see
+// either: they are the document's and the page only ever hides or shows the
+// line. Read here for the same reason the pill's place is — what is being
+// asserted is a decision, and nothing else in the suite would notice it going.
+test("the foot of the shelf says where the rest went, and is not a press", async (t) => {
+  // The whole document rather than section("queue"), which stops at the first
+  // nested <section> and so never reaches the shelf: `reading now` is one.
+  const bare = MARKUP.replace(/<!--[\s\S]*?-->/g, "");
+  assert.ok(
+    bare.includes(
+      '<p id="shelf-more" hidden>the rest of your books are in the workshop</p>',
+    ),
+    "the shelf's tail line is not the sentence it was drawn as",
+  );
+  // A paragraph and nothing else. Nothing on Books manages anything, which is
+  // the whole of the split with Workshop: the way there is the pill at the top
+  // of this screen, and a second door down here would be a control reached by
+  // reading to the end of a list of books in the dark.
+  const after = bare.slice(bare.indexOf('id="shelf-more"'));
+  assert.equal(after.slice(0, after.indexOf("</p>")).includes("<"), false);
 });
 
 // The other half of "nothing nightly in daylight", and the one that is not a
@@ -1592,6 +2002,41 @@ test("a book somnia already has is marked and offers no button", async (t) => {
   );
 });
 
+test("a book somnia already has is greyed, and is still not a button", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries([
+    entry({ gid: 11, title: "Alice", have: "done" }),
+    entry({ gid: 120, title: "Candide", have: "queued" }),
+    entry({ gid: 271, title: "Black Beauty", have: "pending" }),
+    entry({ gid: 345, title: "Dracula" }),
+  ]);
+  await search(page, "a");
+  assert.deepEqual(
+    page
+      .el("queue-results")
+      .children.map((li) => [
+        words(li, "found-name"),
+        li.classList.contains("owned"),
+        part(li, "found-add") !== null,
+      ]),
+    [
+      // Greyed and pressless are the same two books. The ink is what stops a
+      // column of results reading as one undifferentiated list; the missing
+      // press is what stops it offering something it would only refuse, and
+      // slice 5 of #100 was careful to add the first without undoing the
+      // second.
+      ["Alice", true, false],
+      ["Candide", true, false],
+      // A render that died is neither: it is the one row here somebody came
+      // having already decided to press.
+      ["Black Beauty", false, true],
+      ["Dracula", false, true],
+    ],
+  );
+});
+
 test("a render that died is offered again, because that retry was impossible", async (t) => {
   const page = await opened(t);
   page.queueView([]);
@@ -2061,4 +2506,460 @@ test("a voice sample does not go on reading into a pocket", async (t) => {
   await page.settle();
 
   assert.equal(page.sampling(), false);
+});
+
+// ------------------------------------------- one book's own page
+//
+// Over the library, reached from a row of it, and the only screen in somnia
+// where a book can be renamed or taken away. What is tested here is mostly the
+// refusals and the two presses: the readouts are the same three fields the two
+// screens underneath already draw, and the delete is the one press on this page
+// that cannot be undone.
+
+// Open Workshop, and then one book out of the library at the foot of it.
+async function bookPage(page, gid) {
+  await workshop(page);
+  page.click(`have-open-${gid}`);
+  await page.settle();
+  await page.settle();
+  return page;
+}
+
+// The facts, as somebody reading down them would: the name of each and the
+// answer beside it. Out of the DOM, like every other row in this file.
+function facts(page) {
+  return page
+    .el("book-facts")
+    .children.map((li) => [
+      words(li, "book-fact-name"),
+      words(li, "book-fact-said"),
+    ]);
+}
+
+function remove(page) {
+  return {
+    says: page.el("book-remove").textContent,
+    armed: page.el("book-remove").classList.contains("armed"),
+  };
+}
+
+test("a row in the library opens that book's page over the library", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+
+  await bookPage(page, 900002);
+
+  assert.equal(page.probe().bookUp, true);
+  // Over Workshop rather than instead of it, the way Workshop stands over
+  // Books: `‹ workshop` is a close and the list behind it is where it was
+  // left, at the row that opened this.
+  assert.equal(page.probe().workshopUp, true);
+  assert.equal(page.probe().queueUp, true);
+  // And the two boxes hold what the book is called, ready to be typed in
+  // rather than waiting for an `edit` press to let them be.
+  assert.equal(page.el("book-name").value, "Another Book");
+  assert.equal(page.el("book-author").value, "Somnia Test");
+});
+
+test("a book's page cannot outlive the screen it was opened from", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+
+  page.click("workshop-close");
+  await page.settle();
+
+  // The one state on this page with no way out of it would be a screen
+  // standing over one that has gone.
+  assert.equal(page.probe().bookUp, false);
+  assert.equal(page.probe().workshopUp, false);
+  assert.equal(page.probe().queueUp, true);
+});
+
+test("the book page counts how far in they are in chapters", async (t) => {
+  const page = await opened(t, {
+    library: [
+      listed(OTHER_BOOK),
+      listed(TONE_BOOK),
+      listed(RENDERING_BOOK),
+      listed(UNCOUNTED_BOOK),
+    ],
+  });
+  page.queueView([]);
+
+  await bookPage(page, 900002);
+
+  // 0:00:04 into a book of two eight-second chapters, said in the unit
+  // somebody deciding whether to carry on with a book thinks in. Nothing
+  // anywhere stores this: it is the position and the chapter list, which the
+  // manifest carries both of, read against each other.
+  assert.equal(
+    page.el("book-read-to").textContent,
+    "read up to chapter 1 of 2",
+  );
+
+  page.click("book-close");
+  await page.settle();
+  await bookPage(page, 900001);
+
+  // "never started" and "at the very beginning" are different answers, and the
+  // null position is the only one that can give the first.
+  assert.equal(page.el("book-read-to").textContent, "not started");
+
+  page.click("book-close");
+  await page.settle();
+  await bookPage(page, 900003);
+
+  // A book with no chapters yet and nobody having written the total down says
+  // nothing at all. "chapter 1 of 0" is the sentence both halves of that guard
+  // exist to prevent.
+  assert.equal(page.el("book-read-to").textContent, "");
+
+  page.click("book-close");
+  await page.settle();
+  await bookPage(page, 900007);
+
+  // Two chapters rendered and no total written down, which is every book made
+  // before that column existed. Still nothing at all: counting the rendered
+  // chapters instead would give this page a total the player, the shelf row
+  // and the coverage line under it are all silent about, and the one number
+  // those four share would have four different readings.
+  assert.equal(page.el("book-read-to").textContent, "");
+});
+
+test("the book page says where the book came from and when it arrived", async (t) => {
+  const page = await opened(t, {
+    library: [{ ...listed(HALF_HEARD), created_at: "2026-03-09 08:15:00" }],
+  });
+  page.queueView([]);
+
+  await bookPage(page, 900005);
+
+  assert.deepEqual(facts(page), [
+    // The gid is the book's address in the library it came out of, and which
+    // library that is, is which side of the offset the gid falls. Neither is
+    // stored, and neither needs to be.
+    ["where from", "gutenberg #900005"],
+    ["brought in", "9 March 2026"],
+    ["how long", "1h00m"],
+    ["how much is here", "all 2 chapters"],
+  ]);
+});
+
+test("a book out of the other library says which one", async (t) => {
+  const page = await opened(t, {
+    library: [{ ...listed(OTHER_BOOK), gid: 900000123, source: "australia" }],
+  });
+  page.queueView([]);
+
+  await bookPage(page, 900000123);
+
+  // The server's word for it, worked out from which side of the Australian
+  // offset the gid falls — which is the whole of how the two collections are
+  // told apart, and worth saying because they clear their books against
+  // different countries' law.
+  assert.deepEqual(facts(page)[0], [
+    "where from",
+    "gutenberg australia #900000123",
+  ]);
+});
+
+test("a book still being rendered is not given a length it does not have", async (t) => {
+  const page = await opened(t, { library: [listed(PART_READ)] });
+  page.queueView([]);
+
+  await bookPage(page, 900006);
+
+  // total_ms on a book that has not finished rendering is how much audio
+  // exists, not how long the book is — so there is no `how long` row at all,
+  // rather than one saying eight seconds about a book of three chapters.
+  assert.deepEqual(
+    facts(page).map(([name]) => name),
+    ["where from", "brought in", "how much is here"],
+  );
+  assert.deepEqual(facts(page)[2], ["how much is here", "read to 1 of 3"]);
+});
+
+test("what a book is called is saved when the box is left", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  page.saysRename({
+    ok: true,
+    found: true,
+    said: "It is called Elsewhere now.",
+  });
+
+  page.el("book-name").value = "Elsewhere";
+  page.blur("book-name");
+  await page.settle();
+  await page.settle();
+  await page.settle();
+
+  assert.deepEqual(page.renames, [
+    // Both columns in one request, because a name and an author are one edit
+    // on this screen and two routes would let a phone that lost the tailnet
+    // between them leave a book with half the change on it.
+    { title: "Elsewhere", authors: "Somnia Test" },
+  ]);
+  // somnia's own sentence, rather than one written on the page.
+  assert.equal(page.el("book-said").textContent, "It is called Elsewhere now.");
+  // And the list underneath says it too, from the same answer: three screens
+  // holding three names for one book is what one fetch and three draws
+  // prevents.
+  assert.deepEqual(names(page), ["Elsewhere"]);
+  assert.equal(page.el("shelf-900002").children.length, 1);
+  assert.equal(words(page.el("shelf-900002"), "shelved-name"), "Elsewhere");
+});
+
+test("the boxes end up holding what was stored, not what was typed", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  page.saysRename({
+    ok: true,
+    found: true,
+    said: "It is called Elsewhere now.",
+  });
+
+  page.el("book-name").value = "  Elsewhere  ";
+  page.blur("book-name");
+  await page.settle();
+  await page.settle();
+  await page.settle();
+
+  // somnia takes the whitespace off before it writes, and answers with both
+  // strings as they were stored. A box left holding the spaces would be a box
+  // disagreeing with the shelf under it about what the book is called — and
+  // the next blur would compare its own value against itself and send nothing,
+  // so it would go on disagreeing until the phone reloaded.
+  assert.equal(page.el("book-name").value, "Elsewhere");
+  assert.equal(words(page.el("shelf-900002"), "shelved-name"), "Elsewhere");
+
+  page.blur("book-name");
+  await page.settle();
+  assert.equal(page.renames.length, 1);
+});
+
+test("leaving a box nobody typed in asks somnia nothing", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+
+  // Tabbing from the name into the author is a blur, and so is pressing
+  // anything else on the screen. A page that saved on every one of them would
+  // send two requests for one edit and let the tailnet decide which landed.
+  page.blur("book-name");
+  page.blur("book-author");
+  await page.settle();
+
+  assert.deepEqual(page.renames, []);
+});
+
+test("a book asked to have no name at all keeps the one it had", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  page.saysRename({
+    ok: false,
+    found: true,
+    said: "Another Book needs a name, so nothing has changed.",
+  });
+
+  page.el("book-name").value = "   ";
+  page.blur("book-name");
+  await page.settle();
+  await page.settle();
+
+  assert.equal(
+    page.el("book-said").textContent,
+    "Another Book needs a name, so nothing has changed.",
+  );
+  // The box goes back to what is stored. A page showing a name the server does
+  // not have would go on showing it until the next reload.
+  assert.equal(page.el("book-name").value, "Another Book");
+});
+
+test("marking a book finished takes it off the night shelf", async (t) => {
+  const page = await opened(t, {
+    library: [listed(OTHER_BOOK), listed(TONE_BOOK)],
+  });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  assert.equal(page.el("book-finish").textContent, "mark finished");
+
+  page.click("book-finish");
+  await page.settle();
+  await page.settle();
+  await page.settle();
+
+  assert.deepEqual(page.finishes, [
+    { url: "api/book/900002/finished", finished: true },
+  ]);
+  assert.equal(page.el("book-said").textContent, "It is finished.");
+  // Which way the one control will go next, said on the label, because there
+  // is no other way to know.
+  assert.equal(page.el("book-finish").textContent, "back on the shelf");
+  // The shelf is what this verb is for: a book somebody is done with is not an
+  // answer to the question the night screen asks.
+  assert.deepEqual(
+    page.el("shelf").children.map((li) => words(li, "shelved-name")),
+    ["Three Tones"],
+  );
+  // And it is still in the library, under a count of the books that are
+  // behind them.
+  assert.deepEqual(names(page, "have-finished"), ["Another Book"]);
+});
+
+test("one press is not enough to remove a book", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  assert.deepEqual(remove(page), { says: "remove this book", armed: false });
+
+  page.click("book-remove");
+  await page.settle();
+
+  // The button is the question, and nothing has been asked of the server. This
+  // is the only press in somnia that cannot be undone.
+  assert.deepEqual(remove(page), { says: "really remove it?", armed: true });
+  assert.deepEqual(page.removes, []);
+  assert.equal(page.probe().bookUp, true);
+});
+
+test("a delete asked for and not answered is forgotten", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  page.click("book-remove");
+  await page.settle();
+
+  // Two wakes of five seconds are pending — the Workshop's queue poll, which
+  // was asked for first, and this. Both are fired, oldest first, because a
+  // button that only forgets itself when nothing else is waiting is a button
+  // that stays armed on the screen it is actually used on.
+  assert.equal(page.wake(5000), true);
+  await page.settle();
+  assert.equal(page.wake(5000), true);
+  await page.settle();
+
+  // A screen left open in daylight and picked up again must not have a live
+  // delete on it.
+  assert.deepEqual(remove(page), { says: "remove this book", armed: false });
+  assert.deepEqual(page.removes, []);
+});
+
+test("the second press takes the book away and says so on the way out", async (t) => {
+  const page = await opened(t, {
+    library: [listed(OTHER_BOOK), listed(TONE_BOOK)],
+  });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  page.saysRemove({
+    ok: true,
+    found: true,
+    said: "Another Book is gone, with everything rendered of it.",
+  });
+
+  page.click("book-remove");
+  await page.settle();
+  page.click("book-remove");
+  await page.settle();
+  await page.settle();
+  await page.settle();
+
+  assert.deepEqual(page.removes, ["api/book/900002"]);
+  // The page about a book that is not there any more goes, and the sentence is
+  // said on the screen underneath — where the list it was removed from is, and
+  // where somebody is now standing.
+  assert.equal(page.probe().bookUp, false);
+  assert.equal(page.probe().workshopUp, true);
+  assert.equal(
+    page.el("queue-said").textContent,
+    "Another Book is gone, with everything rendered of it.",
+  );
+  assert.deepEqual(names(page), ["Three Tones"]);
+});
+
+test("a book being rendered is refused rather than raced", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  page.saysRemove({
+    ok: false,
+    found: true,
+    said: "Another Book is being rendered, so stop it first: job 7.",
+  });
+
+  page.click("book-remove");
+  await page.settle();
+  page.click("book-remove");
+  await page.settle();
+  await page.settle();
+
+  // A refusal is a 200 with a sentence, not an error — the book is still here,
+  // and the sentence names the job to stop before this can be asked again. So
+  // the screen stays where it is, because the book it is about does too.
+  assert.equal(page.probe().bookUp, true);
+  assert.equal(
+    page.el("book-said").textContent,
+    "Another Book is being rendered, so stop it first: job 7.",
+  );
+  assert.deepEqual(remove(page), { says: "remove this book", armed: false });
+  assert.deepEqual(names(page), ["Another Book"]);
+});
+
+test("a delete that never left the phone has removed nothing", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  page.unreachable({ remove: true });
+
+  page.click("book-remove");
+  await page.settle();
+  page.click("book-remove");
+  await page.settle();
+  await page.settle();
+
+  assert.equal(page.probe().bookUp, true);
+  assert.equal(
+    page.el("book-said").textContent,
+    "couldn't reach somnia — nothing has been removed",
+  );
+  // And the press comes back, disarmed, because trying again is the whole of
+  // what there is to do about it.
+  assert.deepEqual(remove(page), { says: "remove this book", armed: false });
+});
+
+test("a page left while a press is in flight does not leave it dead", async (t) => {
+  const page = await opened(t, {
+    library: [listed(OTHER_BOOK), listed(TONE_BOOK)],
+  });
+  page.queueView([]);
+  await bookPage(page, 900002);
+
+  // Both presses are disabled while their request is out, and the answer to
+  // that request returns early on a page that has gone — so leaving here is
+  // the one way either of them could stay disabled with nothing left to
+  // re-enable it.
+  page.click("book-finish");
+  page.click("book-close");
+  await page.settle();
+  await page.settle();
+
+  await bookPage(page, 900001);
+  assert.equal(page.el("book-finish").disabled, false);
+
+  page.click("book-remove");
+  await page.settle();
+  page.click("book-remove");
+  page.click("book-close");
+  await page.settle();
+  await page.settle();
+
+  await bookPage(page, 900001);
+  // Without this the next book opened — and every book after it, until the
+  // phone reloaded — would have a `remove this book` that could not be
+  // pressed.
+  assert.equal(page.el("book-remove").disabled, false);
 });

@@ -2,9 +2,9 @@
 
 Until this existed a chapter boundary was silent. The parser puts the heading in
 ``Chapter.title`` and only the ``<p>`` text into ``paragraphs``, so the words on
-the page saying CHAPTER XVII were used for a filename and an Audiobookshelf mark
-and never spoken — one chapter's audio simply stopped and the next one's first
-sentence began. Half asleep that is indistinguishable from a skip.
+the page saying CHAPTER XVII were used for a filename and never spoken — one
+chapter's audio simply stopped and the next one's first sentence began. Half
+asleep that is indistinguishable from a skip.
 
 Handing the heading straight to Kokoro does not work, and the reasons are the
 whole of this module.

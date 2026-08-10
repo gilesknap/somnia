@@ -2,10 +2,14 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
+from fakes import FakeEmbedder
 from somnia import __version__
 from somnia.db import connect
+from somnia.embed import Embedder
 from somnia.queue import claim
+from tone_book import GID, build_tone_book
 
 
 def somnia(*args: str, env: dict[str, str]) -> str:
@@ -135,3 +139,41 @@ def test_add_says_which_book_it_actually_rendered(tmp_path: Path) -> None:
     # And the book actually asked for is still waiting, said plainly, because
     # somebody who typed 120 and read six hours of 271 has no other way to know.
     assert "Book 120 is still in the line" in out
+
+
+def test_remove_takes_a_book_away_and_says_so_about_one_that_is_not_there(
+    tmp_path: Path,
+) -> None:
+    """The one command that cannot be undone, run the way it will be run.
+
+    Out of process like the rest, and that is as much of the assertion as the
+    sentence is: `remove` reaches for the library, the streams and four tables,
+    and an import left in the wrong place would otherwise be found on the box
+    at 2am rather than here.
+
+    The refusal comes first because it is the likelier press. A gid typed at a
+    terminal is a gid that can be mistyped, and being told plainly that there
+    is no such book is a good deal better than a command that says nothing and
+    exits zero.
+    """
+    library = tmp_path / "library"
+    env = {
+        **os.environ,
+        "SOMNIA_DATA_DIR": str(tmp_path / "data"),
+        "SOMNIA_LIBRARY_DIR": str(library),
+    }
+
+    assert "There is no book 120 here" in somnia("remove", "120", env=env)
+
+    # Built here rather than by rendering one, which would want kokoro. The
+    # first run above left the database and its migrations behind.
+    conn = connect(tmp_path / "data" / "somnia.db")
+    try:
+        book_dir = build_tone_book(conn, library, cast(Embedder, FakeEmbedder()))
+    finally:
+        conn.close()
+
+    out = somnia("remove", str(GID), env=env)
+
+    assert "Three Tones is gone" in out
+    assert not book_dir.exists()

@@ -460,8 +460,29 @@ export function listed(book) {
     status: book.status,
     total_ms: book.total_ms,
     chapters: book.chapters.length,
+    // How many it HAS, which is the manifest's own field: the two are equal on
+    // a book that finished rendering and different on every book that did not,
+    // and a coverage line is the difference between them read out loud.
+    chapters_total: book.chapters_total,
     position_ms: book.position_ms,
     seq: book.seq,
+    // When the reader said they were done with it, which no manifest carries —
+    // it is not the render's business and `/api/book/{gid}` does not return it.
+    // So a fixture that wants to be finished says so on itself, and everything
+    // else is what every book somnia has is: still being read.
+    finished_at: book.finished_at ?? null,
+    // When somnia was first asked for the book, which no manifest carries
+    // either. One date for every fixture unless a test says otherwise: a
+    // library where every book arrived at the same moment is a library whose
+    // order is decided by everything else, which is what most of these tests
+    // want. A test about the ordering itself puts its own dates on the rows.
+    created_at: book.created_at ?? "2026-01-01 00:00:00",
+    // Which library the book came out of, which the server derives from the
+    // gid. Written out rather than worked out here for the reason the page
+    // does not work it out either: a fixture that repeated the offset would be
+    // a second copy of the arithmetic, and the point of the field is that there
+    // is one. A book from the other library says so on itself.
+    source: book.source ?? "gutenberg",
   };
 }
 
@@ -603,6 +624,20 @@ const BORN_HIDDEN = new Set([
   // The label over the shelf, which goes with its rows the way the ended list's
   // does: a somnia with one book has nothing to put under it.
   "shelf-label",
+  // The line at the foot of a shelf that was cut short, which ships hidden
+  // because on most nights nothing is cut and a line that was always there
+  // would be furniture rather than an answer.
+  "shelf-more",
+  // One book's own page, which ships hidden like the four overlays above it and
+  // is the only one of them that can be reached only through two others.
+  "book",
+  // The library at the foot of Workshop, and the two lines inside it that are
+  // answers rather than furniture: what a filter matched nothing with, and how
+  // many books are finished. The section itself ships hidden because a somnia
+  // with no books at all must not draw a filter and three orders over nothing.
+  "have",
+  "have-none",
+  "have-finished-label",
   "toast",
   // The way back inside it, which ships hidden separately: the box comes up for
   // every sentence the page says and this is on the one that has something to
@@ -626,6 +661,22 @@ const BORN_HIDDEN = new Set([
 // it that way and the page only ever changes it, so a fake that handed it back
 // live would let a control pass a test it fails in a browser.
 const BORN_DISABLED = new Set(["places-open"]);
+
+// And every id that is an <input> in the document. A browser hands back "" for
+// the value of an empty box and never undefined, so a fake that left the
+// property unset would make `.value.trim()` throw on a page that is perfectly
+// well behaved — which is a test failing for the fake's reasons rather than the
+// page's. The composer's box is here too, though tests write to it before
+// anything reads it.
+const BORN_TYPED = new Set([
+  "question",
+  "queue-query",
+  "have-filter",
+  // The two boxes on a book's page, which are the only inputs on this page that
+  // arrive with something already in them.
+  "book-name",
+  "book-author",
+]);
 
 // Enough of a DOM node to build a list of places out of, and no more.
 //
@@ -1097,6 +1148,11 @@ globalThis.__page = {
     // the server anything.
     queueUp: !queuePanel.hidden,
     workshopUp: !workshop.hidden,
+    // And whether one book's own page is over that. It is in the probe for the
+    // reason the two above it are: a screen that outlived the one it was opened
+    // from is the one state on this page with no way out of it, and close
+    // promises everything else in this object is unchanged.
+    bookUp: !bookPanel.hidden,
     queuePolling: queuePoll !== 0,
     // And whether Settings is over the page. It is here for the same reason as
     // the three above and for one of its own: it is the one overlay that asks
@@ -1205,6 +1261,11 @@ export async function boot(t, options = {}) {
   // says so with `page.serves`, and a copy per boot is what keeps that from
   // being a chapter every other suite in the run silently inherits.
   const manifests = new Map(MANIFESTS);
+  // What /api/books answers with, made once rather than per request — because
+  // the writes a book's page makes change it. A rename that left this list
+  // alone would be a fake server that forgot what it had just been told, and
+  // the page would be judged for redrawing the old name faithfully.
+  const shelfRows = library ?? EVERY_BOOK.map(listed);
   const audio = new FakeAudio(order, clock, elements, manifests);
   const localStorage = new FakeStorage(stored);
   const sessionStorage = new FakeStorage();
@@ -1219,6 +1280,7 @@ export async function boot(t, options = {}) {
       // nowhere at all.
       node.hidden = BORN_HIDDEN.has(id);
       node.disabled = BORN_DISABLED.has(id);
+      if (BORN_TYPED.has(id)) node.value = "";
       elements.set(id, node);
     }
     return elements.get(id);
@@ -1268,6 +1330,19 @@ export async function boot(t, options = {}) {
     { id: "af_heart", name: "heart", says: "American, warm and unhurried" },
     { id: "bm_george", name: "george", says: "British, a man, low" },
   ];
+  // Every rename and every delete the page asked for, and what somnia said
+  // back. Two answers rather than one flag each: the delete's refusal is a book
+  // that is being rendered, which is a 200 with `ok` false and a sentence — and
+  // it is the arm of this that has to leave the screen standing.
+  const renames = [];
+  const removes = [];
+  const finishes = [];
+  let renameAnswer = { ok: true, found: true, said: "It is called that now." };
+  let removeAnswer = {
+    ok: true,
+    found: true,
+    said: "Three Tones is gone, with everything rendered of it.",
+  };
   let submitAnswer = { ok: true, id: 1, said: "It is next to be rendered." };
   let stopAnswer = { ok: true, state: "cancelled", said: "Taken out." };
   // Which of the six the tailnet is eating at the moment. Held apart rather
@@ -1284,6 +1359,13 @@ export async function boot(t, options = {}) {
     open: false,
     books: false,
     passage: false,
+    // The two writes a book's own page makes. Held apart from `books` above
+    // because the interesting failure is one-sided: a rename that never landed
+    // while the list is still arriving perfectly well is a box that has to put
+    // back what the server still holds.
+    rename: false,
+    remove: false,
+    finish: false,
   };
 
   const fakeWindow = new FakeElement("window");
@@ -1450,7 +1532,7 @@ export async function boot(t, options = {}) {
         if (gone.books) throw new Error("no route to host");
         return json({
           last_gid: lastGid,
-          books: library ?? EVERY_BOOK.map(listed),
+          books: shelfRows,
         });
       }
       // Making a book the one a cold launch opens, which is the whole of
@@ -1469,6 +1551,82 @@ export async function boot(t, options = {}) {
           gid: opened ? opened.gid : 0,
           position_ms: opened ? opened.position_ms : null,
           seq: opened ? opened.seq : 0,
+        });
+      }
+      // What a book is called here, and taking one away. Both are answered
+      // exactly as server.py answers them — a refusal is a 200 with a sentence
+      // in it, and only a gid that is not here is a 404 — because a page tested
+      // against a kinder server is a page that treats "it is being rendered" as
+      // a failure.
+      if (url.endsWith("/name") && init?.method === "POST") {
+        if (gone.rename) throw new Error("no route to host");
+        const named = JSON.parse(init.body);
+        renames.push(named);
+        if (renameAnswer.ok) {
+          const gid = Number(url.split("/")[2]);
+          const book = manifests.get(`api/book/${gid}`);
+          // What library.rename_book stores, which is what was sent with the
+          // whitespace taken off it, and what it answers with. A harness that
+          // stored the string exactly as typed would be a kinder server than
+          // somnia is, and the one thing these two fields exist for — a page
+          // drawing what was saved rather than what it typed — could not be
+          // tested at all. `renames` keeps what was sent, untouched, because
+          // that is the other half of the same question.
+          const stored = {
+            title: named.title.trim(),
+            authors: named.authors.trim(),
+          };
+          // A copy, and this is not fussiness: the map is per boot but the
+          // manifests in it are the module's own fixtures, so a rename written
+          // through one of them is a book called something else in every suite
+          // that runs after this one.
+          if (book) {
+            manifests.set(`api/book/${gid}`, { ...book, ...stored });
+          }
+          for (const row of shelfRows) {
+            if (row.gid === gid) {
+              row.title = stored.title;
+              row.authors = stored.authors;
+            }
+          }
+          return json({ ...renameAnswer, ...stored });
+        }
+        return json(renameAnswer);
+      }
+      if (url.startsWith("api/book/") && init?.method === "DELETE") {
+        if (gone.remove) throw new Error("no route to host");
+        removes.push(url);
+        // A book that really goes takes its manifest with it, so a page that
+        // asked about it again would meet the 404 a real somnia gives — and a
+        // refusal leaves it exactly where it was, which is the whole of what a
+        // refusal means.
+        if (removeAnswer.ok) {
+          manifests.delete(url);
+          const gid = Number(url.split("/")[2]);
+          const at = shelfRows.findIndex((row) => row.gid === gid);
+          if (at !== -1) shelfRows.splice(at, 1);
+        }
+        return json(removeAnswer);
+      }
+      // Finished, or not after all, which is one column and its own undo. The
+      // stamp is whatever the server would have written; nothing on the page
+      // reads it as a date, and everything reads it as whether there is one.
+      if (url.endsWith("/finished") && init?.method === "POST") {
+        if (gone.finish) throw new Error("no route to host");
+        const asked = JSON.parse(init.body);
+        finishes.push({ url, finished: asked.finished });
+        const gid = Number(url.split("/")[2]);
+        for (const row of shelfRows) {
+          if (row.gid === gid) {
+            row.finished_at = asked.finished ? "2026-08-10 21:00:00" : null;
+          }
+        }
+        return json({
+          ok: true,
+          found: true,
+          said: asked.finished
+            ? "It is finished."
+            : "It is back on the shelf.",
         });
       }
       if (manifests.has(url)) return json(manifests.get(url));
@@ -1680,6 +1838,18 @@ export async function boot(t, options = {}) {
     stops,
     searches,
     opens,
+    renames,
+    removes,
+    finishes,
+    // What the two writes on a book's page say back, set per test the way the
+    // queue's two are: the refusals are the whole subject of that screen, and a
+    // page can only be judged against a server that gives them.
+    saysRename: (answer) => {
+      renameAnswer = answer;
+    },
+    saysRemove: (answer) => {
+      removeAnswer = answer;
+    },
     reply: (answer) => {
       positionReply = answer;
     },

@@ -59,9 +59,8 @@ serialisation, and it is a property of the database rather than a convention:
 the claim is a single guarded `UPDATE ... RETURNING`, so two books asked for a
 millisecond apart cannot both start.
 
-The pipeline emits **one m4a file per chapter** into the Audiobookshelf
-library folder as each chapter finishes, then triggers a library rescan.
-Multi-file books are ABS's native format with a single global timeline, so:
+The pipeline emits **one m4a file per chapter** into the library folder as each
+chapter finishes. A book is many files on one global timeline, so:
 
 - listening can start when chapter one is rendered (minutes after picking)
 - the semantic index grows chapter by chapter, so a book can be asked about
@@ -69,9 +68,9 @@ Multi-file books are ABS's native format with a single global timeline, so:
   book is indexed whole on the evening it renders and listened to over the
   fortnight after, so from the second night on, the only thing between a
   question and the last page is the spoiler guard below
-- per-chapter files are simultaneously the streaming unit, the ABS-native
-  unit, the re-render unit and — since the page became the player — the unit
-  the phone fetches over HTTP (a single M4B would defeat all four)
+- per-chapter files are simultaneously the streaming unit, the re-render unit
+  and — when there is no join to be had — the unit the phone fetches over HTTP
+  (a single M4B would defeat all three)
 - a chapter is also the unit a render can be **stopped and taken up again**
   at. The render asks between sentences and encodes a chapter on the last
   line, so a stop leaves no audio, no chunks and no row for the chapter it was
@@ -82,7 +81,7 @@ Multi-file books are ABS's native format with a single global timeline, so:
 
 All timestamps everywhere are **global milliseconds from book start**, on the
 render clock — `chapters` rows carry each chapter's global start, so index hits,
-the saved position, the player and ABS all speak it.
+the saved position and the player all speak it.
 [Architecture](architecture.md) has the reason that is not what a decoder
 reports.
 
@@ -189,26 +188,12 @@ position and the mark, and left the count below the one a still-open page was
 holding: every report that page made for the rest of the night was refused, and
 nothing was written again until it was reloaded.
 
-**Audiobookshelf is written to and never read.** The write is best effort, off
-the critical path, and only when they have stopped: it costs a handful of
-requests a night and means the book is in roughly the right place if they open
-ABS somewhere else. A failure is logged and ignored — the app is not the player
-any more, so nothing tonight depends on it. Both routes to a position — an
-agent move, and the page saying it has stopped — end in the same
-`somnia.abs.tell_abs`, because they are one thing said twice.
-
-There is exactly one read left, and it is not on a listening path.
-`somnia seed-positions` runs once, by hand, and takes each book's
-`currentTime` and `lastUpdate` out of ABS's progress records. Without it the
-first night of the pivot opens the most recently *added* book at 0:00 and
-bounds every search at the first minute, because the position they have really
-reached lives on the other server and nothing here has ever heard of it. It
-never lowers anything: a position somnia already holds is left alone (the page
-is the player, so the row is the newer of the two) and the high-water mark only
-rises. `position_at` comes from ABS's `lastUpdate` rather than from the moment
-the seed ran — stamping every book with the same second would hand the choice
-of which book to open back to `created_at`, which is the failure it is there
-to fix.
+**Nothing outside somnia is told where the book is.** A courtesy write to
+Audiobookshelf survived the pivot and has since been dropped: it bought a
+position nobody read, and it had already stopped running on the live box —
+the token was commented out and nothing noticed
+([ADR 9](decisions/0009-drop-audiobookshelf.md)). The row is the record, and
+there is nothing anywhere else for it to disagree with.
 
 **The spoiler guard is bounded by the furthest point ever played through**, not
 by the current position, because the agent can move that position anywhere:
@@ -279,11 +264,11 @@ read a frontier off.
 
 ## Getting through the night is the page's job now
 
-Three things the ABS app used to absorb, which nothing absorbs any more. All
-three end the same way if they are not handled — silence, with a notification
-that says paused — and none of them can be seen without unlocking the phone,
-which is why each of them says what is happening on the status line as well as
-doing something about it.
+Three things nothing absorbs on the page's behalf, and there is nothing else
+left to absorb them. All three end the same way if they are not handled —
+silence, with a notification that says paused — and none of them can be seen
+without unlocking the phone, which is why each of them says what is happening
+on the status line as well as doing something about it.
 
 **The book grows while it is being played.** A manifest is a photograph of a
 book that is still arriving: ingest writes each chapter row as it finishes and
@@ -437,8 +422,8 @@ the static mount at `/`.
 ## Network model
 
 Nothing is exposed publicly. The server binds to localhost (`--host` defaults to
-`127.0.0.1`) and only `tailscale serve` can reach it, fronting ABS and the PWA
-on separate ports with a real TLS certificate on the node's `.ts.net` name. When
+`127.0.0.1`) and only `tailscale serve` can reach it, fronting the PWA with a
+real TLS certificate on the node's `.ts.net` name. When
 somnia ran on a shared experiment box, that box joined the tailnet **tagged**
 (`tag:vps`) with the ACL never listing the tag as a source, so it could be
 reached from personal devices and could never initiate a connection inward —
@@ -462,8 +447,10 @@ at 3am takes the book with it.
   it silently did on every deploy
   ([ADR 5](decisions/0005-render-one-book-at-a-time.md)). Both units run on
   nuc2, a small home machine; the VPS this was first built on is stopped.
-- Audiobookshelf runs as a rootless podman container (quadlet systemd unit)
-  under a dedicated user, bound to localhost, fronted by tailscale serve.
+- Nothing else runs beside them. Audiobookshelf was a third unit — a rootless
+  podman container under a dedicated user, with a `tailscale serve` of its own
+  — until it was turned off on the box; the code caught up with that in
+  [ADR 9](decisions/0009-drop-audiobookshelf.md).
 
 ## Test books
 

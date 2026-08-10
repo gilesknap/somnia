@@ -34,19 +34,18 @@ from typing import Any, cast
 
 from anthropic import Anthropic
 from starlette.applications import Starlette
-from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from .abs import AbsClient
 from .agent import Conversation, Turn, effort_for, open_library
 from .catalog import search_catalog
 from .config import Config
 from .db import connect
 from .format import shorten
+from .library import Removed, remove_book
 from .player import Player
 from .queue import LIVE, QueueRow, Stopped, Submission, stop, submit, view
 from .stream import build_stream, stream_path
@@ -102,14 +101,23 @@ class Shell(StaticFiles):
 # nights of tabs can accumulate. Old ones are dropped, not remembered.
 MAX_CONVERSATIONS = 8
 
-# Why the page is telling us where it is. The five below mean they have stopped
-# — "switch" is the book left behind when the agent moves them to another one,
-# which for that book is as much of a stop as putting the phone down — and so
-# are the moments Audiobookshelf is worth telling: it is right whenever someone
-# might next open it, at the cost of a handful of writes a night rather than one
-# every fifteen seconds.
-STOPPED = frozenset({"pause", "hidden", "unload", "ended", "switch"})
-REASONS = STOPPED | frozenset({"load", "play", "tick", "seek", "chapter"})
+# Every reason the page has for telling us where it is. Nothing branches on
+# which one it is any more, so this is a vocabulary rather than a decision: it
+# is here so a word nobody wrote can be noticed on the way in.
+REASONS = frozenset(
+    {
+        "pause",
+        "hidden",
+        "unload",
+        "ended",
+        "switch",
+        "load",
+        "play",
+        "tick",
+        "seek",
+        "chapter",
+    }
+)
 
 # How many books a catalog search offers. Eight is what fits on a phone above a
 # raised keyboard, and a list that has to be scrolled to be read is a second
@@ -253,6 +261,7 @@ class Queue:
     """
 
     def __init__(self, cfg: Config) -> None:
+        self._cfg = cfg
         self._lock = threading.Lock()
         self._conn: sqlite3.Connection = connect(cfg.db_path, cross_thread=True)
 
@@ -272,6 +281,22 @@ class Queue:
     def stop(self, job_id: int) -> Stopped:
         with self._lock:
             return stop(self._conn, job_id)
+
+    def remove(self, gid: int) -> Removed:
+        """Take a book out of the library altogether — rows, audio and streams.
+
+        On this connection rather than the player's, because the first thing a
+        delete does is ask the queue whether anything is rendering the book,
+        and that is this lane's question. Under this lock for the same reason
+        `stop` is: two presses on the same book a millisecond apart must not
+        both walk the same folder.
+
+        The player will not notice, and does not have to. It holds no rows in
+        Python — every manifest is a fresh SELECT — so the next request simply
+        finds the book gone, which is what it now is.
+        """
+        with self._lock:
+            return remove_book(self._cfg, self._conn, gid)
 
     def search(self, query: str, language: str) -> Searched:
         """The local catalog, offline, with what somnia already has marked."""
@@ -327,11 +352,7 @@ class Queue:
 def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
     """The PWA, the agent behind it, and the book it plays."""
     conversations = Conversations(cfg, open_library(cfg, conn))
-    # The player gets its own client rather than the library's. The point of
-    # the fast lane is that nothing on it waits on the lane a model turn is
-    # using, and that goes for the socket as much as for the connection.
-    abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
-    player = Player(cfg, abs_client)
+    player = Player(cfg)
     renders = Queue(cfg)
 
     async def ask(request: Request) -> Response:
@@ -415,6 +436,23 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             return JSONResponse({"error": "no such book"}, 404)
         return JSONResponse(asdict(manifest))
 
+    async def remove_the_book(request: Request) -> Response:
+        """Take a book out of somnia: its rows, its audio, its joined streams.
+
+        DELETE, and it means it — unlike ``/api/queue/{id}/stop``, which is a
+        POST precisely because the row it names survives it. There is nothing
+        left of a book after this and no undo anywhere behind it, which is why
+        the page will ask twice before it gets here.
+
+        200 with ``"ok": false`` for a refusal: a book being rendered right now
+        is a real book that is staying, and the sentence says how to stop the
+        render first. **404** only for a gid that is not here at all, the same
+        answer, for the same reason, as the GET on this path.
+        """
+        gid = int(request.path_params["gid"])
+        removed = await run_in_threadpool(renders.remove, gid)
+        return JSONResponse(asdict(removed), 200 if removed.found else 404)
+
     async def open_book(request: Request) -> Response:
         """Make this the book the page opens, which is the whole of switching.
 
@@ -437,6 +475,51 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         if opened is None:
             return JSONResponse({"error": "no book to open"}, 404)
         return JSONResponse(asdict(opened))
+
+    async def finish_the_book(request: Request) -> Response:
+        """Say the reader is done with this book, or that they are not.
+
+        POST and not DELETE, because nothing is deleted: one column is written,
+        and writing it back is the same route with ``"finished": false``. The
+        undo being the same shape as the doing is what lets the day screen
+        offer it as one control that toggles rather than two that disagree.
+
+        A body that says nothing means finished — which is the press that
+        exists on the page — so a request that arrives without one does the
+        thing it was almost certainly sent to do rather than the opposite.
+
+        404 for a gid that is not here, the same answer as the GET and the
+        DELETE on this path.
+        """
+        gid = int(request.path_params["gid"])
+        payload = await _payload(request)
+        finished = bool(payload.get("finished", True))
+        done = await run_in_threadpool(player.finish, gid, finished)
+        return JSONResponse(asdict(done), 200 if done.found else 404)
+
+    async def rename_the_book(request: Request) -> Response:
+        """Say what a book is called here, whatever the catalog called it.
+
+        POST for the same reason the one above it is: two columns are written
+        and nothing is taken away. The body carries both — a book's name and
+        who wrote it are edited in the same breath on the page, and two routes
+        would let a phone that lost its connection between them leave a book
+        with one of the pair changed.
+
+        A missing field means the empty string rather than "leave it alone",
+        which is what a form that has been cleared actually says. An empty
+        author is stored; an empty title is refused with a sentence, because
+        every screen names a book by its title.
+
+        404 for a gid that is not here, the same answer as the GET, the DELETE
+        and the finished route on this path.
+        """
+        gid = int(request.path_params["gid"])
+        payload = await _payload(request)
+        title = str(payload.get("title") or "")
+        authors = str(payload.get("authors") or "")
+        named = await run_in_threadpool(player.rename, gid, title, authors)
+        return JSONResponse(asdict(named), 200 if named.found else 404)
 
     async def sentence(request: Request) -> Response:
         """Where the sentence being spoken at a point began.
@@ -564,15 +647,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         # has no position to talk about, and saying "position_ms": null would
         # read as one.
         body = {k: v for k, v in asdict(report).items() if v is not None}
-        told = report.accepted and reason in STOPPED
-        return JSONResponse(
-            body,
-            # After the reply is on the wire, never before it. Audiobookshelf is
-            # a courtesy and the page is waiting.
-            background=BackgroundTask(player.tell_abs, gid, position_ms)
-            if told
-            else None,
-        )
+        return JSONResponse(body)
 
     async def catalog(request: Request) -> Response:
         """Which books there are to add, from the copy of the catalog on disk.
@@ -727,7 +802,12 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/health", health),
             Route("/api/books", books),
             Route("/api/book/{gid:int}", book),
+            # The same path, read and then taken away, in the shape the queue's
+            # two routes are already in: one method each, one handler each.
+            Route("/api/book/{gid:int}", remove_the_book, methods=["DELETE"]),
             Route("/api/book/{gid:int}/open", open_book, methods=["POST"]),
+            Route("/api/book/{gid:int}/finished", finish_the_book, methods=["POST"]),
+            Route("/api/book/{gid:int}/name", rename_the_book, methods=["POST"]),
             Route("/api/audio/{gid:int}/{idx:int}", audio),
             Route("/api/stream/{gid:int}/{n:int}", stream),
             Route("/api/sentence/{gid:int}/{ms:int}", sentence),
