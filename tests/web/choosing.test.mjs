@@ -202,6 +202,10 @@ function rows(page) {
         // as a boolean because the word is the whole of how this press says it
         // is not a move outward.
         back: part(li, "here-go")?.textContent ?? null,
+        // The same claim as `label`, made to a screen reader. Read here so the
+        // two can be asserted together: a row whose word and whose attribute
+        // disagree is the bug this list is least able to show anybody.
+        current: li.getAttribute("aria-current"),
       };
     }
     const show = part(li, "candidate-show");
@@ -542,6 +546,7 @@ test("after a goto the rule says they were here", async (t) => {
   // and the row drawn in the same synchronous call, with nothing between them
   // that can move the playhead.
   assert.equal(asked.label, "you are here");
+  assert.equal(asked.current, "true");
 
   page.click("candidate-go-12");
   await page.settle();
@@ -553,6 +558,10 @@ test("after a goto the rule says they were here", async (t) => {
   // 0:16:40 — "you are here" over that is not a cautious sentence, it is a
   // false one, on the screen that is not allowed any.
   assert.equal(here.label, "you were here");
+  // And the attribute with it. A screen reader announcing this row as the
+  // current location, under a label that has just said it is not, is the same
+  // false sentence made to the one reader who cannot see the two disagree.
+  assert.equal(here.current, null);
   assert.equal(here.when, "0:16:40");
   assert.equal(here.caveat, "anything below this line you may not have heard");
   assert.equal(here.back, "here");

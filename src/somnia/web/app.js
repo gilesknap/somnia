@@ -3373,7 +3373,13 @@ function candidateRow(place) {
 function hereRow(list, ms, { more, back, still }) {
   const li = document.createElement("li");
   li.className = "candidate here";
-  li.setAttribute("aria-current", "true");
+  // On the same condition as the word, because it is the same claim said to a
+  // different reader. `aria-current` is what a screen reader announces this row
+  // as, so leaving it set under `you were here` hands the machine the sentence
+  // this whole change exists to stop the page making — and hands it to the one
+  // reader who cannot see the label disagreeing with it. Absent rather than
+  // `false`: the attribute's own vocabulary has no word for "was".
+  if (still) li.setAttribute("aria-current", "true");
   // The label on the rule, and only the label now. The time came out of it in
   // the same change that gave this row a time of its own at the size every
   // other row states its time in — one line saying it twice, once at 9px, was
