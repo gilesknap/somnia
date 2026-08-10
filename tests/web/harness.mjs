@@ -914,6 +914,30 @@ export const START_MS = 1_700_000_000_000;
 // phone's own height and not a number chosen to make the arithmetic tidy.
 export const VIEWPORT_HEIGHT = 780;
 
+// And its width, which matters to exactly one thing and matters to it entirely:
+// style.css takes the root from the screen, so how wide the page is decides how
+// big a rem is and therefore how many of them the window is tall. A test about
+// whether there is room to draw the reading is a test about both numbers.
+export const VIEWPORT_WIDTH = 360;
+
+// The one declaration of style.css this harness reproduces, and it is
+// reproduced rather than read because it is the yardstick the page is measured
+// against: app.js asks the browser for the root and compares the height to
+// `PLAYER_NEEDS_ROOTS` of them, and a fake that answered anything would be
+// testing arithmetic against itself. `font-size: calc(var(--text-size) * min(100vw, 460px) / 18)` — the 18
+// is the design's own width in rem, and the 460 is the cap past which a desktop
+// window stops growing the type.
+//
+// It can drift, and there is a test in fitting.test.mjs that reads the
+// stylesheet and fails the day it does. Change one of these and change the
+// other.
+const ROOT_CAP = 460;
+const REM_WIDE = 18;
+
+export function rootFor(width, textSize) {
+  return (textSize * Math.min(width, ROOT_CAP)) / REM_WIDE;
+}
+
 class FakeClock {
   constructor() {
     this.ms = START_MS;
@@ -1270,6 +1294,12 @@ export async function boot(t, options = {}) {
   // resize listener, and the listener half is already here.
   const visualViewport = new FakeElement("visual-viewport");
   visualViewport.height = VIEWPORT_HEIGHT;
+  // How wide the page is, which no part of app.js reads and which the sheet
+  // reads for everything: it is what `100vw` is, and therefore what the root is.
+  // Kept beside the viewport rather than on it because it is the LAYOUT viewport
+  // the root comes from — a keyboard shortens the visual viewport and moves no
+  // rem at all.
+  let windowWidth = VIEWPORT_WIDTH;
   if (canMeasure) fakeWindow.visualViewport = visualViewport;
   // <body>, which the page writes both of its two states onto: which screen it
   // is on, and whether there is a keyboard over it. It is not in the id
@@ -1313,6 +1343,23 @@ export async function boot(t, options = {}) {
     console: { error() {}, log() {}, warn() {} },
     document: fakeDocument,
     window: fakeWindow,
+    // The used size of a thing, of which the page asks for exactly one: the
+    // root. It is the number `readRoom` compares the window against, so a fake
+    // that returned a constant would let a page that ignored `how big the words`
+    // pass every test about it. `rootFor` is the sheet's own formula, and the
+    // `--text-size` in it is whatever the page last wrote onto <html> — which is
+    // how a press on Settings arrives here with no resize behind it.
+    //
+    // Anything but <html> gets a root of nothing rather than a guess. If a
+    // second caller ever appears it should fail loudly here rather than be
+    // answered wrongly.
+    getComputedStyle: (element) => {
+      if (element !== fakeDocument.documentElement) return { fontSize: "" };
+      const size = Number(fakeDocument.documentElement.style["--text-size"]);
+      return {
+        fontSize: `${rootFor(windowWidth, size > 0 ? size : 1)}px`,
+      };
+    },
     localStorage,
     sessionStorage,
     // A fresh one every time it is asked for, which is the whole of what the
@@ -1529,8 +1576,12 @@ export async function boot(t, options = {}) {
     // from inside the page — and, with nothing focused, what a window being
     // dragged looks like. The two are the same event and telling them apart is
     // the whole of what these tests are about.
-    resize: (height) => {
+    // The width is optional and sticky, because a phone does not change how wide
+    // it is between one resize and the next unless it has been turned over. A
+    // test that gives it once has given it for the rest of the night.
+    resize: (height, width) => {
       visualViewport.height = height;
+      if (width !== undefined) windowWidth = width;
       visualViewport.fire("resize");
     },
     // Focus, said by hand as a browser says it. Which box matters: the

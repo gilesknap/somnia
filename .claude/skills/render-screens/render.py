@@ -27,11 +27,22 @@ on the other of the page's two screens.
 Which screen has to be *said* here, and this is the part that changed. It used to
 follow from the height alone — the sheet asked `@media (max-height: 34rem)` and
 took a short window to mean a keyboard — and that guess is the bug this argument
-replaced: a window nobody was typing in, or an OS text scale one notch up, put
-the page on the chat screen with the player gone. app.js measures the keyboard
-now and writes the screen onto <body>, and app.js is exactly what a snapshot
-drops. So `--height 470` alone photographs a squashed player, and the chat screen
-is `--screen chat --height 470`.
+replaced: a window nobody was typing in put the page on the chat screen with the
+player gone. app.js measures the keyboard now and writes the screen onto <body>,
+and app.js is exactly what a snapshot drops. So `--height 470` alone photographs
+a squashed player, and the chat screen is `--screen chat --height 470`.
+
+**Whether there is room for the reading is measured too, and this file derives
+it.** app.js compares the height with nothing over it against 32 of the page's
+own roots and writes `short-page`; the sheet hides the reading on that class. It
+used to be a media query, and a media query's `rem` is the browser's 16px and
+never the page's root, which is issue #65. There is no `--short` flag: the width,
+the height, the root and the text size are all known here, so the class is worked
+out from them. A short render that had forgotten a flag would photograph a player
+the phone would never draw, and be believed. A keyboard render is judged by the
+height with nothing over it, because that is what app.js judges by: `--keyboard
+--height 470` is a picture of the design's phone with a panel over it, not a
+picture of a phone with no room in it.
 """
 
 import argparse
@@ -47,6 +58,27 @@ KEYBOARD_HEIGHT = 470
 # it, and anything in this skill that needs to know what root a width implies
 # divides by it too, rather than keeping a second copy of the answer.
 REM_WIDE = 18
+
+# Past this the root stops growing with the window: `min(100vw, 460px)` in
+# style.css, because 460 is about as wide as a phone gets and holding the size
+# is kinder than honouring the ratio on a desktop.
+ROOT_CAP = 460
+
+# How many of its own roots the player needs to draw the reading without the
+# book's title landing on the clock. `PLAYER_NEEDS_ROOTS` in app.js, which is
+# where the class this derives is really written.
+#
+# Stamping the class is not the same as hiding the reading: style.css asks this
+# only of a window under 460 across or under 540 tall, so a render of a laptop
+# window carries the class and keeps the whole reading, exactly as the page does.
+PLAYER_NEEDS_ROOTS = 32
+
+
+def effective_root(width, root=None, text_size=None):
+    """The root the page would have at this width, or the one being forced."""
+    if root is not None:
+        return root
+    return (text_size or 1) * min(width, ROOT_CAP) / REM_WIDE
 
 
 def overrides(root=None, text_size=None):
@@ -94,6 +126,34 @@ def render(
 ):
     src, out = pathlib.Path(src), pathlib.Path(out)
     classes = SCREENS[screen] + (["keyboard-up"] if keyboard else [])
+    # And whether there is room to draw the reading in, which app.js measures and
+    # a snapshot has no app.js to measure it with. Derived from the four numbers
+    # this script already has rather than offered as a flag: a flag is a thing
+    # that gets forgotten, and a short render that forgot it would photograph a
+    # player with the whole reading in it that the phone would never draw — which
+    # is the render that would have hidden issue #65 rather than found it.
+    #
+    # Against the height with nothing over it and not against `--height`, because
+    # that is the height app.js judges by: it holds `unobscured` still while
+    # anything has focus, so a keyboard shortens the window and moves this class
+    # not at all. Derive it from `--height` instead and `--keyboard --height 470`
+    # stamps `short-page` on a picture of a phone that has no such class — a
+    # player with the reading gone that the phone would draw in full behind the
+    # panel. That is the same conflation of a keyboard with a page out of room
+    # that this whole pass exists to undo, in the only tool anyone has to check
+    # the pass. The height with nothing over it is taken to be the design's own
+    # phone, which is the only phone this skill knows the full height of.
+    #
+    # So a keyboard render is judged against 780 whatever `--height` says, and
+    # that is a limit rather than an instruction: on a keyboard render `--height`
+    # means the shortened window, and the full height it was shortened *from* is
+    # a second number this script is never told. Photographing another device's
+    # keyboard correctly would need that number as its own flag. There is no
+    # such flag, and until there is, a keyboard render of anything but the
+    # design's phone gets this class from the design phone's height.
+    unobscured = HEIGHT if (keyboard or screen == "chat") else height
+    if unobscured < PLAYER_NEEDS_ROOTS * effective_root(width, root, text_size):
+        classes.append("short-page")
     # Anything being forced is injected rather than edited into style.css: what
     # is being photographed has to stay byte-for-byte the page that ships.
     scaled = src.with_name(f".scaled-{src.name}")
