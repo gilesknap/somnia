@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.8.dev47+g42ac75e2c documentation</title>
+    <title>4. Choose a place from a list, rather than talk about it &#8212; somnia 0.8.dev51+g3917e3cee documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=480ac87f"></script>
+    <script src="../../_static/documentation_options.js?v=135c4a0f"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -566,6 +566,46 @@ rather stronger for it. The <em>server</em> still cannot tell a question from a 
 to be moved, so there is still no rule watching search results and raising a
 list; what is new is that the model says which kind of turn it is by which tool
 it calls, and the tools refuse a move or a list in a turn that answered.</p>
+<p><strong>Amended 2026-08-10 (#66): the rule’s time is frozen and its word is not.</strong> The
+marker read <em>you are here</em> on every showing of a list, including the showing
+after a <code class="docutils literal notranslate"><span class="pre">goto</span></code>, where the book is somewhere else and the frozen time is what the
+way back is for. The time stays exactly as it was — it is what <code class="docutils literal notranslate"><span class="pre">here</span></code> seeks to,
+what the passage is fetched at and what the rows are sorted around, and
+unfreezing it turns the one press that had to remember into an undo that undoes
+nothing. What changed is one string: the page compares the stamp against the
+live playhead on every showing and writes <em>you are here</em> only while they are
+equal, <em>you were here</em> otherwise. On a list about another book the present tense
+stays, because there the stamp is that book’s stored position and nothing on
+this page can move it.</p>
+<p>Three alternatives were considered and are recorded so they are not re-argued.
+<em>Two rows</em>, a live rule plus a frozen way back, gives one screen two clocks
+among rows that are all a photograph of one moment, cannot be drawn for another
+book at all, and adds a sixth row to a list that already scrolls from the moment
+it opens. <em>A staleness threshold</em> — past tense only after N seconds — needs an N
+nobody can justify from a desk, and this page has no thresholds. <em>A crossing
+test</em> — past tense only once the playhead has passed one of the places — is the
+tempting clever version and it misses the reported bug: a <code class="docutils literal notranslate"><span class="pre">goto</span></code> backwards that
+lands between the same two rows leaves the mark’s index unmoved, so the screen
+would go on claiming they are somewhere they have just left. Exact equality has
+no such hole and needs no number invented at a desk, so it is what the label is
+decided by. The cost accepted is that a second or two of sound under a cancelled
+list flips the word; that is under-claiming, which is the direction this screen
+is allowed to be wrong in.</p>
+<p>What exact equality does <strong>not</strong> buy, and was briefly claimed for it, is a word
+that comes back. <code class="docutils literal notranslate"><span class="pre">here</span></code> seeks to the stamp and resumes the sound, and the label
+can only be looked at by opening the list again — a second or more later, by
+which time the playhead has left the stamp and the rule reads <em>you were here</em>
+once more. The present tense holds for a quarter of a second and never while
+anybody is reading it. That is not a fault to fix by seeking without playing:
+the press is a way back into the book, not into a sentence, and the honest
+reading is that the row gives the place back and the tense stays past. The
+narrower true statement, which is what this decision rests on, is that the
+present tense is printed only on a showing where the page has just checked it.</p>
+<p>The caveat under the rule is deliberately unchanged. <em>Anything below this line
+you may not have heard</em> can only ever over-warn — <code class="docutils literal notranslate"><span class="pre">heard_to_ms</span></code> never falls —
+and that is the same trade already accepted for the never-refreshed <code class="docutils literal notranslate"><span class="pre">ahead</span></code>
+flags. Loading a second clause onto the one sentence the screen is arranged
+around buys nothing the tense above it has not already said.</p>
 <p>What was <strong>not</strong> taken from that revision is the per-row <code class="docutils literal notranslate"><span class="pre">strong</span> <span class="pre">match</span></code> /
 <code class="docutils literal notranslate"><span class="pre">possible</span> <span class="pre">match</span></code> / <code class="docutils literal notranslate"><span class="pre">faint</span> <span class="pre">match</span></code> line. It needs a distance threshold, which
 “A confidence threshold to decide when to offer” below rejects for reasons that
@@ -725,8 +765,9 @@ the next question — and the sentence is left standing, because a receipt for
 something that really happened reads no worse for the offer beside it having
 gone. Pressed after that it would be a fourth move wearing the word <em>undo</em>.</p>
 <p>It is a second way back and not the only one. The <em>you are here</em> row is the
-first: it is frozen at the moment the question was asked, so opening the list
-again an hour later still offers the place the <code class="docutils literal notranslate"><span class="pre">goto</span></code> left. The toast is for the
+first: it is frozen at the moment the question was asked, and says so — opening
+the list again an hour later still offers the place the <code class="docutils literal notranslate"><span class="pre">goto</span></code> left, under a
+rule that now reads <em>you were here</em>. The toast is for the
 press that has just happened and the row is for the one somebody has had time to
 regret, which is why both exist and why they say the same sentence.</p>
 <p>Only for a <code class="docutils literal notranslate"><span class="pre">goto</span></code> inside the book that is playing. A row in another book
