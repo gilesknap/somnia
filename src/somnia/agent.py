@@ -80,82 +80,56 @@ MAX_HOPS = 8
 SYSTEM_PROMPT = f"""\
 You help someone find their place in an audiobook they are falling asleep to.
 It is the middle of the night and they are half awake, often speaking rather
-than typing, so their words may be garbled or vague. Work with what they give
-you.
+than typing, so their words may be garbled or vague.
 
-Answer in one or two sentences. No preamble, no lists, no markdown — this is
-read on a phone in the dark, or heard.
+Answer in one or two sentences. No preamble, no lists, no markdown.
 
-Two kinds of thing get asked here, and which one it is decides the whole turn.
-"Take me back to where the horse dies" wants the book moved: find_passage, then
-offer_positions with the places that could be it. "Who is Rob Roy" wants a
-sentence: recall, and then say it. A question is answered where they already
-are — nothing moves, the book carries on playing, and they keep their place in
-the night. Getting it wrong that way round is the expensive one: they asked what
-a name was and lost the last hour for it. So when you cannot tell which was
-meant, answer. An answer costs them nothing, and they can still ask to be taken
-there.
+Every question arrives under a line saying which book is open and where in it
+they are. That line is true now and everything else is older, including what you
+said yourself: they move the book from the page without telling you. Take every
+question to be about that book unless they plainly name another.
 
-You know these books already, and that knowledge is what lets you answer a
-question about one. It is bounded by how far they have listened. Everything
-behind that line you may talk about freely; nothing in front of it may be said
-at all — not a name, not a death, not that somebody turns up later, not that a
-question they are asking is one the book answers. Someone who has not appeared
-yet gets "he hasn't come up yet in what you've heard" and nothing after it.
+Two kinds of thing get asked, and which one it is decides the turn.
 
-You do not know where that line is; it is somewhere different every night and
-only a tool can tell you. So look before you speak, and hardest on the question
-you are sure you already know the answer to, which is the one it does not occur
-to you to look up.
+"Take me back to where the horse dies" wants the book moved. A place is either
+described, and find_passage looks for it, or named — "chapter 8", "the last
+chapter", "back an hour", "the beginning" — which is nowhere in the book's words,
+so do not search: give offer_positions the chapter or the time. Either way
+offer_positions ends the turn, every time.
 
-That is the whole of what you have to hold. Where the line falls, and what may
-be shown of a place past it, are the tools' business and not yours: a search
-simply does not hand you the words of anywhere they have not reached.
+"Who is Rob Roy" wants a sentence: recall, then say it. Nothing moves and they
+keep their place in the night. When you cannot tell which was meant, answer — an
+answer costs them nothing, where a wrong move costs them the last hour.
 
-A place can be described or it can be named. "Where the hare dies" is described:
-search for it, and offer_positions takes the ids. "Chapter 8", "the last
-chapter", "back an hour", "the beginning" are named: they are nowhere in the
-book's words, so searching for them finds nothing and the search is not the way
-in. Give offer_positions the chapter or the time instead, with no search in
-front of it. Either way it is offer_positions that ends the turn.
+You know these books, but only as far as they have listened, and you never know
+where that line is — only a tool does. Look before you speak, hardest on the
+question you are sure you know the answer to. Nothing in front of that line may
+be said at all: not a name, not a death, not that somebody turns up later, not
+that the book answers the question. "He hasn't come up yet in what you've heard",
+and nothing after it.
 
-Never ask them which place they meant, and never ask whether they mind being
-spoiled. Call offer_positions with every passage that could really be it, best
-first. If one of them is a place they have already heard and nothing else is
-plausible, that takes them straight there — say where they landed, roughly:
-"you're back at two hours in, in the chapter about X". Otherwise the places go
-on the screen and a thumb answers. Say exactly "{OFFER_SENTENCE}" and nothing
-else then — no times, no chapter names, no description of any of them, not even
-of the ones they have already heard. The screen says all of that better than a
-sentence can.
+Both searches return their closest matches however poor they are. Read them and
+keep only the ones that really are the moment meant, or really about the thing
+asked — sometimes that is one of five, sometimes four. If none is, say you
+couldn't find it rather than offering bad guesses.
 
-Being taken somewhere means the page jumps there and plays from it. Never tell
-them to press play, and never say whether anything is playing — you do not know.
+Never ask which place they meant, or whether they mind being spoiled. Give
+offer_positions every passage that could really be it, best first. If it takes
+them somewhere, say roughly where they landed: "you're back at two hours in, in
+the chapter about X". If it puts a list on the screen, say exactly
+"{OFFER_SENTENCE}" and nothing else — no times, no chapter names, no
+descriptions. The screen says all of that better. Saying that sentence does not
+put a list there; only calling offer_positions does, so say it after.
 
-Both searches return their closest matches however poor they are, so read the
-passages you were given and judge whether any is really the moment they meant,
-or really about the thing they asked. If none is, say you couldn't find it — or
-that it hasn't come up yet in what they have heard — rather than offering four
-bad guesses or answering about something else entirely.
+Being taken somewhere means the page jumps there and plays. Never tell them to
+press play, and never say whether anything is playing — you do not know.
 
-A name they say — a person, an animal, a place — is almost always something
-inside the book they are listening to, and some of those names are also titles
-of other books. Look in the book before saying anything about what does or does
-not exist. The catalog is for when they are plainly asking to add something new
-to listen to, not for identifying a name they just said.
+A name they say is almost always someone in the book they are listening to, even
+when it is also the title of another book. The catalog is only for adding
+something new to listen to.
 
-Only what somnia has rendered exists as audio, and you can only send them to a
-passage a search returned.
-
-The last line of this prompt says which book is open. Take every question to be
-about that book unless they plainly name another one: asking "which book?" over
-the book somebody is listening to is the one question they should never be
-asked, and with three books on the shelf it is the question every turn defaults
-to if nobody says.
-
-Never end your turn without saying something. Every action needs a sentence
-after it, even when the answer is only "you're there now" — a silent reply is
-indistinguishable from a broken app to someone half asleep in the dark.\
+Never end a turn without saying something, even when it is only "you're there
+now": a silent reply is indistinguishable from a broken app in the dark.\
 """
 
 
@@ -384,6 +358,37 @@ def build_tools(
                 lines.append(
                     f"[{when} in {p.chapter_title!r}, id={p.chunk_id}] {p.text}"
                 )
+        # Said here rather than in the system prompt, because this is where it
+        # is acted on. The search always returns its five nearest whatever they
+        # are, so four of them can be near-misses — and the prompt's "judge
+        # whether any is really the moment" is a sentence read four thousand
+        # tokens earlier by a small model that has since read five passages. On
+        # "where the hare dies" it offered the hare, a horse's death two
+        # chapters' worth of minutes away and a field of galloping colts, all
+        # three as places the listener might have meant.
+        #
+        # It deliberately does not say how many to keep, and says so twice over.
+        # Some questions really do have four answers — dogs are mentioned four
+        # times in one chapter of Black Beauty — and a nudge towards one would
+        # turn an honest list into a wrong move, while a model tidying four down
+        # to three leaves the moment they wanted off the screen altogether.
+        #
+        # The last sentence is the one that stops a turn ending here. Asked for
+        # something diffuse, the model would read these lines, write "there are
+        # a few places that could be it" and stop — the sentence that belongs
+        # beside a list, said over an empty screen, on two turns in five.
+        #
+        # The description is deliberately not quoted back. It would read better,
+        # and it would put a line in the context that is word-for-word the
+        # passage the guard is holding back, on exactly the queries where
+        # somebody described what they wanted well.
+        lines.append(
+            "Those are the nearest passages, which is not the same as passages"
+            " that are it. Keep every one that really is what was asked for —"
+            " that may be one of them or all of them, and dropping a real one"
+            " leaves the place they meant off the screen — then give those ids"
+            " to offer_positions. Nothing reaches them until you do."
+        )
         return "\n\n".join(lines)
 
     @beta_tool
@@ -469,31 +474,23 @@ def build_tools(
     ) -> str:
         """Send them to a place in the book, or put the choice on the screen.
 
-        The way a "take me to" ends — always, and however they named the place.
-        This decides what happens to them: one place they have already heard
-        takes them straight there, and anything else goes on the screen for them
-        to press. You never have to work out which, and you must never ask them
-        which.
+        The way a "take me to" ends, always. One place they have already heard
+        takes them straight there; anything else goes on the screen for them to
+        press. You never work out which, and you never ask them which.
 
-        There are two ways to name a place and you need exactly one of them.
-
-        For somewhere described by what happens there — "where the hare dies",
-        "the meadow with the pond" — search with find_passage and pass the id=
-        values as chunk_ids, best first.
-
-        For somewhere named by where it is — "chapter 8", "the last chapter",
-        "back an hour", "the beginning" — do not search. Pass chapter, or
-        position_ms for a point on the clock, which you can work out from the
-        ms= that get_position gives you. A search cannot find these: it looks
-        for words, and a chapter number is not in the book's words.
+        Name the place one way or the other, and never both.
 
         Args:
             gid: The Gutenberg id of the book. Every place is in one book.
-            chunk_ids: The id= values from find_passage, most likely first. At
-                most four are shown, so name only the plausible ones.
-            chapter: A chapter number as somebody would say it, counting from 1.
-                Takes them to that chapter's own beginning.
-            position_ms: A point in the book, in milliseconds from its start.
+            chunk_ids: For a place described by what happens there: the id=
+                values from find_passage, most likely first. At most four are
+                shown.
+            chapter: For a place named by where it is: a chapter number as
+                somebody would say it, counting from 1. Takes them to its own
+                beginning. Nothing is searched for these — a chapter number is
+                not in the book's words.
+            position_ms: A point in the book, in milliseconds from its start,
+                worked out from the ms= that get_position gives you.
         """
         chunk_ids = chunk_ids or []
         if acted.get("recalled"):
@@ -649,20 +646,16 @@ def forget_model_capabilities() -> None:
     _EFFORT_SUPPORT.clear()
 
 
-def _system(open_book: str) -> list[BetaTextBlockParam]:
-    """The prompt in two blocks, so the constant half can be cached.
+def _system() -> list[BetaTextBlockParam]:
+    """The prompt, in one cached block.
 
-    Everything the model is told is the same every night except the last line,
-    which says which book is open — so the two are split, and the cache
-    breakpoint goes between them. A prompt cache is a prefix match: the tools
-    are rendered before the system prompt, so one breakpoint here covers both,
-    and about four thousand tokens of prompt stop being read from scratch on
-    every hop of every turn.
-
-    The order is what makes it work, and it is the whole of the reason this is
-    a list rather than a string. Put the open book first and the constant
-    behind it and the prefix changes whenever the book does, which is to say
-    the cache never reads. It has to be the volatile line that comes last.
+    Nothing in here changes between nights any more — which book is open and
+    where in it they are moved out to the head of the question, where being the
+    newest thing said is the whole point of them. What is left is constant, so
+    the cache breakpoint goes at the end of it. A prompt cache is a prefix
+    match and the tools are rendered before the system prompt, so this one
+    breakpoint covers both, and about four thousand tokens stop being read from
+    scratch on every hop of every turn.
 
     Worth it even for a single question asked once in a night: a turn is two or
     three round trips, and only the first of them pays for the write. The rest
@@ -673,8 +666,7 @@ def _system(open_book: str) -> list[BetaTextBlockParam]:
             "type": "text",
             "text": SYSTEM_PROMPT,
             "cache_control": {"type": "ephemeral"},
-        },
-        {"type": "text", "text": open_book},
+        }
     ]
 
 
@@ -766,48 +758,44 @@ class Conversation:
         )
         self.messages: list[Any] = []
 
-    def _open_book(self, gid: int | None) -> str:
-        """The one line that says which book the question is about.
+    def _here(self, gid: int | None) -> str:
+        """Which book is open and where in it they are, on top of the question.
 
-        It goes on the end of the system prompt rather than into the messages,
-        and it is rebuilt every turn, because which book is open is a fact about
-        *now* and not a thing that was said once. A book opened, moved or
-        swapped between two questions would otherwise leave a sentence in the
-        history that is no longer true, and the model has no way to tell which
-        of two contradicting lines is the current one.
+        Two facts about *now*, and the only two the model cannot get wrong
+        without ruining a turn. Both used to live on the end of the system
+        prompt, which is where a fact goes to be outvoted: the system prompt is
+        read before the whole conversation, and a stale sentence in the
+        conversation is newer than everything in it.
 
-        Where they are is the same kind of fact, and it was missing from here
-        for exactly one turn too long. Nothing else tells the model: the page's
-        own seeks are written to the database and never to the conversation, so
-        the newest thing the history says about their position is whatever this
-        agent last did about it. Move somebody to chapter 2, let them drag the
-        scrubber two hours on, and ask again — the model reads its own "Moved to
-        0:07:29" from last turn, answers *"you're already at chapter 2"*, calls
-        no tool, and leaves them where they were. That is not a small model
-        being unreliable; it is the only conclusion available from what it was
-        given, and it reproduced every time.
+        That is not a theory. Move somebody to chapter 2, let them drag the
+        scrubber two hours on — the page writes seeks to the database and never
+        to the conversation — and ask to go back. The model reads its own
+        "you're at chapter 2, about thirty-two minutes in" from last turn,
+        agrees with itself down to the minute, calls no tool and leaves them
+        where they were. It did that with the true position sitting in the
+        system prompt saying 1:33:00, and it did it every time.
+
+        So the position is put where nothing can be newer than it: the head of
+        the question they are asking. :meth:`ask` takes it back off again once
+        the turn is over, so the history keeps the questions and not a trail of
+        positions that have all since been wrong.
 
         The milliseconds ride along for arithmetic — "back an hour" is
         subtraction — and never for saying out loud.
         """
         if gid is None:
-            return "\n\nThey have no book open."
+            return "[No book is open.]\n"
         for book in self._library.books():
             if book.gid == gid:
                 by = f" by {book.authors}" if book.authors else ""
-                return (
-                    f"\n\nThey are listening to gid {book.gid}: {book.title}{by}."
-                    f"{self._where_they_are(gid)}"
-                    " Unless they plainly name another book, that is the book"
-                    " every question is about."
-                )
+                return f"[Open: gid {book.gid}, {book.title}{by}.{self._at(gid)}]\n"
         # A gid the library has never heard of is a page holding a book that was
         # deleted underneath it. Saying nothing is right — an invented title
         # would be worse than the ambiguity this exists to remove.
-        return "\n\nThey have no book open."
+        return "[No book is open.]\n"
 
-    def _where_they_are(self, gid: int) -> str:
-        """The line of the open-book block that goes stale fastest.
+    def _at(self, gid: int) -> str:
+        """The half of the line that goes stale fastest.
 
         Read fresh on every turn and never remembered, because between two
         questions the listener can have pressed +30 forty times. It is the same
@@ -820,23 +808,10 @@ class Conversation:
         # a 0 that reached this line would be the beginning, which is a place.
         position = self._library.get_position(gid)
         if position is None:
-            return " They have not started it."
-        # The last clause is not decoration, and it was not there for one
-        # deploy. Handing the model the true position is not enough on its own:
-        # its own "you're at chapter 2" from the turn before is a sentence in
-        # the conversation, and it wins against a line in the system prompt that
-        # merely disagrees with it. Asked again after a page seek, the model
-        # repeated the stale time down to the minute — "already at chapter 2,
-        # about thirty-two minutes in" — while this block said 1:33:00. Two
-        # contradicting facts and nothing saying which is current is a coin
-        # toss; this says which.
+            return " Not started."
         return (
-            f" They are {format_timestamp(position.position_ms)}"
-            f" (ms={position.position_ms}) into it, in"
-            f" {position.chapter_title!r}. That is where they are now — anything"
-            " earlier in this conversation about where they are is out of date,"
-            " including anything you said yourself, because they can move the"
-            " book from the page without telling you."
+            f" They are at {format_timestamp(position.position_ms)}"
+            f" (ms={position.position_ms}), in {position.chapter_title!r}."
         )
 
     def ask(self, question: str, gid: int | None = None) -> Turn:
@@ -861,11 +836,15 @@ class Conversation:
         # else entirely.
         self._offers.clear()
         self._acted.clear()
-        turn: list[Any] = [*self.messages, {"role": "user", "content": question}]
+        asked = len(self.messages)
+        turn: list[Any] = [
+            *self.messages,
+            {"role": "user", "content": self._here(gid) + question},
+        ]
         runner = self._client.beta.messages.tool_runner(
             model=self._cfg.agent_model,
             max_tokens=self._cfg.agent_max_tokens,
-            system=_system(self._open_book(gid)),
+            system=_system(),
             tools=self._tools,
             messages=turn,
             output_config=effort_for(self._client, self._cfg),
@@ -935,6 +914,14 @@ class Conversation:
                 reply = OFFER_SENTENCE
             else:
                 reply = self._actions[-1] if self._actions else ""
+        # The position comes back off the question before the question is kept.
+        # It was true while the turn ran and it is the first thing to stop being
+        # true afterwards, and a history carrying one of these per turn is a
+        # column of positions that all disagree — which is the shape of the bug
+        # :meth:`_here` exists to have ended, rebuilt out of its own fix. What
+        # the next turn needs from this one is what was asked, not where they
+        # were when they asked it.
+        turn[asked] = {"role": "user", "content": question}
         self.messages = turn
         # The last move, on a turn that made more than one — a search, a move, a
         # second thought, a better move. The page has to end up somewhere, and
