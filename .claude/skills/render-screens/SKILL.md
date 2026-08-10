@@ -123,15 +123,25 @@ That means **a short render without the class photographs a player the phone
 would never draw**, with the whole reading in a window that has no room for it.
 `render.py` therefore derives the class from the width, the height, `--root` and
 `--text-size` rather than offering a flag, because a flag is a thing that gets
-forgotten and the picture that forgets it looks fine.
+forgotten and the picture that forgets it looks fine. A keyboard render is judged
+by the height with **nothing over it**, as app.js judges it: `--keyboard --height
+470` is the design's phone with a panel over it and carries no `short-page` at
+all.
 
-Two consequences worth carrying around:
+Three consequences worth carrying around:
 
 - `how big the words` on Settings now moves this. At `360x780 --text-size 1.2`
   the root is 24 and the page is 32.5 roots, so the reading goes — that is new,
-  and it is the height style.css measures the title landing on the clock at.
-  At `309x540 --text-size 0.8` the page is 39.3 roots and the reading comes
-  back. Render both when you touch the player's column.
+  and 32.5 is the height style.css measures a two-line chapter name overlapping
+  the strip under it at. At `309x540 --text-size 0.9` the page is 35.0 roots and
+  the reading comes back; `--text-size 0.8` makes it 39.3. Render both when you
+  touch the player's column.
+- **The class is only half of it; the sheet asks a size as well.** The reading is
+  taken away only under `max-width: 460px`, the width the 34 was measured at, and
+  the two-column landscape player is laid out only under `540px` of height. A
+  desk window is short by the arithmetic — the root stops growing at 460 across,
+  so 34 of them is a flat 869px — and neither of those rules touches it. Render
+  at `1280x720` if you change either, and expect the ordinary upright player.
 - `snapshot.py` composes the page without running app.js at all, so anything you
   read out of a snapshot is a page with none of these classes on it.
 

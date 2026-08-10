@@ -620,8 +620,8 @@ test("the player's spacers are not items of the landscape grid", async (t) => {
 // dimension that gets this block onto the screen. With the whole reading in it
 // the left column stands 421px tall under a 61px header and a 41px status line,
 // so it wants about 540px of window, and nothing that reaches this block has
-// that: `short-page` is only written on a page under 34 of its own roots, which
-// past the 460px cap is 869px at the design's text size.
+// that: the block asks `max-height: 540px` and that measurement is where the
+// number comes from.
 //
 // So the chapter, its clock and its circles go, and the name gets one line. What
 // stays is the name, the clock and the sleep button — the control this block

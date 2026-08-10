@@ -5821,6 +5821,21 @@ function readKeyboard() {
 //
 // So the number is asked in roots and the arithmetic is done here, where the
 // root can be read.
+//
+// What it costs is written out in style.css beside the rule that takes the
+// reading away, because that is where the loss is taken, but the headline
+// belongs here as well: 34 roots is a TALLER window than the flat 544px it
+// replaces on any page wider than 288, so at the design's own text size the
+// reading now goes on a 16:9 phone where it used to be drawn. One press of `how
+// big the words` down brings it back, which is the remedy this measurement
+// exists to hand the reader and which the old query handed nobody.
+//
+// And the sheet only asks it of a page the width this was measured on. Past 460
+// CSS px across the root stops growing, so 34 roots stops being a shape and
+// becomes a flat 869px on a page whose title and chapter name have stopped
+// wrapping — which is a stack nobody has photographed. The class is still
+// written on a wide window, because the landscape block wants to know, but what
+// it buys there is the player laid out sideways and not the reading taken away.
 const PLAYER_NEEDS_ROOTS = 34;
 
 // Measured, and against `unobscured` rather than `viewport.height`. The height a

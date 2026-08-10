@@ -39,7 +39,10 @@ used to be a media query, and a media query's `rem` is the browser's 16px and
 never the page's root, which is issue #65. There is no `--short` flag: the width,
 the height, the root and the text size are all known here, so the class is worked
 out from them. A short render that had forgotten a flag would photograph a player
-the phone would never draw, and be believed.
+the phone would never draw, and be believed. A keyboard render is judged by the
+height with nothing over it, because that is what app.js judges by: `--keyboard
+--height 470` is a picture of the design's phone with a panel over it, not a
+picture of a phone with no room in it.
 """
 
 import argparse
@@ -125,7 +128,21 @@ def render(
     # that gets forgotten, and a short render that forgot it would photograph a
     # player with the whole reading in it that the phone would never draw — which
     # is the render that would have hidden issue #65 rather than found it.
-    if height < PLAYER_NEEDS_ROOTS * effective_root(width, root, text_size):
+    #
+    # Against the height with nothing over it and not against `--height`, because
+    # that is the height app.js judges by: it holds `unobscured` still while
+    # anything has focus, so a keyboard shortens the window and moves this class
+    # not at all. Derive it from `--height` instead and `--keyboard --height 470`
+    # stamps `short-page` on a picture of a phone that has no such class — a
+    # player with the reading gone that the phone would draw in full behind the
+    # panel. That is the same conflation of a keyboard with a page out of room
+    # that this whole pass exists to undo, in the only tool anyone has to check
+    # the pass. The height with nothing over it is taken to be the design's own
+    # phone, which is the only phone this skill knows the full height of: a
+    # keyboard render of some other device wants `--height` given as that
+    # device's own full height and the keyboard drawn over it.
+    unobscured = HEIGHT if (keyboard or screen == "chat") else height
+    if unobscured < PLAYER_NEEDS_ROOTS * effective_root(width, root, text_size):
         classes.append("short-page")
     # Anything being forced is injected rather than edited into style.css: what
     # is being photographed has to stay byte-for-byte the page that ships.
