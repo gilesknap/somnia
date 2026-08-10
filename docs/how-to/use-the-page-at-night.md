@@ -48,8 +48,10 @@ asked: the time, the words being spoken there behind the same press, and a
 *here* button that takes you back to it if you have gone somewhere and it was
 wrong. If the book has moved on since — you pressed *goto*, or the sound simply
 ran on — the line says *you were here* instead, and the amber time under it is
-still the one the *here* button will take you back to. Go back to it and the
-line reads *you are here* again.
+still the one the *here* button will take you back to. Pressing it takes you
+back and starts the book playing there, so by the time you have opened the list
+again to look, the sound has moved on and the line reads *you were here* once
+more: the button gives the place back, not the tense.
 Press *goto* on a row and the book goes there and plays, and the list
 goes with it, leaving you on the player looking at where you have arrived. The
 line at the foot of the screen names where you landed — *moved to 1:20:20* —

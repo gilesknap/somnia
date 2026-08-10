@@ -568,7 +568,7 @@ test("after a goto the rule says they were here", async (t) => {
   assert.equal(page.probe().toast, "back where you were");
 });
 
-test("the way back taken makes the rule's word true again", async (t) => {
+test("the way back hands the place back and not the tense", async (t) => {
   const page = await opened(t);
   page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
   await page.ask("the bit with the cart");
@@ -579,19 +579,30 @@ test("the way back taken makes the rule's word true again", async (t) => {
     rows(page).find((row) => row.kind === "here").label,
     "you were here",
   );
+
   page.click("candidate-go-here");
+  await page.settle();
+  // The press lands the playhead exactly on the stamp — that is the whole of
+  // what it promised, and it kept it.
+  assert.equal(page.probe().positionMs, 1_000_000);
+  // And it started the book playing there, which is why the word does not come
+  // back with the place: `returnHere` seeks with `play: true`, the press closed
+  // the list, and the label can only be looked at by opening the list again.
+  assert.equal(page.audio.paused, false);
+  page.audio.advance(1);
   await page.settle();
 
   page.openPlaces();
-  // `here` seeks to the stamp exactly, so the sentence the row makes becomes
-  // true again by the one press that was supposed to make it true. That is the
-  // property comparing against the time has and no threshold could — and it is
-  // asserted from both ends, because a label stuck on the present tense would
-  // pass the second half of this test without ever having said anything.
-  assert.equal(
-    rows(page).find((row) => row.kind === "here").label,
-    "you are here",
-  );
+  const here = rows(page).find((row) => row.kind === "here");
+  // A second of book is all it takes, and a second is less than the time it
+  // takes a thumb to find the position line. So the honest reading of the way
+  // back is the one the how-to and ADR 4 now print: the row gives the place
+  // back, the tense stays past. Rescuing the sentence by seeking without
+  // playing would be the label steering the book.
+  assert.equal(here.label, "you were here");
+  // Everything the press was for is still there under the past tense.
+  assert.equal(here.when, "0:16:40");
+  assert.equal(here.back, "here");
 });
 
 test("a goto backwards past no place still changes the word", async (t) => {

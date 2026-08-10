@@ -3568,7 +3568,12 @@ function showCandidates(list) {
   // that is too cautious is still readable, but `you are here` over a book that
   // has moved is simply a false sentence, and this is the screen that cannot
   // afford one. So the tense is decided fresh on every showing, against the
-  // time and nothing else — `still`, below.
+  // time and nothing else — `still`, below. On every showing and only on a
+  // showing: a list left standing over a book that is still playing keeps the
+  // word it was drawn with, the same way it keeps its rows, and that one is not
+  // fixed here. What is fixed is the showing that comes back to a book which
+  // moved while the screen was away — the reported bug, and the case where a
+  // reader has no reason at all to suspect the screen of being old.
   //
   // Against the time and not against the splice, which is the tempting cleverer
   // test and the wrong one. "Has the playhead crossed one of the places?" is
@@ -3577,9 +3582,17 @@ function showCandidates(list) {
   // 0:16:40 and the mark's index has not moved an inch, and the screen would
   // still claim they are somewhere they left. Exact equality has no such hole
   // and needs no threshold — see ADR 4, which is explicit that this page has
-  // none. It also has a property worth having: pressing `here` lands the
-  // playhead exactly on the stamp, so the way back, taken, makes the sentence
-  // true again.
+  // none.
+  //
+  // What it does not buy, and was claimed for it once: a word that comes back.
+  // `here` seeks to the stamp, so `still` is true for the instant after the
+  // press — and `returnHere` resumes the sound, and the press closed the list,
+  // so the only way to read the label is to open it again a second later, by
+  // which time the playhead has left the stamp and the word is past again. The
+  // press hands back the place, not the tense. Seeking without playing to
+  // rescue the sentence would be the label steering the book, which is the
+  // wrong way round; see the test, which advances the clock the way a thumb
+  // would.
   //
   // Unstamped rather than stamped with a lie when there is no number: a book
   // nobody has ever started has no position, and "never started" and "at

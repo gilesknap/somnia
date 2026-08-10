@@ -95,10 +95,21 @@ test* — past tense only once the playhead has passed one of the places — is 
 tempting clever version and it misses the reported bug: a `goto` backwards that
 lands between the same two rows leaves the mark's index unmoved, so the screen
 would go on claiming they are somewhere they have just left. Exact equality has
-no such hole, and pressing `here` lands the playhead on the stamp, so the way
-back, taken, makes the sentence true again. The cost accepted is that a second
-or two of sound under a cancelled list flips the word; that is under-claiming,
-which is the direction this screen is allowed to be wrong in.
+no such hole and needs no number invented at a desk, so it is what the label is
+decided by. The cost accepted is that a second or two of sound under a cancelled
+list flips the word; that is under-claiming, which is the direction this screen
+is allowed to be wrong in.
+
+What exact equality does **not** buy, and was briefly claimed for it, is a word
+that comes back. `here` seeks to the stamp and resumes the sound, and the label
+can only be looked at by opening the list again — a second or more later, by
+which time the playhead has left the stamp and the rule reads *you were here*
+once more. The present tense holds for a quarter of a second and never while
+anybody is reading it. That is not a fault to fix by seeking without playing:
+the press is a way back into the book, not into a sentence, and the honest
+reading is that the row gives the place back and the tense stays past. The
+narrower true statement, which is what this decision rests on, is that the
+present tense is printed only on a showing where the page has just checked it.
 
 The caveat under the rule is deliberately unchanged. *Anything below this line
 you may not have heard* can only ever over-warn — `heard_to_ms` never falls —
