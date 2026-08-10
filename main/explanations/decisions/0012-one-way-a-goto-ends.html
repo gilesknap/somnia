@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>12. One way a goto ends &#8212; somnia 0.8.dev81+g2b552cc61 documentation</title>
+    <title>12. One way a goto ends &#8212; somnia 0.8.dev85+g9a8d68ffa documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=6e81ef1f"></script>
+    <script src="../../_static/documentation_options.js?v=7d5b128a"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -607,6 +607,25 @@ does not describe.</p>
 <p><strong>The prompt loses about a third of itself</strong>, including all of the spoiler
 apparatus that ADR 11 made unnecessary and the paragraphs that explained when to
 move and when to offer. What is left is routing, plausibility and how to speak.</p>
+<p><strong>It cost by-position navigation, and this section did not say so</strong> — amended
+after the fact, which is the honest place to record it. A chunk id can only mean
+<em>the passage that matched</em>, so with ids as the only currency the book could be
+sent to places that can be described and to no others. “Chapter 8” is not in the
+book’s words and no search will ever find it; nor is “the end”, nor “back an
+hour”. The sentence above about <em>“take me to the end”</em> costing one press was
+written as though that still worked, and it did not: there was no id for it.</p>
+<p>The gap survived review because <code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> <em>contains</em> a move, so it reads
+as a replacement for <code class="docutils literal notranslate"><span class="pre">move_to</span></code> until you ask what is still addressable. The desk
+suite could not catch it either — every test names a passage a search returned,
+because that was the only thing the tools allowed.</p>
+<p><code class="docutils literal notranslate"><span class="pre">offer_positions</span></code> takes a <code class="docutils literal notranslate"><span class="pre">chapter</span></code> or a <code class="docutils literal notranslate"><span class="pre">position_ms</span></code> as well now (issue #115).
+The decision above is unchanged and this is not a second way for a goto to end:
+a named place becomes one more candidate and meets exactly the same arithmetic,
+so a chapter they have heard is a move made there and then, and one they have
+not is a covered row and a press. The <code class="docutils literal notranslate"><span class="pre">recall</span></code> and offer-then-move exclusions
+hold on it, which matters more here than for ids — a route reachable with a bare
+number would otherwise be the way around those rules rather than an exception to
+them.</p>
 <p><strong>The model can still name four bad places.</strong> The tool cannot tell a plausible
 passage from an implausible one — that is the judgement it deliberately keeps —
 so a poor search still produces a poor list. The listener cancels it, which is
