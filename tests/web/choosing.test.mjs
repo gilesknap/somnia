@@ -202,6 +202,10 @@ function rows(page) {
         // as a boolean because the word is the whole of how this press says it
         // is not a move outward.
         back: part(li, "here-go")?.textContent ?? null,
+        // The same claim as `label`, made to a screen reader. Read here so the
+        // two can be asserted together: a row whose word and whose attribute
+        // disagree is the bug this list is least able to show anybody.
+        current: li.getAttribute("aria-current"),
       };
     }
     const show = part(li, "candidate-show");
@@ -475,10 +479,16 @@ test("the book they are already listening to is not named at them", async (t) =>
 // same question over a tailnet at 2am, which is the expense this whole screen
 // was built to avoid.
 //
-// So the time it holds is frozen at the question, not read off the playhead.
-// Everything below is about that one decision, because a `here` that followed
-// the sound would name wherever the last press landed and pressing it would be
-// a no-op offered as an undo.
+// So the time it holds is frozen at the question, not read off the playhead,
+// because a `here` that followed the sound would name wherever the last press
+// landed and pressing it would be a no-op offered as an undo.
+//
+// The word above the time is not frozen, and that is the second decision below.
+// A frozen time under a fixed "you are here" said "here" about a place the book
+// had left, on the one screen that cannot print a sentence nobody has checked —
+// so the label is compared against the live playhead on every showing and reads
+// the past tense the moment they differ. Nothing else on the screen moves: the
+// time, the rows, their order and the caveat are all still the photograph.
 
 test("the rule offers the way back to where they were", async (t) => {
   const page = await opened(t);
@@ -526,6 +536,141 @@ test("here still names where they asked from after a place has been chosen", asy
   assert.equal(page.probe().toast, "back where you were");
 });
 
+test("after a goto the rule says they were here", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  await page.settle();
+  const asked = rows(page).find((row) => row.kind === "here");
+  // Present tense on the showing an answer raises, always: the stamp is taken
+  // and the row drawn in the same synchronous call, with nothing between them
+  // that can move the playhead.
+  assert.equal(asked.label, "you are here");
+  assert.equal(asked.current, "true");
+
+  page.click("candidate-go-12");
+  await page.settle();
+  assert.equal(page.probe().positionMs, 1_234_567);
+
+  page.openPlaces();
+  const here = rows(page).find((row) => row.kind === "here");
+  // The word, and only the word. The book is at 0:20:34 and this row is about
+  // 0:16:40 — "you are here" over that is not a cautious sentence, it is a
+  // false one, on the screen that is not allowed any.
+  assert.equal(here.label, "you were here");
+  // And the attribute with it. A screen reader announcing this row as the
+  // current location, under a label that has just said it is not, is the same
+  // false sentence made to the one reader who cannot see the two disagree.
+  assert.equal(here.current, null);
+  assert.equal(here.when, "0:16:40");
+  assert.equal(here.caveat, "anything below this line you may not have heard");
+  assert.equal(here.back, "here");
+  // Asked once, at the frozen point, and not asked again — which is the guard
+  // against somebody repairing this by re-stamping. A page that moved the mark
+  // would have fetched a second passage at wherever the `goto` landed.
+  assert.deepEqual(page.passageAsks, ["api/passage/900005/1000000"]);
+
+  // And the press still does what the past tense says it will.
+  page.click("candidate-go-here");
+  await page.settle();
+  assert.equal(page.probe().positionMs, 1_000_000);
+  assert.equal(page.probe().toast, "back where you were");
+});
+
+test("the way back hands the place back and not the tense", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  page.click("candidate-go-12");
+  await page.settle();
+  page.openPlaces();
+  assert.equal(
+    rows(page).find((row) => row.kind === "here").label,
+    "you were here",
+  );
+
+  page.click("candidate-go-here");
+  await page.settle();
+  // The press lands the playhead exactly on the stamp — that is the whole of
+  // what it promised, and it kept it.
+  assert.equal(page.probe().positionMs, 1_000_000);
+  // And it started the book playing there, which is why the word does not come
+  // back with the place: `returnHere` seeks with `play: true`, the press closed
+  // the list, and the label can only be looked at by opening the list again.
+  assert.equal(page.audio.paused, false);
+  page.audio.advance(1);
+  await page.settle();
+
+  page.openPlaces();
+  const here = rows(page).find((row) => row.kind === "here");
+  // A second of book is all it takes, and a second is less than the time it
+  // takes a thumb to find the position line. So the honest reading of the way
+  // back is the one the how-to and ADR 4 now print: the row gives the place
+  // back, the tense stays past. Rescuing the sentence by seeking without
+  // playing would be the label steering the book.
+  assert.equal(here.label, "you were here");
+  // Everything the press was for is still there under the past tense.
+  assert.equal(here.when, "0:16:40");
+  assert.equal(here.back, "here");
+});
+
+test("a goto backwards past no place still changes the word", async (t) => {
+  const page = await opened(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+
+  // Backwards, to 0:05:00, from a rule at 0:16:40. The mark is spliced by
+  // `start_ms > here` and lands at index 1 either way, so nothing about the
+  // shape of the list has changed — which is exactly why a "has the playhead
+  // crossed a row?" test would still be printing the present tense here, over a
+  // book that is eleven minutes from where the row says. This is the case that
+  // pins the comparison to the time.
+  page.click("candidate-go-11");
+  await page.settle();
+  assert.equal(page.probe().positionMs, 300_000);
+
+  page.openPlaces();
+  assert.equal(
+    rows(page).find((row) => row.kind === "here").label,
+    "you were here",
+  );
+  assert.deepEqual(
+    rows(page).map((row) => row.kind),
+    ["heard", "here", "heard", "ahead", "ahead"],
+  );
+});
+
+test("sound under a cancelled list changes the word and nothing else", async (t) => {
+  const page = await playing(t);
+  page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
+  await page.ask("the bit with the cart");
+  await page.settle();
+  const asked = rows(page).find((row) => row.kind === "here");
+
+  // Put away having changed nothing, and then two seconds of book. `advance` and
+  // not `listen`, because only the first moves currentTime, and currentTime is
+  // the whole of what the label is compared against.
+  page.click("candidates-cancel");
+  page.audio.advance(2);
+  await page.settle();
+
+  page.openPlaces();
+  const here = rows(page).find((row) => row.kind === "here");
+  // Two seconds is enough, and that is the cost of exact equality taken
+  // deliberately: the screen under-claims rather than over-claims, which is the
+  // direction this list has always been allowed to be wrong in.
+  assert.equal(here.label, "you were here");
+  // Everything the photograph is made of is identical to the first showing.
+  assert.deepEqual(
+    [here.when, here.caveat, here.back],
+    [asked.when, asked.caveat, asked.back],
+  );
+  assert.deepEqual(
+    rows(page).map((row) => row.kind),
+    ["heard", "here", "heard", "ahead", "ahead"],
+  );
+});
+
 test("the frozen rule is written down with the places it belongs to", async (t) => {
   const page = await opened(t);
   page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
@@ -551,6 +696,10 @@ test("a night that comes back keeps the rule the question was asked at", async (
   // of, and the rows around it were sorted into it by the server against that
   // same moment. The two halves of one answer cannot be from different times.
   assert.equal(here.when, "0:16:40");
+  // And the label is the one thing that is not the photograph: a night that
+  // comes back to a book half an hour further on is exactly what the past tense
+  // is for, and here it is reached without a `goto` at all.
+  assert.equal(here.label, "you were here");
   assert.deepEqual(
     rows(page).map((row) => row.kind),
     ["heard", "here", "heard", "ahead", "ahead"],
@@ -573,6 +722,11 @@ test("a rule on a list about another book is a line and not a target", async (t)
   // The line is still drawn: where they are in that book is what makes the rest
   // of the list legible, and it is the server's own number for it.
   assert.equal(here.when, "0:01:00");
+  // And it keeps the present tense, deliberately. For another book the live
+  // reading is `list.position_ms` — the very number the stamp was taken from,
+  // which nothing on this page can move — so the sentence stays true and stays
+  // scoped to the book the list is about.
+  assert.equal(here.label, "you are here");
   // But there is nothing to press. `here` on a book they cannot hear is a place
   // they are not, and a press would be a book switch wearing the word.
   assert.equal(here.back, null);
@@ -915,6 +1069,10 @@ test("the rule states its time and offers the words at it", async (t) => {
   assert.deepEqual(
     [here.label, here.when, here.what, here.hint],
     [
+      // No longer a claim about a constant string. The label is decided against
+      // the playhead now, and on the showing an answer raises the stamp and the
+      // playhead are equal by construction — so this is the assertion that the
+      // ordinary screen still reads the ordinary way.
       "you are here",
       "0:16:40",
       // Covered, like every row on this list, until it is asked for.
