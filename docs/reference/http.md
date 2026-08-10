@@ -28,6 +28,7 @@ would tell you.
 | Route | Method | Answers |
 |---|---|---|
 | `/api/health` | GET | `{"ok": true}` |
+| `/api/version` | GET | Which somnia is answering |
 | `/api/books` | GET | Every book, most recently listened to first |
 | `/api/book/{gid}` | GET | One book, whole — or 404 |
 | `/api/audio/{gid}/{idx}` | GET | The chapter's audio — or 404 |
@@ -46,6 +47,24 @@ would tell you.
 | `/api/position` | POST | What became of a report — always 200 |
 | `/api/queue` | POST | Ask for a book — always 200 |
 | `/api/queue/{id}/stop` | POST | Stop a render, or take a book out of the line |
+
+## `GET /api/version`
+
+```json
+{ "version": "0.8.dev76+g778d26abf" }
+```
+
+What `somnia.__version__` says, which setuptools_scm writes from the checkout
+the box was built from. The commit is the point: `somnia-install.sh` defaults to
+`main` rather than the last release, so every box is expected to be ahead of the
+tags, and a bare release number is the one form of this string that two
+different deploys could share.
+
+The page asks once, on the way in, and draws it at the foot of Settings. It asks
+the server rather than reading a constant out of `app.js` because the two can
+disagree — the service worker answers the shell from its cache when the network
+is gone, so a page older than the box is an ordinary state, and the version that
+decides what may be said is the box's.
 
 ## `GET /api/books`
 

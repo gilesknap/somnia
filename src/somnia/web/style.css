@@ -2555,6 +2555,23 @@ body.keyboard-up #candidates-note {
   color: var(--faint);
 }
 
+/* The version, which is a note by position and a serial number by nature. It
+   takes the note's colour and spacing and gives back the italic: `0.8.dev76+
+   g778d26abf` set in an italic serif is a string somebody has to compare
+   character by character against a terminal, in the dark, and the shapes that
+   make a reading face pleasant are exactly the ones that make `1` and `l`
+   argue. Mono is the same choice `.section-label` already makes on this screen.
+
+   `anywhere` and not `break-word`: the string has punctuation to break at but
+   no spaces, so a phone at 360dp with the words turned up would otherwise push
+   it under the edge of the panel rather than wrap it. */
+#settings-version {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-style: normal;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
 /* Two 64dp circles and a readout between them, which is the chapter strip's
    shape one screen over — two targets with the thing they change in the middle.
    Learning it twice is learning it once.

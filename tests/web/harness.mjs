@@ -650,6 +650,13 @@ const BORN_HIDDEN = new Set([
 // live would let a control pass a test it fails in a browser.
 const BORN_DISABLED = new Set(["places-open"]);
 
+// And every id that arrives with words already in it. A fake that started them
+// empty would let a page pass that never writes them and never could — which is
+// exactly the failure worth catching here: the version caption is the page's
+// answer for a box it could not reach, so the string has to be in the markup
+// rather than written by the script that failed to get one.
+const BORN_TEXT = new Map([["settings-version", "unknown"]]);
+
 // And every id that is an <input> in the document. A browser hands back "" for
 // the value of an empty box and never undefined, so a fake that left the
 // property unset would make `.value.trim()` throw on a page that is perfectly
@@ -1235,6 +1242,14 @@ export async function boot(t, options = {}) {
     // the page reads: play the book a file at a time, the way it was played
     // before the whole of it came down one URL.
     query = "",
+    // What the box says it is, and which routes the tailnet is eating — both
+    // from the first moment rather than set on the page afterwards. `page
+    // .unreachable()` is the usual way to take a route away, and it is too late
+    // for anything the page asks for on its way in: the version is fetched at
+    // load, so a test of what an unreachable box leaves on the screen has to
+    // have the box already gone before the script runs.
+    version = "0.8.dev76+g778d26abf",
+    gone: goneAtBoot = {},
   } = options;
 
   // Everything the element and the media session did, in the order they did
@@ -1268,6 +1283,7 @@ export async function boot(t, options = {}) {
       // nowhere at all.
       node.hidden = BORN_HIDDEN.has(id);
       node.disabled = BORN_DISABLED.has(id);
+      if (BORN_TEXT.has(id)) node.textContent = BORN_TEXT.get(id);
       if (BORN_TYPED.has(id)) node.value = "";
       elements.set(id, node);
     }
@@ -1305,6 +1321,11 @@ export async function boot(t, options = {}) {
   const voiceAsks = [];
   const samples = [];
   const samplers = [];
+  // The same counting for the version, which is asked for once at load. A
+  // string with a commit in it, because the commit is the whole of what makes
+  // one deploy tellable from the one before it.
+  const versionAsks = [];
+  let versionSaid = version;
   let queueItems = [];
   let catalogFound = [];
   // What the search had to do to the question, which is "" for every search
@@ -1344,6 +1365,7 @@ export async function boot(t, options = {}) {
     stop: false,
     catalog: false,
     voices: false,
+    version: false,
     open: false,
     books: false,
     passage: false,
@@ -1354,6 +1376,10 @@ export async function boot(t, options = {}) {
     rename: false,
     remove: false,
     finish: false,
+    // Whatever the test said was already gone before the page started. Merged
+    // rather than replacing the shape above, so a test naming one route does
+    // not silently make every other one reachable-by-omission.
+    ...goneAtBoot,
   };
 
   const fakeWindow = new FakeElement("window");
@@ -1657,6 +1683,15 @@ export async function boot(t, options = {}) {
         voiceAsks.push(url);
         return json({ voices: voiceRoster });
       }
+      // Which somnia is answering, for the caption at the foot of Settings.
+      // Counted like the roster is, because the page is supposed to ask once at
+      // load and never again — a version that were polled would be a screen
+      // asking the network a question nobody on it can act on.
+      if (url === "api/version") {
+        if (gone.version) throw new Error("no route to host");
+        versionAsks.push(url);
+        return json({ version: versionSaid });
+      }
       if (url.startsWith("api/sentence/")) {
         sentenceAsks.push(url);
         return json({ start_ms: sentenceStart });
@@ -1795,6 +1830,11 @@ export async function boot(t, options = {}) {
       voiceRoster = roster;
     },
     voiceAsks,
+    // What the box would say it is, and how many times it was asked.
+    version: (said) => {
+      versionSaid = said;
+    },
+    versionAsks,
     samples,
     // Whether a voice sample is playing right now, as against which ones were
     // ever started.

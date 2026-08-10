@@ -19,7 +19,9 @@
 // tap anywhere still reaches the book while a sentence is up.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { boot, HALF_HEARD } from "./harness.mjs";
 
@@ -407,6 +409,64 @@ test("settings changes nothing else about the page", async (t) => {
   page.click("settings-close");
   await page.settle();
   assert.deepEqual(page.probe(), before);
+});
+
+// The one line on the screen that is not a control. It answers "am I looking at
+// the deploy I just made?", which is a question with no other route to it from a
+// phone — the number otherwise lives on the box, behind an ssh.
+test("the box's version is on the screen, and was asked for once at load", async (t) => {
+  const page = await boot(t);
+
+  // Before anybody has opened anything: the caption is written on the way in,
+  // so that Settings can go on fetching nothing at all when it is opened.
+  assert.equal(page.el("settings-version").textContent, "0.8.dev76+g778d26abf");
+  assert.deepEqual(page.versionAsks, ["api/version"]);
+
+  page.click("to-settings");
+  await page.settle();
+  page.click("settings-close");
+  await page.settle();
+
+  // Opening the screen asked nothing. A version is not a thing that changes
+  // while somebody is looking at it, and this screen's whole promise is that
+  // the night it was opened in is the night it is closed into.
+  assert.deepEqual(page.versionAsks, ["api/version"]);
+});
+
+// The commit is the point, not decoration. A box is expected to be ahead of the
+// tags — somnia-install.sh defaults to main and not the last release — so the
+// one form of this string that could not answer the question is a bare release
+// number two deploys share.
+test("the version carries the commit that tells two deploys apart", async (t) => {
+  const page = await boot(t, { version: "0.8.dev77+gdeadbee12" });
+  assert.equal(page.el("settings-version").textContent, "0.8.dev77+gdeadbee12");
+});
+
+// Offline is the state this caption is most likely to be read in and least able
+// to answer from: /api/ is the one thing the service worker does not serve out
+// of its cache, so there is no last-known number to fall back to. Saying so is
+// the whole of the honest answer, and a remembered one would be the lie told on
+// exactly the night the question is being asked.
+test("a box that cannot be reached leaves the version saying unknown", async (t) => {
+  const page = await boot(t, { gone: { version: true } });
+  assert.equal(page.el("settings-version").textContent, "unknown");
+});
+
+// And the markup itself, because the two tests above are true of the harness
+// and this is what makes them true of the page. `unknown` is the page's answer
+// for a box it could not reach, so it has to ship in the document: a caption
+// written only by the script is a blank line on exactly the run where the
+// script's one job failed.
+test("the version caption ships with its own answer in it", async () => {
+  const markup = readFileSync(
+    fileURLToPath(new URL("../../src/somnia/web/index.html", import.meta.url)),
+    "utf8",
+  );
+  const caption = markup.replace(/<!--[\s\S]*?-->/g, "").match(
+    /<p class="setting-note" id="settings-version">([^<]*)<\/p>/,
+  );
+  assert.ok(caption, "no version caption in the settings markup");
+  assert.equal(caption[1].trim(), "unknown");
 });
 
 // The one thing that had to be true for a settings screen to be allowed to hold

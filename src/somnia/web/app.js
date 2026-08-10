@@ -157,6 +157,7 @@ const shelfMore = document.getElementById("shelf-more");
 // the dark with the book already playing.
 const settingsPanel = document.getElementById("settings");
 const settingsClose = document.getElementById("settings-close");
+const settingsVersion = document.getElementById("settings-version");
 const toSettings = document.getElementById("to-settings");
 // The page's second voice, and the sheet of black over the whole of it. The
 // voice is three nodes: the box, the sentence in it, and the one press it is
@@ -6809,3 +6810,30 @@ for (const corner of [toControls, restart]) {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
+
+// Which somnia is answering, asked once on the way in and never again.
+//
+// Here rather than in showSettings() because that screen fetches nothing, and
+// the comment above it says so — a property worth keeping rather than spending
+// on the one line nobody opens the screen for. The caption is already written
+// by the time anybody scrolls to it, and the cost is one request of a few bytes
+// on a page that has just fetched a book list.
+//
+// It is the server's version and not the shell's. The two can differ: the
+// service worker answers from its cache when the network is gone, so a page
+// older than the box is a real state, and the version that decides what may be
+// said is the one on the box. Asking is the only way to have that number.
+//
+// A failure leaves `unknown` in the markup exactly as it was found. There is no
+// retry and no second attempt on the way into the screen: offline, `/api/` is
+// the one thing the service worker does not answer from cache, so a page opened
+// on a train has no version to show and saying so is the whole of the honest
+// answer. Rewriting it to a stale one remembered from last time would be the
+// screen's only available lie, and it would be told on exactly the night the
+// question is being asked.
+fetch("api/version")
+  .then((response) => (response.ok ? response.json() : null))
+  .then((said) => {
+    if (said && said.version) settingsVersion.textContent = said.version;
+  })
+  .catch(() => {});

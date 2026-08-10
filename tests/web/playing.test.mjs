@@ -26,7 +26,15 @@ async function playing(t) {
 
 test("opening the app holds the book but does not start it", async (t) => {
   const page = await boot(t);
-  assert.deepEqual(page.fetches, ["api/books", "api/book/900001"]);
+  // The shelf, the version, and the manifest of the book it opened — and
+  // nothing else. The version is the one request here that is not about a book:
+  // it is asked once on the way in so that Settings, which fetches nothing when
+  // it opens, has its caption already written by the time anybody scrolls to it.
+  assert.deepEqual(page.fetches, [
+    "api/books",
+    "api/version",
+    "api/book/900001",
+  ]);
   // One source for the whole book, and this is the only time it is given.
   assert.deepEqual(page.audio.srcWrites, ["api/stream/900001/3"]);
   assert.equal(page.audio.playCalls, 0);

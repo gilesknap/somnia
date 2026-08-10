@@ -14,7 +14,7 @@ from starlette.testclient import TestClient
 from conftest import ToneBook
 from fakes import FakeEmbedder
 from mp4 import duration_ms, payload
-from somnia import server
+from somnia import __version__, server
 from somnia.agent import OFFER_SENTENCE, Turn, open_library
 from somnia.catalog import update_catalog
 from somnia.config import Config
@@ -1942,6 +1942,28 @@ def test_the_page_is_told_which_voices_it_may_ask_for(tone_client: TestClient) -
     voices = response.json()["voices"]
     assert {"id", "name", "says"} == set(voices[0])
     assert "af_heart" in [v["id"] for v in voices]
+
+
+def test_the_box_says_which_somnia_it_is_running(
+    tone_client: TestClient,
+) -> None:
+    """The answer to "am I looking at the deploy I just made?".
+
+    Asked of the server rather than read off the shell, because the shell can be
+    older than the box — the service worker answers from its cache when the
+    network is gone — and the code that decides what may be said is the box's.
+
+    The commit is the whole point. A box is expected to be ahead of the tags,
+    since ``somnia-install.sh`` defaults to ``main`` and not the last release,
+    so a bare release number would be the one form of this string that two
+    different deploys could share.
+    """
+    response = tone_client.get("/api/version")
+
+    assert response.status_code == 200
+    said = response.json()["version"]
+    assert said == __version__
+    assert said, "a version nobody can read is not an answer"
 
 
 def test_the_voice_roster_is_revalidated_rather_than_kept_for_a_day(
