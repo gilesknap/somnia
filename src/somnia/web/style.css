@@ -1410,16 +1410,24 @@ button:disabled {
    Everything above the transport goes, and what is left is the header, the
    transport and the dock.
 
-   This half of the old `@media (max-height: 34rem)` block stays a height query,
-   and stays in rem, because it is the one question here that really is about
-   height: a stack of type either fits in the window or it does not, and asking
-   that in rem is what makes the answer follow the OS text scale instead of
-   ignoring it. Turn the text up and the same stack needs more room, and this
-   fires sooner, which is right.
+   This used to be `@media (max-height: 34rem)`, and the paragraph that stood
+   here argued that "asking that in rem is what makes the answer follow the OS
+   text scale". It is false twice over and it was load-bearing, which is why it
+   is written out rather than quietly deleted. `rem` in a MEDIA QUERY resolves
+   against the browser's initial font size and never against `html {
+   font-size }`, so 34rem here was a hard 544 CSS px whatever the page set — and
+   since the root became a fraction of the screen, the page's rem and the query's
+   rem are not even the same length. Rendered at 309x540 with the root forced
+   down to 8px, with acres of room and type a third of its size, the reading was
+   still hidden. The rule protecting the layout could not see the layout.
 
-   34rem is on the measurement, not over it, and it is not a number to shave.
-   Rendered at 360x780 with this query taken out and the root turned up a notch
-   at a time: with a two-line title and a one-line chapter name the player still
+   So the question is asked where the root can be read: app.js measures the
+   height with nothing over it against 34 of the page's own roots and writes
+   `short-page`. The threshold is the same 34 and it means what it always said.
+
+   34 roots is on the measurement, not over it, and it is not a number to shave.
+   Rendered at 360x780 with this rule taken out and the root turned up a notch at
+   a time: with a two-line title and a one-line chapter name the player still
    fits at 32.5rem and the title has run into the clock by 31.2rem; with the
    chapter name on two lines as well — which is the case a long chapter title
    gives you and the one the number has to hold — it fits at 35.4rem, is touching
@@ -1428,25 +1436,34 @@ button:disabled {
    give and then the type lands on top of the type below it, which is a failure
    that looks like a font bug rather than like a page out of room.
 
-   So the number is what the page shipped at and it stays there. What it buys, at
-   a large text scale, is worth saying plainly: from about root 23 up this fires
-   on a 780px phone and the reading goes, sleep timer with it. That is a real
-   loss and it is the one the reader who turned their text up still takes. It is
-   also the smaller half of what they used to take — see below.
+   What the honest question buys, and what it costs, both need saying. It buys
+   the reader a way out: `how big the words` on Settings moves the root, so a
+   short phone that has lost the reading gets it back one press down — at 309x540
+   the page is 31.5 roots at the design size and 39.3 roots one step below it.
+   Under the old query that press changed nothing at all, which is the whole of
+   the issue. It costs a case that never used to fire: at 360x780 with the words
+   turned all the way up the root is 24 and the page is 32.5 roots, so the
+   reading now goes where it used to stay. 32.5 is precisely the height this
+   comment measures the title landing on the clock at, so what is lost there was
+   already unreadable — losing the reading beats losing it underneath the clock.
 
-   What it is NOT is a way of asking whether the keyboard is up. That was the
-   other half of this block, and the whole of the bug: a window dragged short has
-   no keyboard in it, and at root 23 a threshold of 34rem is taller than the
-   phone — so the reader who turned their text up, which is the setting this page
-   is built around, was put on the chat screen permanently with the player gone
-   and no gesture that brought it back. That half is a class on <body> now, below.
-   Losing the reading and being taken to another screen are not the same loss:
-   here the book plays on, the transport is under the same thumb, `books` is
-   in the same corner, and the conversation is still one tap on the dock away. */
-@media (max-height: 34rem) {
-  #now-playing {
-    display: none;
-  }
+   What this is NOT is a way of asking whether the keyboard is up. That was the
+   other half of the same block and the other half of the same bug: a window
+   dragged short has no keyboard in it, so the reader was put on the chat screen
+   with the player gone and no gesture that brought it back. Both halves are
+   measurements in app.js now. Losing the reading and being taken to another
+   screen are not the same loss: here the book plays on, the transport is under
+   the same thumb, `books` is in the same corner, and the conversation is still
+   one tap on the dock away.
+
+   Source order is load-bearing here where it was not. A media query around a
+   bare `#now-playing` weighed (1,0,0); a class on <body> weighs (1,1,1), which
+   ties with `body.chat-screen #now-playing` below and loses to the landscape
+   rule's (1,2,1). Both of those are later in the file and both still win, but
+   they win by position now and not by weight, so nothing below may be moved
+   above this line. */
+body.short-page #now-playing {
+  display: none;
 }
 
 /* The chat screen, which is this same document with the conversation in front
@@ -1825,11 +1842,16 @@ body.wake-screen #player-bar:not([hidden]) {
    The transport keeps the larger share, since it is what gets pressed without
    looking.
 
-   Both selectors are held to the player screen, which is new. It is not there to
-   beat the fit query — a plain `#now-playing` would still do that, being later
-   in the file — but to lose to the chat screen: a grid of two columns with the
-   reading gone is one empty column and a transport squeezed into the other, and
-   that is what a phone on its side with a keyboard up used to get.
+   Both selectors are held to the player screen, and the reason is that this
+   block has to lose to the chat screen: a grid of two columns with the reading
+   gone is one empty column and a transport squeezed into the other, and that is
+   what a phone on its side with a keyboard up used to get. It also has to beat
+   the fit rule above, which it now does on weight as well as on position —
+   `body.player-screen.short-page #now-playing` is (1,2,1) against that rule's
+   (1,1,1). It used to be that a plain `#now-playing` would have done, the fit
+   query being a bare id later in the file; that is no longer true, and a pass
+   that trimmed these selectors back would take the reading off a phone lying
+   down rather than laying it out beside the transport.
 
    `:not([hidden])` is the price of that class. `#player-bar` is `display:
    contents`, so `#player-bar[hidden]` has to say `display: none` again by hand
@@ -1839,15 +1861,35 @@ body.wake-screen #player-bar:not([hidden]) {
    under it, a sleep timer, and a transport whose play button has nothing to
    start.
 
-   Asked as a width rather than as `orientation: landscape` because width is
-   what actually decides it. A phone held upright with a keyboard up is under
-   34rem across and a phone on its side is over it, and something wide, short
-   and still called portrait — a tablet held upright, typing — gets the layout
-   that fits rather than the one its orientation is named after. The installed
-   app also asks for portrait in the webmanifest, but that binds nothing in a
-   browser tab, which is where the page is read before it is ever installed. */
-@media (max-height: 34rem) and (min-width: 34rem) {
-  body.player-screen #player-bar:not([hidden]) {
+   Asked as a shape, and the two halves of the old condition went different
+   ways. "Is there room?" is `.short-page` on the selectors, because that is a
+   measurement app.js takes against the page's own root and no query can make it.
+   "Is it lying down?" is `min-aspect-ratio: 1/1`, which a sheet can ask
+   honestly and which no rem can reach.
+
+   It used to be `(max-height: 34rem) and (min-width: 34rem)`, and the paragraph
+   here argued the width half as a way of telling a phone upright with a keyboard
+   over it from a phone on its side. That argument is spent: a keyboard cannot
+   make a page short any more, because the room is measured against the height
+   with nothing over it. And the number was failing on its own terms — 34rem in
+   a media query is 544 CSS px, and a phone at display size +3 lying down is 540
+   across, so the one phone this was reported on fell straight through this block
+   to the reading being hidden entirely.
+
+   Shape also keeps what the width was reaching for. Something wide, short and
+   still called portrait — a tablet held upright, typing — gets the layout that
+   fits rather than the one its orientation is named after, and it does so
+   without a threshold that has to be guessed at in pixels. The installed app
+   asks for portrait in the webmanifest, but that binds nothing in a browser tab,
+   which is where the page is read before it is ever installed.
+
+   Every selector below carries `.short-page` as well as `.player-screen`. A tall
+   window is never short and never reaches here anyway, but saying it means this
+   block lays out the two-column player only on a page that has actually been
+   measured out of room, rather than on any window that happens to be wider than
+   it is high. */
+@media (min-aspect-ratio: 1/1) {
+  body.player-screen.short-page #player-bar:not([hidden]) {
     display: grid;
     /* Even, and it was 1fr to 1.4fr. The transport was given the larger share
        because it is what gets pressed without looking, which is true — but the
@@ -1871,11 +1913,11 @@ body.wake-screen #player-bar:not([hidden]) {
      left column, the reading went in the right, and the transport dropped onto a
      second row under it. `display: none` for the reason the chat screen gives —
      what is wrong here is that they exist. */
-  body.player-screen #player-bar:not([hidden]) .rhythm {
+  body.player-screen.short-page #player-bar:not([hidden]) .rhythm {
     display: none;
   }
 
-  body.player-screen #now-playing {
+  body.player-screen.short-page #now-playing {
     /* A box again, because a column of the grid needs something to put in it and
        `display: contents` is not a grid item.
 
@@ -1898,10 +1940,15 @@ body.wake-screen #player-bar:not([hidden]) {
      is short of room across. Height is what it is short of. Measured at the two
      sizes this actually fires at, with the fix above in place and a two-line
      title: the reading stands 421px tall under a 61px header, so it wants about
-     540px of window — and the query only runs below 544px. It overflowed at
-     844x390 by 241px, and at 669x309 — a Pixel 6 Pro on its side at the text
-     scale this page is read at — by very much more. The chapter and its circles
-     went off the bottom instead of off the right, which is not a fix.
+     540px of window, and nothing that gets here has it — a page only reaches
+     this block having been measured under 34 of its own roots, and both sizes
+     below are past the 460px cap on the root, so at the design's text size that
+     threshold is 869px. (It was a flat 544px when this was a rem query, which
+     was the same conclusion reached by luck.) It
+     overflowed at 844x390 by 241px, and at 669x309 — a Pixel 6 Pro on its side
+     at the text scale this page is read at — by very much more. The chapter and
+     its circles went off the bottom instead of off the right, which is not a
+     fix.
 
      So what stays is what this block exists for. Its own first paragraph names
      it: the fit query took away "the only place the sleep timer can be read or
@@ -1911,9 +1958,9 @@ body.wake-screen #player-bar:not([hidden]) {
      chapter name, the chapter clock and the strip of circles are the reading's
      lower half and they are what a phone on its side cannot have; they are all
      still one turn of the wrist away, which is not true of the sleep timer. */
-  body.player-screen #chapter-title,
-  body.player-screen #chapter-clock,
-  body.player-screen .chapter-strip,
+  body.player-screen.short-page #chapter-title,
+  body.player-screen.short-page #chapter-clock,
+  body.player-screen.short-page .chapter-strip,
   /* And the two lines inside the reading that say nothing the clock does not.
      Measured at 669x309 with a nine-hour book open: what is left of the reading
      still stood 45px past the bottom of the window, and the 45px was the sleep
@@ -1922,8 +1969,8 @@ body.wake-screen #player-bar:not([hidden]) {
      `4 places found` is a count of something the places screen is one press
      away from showing in full. Both are on the phone the moment it is upright.
    */
-  body.player-screen #whole-progress,
-  body.player-screen #places-found {
+  body.player-screen.short-page #whole-progress,
+  body.player-screen.short-page #places-found {
     display: none;
   }
 
@@ -1943,7 +1990,7 @@ body.wake-screen #player-bar:not([hidden]) {
      screen to lose: the name is there to answer "am I in the right book?" and
      its first line answers that. It is the whole name again the moment the
      phone comes back upright. */
-  body.player-screen #book-title {
+  body.player-screen.short-page #book-title {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2472,8 +2519,10 @@ body.wake-screen #player-bar:not([hidden]) {
    underneath it and leaves that screen exactly as it was; what it needs to know
    is only whether there is a keyboard eating half of what it has to draw in.
    app.js measures that; it used to be guessed from `max-height: 34rem`, which
-   also fired on any short window and, because the root is the OS text scale,
-   permanently at a large enough one. */
+   fired on any short window whether or not anybody was typing into it, and
+   permanently on a phone whose viewport is under 544 CSS px — which is what
+   34rem is in a media query. The note that stood here blamed the root for that,
+   and the root had nothing to do with it: a media query cannot see the root. */
 body.keyboard-up #candidates-title {
   /* Down two steps of the scale rather than to a size of its own: a page title
      with a keyboard up is still a page title, and it is the only thing on the
@@ -2532,14 +2581,26 @@ body.keyboard-up #candidates-note {
    — and well over what is left of one with a keyboard up, which is around 220px,
    which is the whole point: it has to fire there and nowhere above it.
 
-   The only thing this says that the fit query further up does not is that it
-   also applies in landscape, where the reading is beside the transport rather
-   than over it: it is written after the landscape rule and it wins. That is what
-   it was for before and it is what it is for now. It carries the same
-   player-screen class as the rule it has to beat, because a class cannot be
-   beaten by a selector that does not have one. */
-@media (max-height: 17rem) {
-  body.player-screen #now-playing {
+   The number was always device pixels and it is now written as device pixels.
+   It read `17rem` while the comment above it reasoned entirely in CSS px — 320px
+   phones, 220px left under a keyboard — which was two units for one number, and
+   17rem in a media query has only ever been 272 CSS px anyway. Nothing about the
+   behaviour changes; what changes is that the query and the argument for it are
+   in the same unit. This one stays a query rather than joining the measurement
+   above because it is not asking about the type at all: it is the point at which
+   there is nothing left to arrange whatever size the words are.
+
+   The only thing this says that the fit rule further up does not is that it also
+   applies in landscape, where the reading is beside the transport rather than
+   over it: it is written after the landscape rule and it wins. That is what it
+   was for before and it is what it is for now. It carries `.short-page` as well
+   as `.player-screen`, because a class cannot be beaten by a selector that does
+   not have one and the landscape rule now has two — without the second class
+   this would be (1,1,1) against that block's (1,2,1) and would silently stop
+   winning, which is the cascade trap this paragraph already existed to warn
+   about. */
+@media (max-height: 272px) {
+  body.player-screen.short-page #now-playing {
     display: none;
   }
 }

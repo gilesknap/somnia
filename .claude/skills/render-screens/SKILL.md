@@ -91,9 +91,10 @@ is a hard **544 CSS px**, whatever root the page has set.
 
 Proved by rendering at 309x540 with the root forced to **8px** — acres of empty
 room, type a third of its size, and the reading still hidden. The comment above
-that query argues the opposite ("asking that in rem is what makes the answer
-follow the OS text scale"); it is wrong, it is load-bearing, and it is
-[issue #65](https://github.com/gilesknap/somnia/issues/65).
+that query argued the opposite ("asking that in rem is what makes the answer
+follow the OS text scale"); it was wrong, it was load-bearing, and it was
+[issue #65](https://github.com/gilesknap/somnia/issues/65). Both the query and
+the comment are gone — see below for what stands in their place.
 
 The consequence in the wild: at display size +3 the player shows the header, the
 transport and the composer with a void where the book is. That is this rule
@@ -105,8 +106,34 @@ of a shrinking total:
     width_css = W/S      height_css = H/S − C      (C constant)
 
 If you need a height threshold that follows the type, ask about **shape**
-(`max-aspect-ratio`), or measure it in app.js and write a class as #23 did for
-the keyboard. Do not reach for `rem`.
+(`min-aspect-ratio`), or measure it in app.js and write a class as #23 did for
+the keyboard. Do not reach for `rem`. As of #65 there is no `rem` left in any
+media query in `style.css`, and there is a test in `tests/web/fitting.test.mjs`
+that fails if one comes back.
+
+## `short-page` — whether there is room, and why a render can get it wrong
+
+**app.js writes it, and a snapshot has no app.js.** The page compares the height
+with nothing over it against **34 of its own roots** — `PLAYER_NEEDS_ROOTS` in
+app.js — and puts `short-page` on `<body>`; `style.css` hides `#now-playing` on
+that class, the landscape block lays the player out in two columns on it, and the
+272px floor takes the reading back off it.
+
+That means **a short render without the class photographs a player the phone
+would never draw**, with the whole reading in a window that has no room for it.
+`render.py` therefore derives the class from the width, the height, `--root` and
+`--text-size` rather than offering a flag, because a flag is a thing that gets
+forgotten and the picture that forgets it looks fine.
+
+Two consequences worth carrying around:
+
+- `how big the words` on Settings now moves this. At `360x780 --text-size 1.2`
+  the root is 24 and the page is 32.5 roots, so the reading goes — that is new,
+  and it is the height style.css measures the title landing on the clock at.
+  At `309x540 --text-size 0.8` the page is 39.3 roots and the reading comes
+  back. Render both when you touch the player's column.
+- `snapshot.py` composes the page without running app.js at all, so anything you
+  read out of a snapshot is a page with none of these classes on it.
 
 ## Three screens, not one — and the size picks none of them
 

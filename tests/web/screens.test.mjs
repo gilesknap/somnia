@@ -5,9 +5,10 @@
 // stylesheet reads. Everything below is about how that class is arrived at,
 // because it used to be arrived at wrongly: the sheet asked
 // `@media (max-height: 34rem)`, took that to mean "is the keyboard up?", and got
-// it wrong for every short window and permanently for anybody whose OS text
-// scale put 34rem above the height of their phone. The player went, and nothing
-// they could do to the phone brought it back.
+// it wrong for every short window — and permanently for any phone whose viewport
+// is under 544 CSS px, which is what 34rem is in a media query whatever the page
+// sets its root to. The player went, and nothing they could do to the phone
+// brought it back.
 //
 // So the keyboard is measured now: what is left of the viewport, against what
 // the viewport is when nothing is over it, and only while somebody is actually
@@ -32,7 +33,8 @@ const WITH_KEYBOARD = 420;
 const SETTLING_MS = 250;
 
 // A window somebody dragged short, and the height the old query collapsed the
-// player at: 34rem at the browser's default 16px root. It is above what a
+// player at: 34rem in a media query, which is 34 times the browser's initial
+// 16px and has nothing to do with the page's own root. It is above what a
 // keyboard leaves and below what the phone has, which is exactly why guessing
 // between the two from height alone could not work.
 const SHORT_WINDOW = 544;
@@ -198,15 +200,20 @@ test("a focus nobody asked for does not open the chat screen", async (t) => {
   page.focus("question");
   page.resize(WITH_KEYBOARD);
   assert.equal(page.probe().screen, "player");
-  assert.deepEqual(classes(page), ["player-screen"]);
+  // `short-page` comes with it and is the right answer here. The page has been
+  // given no evidence that anybody is typing — that is the whole of what this
+  // test sets up — so 420px is simply what the page is, and 420px has no room
+  // to draw the reading in. The reading gives way, the player does not, and the
+  // difference between those two is what this section is about.
+  assert.deepEqual(classes(page), ["player-screen", "short-page"]);
 });
 
 // ------------------------------------------------- a window is not a keyboard
 
-// The issue, in one line. A desktop window dragged shorter than 34rem used to
-// take the book, the chapter, both clocks and the scrub line off the screen and
-// leave the conversation in their place, and nothing about a window being
-// resized says anybody is typing.
+// The issue, in one line. A desktop window dragged under 544px used to take the
+// book, the chapter, both clocks and the scrub line off the screen and leave the
+// conversation in their place, and nothing about a window being resized says
+// anybody is typing.
 test("a window dragged short with nobody typing is still the player", async (t) => {
   const page = await boot(t);
   page.resize(SHORT_WINDOW);
@@ -215,19 +222,19 @@ test("a window dragged short with nobody typing is still the player", async (t) 
 });
 
 // The other half of the same issue, and the worse one, because it could not be
-// undone: the old threshold was 34 times a root that is the OS text scale on
-// purpose, so a reader who turned their text up far enough had a page where the
-// threshold was above the height of the phone and the player was gone for good.
-// There is no rem in here to turn up — what stands in for it is that no height
-// at all can move the page to the other screen while nobody is typing. The
-// reading still gives way on a window with no room for it; that is a rule about
-// room, it leaves the transport and the dock where they are, and it is in the
-// sheet.
+// undone: the old threshold was a flat 544 CSS px, so a phone whose viewport is
+// shorter than that — which is a phone at a large display size, and this app is
+// read by somebody who turns things up — was on the chat screen every night with
+// the player gone for good. What stands in for that here is that no height at
+// all can move the page to the other screen while nobody is typing. The reading
+// still gives way on a window with no room for it; that is a rule about room, it
+// leaves the transport and the dock where they are, and it is measured against
+// the page's own root in fitting.test.mjs.
 test("no height on its own moves the page to the chat screen", async (t) => {
   const page = await boot(t);
-  // 884 is 34rem at the root that made this permanent; 544 is 34rem at the
-  // browser's default; 272 is a window with barely a transport's worth of room
-  // left in it.
+  // 884 is a window taller than the phone the design was drawn for; 544 is what
+  // 34rem in a media query actually was; 272 is a window with barely a
+  // transport's worth of room left in it.
   for (const height of [884, VIEWPORT_HEIGHT, SHORT_WINDOW, 300, 272]) {
     page.resize(height);
     assert.equal(page.probe().screen, "player", `at ${height}px`);
@@ -596,12 +603,12 @@ test("nothing makes the reading a flex box without saying which way it runs", as
 // empty spacer, and the transport sat under the reading rather than beside it.
 test("the player's spacers are not items of the landscape grid", async (t) => {
   const landscape = mediaBlocks(RULES).filter((block) =>
-    block.includes("min-width: 34rem"),
+    block.includes("min-aspect-ratio: 1/1"),
   );
   assert.equal(landscape.length, 1, "the landscape block is not where it was");
   assert.ok(
     landscape[0].includes(
-      "body.player-screen #player-bar:not([hidden]) .rhythm { display: none; }",
+      "body.player-screen.short-page #player-bar:not([hidden]) .rhythm { display: none; }",
     ),
     "the landscape grid is holding the portrait rhythm",
   );
@@ -610,9 +617,11 @@ test("the player's spacers are not items of the landscape grid", async (t) => {
 // What is left of the reading when the phone is on its side, and why it is not
 // all of it. The block's first paragraph says nothing has to go because nothing
 // is short of room across — true of width and false of height, which is the
-// dimension this query fires on. With the whole reading in it the left column
-// stands 421px tall under a 61px header and a 41px status line, so it wants
-// about 540px of window and the query only runs below 544px.
+// dimension that gets this block onto the screen. With the whole reading in it
+// the left column stands 421px tall under a 61px header and a 41px status line,
+// so it wants about 540px of window, and nothing that reaches this block has
+// that: `short-page` is only written on a page under 34 of its own roots, which
+// past the 460px cap is 869px at the design's text size.
 //
 // So the chapter, its clock and its circles go, and the name gets one line. What
 // stays is the name, the clock and the sleep button — the control this block
@@ -630,7 +639,7 @@ test("the player's spacers are not items of the landscape grid", async (t) => {
 // the pill's bottom edge is at 295 in a 309px window.
 test("the landscape reading keeps the name and the sleep timer", async (t) => {
   const [landscape] = mediaBlocks(RULES).filter((block) =>
-    block.includes("min-width: 34rem"),
+    block.includes("min-aspect-ratio: 1/1"),
   );
   // The columns the reading has to fit in. Named because the wrap that lost the
   // sleep timer was a width problem showing up as a height one.
@@ -646,19 +655,21 @@ test("the landscape reading keeps the name and the sleep timer", async (t) => {
     "#places-found",
   ]) {
     assert.ok(
-      landscape.includes(`body.player-screen ${gone}`),
+      landscape.includes(`body.player-screen.short-page ${gone}`),
       `${gone} is drawn in landscape, where there is no height for it`,
     );
   }
   assert.ok(
-    landscape.includes("body.player-screen #book-title { white-space: nowrap;"),
+    landscape.includes(
+      "body.player-screen.short-page #book-title { white-space: nowrap;",
+    ),
     "the landscape title is free to take a second line",
   );
   // And the two that must not go, said as an assertion so that trimming this
   // block further has to be deliberate.
   for (const kept of ["#whereabouts", "#clock", "#sleep"]) {
     assert.ok(
-      !landscape.includes(`body.player-screen ${kept} { display: none;`),
+      !landscape.includes(`body.player-screen.short-page ${kept} { display: none;`),
       `landscape has taken away ${kept}`,
     );
   }
