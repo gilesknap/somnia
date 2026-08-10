@@ -5536,7 +5536,17 @@ function foundRow(entry) {
   // A book that is already here, or already coming, is marked rather than
   // offered and then refused: a press that was never available cannot be a
   // press that did nothing, and at 2am those two feel completely different.
-  if (HAVE_ALREADY.includes(entry.have)) return li;
+  //
+  // It is also greyed, and the ink is the whole of the difference. Three words
+  // at the end of the second line were carrying the entire claim that this row
+  // is not one of the ones on offer, and a column of results in which the ones
+  // somnia already has look exactly like the ones it does not is a list that
+  // has to be read a word at a time. Nothing is added back: the row stays a
+  // readout with no press on it, which is what makes it safe to make it quiet.
+  if (HAVE_ALREADY.includes(entry.have)) {
+    li.classList.add("owned");
+    return li;
+  }
   const add = document.createElement("button");
   add.type = "button";
   // The one warm press on the panel, and only for a render that died: picking

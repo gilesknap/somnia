@@ -3395,6 +3395,23 @@ body.keyboard-up #candidates-note {
   display: none;
 }
 
+/* A result somnia already has, or already has coming. It is the only row in
+   the list with nothing on the right of it, and until now that absence was the
+   only thing saying so — which a person scanning a column of ten titles reads
+   as a row whose button has not drawn yet rather than as a book they own.
+
+   Ink, and only ink. The title drops from --ink to --dim, which is where the
+   line under it already sits, so the whole row settles back to one weight and
+   the rows that can still be added come forward without anything about them
+   changing. No press is restored here: see foundRow. */
+.found.owned .found-name {
+  color: var(--dim);
+}
+
+.found.owned .found-meta {
+  color: var(--faint);
+}
+
 /* One dot between whichever of the three spans are actually on the line. The
    author is the one that can be empty — and is then display:none — so it gets
    the :not(:empty) guard that stops a row starting with a separator. */

@@ -1932,6 +1932,41 @@ test("a book somnia already has is marked and offers no button", async (t) => {
   );
 });
 
+test("a book somnia already has is greyed, and is still not a button", async (t) => {
+  const page = await opened(t);
+  page.queueView([]);
+  await workshop(page);
+  page.catalogEntries([
+    entry({ gid: 11, title: "Alice", have: "done" }),
+    entry({ gid: 120, title: "Candide", have: "queued" }),
+    entry({ gid: 271, title: "Black Beauty", have: "pending" }),
+    entry({ gid: 345, title: "Dracula" }),
+  ]);
+  await search(page, "a");
+  assert.deepEqual(
+    page
+      .el("queue-results")
+      .children.map((li) => [
+        words(li, "found-name"),
+        li.classList.contains("owned"),
+        part(li, "found-add") !== null,
+      ]),
+    [
+      // Greyed and pressless are the same two books. The ink is what stops a
+      // column of results reading as one undifferentiated list; the missing
+      // press is what stops it offering something it would only refuse, and
+      // slice 5 of #100 was careful to add the first without undoing the
+      // second.
+      ["Alice", true, false],
+      ["Candide", true, false],
+      // A render that died is neither: it is the one row here somebody came
+      // having already decided to press.
+      ["Black Beauty", false, true],
+      ["Dracula", false, true],
+    ],
+  );
+});
+
 test("a render that died is offered again, because that retry was impossible", async (t) => {
   const page = await opened(t);
   page.queueView([]);

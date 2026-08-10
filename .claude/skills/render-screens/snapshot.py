@@ -466,7 +466,10 @@ FILL = """
 
     put("queue-results", (PANEL.found || []).map(([name, by, have, press]) => {
       const li = document.createElement("li");
-      li.className = "found";
+      // No press and greyed are the same fact in app.js: a book somnia already
+      // has gets neither. Deriving one from the other here keeps the fixture
+      // from being able to draw a row the page cannot.
+      li.className = press ? "found" : "found owned";
       const meta = p("found-meta", "");
       const who = document.createElement("span");
       who.className = "found-by";
