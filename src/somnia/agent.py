@@ -31,6 +31,7 @@ from .tools import Library, Moved, Offer, Refused
 
 __all__ = [
     "OFFER_SENTENCE",
+    "ONE_PLACE_SENTENCE",
     "SYSTEM_PROMPT",
     "Conversation",
     "Turn",
@@ -56,6 +57,20 @@ _EFFORT_LOCK = threading.Lock()
 # offers and then says nothing at all.
 OFFER_SENTENCE = "There are a few places that could be it."
 
+# What to say when the list has one row on it, which is a real outcome and not
+# a degenerate one: a chapter named but not yet reached is a covered row and a
+# press, and so is one place behind them in a turn that has already drawn a
+# list. The sentence above is a lie about both — there are not a few places,
+# there is one — and being told to say something plainly false is what sent the
+# model off writing its own. Asked to "goto chapt 5" over a Dracula it had not
+# reached, it put the row up and said "You're there now, at the beginning of
+# chapter 5", which is the worst sentence available: nothing had moved, and the
+# one thing the listener had to do was the one thing it did not mention.
+#
+# It names no place for the same reason the other one does not, and it says the
+# press out loud because that is what is left to do and the row does not say it.
+ONE_PLACE_SENTENCE = "It's on the screen — press it to go there."
+
 # How many times round the runner one question may go before the turn is taken
 # away from it.
 #
@@ -74,10 +89,13 @@ OFFER_SENTENCE = "There are a few places that could be it."
 # a turn that acted and then said nothing already takes.
 MAX_HOPS = 8
 
-# Interpolated rather than typed out again below: the sentence the model is told
-# to say and the sentence said on its behalf when it says nothing have to be the
-# same words, and two copies of a sentence are two sentences eventually.
-SYSTEM_PROMPT = f"""\
+# Neither sentence above is quoted in here, and that is the point rather than an
+# omission. Which of the two belongs beside a list depends on how many rows the
+# call came back with, which this cannot know — so the tool result carries the
+# words and this says only to repeat them. It also keeps the one copy: a prompt
+# that spelled a sentence out beside a constant that spelled it out too is two
+# sentences eventually.
+SYSTEM_PROMPT = """\
 You help someone find their place in an audiobook they are falling asleep to.
 It is the middle of the night and they are half awake, often speaking rather
 than typing, so their words may be garbled or vague.
@@ -116,10 +134,10 @@ couldn't find it rather than offering bad guesses.
 Never ask which place they meant, or whether they mind being spoiled. Give
 offer_positions every passage that could really be it, best first. If it takes
 them somewhere, say roughly where they landed: "you're back at two hours in, in
-the chapter about X". If it puts a list on the screen, say exactly
-"{OFFER_SENTENCE}" and nothing else — no times, no chapter names, no
-descriptions. The screen says all of that better. Saying that sentence does not
-put a list there; only calling offer_positions does, so say it after.
+the chapter about X". If it puts places on the screen instead, nothing has moved
+and they have to press one: say back the exact sentence it gives you and nothing
+else — no times, no chapter names, no descriptions. The screen says all of that
+better, and saying the sentence is not what puts it there, so say it after.
 
 Being taken somewhere means the page jumps there and plays. Never tell them to
 press play, and never say whether anything is playing — you do not know.
@@ -700,6 +718,12 @@ def _offered(offer: Offer) -> str:
     chapter, no passage and no position_ms, because a tool result is the one
     place a withheld passage could re-enter a sentence — and the model is asked
     for a single sentence it has already been given, rather than for its own.
+
+    It says that nothing moved before it says what to say. That is the sentence
+    the model got wrong in the wild rather than a summary of the two above it:
+    a list is the outcome that looks most like a move from in here — it was a
+    goto, a tool was called, it succeeded — and the model narrated the landing
+    of a jump that had not happened and could not until a thumb answered.
     """
     ahead = sum(1 for place in offer.places if place.ahead)
     places = "place" if len(offer.places) == 1 else "places"
@@ -709,10 +733,12 @@ def _offered(offer: Offer) -> str:
         further = "one of them is further on than they have listened"
     else:
         further = f"{ahead} of them are further on than they have listened"
+    say = ONE_PLACE_SENTENCE if len(offer.places) == 1 else OFFER_SENTENCE
     return (
-        f"Offered them {len(offer.places)} {places} to choose from; {further}."
-        " The page is showing the list now — it holds the times and the words,"
-        f" so say neither. Say only: {OFFER_SENTENCE}"
+        f"Put {len(offer.places)} {places} on the screen; {further}. Nothing has"
+        " moved and nothing is going to until they press one, so do not tell"
+        " them they are there. The screen holds the times and the words, so say"
+        f" neither. Say only: {say}"
     )
 
 
@@ -911,7 +937,11 @@ class Conversation:
             # sentence that belongs beside it is a constant.
             logger.warning("turn produced no text; answering with what it did")
             if self._offers:
-                reply = OFFER_SENTENCE
+                reply = (
+                    ONE_PLACE_SENTENCE
+                    if len(self._offers[-1].places) == 1
+                    else OFFER_SENTENCE
+                )
             else:
                 reply = self._actions[-1] if self._actions else ""
         # The position comes back off the question before the question is kept.

@@ -14,6 +14,7 @@ from fakes import FakeEmbedder
 from somnia.agent import (
     MAX_HOPS,
     OFFER_SENTENCE,
+    ONE_PLACE_SENTENCE,
     SYSTEM_PROMPT,
     Conversation,
     build_tools,
@@ -549,24 +550,75 @@ def test_a_turn_that_offered_hands_the_page_the_list_and_says_one_sentence(
     assert seq(searchable) == 0
 
 
+def test_one_place_on_the_screen_is_not_told_there_are_a_few_of_them(
+    searchable: Searchable,
+) -> None:
+    """A row and a press, said as a row and a press.
+
+    One place is a real outcome and the commonest one there is: "go to chapter
+    5" over a chapter they have not reached resolves to exactly one place, which
+    is ahead of them, which is a covered row. "There are a few places that could
+    be it" is false about it, and a model told to say something false says
+    something else — in the wild it said *"you're there now, at the beginning of
+    chapter 5"* over a book that had not moved and was not going to until a
+    thumb answered. So the sentence for one place says the press out loud.
+    """
+    conversation = Conversation(
+        Config(),
+        searchable.library,
+        client_that_acts(
+            [said()],
+            calls=[
+                (
+                    "find_passage",
+                    {"gid": 271, "description": "the meadow with the pond"},
+                ),
+                (
+                    "offer_positions",
+                    {"gid": 271, "chunk_ids": [place(searchable, 300_000)]},
+                ),
+            ],
+        ),
+    )
+    turn = conversation.ask("the bit by the pond")
+
+    assert turn.reply == ONE_PLACE_SENTENCE
+    assert turn.candidates is not None
+    assert [p.start_ms for p in turn.candidates.places] == [300_000]
+    assert turn.move is None
+    assert seq(searchable) == 0
+
+
 def test_the_sentence_beside_a_list_says_nothing_about_what_is_on_it(
     searchable: Searchable,
 ) -> None:
-    """It names no place, no chapter, no character and no time.
+    """Neither of them names a place, a chapter, a character or a time.
 
     A sentence that summarised the list would leak exactly what the "show me
-    what's there" control exists to withhold, and it would do it in the one
-    part of the reply that is read aloud. The prompt quotes the same constant,
-    so the words the model is told to say and the words said on its behalf
-    cannot drift apart.
+    what's there" control exists to withhold, and it would do it in the one part
+    of the reply that is read aloud.
+
+    There are two because one row is a real outcome and not a degenerate one —
+    a chapter named but not yet reached is a covered row and a press — and "there
+    are a few places" is false about one place. Being told to say something
+    plainly false is what sent the model off writing its own: asked to go to a
+    chapter it had not reached, it drew the row and said "you're there now",
+    which was the one thing that had not happened.
+
+    Neither is quoted in the system prompt any more. Which of them to say
+    depends on what the call came back with, so the tool result carries the
+    words and the prompt says only to repeat them —
+    :func:`test_narrowing_to_one_place_ahead_of_them_is_the_same_list_either_way`
+    and the test above it are what hold the two ends together.
     """
     assert OFFER_SENTENCE == "There are a few places that could be it."
-    assert not re.search(r"\d", OFFER_SENTENCE)
-    for _, text, _ in PASSAGES:
-        assert text not in OFFER_SENTENCE
-    for title, _, _ in CHAPTERS:
-        assert title not in OFFER_SENTENCE
-    assert OFFER_SENTENCE in SYSTEM_PROMPT
+    assert ONE_PLACE_SENTENCE == "It's on the screen — press it to go there."
+    for sentence in (OFFER_SENTENCE, ONE_PLACE_SENTENCE):
+        assert not re.search(r"\d", sentence)
+        for _, text, _ in PASSAGES:
+            assert text not in sentence
+        for title, _, _ in CHAPTERS:
+            assert title not in sentence
 
 
 def client_recording_system(
@@ -1008,7 +1060,8 @@ def test_a_place_named_under_a_live_list_is_drawn_and_never_written(
 
     said = ready.call("offer_positions", gid=271, chunk_ids=[behind, behind])
 
-    assert "Offered them 1 place" in said
+    assert "Put 1 place on the screen" in said
+    assert ONE_PLACE_SENTENCE in said
     assert ready.moves == []
     assert seq(searchable) == 0
     assert [p.start_ms for p in ready.offers[-1].places] == [10_000]
@@ -1037,7 +1090,7 @@ def test_narrowing_to_one_place_ahead_of_them_is_the_same_list_either_way(
         "offer_positions", gid=271, chunk_ids=[place(searchable, 300_000)]
     )
 
-    assert "Offered them 1 place" in said
+    assert "Put 1 place on the screen" in said
     assert "one of them is further on" in said
     assert ready.moves == []
     assert seq(searchable) == 0
