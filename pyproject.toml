@@ -65,6 +65,11 @@ dev = [
 ml = [
     "kokoro>=0.9",
     "sentence-transformers",
+    # Named here although both of the above already pull it in, because
+    # [tool.uv.sources] only binds a dependency the project declares itself.
+    # Left transitive, the CPU-index pin below is silently ignored and the
+    # CUDA stack comes back. See the comment on [[tool.uv.index]].
+    "torch",
 ]
 
 [project.scripts]
@@ -202,6 +207,38 @@ commands = [
         ], extend = true },
     ],
 ]
+
+# torch, from PyPI and on Linux, drags the whole CUDA 13 stack behind it —
+# cuda-toolkit and fifteen nvidia-* wheels, under a plain
+# `sys_platform == 'linux'` marker with nothing about the architecture in it.
+# aarch64 builds of those exist (they are for Grace and Jetson), so a Rockchip
+# with no NVIDIA anything in it gets them too: nvidia-cublas alone is a 542MB
+# wheel, and the set comes to several gigabytes of libraries that cannot be
+# loaded on the machine they landed on.
+#
+# somnia has never wanted any of it. `somnia-doctor.sh` checks for "a CPU
+# torch", the renderer is Kokoro on cores, and the embedder is a 384-dimension
+# model that is faster to run than to move to a card. Pinning torch to
+# PyTorch's own CPU index is what makes an arm64 image possible at all — it is
+# the difference between a ~1GB image and an ~8GB one — and it makes every
+# `--extra ml` dev environment smaller by the same libraries.
+#
+# `explicit = true` matters: without it this index is consulted for every
+# package, and it mirrors a subset of PyPI badly enough to shadow things it
+# should not. Named in [tool.uv.sources], it is used for torch and nothing else.
+#
+# This reaches uv and nothing else. [tool.uv.sources] is not standard metadata
+# and does not survive into the published wheel, so `pip install
+# "somnia-reader[ml]"` still takes torch off PyPI with the CUDA stack behind
+# it — exactly as it did before this pin existed. What it covers is every
+# environment built from this lock file: the dev container, CI, and the image.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
 
 [tool.ruff]
 src = ["src", "tests"]
