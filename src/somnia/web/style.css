@@ -1484,6 +1484,37 @@ button:disabled {
   body.short-page #now-playing {
     display: none;
   }
+
+  /* One line each, a step before the reading goes altogether, and the reason is
+     the flexbox rule underneath both headings: an item whose `overflow` is not
+     `visible` has its automatic minimum size resolve to ZERO. The clamp needs
+     `overflow: hidden`, so asking for the clamp took away the floor the heading
+     had — and flex, short of room, shrank the box to 1.6 lines and let the clip
+     fall through the middle of the letters. `Willows` came out as a row of glyph
+     tops with the clock printed under it, which reads as a font bug rather than
+     as a page out of room.
+
+     Clamping is what the box was for, so it is what it does here: one line, and
+     the ellipsis lands where somebody can see it. The chapter name is in this
+     rule for the same failure and a worse showing of it — with the clamp left at
+     two its ellipsis is placed on the line the clip has just removed, so a long
+     chapter name stops dead. `IV. The Further Adventures of the Water Rat` at
+     360x640 printed `IV. The Further`, with nothing to say it was not the whole
+     name.
+
+     Not `flex-shrink: 0`, which was tried and photographed. On the title alone it
+     moves the shrink onto the chapter name, which vanishes entirely; on both it
+     pushes the composer off the bottom of the screen. The height is genuinely not
+     there and something has to give — this is the give that is legible.
+
+     `body.title-one-line #book-title` is (1,1,1) against the base rule's (1,0,0),
+     so it wins on weight wherever it applies and does not care where it sits in
+     the file. */
+  body.title-one-line #book-title,
+  body.title-one-line #chapter-title {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
 }
 
 /* The chat screen, which is this same document with the conversation in front

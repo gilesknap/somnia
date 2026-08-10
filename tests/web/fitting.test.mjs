@@ -54,6 +54,11 @@ function short(page) {
   return page.body.classes.has("short-page");
 }
 
+// And the step before it: room for the headings but not for their second line.
+function oneLine(page) {
+  return page.body.classes.has("title-one-line");
+}
+
 // -------------------------------------------------- the room, as the page has
 
 test("the design's own phone has room for the reading", async (t) => {
@@ -113,6 +118,77 @@ test("the words turned down give the reading back on a short phone", async (t) =
   page.click("text-down");
   assert.equal(page.probe().text, "0.9");
   assert.equal(short(page), false);
+});
+
+// ------------------------------------------ the second line of the headings
+
+// The design's own phone at the size it ships at: 39 roots, so both headings
+// keep the second line they were drawn with.
+test("the design's own phone has room for a two-line title", async (t) => {
+  const page = await boot(t);
+  assert.equal(oneLine(page), false);
+});
+
+// The bug, at the two sizes it was photographed at. Both are pages with room for
+// the reading and not for its second line, and what used to happen there was not
+// a truncation: flex shrank the heading to about 1.6 lines and `overflow: hidden`
+// cut through the middle of the letters, because a flex item whose overflow is
+// not `visible` has no automatic minimum size to stop it.
+test("a page with no room for the second line clamps the headings", async (t) => {
+  const page = await boot(t);
+  // 360x640 is 32 roots: the reading stays and the second line cannot.
+  page.resize(640, 360);
+  assert.equal(short(page), false);
+  assert.equal(oneLine(page), true);
+  // And the reported phone one notch off the floor, 309x560 at 32.6 roots. This
+  // is the page 544px drew in full and sliced, and the one PLAYER_NEEDS_ROOTS
+  // cannot reach without taking the book off the design's own phone.
+  page.resize(560, REPORTED_WIDTH);
+  assert.equal(short(page), false);
+  assert.equal(oneLine(page), true);
+});
+
+// The words all the way up, which is where the two numbers pull apart. 360x780 at
+// 1.2 is 32.5 roots: over PLAYER_NEEDS_ROOTS, so the reading stays — that is what
+// #65 was about — and under TITLE_NEEDS_ROOTS, so the title gives up its tail.
+// Two lines would in fact have fitted at that root, which is the price of asking
+// in roots at all, and an ellipsis is a cheaper thing to be wrong about than a
+// void.
+test("the words turned all the way up keep the reading and clamp the title", async (t) => {
+  const page = await boot(t);
+  page.click("text-up");
+  page.click("text-up");
+  assert.equal(page.probe().text, "1.2");
+  assert.equal(short(page), false);
+  assert.equal(oneLine(page), true);
+});
+
+// And the remedy reaches this too. One press down on the reported phone brings
+// the reading back at 35.0 roots, which is over both numbers, so it comes back
+// whole rather than clamped.
+test("the words turned down give the second line back as well", async (t) => {
+  const page = await boot(t);
+  page.resize(REPORTED_HEIGHT, REPORTED_WIDTH);
+  page.click("text-down");
+  assert.equal(page.probe().text, "0.9");
+  assert.equal(short(page), false);
+  assert.equal(oneLine(page), false);
+});
+
+// The two numbers are a ladder and not a pair of switches: anything with no room
+// for the reading has no room for a second line either, so the classes can never
+// disagree in that direction. A future pass that raised PLAYER_NEEDS_ROOTS over
+// TITLE_NEEDS_ROOTS would hide the reading on pages whose headings it had just
+// declared roomy, and nothing else would notice.
+test("there is no page that loses the reading but keeps a two-line title", async (t) => {
+  const page = await boot(t);
+  for (const height of [900, 780, 700, 680, 660, 640, 600, 560, 520, 480, 400]) {
+    page.resize(height, 360);
+    assert.ok(
+      !short(page) || oneLine(page),
+      `at 360x${height} the reading is gone and the title is not clamped`,
+    );
+  }
 });
 
 // -------------------------------------- a keyboard is not a page without room
@@ -279,6 +355,54 @@ test("the reading is only taken away from a page the size it was measured on", a
   assert.ok(
     asks.includes("max-height: 540px"),
     `a window dragged to a letterbox keeps a reading with no room: ${asks}`,
+  );
+});
+
+// The clamp, and the two things about it that are easy to get wrong. It has to
+// reach BOTH headings — the chapter name showed the bug worse than the title,
+// stopping dead at `IV. The Further` with no ellipsis, because the clamp was
+// still 2 and the ellipsis had been placed on the line the clip removed — and it
+// has to sit inside the same query as the fit rule, or a desk window with a long
+// book name loses its tail for want of room it has.
+test("the clamp reaches both headings and only where the room was measured", async (t) => {
+  const [clamped] = mediaBlocks(RULES).filter((block) =>
+    block.includes("body.title-one-line"),
+  );
+  assert.ok(clamped, "the one-line clamp is not inside a query at all");
+  const asks = condition(clamped);
+  assert.ok(
+    asks.includes("max-width: 460px") && asks.includes("max-height: 540px"),
+    `the clamp is asked of windows it was never measured on: ${asks}`,
+  );
+  for (const heading of ["#book-title", "#chapter-title"]) {
+    assert.ok(
+      clamped.includes(`body.title-one-line ${heading}`),
+      `${heading} is left to be sliced through the letters`,
+    );
+  }
+  // Both spellings, because the page ships to one engine that reads the prefixed
+  // property and the standard one is what the others will read.
+  for (const property of ["-webkit-line-clamp: 1", "line-clamp: 1"]) {
+    assert.ok(
+      clamped.includes(property),
+      `the clamp does not say ${property}, so the heading keeps its second line`,
+    );
+  }
+});
+
+// And the base rule it has to beat, which is the whole reason the clamp can be a
+// class at all. `#book-title` is (1,0,0) and `body.title-one-line #book-title` is
+// (1,1,1), so it wins on weight and not on where it is written.
+test("the headings are clamped to two lines to begin with", async (t) => {
+  for (const heading of ["#book-title", "#chapter-title"]) {
+    assert.ok(
+      RULES.includes(`${heading} {`),
+      `${heading} has no rule of its own any more`,
+    );
+  }
+  assert.ok(
+    RULES.includes("-webkit-line-clamp: 2;"),
+    "nothing clamps a heading to two lines, so there is no second line to lose",
   );
 });
 
