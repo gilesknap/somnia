@@ -775,6 +775,20 @@ class Conversation:
         swapped between two questions would otherwise leave a sentence in the
         history that is no longer true, and the model has no way to tell which
         of two contradicting lines is the current one.
+
+        Where they are is the same kind of fact, and it was missing from here
+        for exactly one turn too long. Nothing else tells the model: the page's
+        own seeks are written to the database and never to the conversation, so
+        the newest thing the history says about their position is whatever this
+        agent last did about it. Move somebody to chapter 2, let them drag the
+        scrubber two hours on, and ask again — the model reads its own "Moved to
+        0:07:29" from last turn, answers *"you're already at chapter 2"*, calls
+        no tool, and leaves them where they were. That is not a small model
+        being unreliable; it is the only conclusion available from what it was
+        given, and it reproduced every time.
+
+        The milliseconds ride along for arithmetic — "back an hour" is
+        subtraction — and never for saying out loud.
         """
         if gid is None:
             return "\n\nThey have no book open."
@@ -783,6 +797,7 @@ class Conversation:
                 by = f" by {book.authors}" if book.authors else ""
                 return (
                     f"\n\nThey are listening to gid {book.gid}: {book.title}{by}."
+                    f"{self._where_they_are(gid)}"
                     " Unless they plainly name another book, that is the book"
                     " every question is about."
                 )
@@ -790,6 +805,27 @@ class Conversation:
         # deleted underneath it. Saying nothing is right — an invented title
         # would be worse than the ambiguity this exists to remove.
         return "\n\nThey have no book open."
+
+    def _where_they_are(self, gid: int) -> str:
+        """The line of the open-book block that goes stale fastest.
+
+        Read fresh on every turn and never remembered, because between two
+        questions the listener can have pressed +30 forty times. It is the same
+        number ``get_position`` hands back, said here so that the model has it
+        without having to know to ask — the turns that went wrong are precisely
+        the ones where it did not think to.
+        """
+        # None is the whole of "never started": library.get_position returns it
+        # for a NULL position, so there is no second case to test for here — and
+        # a 0 that reached this line would be the beginning, which is a place.
+        position = self._library.get_position(gid)
+        if position is None:
+            return " They have not started it."
+        return (
+            f" They are {format_timestamp(position.position_ms)}"
+            f" (ms={position.position_ms}) into it, in"
+            f" {position.chapter_title!r}."
+        )
 
     def ask(self, question: str, gid: int | None = None) -> Turn:
         """Run one turn: the tools do the work, the model does the talking.

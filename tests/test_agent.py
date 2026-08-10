@@ -1738,3 +1738,62 @@ def test_a_named_place_is_still_refused_after_a_question(
     assert "say it in words" in said
     assert ready.moves == []
     assert seq(searchable) == 0
+
+
+def test_the_prompt_says_where_they_are_now_and_not_where_it_last_put_them(
+    searchable: Searchable,
+) -> None:
+    """The bug that answered "go to chapter 2" with "you're already there".
+
+    Nothing but this block tells the model where they are. The page's own seeks
+    are written to the database and never to the conversation, so the newest
+    thing the history says about their position is whatever this agent last did
+    about it — and after a move that is a sentence claiming they are somewhere
+    they have since dragged the scrubber away from. The model then agrees with
+    itself, calls no tool, and leaves them where they were.
+
+    Read fresh each turn, so the block contradicts the stale history rather
+    than joining it. On the system prompt because that is where the model needs
+    it before deciding anything: by the time a tool could be called, the turns
+    that went wrong had already decided not to call one.
+    """
+    systems: list[str] = []
+    conversation = Conversation(
+        Config(), searchable.library, client_recording_system(systems)
+    )
+    with searchable.conn:
+        searchable.conn.execute("UPDATE books SET position_ms = 10000 WHERE gid = 271")
+
+    conversation.ask("where was I?", 271)
+    assert "ms=10000" in systems[-1]
+
+    # The page taking them somewhere, which reaches the database and nothing
+    # else. Nothing in the conversation knows it happened.
+    with searchable.conn:
+        searchable.conn.execute("UPDATE books SET position_ms = 800000 WHERE gid = 271")
+
+    conversation.ask("and now?", 271)
+    assert "ms=800000" in systems[-1]
+    assert "ms=10000" not in systems[-1]
+
+
+def test_a_book_nobody_has_started_is_not_said_to_be_at_its_beginning(
+    searchable: Searchable,
+) -> None:
+    """Zero is a place and NULL is not, and this block must not confuse them.
+
+    "They are 0:00:00 into it" claims they have begun, which is the one thing
+    "never started" exists to deny — and it is the difference between a book
+    the spoiler guard is shut on and one open at its first minute.
+    """
+    systems: list[str] = []
+    conversation = Conversation(
+        Config(), searchable.library, client_recording_system(systems)
+    )
+    with searchable.conn:
+        searchable.conn.execute("UPDATE books SET position_ms = NULL WHERE gid = 271")
+
+    conversation.ask("where was I?", 271)
+
+    assert "have not started it" in systems[-1]
+    assert "0:00:00" not in systems[-1]
