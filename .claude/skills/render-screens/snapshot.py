@@ -298,7 +298,7 @@ PANELS = {
         "mine": [
             ["Black Beauty", "Sewell, Anna", "all 49 chapters"],
             ["The Moonstone", "Collins, Wilkie · Reade, Charles", "read to 5 of 37"],
-            ["The Wind in the Willows", "Grahame, Kenneth", "all 27 chapters"],
+            ["The Wind in the Willows", "Grahame, Kenneth", "all 37 chapters"],
         ],
         "finished": [
             ["Kidnapped", "Stevenson, Robert Louis", "all 30 chapters"],
@@ -328,7 +328,7 @@ PANELS = {
             ["where from", "gutenberg #289"],
             ["brought in", "17 July 2026"],
             ["how long", "9h41m"],
-            ["how much is here", "all 27 chapters"],
+            ["how much is here", "all 37 chapters"],
         ],
     },
     # Settings, the third night screen, and the one overlay with no list on it
