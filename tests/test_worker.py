@@ -371,6 +371,41 @@ def test_a_render_that_finishes_leaves_the_book_done_and_the_night_alone(
     assert night(conn) == before
 
 
+def test_a_parse_that_cannot_be_right_lands_on_the_row_being_watched(
+    gutenberg: Fetched, conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """The whole value of the check is where it ends up. It goes on the queue
+    row, which is what the page polls and what the agent reads, and it does not
+    fail the book: the render finishes and the note is still there to explain
+    why the chapters are four hours long."""
+    gutenberg.book = Book(
+        gid=271,
+        title="Black Beauty",
+        authors="Sewell, Anna",
+        chapters=[
+            Chapter(title=f"Volume {i}", paragraphs=["word " * 40_000])
+            for i in range(3)
+        ],
+    )
+    job = submit(conn, 271)
+
+    rendered = render(conn, tmp_path)
+
+    assert rendered is not None
+    assert rendered.state == "done"
+    assert "3 chapters" in row_of(conn, job.id)["note"]
+    assert row_of(conn, job.id)["error"] == ""
+
+
+@pytest.mark.usefixtures("gutenberg")
+def test_an_ordinary_book_leaves_no_note_on_its_row(
+    conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    job = submit(conn, 271)
+    render(conn, tmp_path)
+    assert row_of(conn, job.id)["note"] == ""
+
+
 def test_a_cancel_stops_at_a_chapter_boundary_and_records_that_somebody_did_it(
     gutenberg: Fetched, conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
