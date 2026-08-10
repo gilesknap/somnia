@@ -16,10 +16,10 @@ so a position in the book stays a position in the file.
 
 Two things about a stream's identity matter more than anything else here.
 
-It lives under ``data_dir`` and never in ``library_dir``. The library is
-Audiobookshelf's own layout, and ADR 3 promises the ABS app goes on working on
-those files; a second copy of every book appearing among them would break that
-promise quietly, in a scan nobody was watching.
+It lives under ``data_dir`` and never in ``library_dir``. The library is one m4a
+per chapter and nothing besides, which is what makes a folder there readable as
+a book by anything that walks it; a second, whole copy of every book among them
+would also double what the disk chosen for the audio has to carry.
 
 And it is named by how many chapters it covers, so a book that grows while
 somebody is listening gets a *new* file rather than a rewrite of the one their

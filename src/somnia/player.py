@@ -22,7 +22,6 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from .abs import AbsClient, tell_abs
 from .config import Config
 from .db import connect
 
@@ -122,9 +121,9 @@ class Chapter:
 
     ``start_ms`` and ``end_ms`` are on the book's clock — the render clock,
     counted in PCM samples before encoding — which is the clock that search
-    results, ABS chapter marks and the saved position all speak. The page must
-    never derive them by summing what the decoder reports, which drifts by tens
-    of milliseconds a chapter and is a second out by chapter forty.
+    results and the saved position both speak. The page must never derive them
+    by summing what the decoder reports, which drifts by tens of milliseconds a
+    chapter and is a second out by chapter forty.
 
     ``url`` is relative because the app may be mounted under a path, and it is
     built here so the page never has to think about encoding a file name like
@@ -223,15 +222,10 @@ class Player:
     in a threadpool, and its own lock because sqlite connections are not
     thread-safe. Every statement is taken under it; nothing here waits on
     anything but the disk.
-
-    ``abs_client`` is only ever written to, never read, and only when the
-    listener has stopped. Audiobookshelf is no longer the player and no longer
-    the record — it is somewhere else they might one day open the book.
     """
 
-    def __init__(self, cfg: Config, abs_client: AbsClient | None = None) -> None:
+    def __init__(self, cfg: Config) -> None:
         self._cfg = cfg
-        self._abs = abs_client
         self._lock = threading.Lock()
         self._conn: sqlite3.Connection = connect(cfg.db_path, cross_thread=True)
 
@@ -489,26 +483,6 @@ class Player:
             heard_to_ms=current["heard_to_ms"],
             reason="moved",
         )
-
-    def tell_abs(self, gid: int, position_ms: int) -> None:
-        """Look the item up, then hand the position to the courtesy write.
-
-        Off the critical path: the reply has already gone out by the time this
-        runs, and what it buys is that the position is right at the moment
-        someone next opens ABS somewhere else — which is why it is only worth
-        doing when they have stopped, and never on a tick.
-
-        The lookup is here rather than inside :func:`somnia.abs.tell_abs`
-        because this connection is shared with every audio request and is only
-        safe under ``_lock``. The lock is given back before the write goes out:
-        held across it, an ABS that hangs for its five seconds would stall the
-        chapter swap this exists to stay out of the way of.
-        """
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT abs_item_id FROM books WHERE gid = ?", (gid,)
-            ).fetchone()
-        tell_abs(self._abs, row["abs_item_id"] if row else "", position_ms)
 
     def sentence_start(self, gid: int, ms: int) -> int | None:
         """Where the sentence being spoken at ``ms`` began, if anything knows.

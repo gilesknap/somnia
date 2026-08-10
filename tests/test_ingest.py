@@ -8,38 +8,15 @@ import pytest
 
 from fakes import FakeEmbedder
 from somnia import ingest
-from somnia.abs import AbsClient
 from somnia.audio import ChapterAudio
 from somnia.catalog import update_catalog
 from somnia.config import Config
 from somnia.db import connect
 from somnia.embed import Embedder
 from somnia.gutenberg import Book, Chapter
-from somnia.ingest import RenderStopped, ingest_book, publish_chapters
+from somnia.ingest import RenderStopped, ingest_book
 from somnia.stream import stream_path
 from somnia.tts import TTSEngine
-
-REL_PATH = "Sewell, Anna/Black Beauty"
-
-
-class FakeAbs:
-    """An ABS whose scan lags: the item only reaches full duration after N polls."""
-
-    def __init__(self, duration_ms: int, polls_until_ready: int = 0) -> None:
-        self._duration_ms = duration_ms
-        self._polls_until_ready = polls_until_ready
-        self.pushed: list[dict[str, Any]] | None = None
-        self.finds = 0
-
-    def find_item(self, library_id: str, rel_path: str) -> dict[str, Any] | None:
-        self.finds += 1
-        if rel_path != REL_PATH:
-            return None
-        seen = 0 if self.finds <= self._polls_until_ready else self._duration_ms
-        return {"id": "item-1", "media": {"duration": seen / 1000}}
-
-    def set_chapters(self, item_id: str, chapters: list[dict[str, Any]]) -> None:
-        self.pushed = chapters
 
 
 @pytest.fixture
@@ -68,92 +45,7 @@ def _seeded(conn: Any) -> Any:
 
 
 def _cfg(tmp_path: Path) -> Config:
-    cfg = Config(data_dir=tmp_path, library_dir=tmp_path / "library")
-    cfg.abs_library_id = "lib-1"
-    return cfg
-
-
-def test_publish_chapters_states_every_boundary_in_seconds(
-    conn: Any, tmp_path: Path
-) -> None:
-    abs_client = FakeAbs(duration_ms=549425)
-    publish_chapters(
-        _cfg(tmp_path), conn, cast(AbsClient, abs_client), 271, REL_PATH, 549425
-    )
-    assert abs_client.pushed == [
-        {"id": 0, "start": 0.0, "end": 231.73, "title": "01 My Early Home"},
-        {"id": 1, "start": 231.73, "end": 549.425, "title": "02 The Hunt"},
-    ]
-
-
-def test_publish_chapters_waits_for_the_scan_to_catch_up(
-    conn: Any, tmp_path: Path
-) -> None:
-    abs_client = FakeAbs(duration_ms=549425, polls_until_ready=2)
-    publish_chapters(
-        _cfg(tmp_path),
-        conn,
-        cast(AbsClient, abs_client),
-        271,
-        REL_PATH,
-        549425,
-        timeout_s=10,
-        # The waiting is not what is under test — the asking again is — and at
-        # the real two seconds this one test spent four of them.
-        poll_s=0,
-    )
-    assert abs_client.finds == 3
-    assert abs_client.pushed is not None
-
-
-def test_publish_chapters_does_not_wait_past_the_timeout_it_was_given(
-    conn: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A poll interval longer than the timeout must not become the timeout.
-
-    The sleep used to be `poll_s` flat, so the loop could wait a whole interval
-    past the deadline it had already missed. Invisible at the shipped two
-    seconds against thirty — and not invisible now that the interval is a
-    parameter, because a caller can set one larger than the timeout. The wait is
-    held by the render, between chapters, so what it costs is the book.
-    """
-    slept: list[float] = []
-    monkeypatch.setattr(ingest.time, "sleep", slept.append)
-    # A scan that never catches up. Not `polls_until_ready`, because the sleep
-    # is stubbed out and the loop therefore spins through any number of polls
-    # inside the timeout — it is the duration that has to stay short.
-    abs_client = FakeAbs(duration_ms=0)
-
-    publish_chapters(
-        _cfg(tmp_path),
-        conn,
-        cast(AbsClient, abs_client),
-        271,
-        REL_PATH,
-        549425,
-        timeout_s=0.05,
-        poll_s=30,
-    )
-
-    # Whatever it waited, none of it was the thirty seconds it was offered.
-    assert all(nap <= 0.05 for nap in slept), slept
-    assert abs_client.pushed is None
-
-
-def test_publish_chapters_gives_up_quietly_when_the_item_never_appears(
-    conn: Any, tmp_path: Path
-) -> None:
-    abs_client = FakeAbs(duration_ms=549425)
-    publish_chapters(
-        _cfg(tmp_path),
-        conn,
-        cast(AbsClient, abs_client),
-        271,
-        "not/this/book",
-        549425,
-        timeout_s=0,
-    )
-    assert abs_client.pushed is None
+    return Config(data_dir=tmp_path, library_dir=tmp_path / "library")
 
 
 # ------------------------------------------------- rendering over a book we have
@@ -333,8 +225,8 @@ def test_re_rendering_a_book_keeps_where_they_had_got_to(
     with conn:
         conn.execute(
             "UPDATE books SET position_ms = 300000, position_seq = 3,"
-            " position_at = '2026-08-05 23:40:00', heard_to_ms = 250000,"
-            " abs_item_id = 'abs-item-1' WHERE gid = 271"
+            " position_at = '2026-08-05 23:40:00', heard_to_ms = 250000"
+            " WHERE gid = 271"
         )
 
     _ingest(conn, tmp_path)
@@ -342,7 +234,6 @@ def test_re_rendering_a_book_keeps_where_they_had_got_to(
     row = conn.execute("SELECT * FROM books WHERE gid = 271").fetchone()
     assert (row["position_ms"], row["position_seq"]) == (300_000, 3)
     assert (row["position_at"], row["heard_to_ms"]) == ("2026-08-05 23:40:00", 250_000)
-    assert row["abs_item_id"] == "abs-item-1"
     # And it still did its own job: what a render knows, it wrote.
     assert (row["title"], row["voice"], row["status"]) == (
         "Black Beauty",

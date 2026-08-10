@@ -11,7 +11,7 @@ from anthropic import Anthropic
 from starlette.testclient import TestClient
 
 from conftest import ToneBook
-from fakes import FakeEmbedder, RecordingAbs
+from fakes import FakeEmbedder
 from mp4 import duration_ms, payload
 from somnia import server
 from somnia.agent import OFFER_SENTENCE, Turn, open_library
@@ -745,11 +745,11 @@ def test_the_stream_is_the_chapters_themselves_in_the_order_they_are_read(
 def test_the_stream_is_written_beside_the_database_and_not_in_the_library(
     tone_client: TestClient, tone_book: ToneBook
 ) -> None:
-    """ADR 3 promises the Audiobookshelf app keeps working on the same files.
+    """The joined file is somnia's own cache, so it lives with somnia's own data.
 
-    ``library_dir`` is ABS's own layout, and a second copy of every book
-    appearing inside it would be somnia scanning as a library of doubles. The
-    concatenation is somnia's own cache, so it lives with somnia's own data.
+    ``library_dir`` holds one m4a per chapter and nothing besides, which is what
+    lets a folder there be read as a book; a whole second copy of every book
+    appearing among them would also double what that disk has to carry.
     """
     before = sorted(p.name for p in tone_book.book_dir.iterdir())
     assert tone_client.get(f"/api/stream/{GID}/3").status_code == 200
@@ -1065,46 +1065,6 @@ def test_a_report_that_says_nothing_about_playback_claims_none_of_it(
 
     status, garbled = report(tone_client, position_ms=20_000, played_ms="all of it")
     assert (status, garbled["heard_to_ms"]) == (200, 4_000)
-
-
-def test_stopping_tells_audiobookshelf_and_a_tick_does_not(
-    tone_book: ToneBook, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """ABS is right whenever someone next opens it, for a few writes a night.
-
-    Telling it every fifteen seconds would be hundreds of requests to a server
-    nothing is reading, on a link that may not be there.
-
-    A switch is the book left behind when the agent takes them to another one.
-    It counts as stopping because for that book it is: the parting report is the
-    last thing the page will ever say about it, and if ABS does not hear it then
-    nothing does.
-    """
-    recorder = RecordingAbs()
-
-    def one_abs_client(base_url: str, token: str) -> RecordingAbs:
-        """create_app builds its own, so this is how a test gets a look at it."""
-        return recorder
-
-    monkeypatch.setattr(server, "Conversation", FakeConversation)
-    monkeypatch.setattr(server, "AbsClient", one_abs_client)
-    tone_book.cfg.abs_token = "a-token"
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET abs_item_id = 'abs-item-1' WHERE gid = ?", (GID,)
-        )
-
-    with TestClient(server.create_app(tone_book.cfg, tone_book.conn)) as client:
-        report(client, position_ms=1_000, reason="tick")
-        assert recorder.moves == []
-        report(client, position_ms=2_000, reason="pause")
-        report(client, position_ms=3_000, reason="unload")
-        report(client, position_ms=4_000, reason="switch")
-    assert recorder.moves == [
-        ("abs-item-1", 2.0),
-        ("abs-item-1", 3.0),
-        ("abs-item-1", 4.0),
-    ]
 
 
 # ----------------------------------------------------------- switching books

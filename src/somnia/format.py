@@ -3,8 +3,8 @@
 Two functions, and they are here rather than in :mod:`somnia.tools` because of
 what importing that costs. `tools` is the agent's library: it reaches the index,
 which reaches the embedder, which is numpy and sentence-transformers — a second
-or so of imports and a large chunk of memory. `seed` is a command that stamps
-positions and prints them, and it was paying all of that to format a clock.
+or so of imports and a large chunk of memory. Anything whose whole business is
+writing a clock down for somebody to read should not be paying that.
 
 Nothing here touches the database, the model or the network. That is the whole
 of the rule for what belongs in this file: if it can be tested with a number and

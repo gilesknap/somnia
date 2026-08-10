@@ -34,14 +34,12 @@ from typing import Any, cast
 
 from anthropic import Anthropic
 from starlette.applications import Starlette
-from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from .abs import AbsClient
 from .agent import Conversation, Turn, effort_for, open_library
 from .catalog import search_catalog
 from .config import Config
@@ -102,14 +100,23 @@ class Shell(StaticFiles):
 # nights of tabs can accumulate. Old ones are dropped, not remembered.
 MAX_CONVERSATIONS = 8
 
-# Why the page is telling us where it is. The five below mean they have stopped
-# — "switch" is the book left behind when the agent moves them to another one,
-# which for that book is as much of a stop as putting the phone down — and so
-# are the moments Audiobookshelf is worth telling: it is right whenever someone
-# might next open it, at the cost of a handful of writes a night rather than one
-# every fifteen seconds.
-STOPPED = frozenset({"pause", "hidden", "unload", "ended", "switch"})
-REASONS = STOPPED | frozenset({"load", "play", "tick", "seek", "chapter"})
+# Every reason the page has for telling us where it is. Nothing branches on
+# which one it is any more, so this is a vocabulary rather than a decision: it
+# is here so a word nobody wrote can be noticed on the way in.
+REASONS = frozenset(
+    {
+        "pause",
+        "hidden",
+        "unload",
+        "ended",
+        "switch",
+        "load",
+        "play",
+        "tick",
+        "seek",
+        "chapter",
+    }
+)
 
 # How many books a catalog search offers. Eight is what fits on a phone above a
 # raised keyboard, and a list that has to be scrolled to be read is a second
@@ -309,11 +316,7 @@ class Queue:
 def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
     """The PWA, the agent behind it, and the book it plays."""
     conversations = Conversations(cfg, open_library(cfg, conn))
-    # The player gets its own client rather than the library's. The point of
-    # the fast lane is that nothing on it waits on the lane a model turn is
-    # using, and that goes for the socket as much as for the connection.
-    abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
-    player = Player(cfg, abs_client)
+    player = Player(cfg)
     renders = Queue(cfg)
 
     async def ask(request: Request) -> Response:
@@ -546,15 +549,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         # has no position to talk about, and saying "position_ms": null would
         # read as one.
         body = {k: v for k, v in asdict(report).items() if v is not None}
-        told = report.accepted and reason in STOPPED
-        return JSONResponse(
-            body,
-            # After the reply is on the wire, never before it. Audiobookshelf is
-            # a courtesy and the page is waiting.
-            background=BackgroundTask(player.tell_abs, gid, position_ms)
-            if told
-            else None,
-        )
+        return JSONResponse(body)
 
     async def catalog(request: Request) -> Response:
         """Which books there are to add, from the copy of the catalog on disk.

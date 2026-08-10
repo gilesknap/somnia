@@ -12,13 +12,10 @@ sent it there.
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, cast
 
 import pytest
 
 from conftest import ToneBook
-from fakes import BrokenAbs, RecordingAbs
-from somnia.abs import AbsClient
 from somnia.player import Player
 from somnia.tools import Library, Offer
 from tone_book import CHAPTERS, GID, TOTAL_MS
@@ -739,61 +736,6 @@ def test_a_report_about_a_book_that_is_gone_says_so(player: Player) -> None:
     report = player.report(404_404, 1_000, seq=0, played_ms=0)
     assert (report.accepted, report.reason) == (False, "gone")
     assert report.position_ms is None
-
-
-# ------------------------------------------- the courtesy write to Audiobookshelf
-
-
-def scanned_by_abs(tone_book: ToneBook, item_id: str = "abs-item-1") -> None:
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET abs_item_id = ? WHERE gid = ?", (item_id, GID)
-        )
-
-
-def with_abs(tone_book: ToneBook, fake: Any) -> Player:
-    return Player(tone_book.cfg, cast(AbsClient, fake))
-
-
-def test_audiobookshelf_is_told_where_they_stopped(tone_book: ToneBook) -> None:
-    """So the book is in the right place if they ever open ABS somewhere else."""
-    scanned_by_abs(tone_book)
-    abs_client = RecordingAbs()
-    player = with_abs(tone_book, abs_client)
-    try:
-        player.tell_abs(GID, 12_500)
-    finally:
-        player.close()
-    assert abs_client.moves == [("abs-item-1", 12.5)]
-
-
-def test_an_audiobookshelf_that_is_down_does_not_break_the_night(
-    tone_book: ToneBook,
-) -> None:
-    """It is a courtesy, off the critical path, and the reply has already gone.
-
-    The whole point of the pivot is that nothing playing depends on ABS being
-    there, so a write that fails must cost exactly nothing.
-    """
-    scanned_by_abs(tone_book)
-    player = with_abs(tone_book, BrokenAbs())
-    try:
-        player.tell_abs(GID, 12_500)  # says nothing, raises nothing
-    finally:
-        player.close()
-
-
-def test_a_book_audiobookshelf_has_never_seen_is_simply_not_told(
-    tone_book: ToneBook,
-) -> None:
-    """somnia renders books ABS may never scan, and they must still play."""
-    abs_client = RecordingAbs()
-    player = with_abs(tone_book, abs_client)
-    try:
-        player.tell_abs(GID, 12_500)
-    finally:
-        player.close()
-    assert abs_client.moves == []
 
 
 def test_a_list_of_places_neither_raises_the_mark_nor_stops_it_rising(

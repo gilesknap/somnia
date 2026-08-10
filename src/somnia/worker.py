@@ -390,7 +390,6 @@ def render_one(
     # Imported here rather than at the top of the module because the supervisor
     # imports this file too, and it exists precisely so that the process
     # waiting on a render holds none of this.
-    from .abs import AbsClient  # noqa: PLC0415
     from .embed import Embedder as RealEmbedder  # noqa: PLC0415
     from .ingest import RenderStopped, ingest_book  # noqa: PLC0415
     from .tts import KokoroEngine  # noqa: PLC0415
@@ -416,7 +415,6 @@ def render_one(
         # the next worker start, after STEAL_S of a queue that looks busy.
         engine = engine or KokoroEngine(voice=voice)
         embedder = embedder or RealEmbedder(cfg.embed_model)
-        abs_client = AbsClient(cfg.abs_url, cfg.abs_token) if cfg.abs_token else None
         # And a beat before the first sentence, because there is no other one
         # until then. `claim` stamps beat_at and `should_stop` does not write
         # again until ingest_book asks it to, so the gap between them is the
@@ -431,7 +429,6 @@ def render_one(
             engine,
             embedder,
             job.gid,
-            abs_client,
             should_stop=watch.should_stop,
             on_chapter=watch.on_chapter,
         )

@@ -10,8 +10,7 @@ import pytest
 from anthropic import Anthropic, omit
 
 from black_beauty import CHAPTERS, PASSAGES, build_black_beauty
-from fakes import FakeAbs, FakeEmbedder
-from somnia.abs import AbsClient
+from fakes import FakeEmbedder
 from somnia.agent import (
     MAX_HOPS,
     OFFER_SENTENCE,
@@ -168,14 +167,12 @@ def library_with_book(tmp_path: Path) -> Iterator[Library]:
     try:
         with conn:
             conn.execute(
-                "INSERT INTO books (gid, title, voice, status, total_ms,"
-                " abs_item_id) VALUES (271, 'Black Beauty', 'af_heart', 'done',"
-                " 7200000, 'abs-item-1')"
+                "INSERT INTO books (gid, title, voice, status, total_ms)"
+                " VALUES (271, 'Black Beauty', 'af_heart', 'done', 7200000)"
             )
         yield Library(
             Config(data_dir=tmp_path),
             conn,
-            cast(AbsClient, FakeAbs(0.0)),
             cast(Embedder, FakeEmbedder()),
         )
     finally:
@@ -463,7 +460,6 @@ def searchable(tmp_path: Path) -> Iterator[Searchable]:
             library=Library(
                 Config(data_dir=tmp_path),
                 conn,
-                cast(AbsClient, FakeAbs(0.0)),
                 embedder,
             ),
             conn=conn,

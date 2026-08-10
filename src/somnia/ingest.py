@@ -1,20 +1,17 @@
 """The streaming ingest pipeline.
 
 Chapters become available to listen to as soon as they are rendered: each
-finished chapter is written to the Audiobookshelf library folder, ABS is asked
-to rescan, and the chapter's chunks land in the semantic index. Timestamps are
-global milliseconds across the whole book (ABS presents multi-file books as a
-single timeline), so the index and ABS agree about positions forever.
+finished chapter is written to the library folder and its chunks land in the
+semantic index. Timestamps are global milliseconds across the whole book, so a
+position means the same thing wherever it is read.
 """
 
 import logging
 import re
 import sqlite3
-import time
 from collections.abc import Callable
 from pathlib import Path
 
-from .abs import AbsClient
 from .announce import announcement
 from .audio import ChapterAudio
 from .catalog import text_url
@@ -27,7 +24,7 @@ from .segment import TimedSentence, sentences, windows
 from .stream import forget_streams
 from .tts import TTSEngine
 
-__all__ = ["RenderStopped", "ingest_book", "publish_chapters"]
+__all__ = ["RenderStopped", "ingest_book"]
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +68,9 @@ def _render_chapter(
     the per-sentence design was for.
 
     It becomes the first thing at ``chapters.start_ms``, which is what the
-    agent moves somebody to and what Audiobookshelf marks. Landing on the words
-    "Chapter twelve" is the correct answer to "take me to chapter twelve" — a
-    mark that lands a beat *after* the announcement would be the odd one.
+    agent moves somebody to. Landing on the words "Chapter twelve" is the
+    correct answer to "take me to chapter twelve" — a mark that lands a beat
+    *after* the announcement would be the odd one.
 
     It is deliberately **not** appended to ``timed``, so it never reaches the
     windows or the index. It is not the book's text: indexing it would put the
@@ -114,71 +111,6 @@ def _render_chapter(
         audio.append_silence(cfg.paragraph_silence_ms - cfg.sentence_silence_ms)
     audio.encode(out_path, bitrate=cfg.aac_bitrate)
     return audio.position_ms, timed
-
-
-def publish_chapters(
-    cfg: Config,
-    conn: sqlite3.Connection,
-    abs_client: AbsClient,
-    gid: int,
-    rel_path: str,
-    expect_ms: int,
-    timeout_s: float = 30.0,
-    poll_s: float = 2.0,
-) -> None:
-    """Tell ABS where this book's chapters start, once its scan has caught up.
-
-    The scan ABS runs is asynchronous, so we wait for the item's duration to
-    reach the audio we have written before stating the marks — pushing early
-    would describe chapters past the end of the file ABS knows about. Every
-    push sends the whole list, so a push that times out is repaired by the
-    next chapter's.
-
-    ``poll_s`` is how long to wait between asks, and it is a parameter so that a
-    test can set it to zero. The retry loop is the thing worth testing here and
-    the sleep is not part of it: at two seconds a single test of it spent four
-    real seconds, which was better than a third of the whole suite's wall clock.
-    """
-    deadline = time.monotonic() + timeout_s
-    while True:
-        item = abs_client.find_item(cfg.abs_library_id, rel_path)
-        if item is not None and item["media"]["duration"] * 1000 >= expect_ms - 1000:
-            with conn:
-                conn.execute(
-                    "UPDATE books SET abs_item_id = ? WHERE gid = ?",
-                    (item["id"], gid),
-                )
-            rows = conn.execute(
-                "SELECT idx, title, start_ms, end_ms FROM chapters"
-                " WHERE book_gid = ? ORDER BY idx",
-                (gid,),
-            ).fetchall()
-            abs_client.set_chapters(
-                item["id"],
-                [
-                    {
-                        "id": r["idx"],
-                        "start": r["start_ms"] / 1000,
-                        "end": r["end_ms"] / 1000,
-                        "title": r["title"],
-                    }
-                    for r in rows
-                ],
-            )
-            return
-        left = deadline - time.monotonic()
-        if left <= 0:
-            logger.warning(
-                "ABS scan did not catch up in %.0fs; marks deferred", timeout_s
-            )
-            return
-        # Never past the deadline. A bare `sleep(poll_s)` overshoots `timeout_s`
-        # by up to one interval — invisible at the default two seconds against
-        # thirty, and not invisible now that the interval is a parameter: a
-        # caller may set it larger than the timeout, and this would then wait
-        # the interval rather than the timeout it was given. The wait is held by
-        # the render, between chapters, so what it costs is the book.
-        time.sleep(min(poll_s, left))
 
 
 def _forget_the_old_edition(conn: sqlite3.Connection, gid: int) -> None:
@@ -227,7 +159,6 @@ def ingest_book(
     engine: TTSEngine,
     embedder: Embedder,
     gid: int,
-    abs_client: AbsClient | None = None,
     *,
     should_stop: Callable[[], bool] | None = None,
     on_chapter: Callable[[int], None] | None = None,
@@ -380,20 +311,6 @@ def ingest_book(
             offset_ms += duration_ms
             if on_chapter is not None:
                 on_chapter(idx)
-
-            if abs_client and cfg.abs_library_id:
-                try:
-                    abs_client.scan_library(cfg.abs_library_id)
-                    publish_chapters(
-                        cfg,
-                        conn,
-                        abs_client,
-                        gid,
-                        str(book_dir.relative_to(cfg.library_dir)),
-                        offset_ms,
-                    )
-                except Exception:
-                    logger.warning("ABS update failed; continuing", exc_info=True)
     except Exception:
         # Whatever went wrong — a stop that was asked for, a box that ran out of
         # memory, sqlite giving up after its five seconds — the one thing that
