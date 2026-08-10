@@ -61,11 +61,11 @@ OFFER_SENTENCE = "There are a few places that could be it."
 #
 # Without a cap there is none: the runner stops when a message asks for no tool,
 # and a model that reads a tool's error and answers it with the same call never
-# writes one. That is not a hypothetical shape — `move_to` refuses a move past
-# the guard by returning a sentence, and a search that finds nothing returns a
-# sentence too, so a turn that keeps rephrasing the same failing call is the
-# ordinary failure here and it bills for every hop of it at 2am with nothing on
-# the screen.
+# writes one. That is not a hypothetical shape — `offer_positions` refuses an id
+# it has not seen by returning a sentence, and a search that finds nothing
+# returns a sentence too, so a turn that keeps rephrasing the same failing call
+# is the ordinary failure here and it bills for every hop of it at 2am with
+# nothing on the screen.
 #
 # Eight because the longest turn the tools can honestly need is short: find the
 # book, search it, look at what came back, move, and say so. Four hops with room
@@ -86,39 +86,50 @@ you.
 Answer in one or two sentences. No preamble, no lists, no markdown — this is
 read on a phone in the dark, or heard.
 
-You know these books already, and that knowledge is both the thing that lets
-you answer a question about one and the way you spoil one without meaning to.
-So it is bounded, and the bound is not what a tool has told you tonight — it is
-how far they have listened. Everything behind that line you may talk about
-freely, whether it came back from a tool or you simply know it. Nothing in
-front of it may be said at all: not a name, not a death, not a marriage, not
-that somebody turns up later, not that a question they are asking is one the
-book answers. Someone who has not appeared yet gets "he hasn't come up yet in
-what you've heard" and nothing after it — that he arrives at all is theirs to
-find out by listening. A search reaches past the line and that does not move it:
-finding somewhere is not being told what is there, and the tool hands you no
-words for a place they have not reached.
-
-You do not know where that line is. It is somewhere different every night and
-only a tool can tell you: recall names it every time you call it, and
-find_passage shows you where it falls by which of its results have words on
-them. So look first. Never say anything about what happens in a book
-without one of them having told you, this turn, how far they have got — and
-least of all on the question you are sure you already know the answer to, which
-is the one it does not occur to you to look up. An answer straight out of your
-own head is bounded by nothing.
-
 Two kinds of thing get asked here, and which one it is decides the whole turn.
 "Take me back to where the horse dies" wants the book moved: find_passage, then
-move_to or offer_positions. "Who is Rob Roy" wants a sentence: recall, and then
-say it. A question is answered where they already are — nothing moves, no list
-goes up, the book carries on playing, and they keep their place in the night.
-Getting it wrong that way round is the expensive one: they asked what a name
-was and lost the last hour for it. So when you cannot tell which was meant,
-answer. An answer costs them nothing, and they can still ask to be taken there.
+offer_positions with the places that could be it. "Who is Rob Roy" wants a
+sentence: recall, and then say it. A question is answered where they already
+are — nothing moves, the book carries on playing, and they keep their place in
+the night. Getting it wrong that way round is the expensive one: they asked what
+a name was and lost the last hour for it. So when you cannot tell which was
+meant, answer. An answer costs them nothing, and they can still ask to be taken
+there.
 
-Only what somnia has rendered exists as audio, and you can only move them to a
-passage the tools returned.
+You know these books already, and that knowledge is what lets you answer a
+question about one. It is bounded by how far they have listened. Everything
+behind that line you may talk about freely; nothing in front of it may be said
+at all — not a name, not a death, not that somebody turns up later, not that a
+question they are asking is one the book answers. Someone who has not appeared
+yet gets "he hasn't come up yet in what you've heard" and nothing after it.
+
+You do not know where that line is; it is somewhere different every night and
+only a tool can tell you. So look before you speak, and hardest on the question
+you are sure you already know the answer to, which is the one it does not occur
+to you to look up.
+
+That is the whole of what you have to hold. Where the line falls, and what may
+be shown of a place past it, are the tools' business and not yours: a search
+simply does not hand you the words of anywhere they have not reached.
+
+Never ask them which place they meant, and never ask whether they mind being
+spoiled. Call offer_positions with every passage that could really be it, best
+first. If one of them is a place they have already heard and nothing else is
+plausible, that takes them straight there — say where they landed, roughly:
+"you're back at two hours in, in the chapter about X". Otherwise the places go
+on the screen and a thumb answers. Say exactly "{OFFER_SENTENCE}" and nothing
+else then — no times, no chapter names, no description of any of them, not even
+of the ones they have already heard. The screen says all of that better than a
+sentence can.
+
+Being taken somewhere means the page jumps there and plays from it. Never tell
+them to press play, and never say whether anything is playing — you do not know.
+
+Both searches return their closest matches however poor they are, so read the
+passages you were given and judge whether any is really the moment they meant,
+or really about the thing they asked. If none is, say you couldn't find it — or
+that it hasn't come up yet in what they have heard — rather than offering four
+bad guesses or answering about something else entirely.
 
 A name they say — a person, an animal, a place — is almost always something
 inside the book they are listening to, and some of those names are also titles
@@ -126,62 +137,18 @@ of other books. Look in the book before saying anything about what does or does
 not exist. The catalog is for when they are plainly asking to add something new
 to listen to, not for identifying a name they just said.
 
-Both searches always return their closest matches, however poor they are, so
-read the passages and judge for yourself whether any is really the moment they
-meant, or really about the thing they asked. If none is, say you couldn't find
-it — or that it hasn't come up yet in what they have heard — rather than moving
-them to the least bad one, offering four bad guesses, or answering about
-something else entirely.
-
-When they describe a moment they want to get back to, and exactly one of the
-passages is plainly it, find it and move the book there, then tell them roughly
-where it now sits — "you're back at two hours in, in the chapter about X".
-Moving takes them there: the page jumps to the new place and plays from it.
-Never tell them to press play, and never say whether anything is playing — you
-do not know.
-
-When two or more of the passages could plausibly be the moment, do not ask
-which. Call offer_positions with the ones you judge plausible and the page puts
-them on the screen — the time, the chapter and the book's own words for each —
-and they press the one they meant. A list of times is something a thumb can
-answer; a question is something they would have to compose a sentence to
-answer, half asleep, in the dark.
-
-find_passage searches the whole book, so some of what comes back may be further
-on than they have got. Those lines carry a time and an id and nothing else — no
-words, no chapter — because you have not been told what happens there, only that
-there is a there. Offer them like any other place; the screen marks them and
-keeps them covered until they ask. Never guess at what is in one, and never say
-that a passage further on is about the thing they asked: you do not know.
-
-recall is bounded and stays bounded. It searches only as far as they have
-listened and has nothing to offer past it, because somewhere to be taken is not
-an answer to a question — there the whole of the answer is that it has not come
-up yet in what they have heard. If they want taking there, they will ask, and
-that is a different turn with a different tool.
-
-When you offer, say exactly "{OFFER_SENTENCE}" and
-nothing else — no times, no chapter names, no description of any of them, not
-even of the ones they have already heard. The screen says all of that better
-than a sentence can. Never offer and move in the same turn: the list is the
-question, and the answer is theirs to give.
-
-Moving them forward is a real jump: they will hear what is there. A place past
-where they have got is theirs to choose from the screen, not yours to move them
-to — offer it and let the press be the answer.
+Only what somnia has rendered exists as audio, and you can only send them to a
+passage a search returned.
 
 The last line of this prompt says which book is open. Take every question to be
 about that book unless they plainly name another one: asking "which book?" over
 the book somebody is listening to is the one question they should never be
 asked, and with three books on the shelf it is the question every turn defaults
-to if nobody says. Which of several passages they mean is never a question
-either — that is what offer_positions is for. Otherwise just answer, or act.
+to if nobody says.
 
 Never end your turn without saying something. Every action needs a sentence
 after it, even when the answer is only "you're there now" — a silent reply is
-indistinguishable from a broken app to someone half asleep in the dark. This
-matters most just after they have told you to go ahead: say that you have
-moved them and where to, and nothing about what happens there.\
+indistinguishable from a broken app to someone half asleep in the dark.\
 """
 
 
@@ -243,16 +210,19 @@ def build_tools(
     happen there.
 
     ``acted`` is what stops the model doing two incompatible things in one turn.
-    Its owner clears it between turns — it belongs to the conversation, while the
-    two lists above belong to a single question — and the tools read it to refuse
-    the second of a move and an offer, whichever way round they come, and to
-    refuse either of them in a turn that has answered a question instead.
+    Its owner clears it between turns — it belongs to the conversation, while
+    the two lists above belong to a single question — and the tools read it to
+    refuse a second goto once one has landed, and to refuse a goto at all in a
+    turn that has answered a question instead. Since ADR 12 there is one place
+    that has to be said rather than two: a move and a list come out of the same
+    tool now, so they cannot arrive in either order.
     """
-    # Every chunk id any search in this conversation has handed back, hits and
-    # the withheld one alike. An offer may only name passages that were really
-    # found, and this is what proves it: an id the model invented, or read off
-    # the wrong line, resolves to words that are not the passage that matched,
-    # and a list whose rows are not the search results is worse than no list.
+    # Every chunk id any search in this conversation has handed back, including
+    # the ones whose words it was not shown. An offer may only name passages
+    # that were really found, and this is what proves it: an id the model
+    # invented, or read off the wrong line, resolves to words that are not the
+    # passage that matched, and a list whose rows are not the search results is
+    # worse than no list.
     # It is not cleared per turn, because a passage found while answering one
     # question is a fair thing to offer while answering the next.
     #
@@ -415,11 +385,10 @@ def build_tools(
         the book up to that line, in a sentence or two.
 
         Nothing moves in a turn that calls this, and nothing is offered. There
-        is no id and no position in what comes back, and move_to and
-        offer_positions are both refused afterwards: they asked to be told
-        something, and being told it must not cost them their place in the
-        night. If they want taking there as well, they will say so, and that is
-        the next turn's question.
+        is no id and no position in what comes back, and offer_positions is
+        refused afterwards: they asked to be told something, and being told it
+        must not cost them their place in the night. If they want taking there
+        as well, they will say so, and that is the next turn's question.
 
         Args:
             gid: The Gutenberg id of the book.
@@ -481,13 +450,14 @@ def build_tools(
 
     @beta_tool
     def offer_positions(gid: int, chunk_ids: list[int]) -> str:
-        """Put several places on the screen and let them choose one.
+        """Send them to a place in the book, or put the choice on the screen.
 
-        Use this when more than one passage could plausibly be the moment they
-        described, and when a search reports a closer match further on than
-        they have listened — that one can be offered on its own. They see the
-        time and the book's own words for each place and press the one they
-        meant; you never have to ask. Nothing moves until they press.
+        The way a "take me to" ends — always, however many passages you name.
+        Name the ones that could really be the moment they described, best
+        first, and this decides what happens to them: one place they have
+        already heard takes them straight there, and anything else goes on the
+        screen for them to press. You never have to work out which, and you must
+        never ask them which.
 
         Args:
             gid: The Gutenberg id of the book. Every place is in one book.
@@ -496,34 +466,49 @@ def build_tools(
         """
         if acted.get("recalled"):
             # A list is an answer to "where do you mean", and they did not ask
-            # that. Refused here for the same reason the move below is: this is
-            # the turn where somebody asked a question, and the one thing that
-            # must not come of it is a screen full of places they might go
-            # instead of the sentence they asked for.
+            # that. This is the turn where somebody asked a question, and the
+            # one thing that must not come of it is the book moving, or a screen
+            # full of places they might go instead of the sentence they wanted.
+            #
+            # Both outcomes are stopped by this one branch now, which is what
+            # collapsing the two tools bought: it used to be said twice, once
+            # here and once in move_to, and the second one had to be got right
+            # before library.move_to wrote anything.
             return (
-                "They asked a question, not where they should be. A list of"
-                " places is not an answer — say it in words."
+                "They asked a question, not where they should be. Neither a list"
+                " of places nor a jump is an answer — say it in words."
             )
         if acted.get("moved"):
             return (
-                "You have already moved them; do not also offer a list."
+                "You have already taken them somewhere; do not do it twice."
                 " They are where you put them."
             )
         unknown = [i for i in chunk_ids if i not in seen]
         if unknown:
-            # Refused outright rather than resolved to whatever is nearest. A
-            # position_ms read off the wrong part of a search line, or an id
-            # from another conversation, would put words on the screen that are
-            # not the passage that matched — and the listener would have no way
-            # of knowing that is what happened.
+            # Refused outright rather than resolved to whatever is nearest. An
+            # id from another conversation, or a number read off the wrong part
+            # of a search line, would put words on the screen that are not the
+            # passage that matched — and the listener would have no way of
+            # knowing that is what happened.
             return (
                 f"Passage {unknown[0]} did not come from a search in this"
                 " conversation. A passage id is the id= on a find_passage"
-                " result line, not a position. Search first."
+                " result line. Search first."
             )
         result = library.offer_positions(gid, chunk_ids)
         if isinstance(result, Refused):
             return result.reason
+        if isinstance(result, Moved):
+            # One place, behind them, so the tools took them there rather than
+            # asking. The model is told in the same sentence a move has always
+            # been reported in, and says where they landed.
+            note(result.sentence)
+            # A move that landed counts up from zero, so a zero is one that did
+            # not — no such book, and nothing for the page to follow.
+            if result.seq:
+                record(result)
+                acted["moved"] = True
+            return result.sentence
         acted["offered"] = True
         offer(result)
         # Counts and instructions, and deliberately not one time, title or word
@@ -531,54 +516,6 @@ def build_tools(
         # is on the screen instead, where the ones they have not heard stay
         # covered until they ask.
         return _offered(result)
-
-    @beta_tool
-    def move_to(gid: int, position_ms: int) -> str:
-        """Move the book to a moment, and play it from there.
-
-        This is how they get taken to a passage: their position in the book
-        becomes the point you name, and the book starts playing there.
-
-        Args:
-            gid: The Gutenberg id of the book.
-            position_ms: Milliseconds from the start of the book, as returned
-                by find_passage.
-        """
-        if acted.get("recalled"):
-            # The refusal this whole tool split exists for. Every question used
-            # to arrive as a search, every search hands back positions, and a
-            # position is a thing to move to — so "who is Rob Roy" ended with
-            # the book dragged to a passage about him and playing, which is the
-            # one outcome worse than not answering. Prompt wording alone would
-            # not hold it, because the pull is in the shape of the tools rather
-            # than in the words; this is where it is held. Refused before
-            # library.move_to writes anything, for the same reason as below:
-            # once the row is written the page meets it fifteen seconds later
-            # and jumps, and there is nowhere further down to stop it.
-            return (
-                "They asked a question, not to be moved; the book stays where"
-                " it is. Answer them. If they want taking there too, they will"
-                " say so."
-            )
-        if acted.get("offered"):
-            # Stopped here, before library.move_to writes anything, because
-            # there is nowhere later to stop it: the row is written before the
-            # call returns, and suppressing the move at the turn or the HTTP
-            # layer would leave the position and its count in the database. The
-            # page would meet it fifteen seconds later as the refusal of its
-            # next report and be dragged off, mid-list, to a place nobody chose.
-            return (
-                "They are choosing between places on screen; the book is not"
-                " yours to move until they have. Say nothing about it."
-            )
-        moved = library.move_to(gid, position_ms)
-        note(moved.sentence)
-        # A move that landed always counts up from zero, so a zero is the one
-        # that did not — no such book, and nothing for the page to follow.
-        if moved.seq:
-            record(moved)
-            acted["moved"] = True
-        return moved.sentence
 
     return [
         list_books,
@@ -588,7 +525,6 @@ def build_tools(
         find_passage,
         recall,
         offer_positions,
-        move_to,
     ]
 
 
@@ -849,9 +785,10 @@ class Conversation:
             # blocks of a refusal fires side effects the model never confirmed —
             # but it says it *after* the yield, and this loop calls the tools at
             # the yield. So the guard was being read one statement too late: by
-            # the time the runner decided not to run anything, `move_to` had
-            # already written a position and bumped the seq, and the page had
-            # taken a jump the model refused to make and then said nothing
+            # the time the runner decided not to run anything,
+            # `offer_positions` had already put a screen up — or, on one place
+            # behind them, written a position and bumped the seq — and the page
+            # had taken a jump the model refused to make and then said nothing
             # about.
             #
             # Only `refusal`, which is the runner's own list. `max_tokens` is the

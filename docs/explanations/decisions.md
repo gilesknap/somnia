@@ -17,9 +17,10 @@ claim it made about the handset that turned out to have been checked only one
 way. The retraction is kept beside the claim on purpose. A decision record that
 quietly loses its mistakes is a record of what we would like to have decided.
 
-Records 10 and 11 both amend 4 and 6, and neither disturbs a conclusion: 10
-takes away the high-water mark both argue partly from, and 11 takes the spoiler
-bound off the search and puts it on what may be said of each result.
+Records 10, 11 and 12 all amend 4 and 6, and none disturbs a conclusion: 10
+takes away the high-water mark both argue partly from, 11 takes the spoiler
+bound off the search and puts it on what may be said of each result, and 12
+takes away the model's choice between moving the book and drawing the list.
 
 Record 9 is the exception that makes the rule worth stating. Dropping
 Audiobookshelf could have been done by editing it out of records 3 and 7, and

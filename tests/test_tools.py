@@ -18,6 +18,7 @@ from somnia.tools import (
     CANDIDATE_MAX,
     CANDIDATE_TEXT_CHARS,
     Library,
+    Moved,
     Offer,
     Refused,
     format_timestamp,
@@ -340,13 +341,13 @@ def test_answering_a_question_changes_nothing_about_the_night(
 # ------------------------------------------- the places they might have meant
 
 
-def offered(result: Offer | Refused) -> Offer:
+def offered(result: Offer | Moved | Refused) -> Offer:
     """The offer, or a failure that shows what came back instead."""
     assert isinstance(result, Offer), result
     return result
 
 
-def refused(result: Offer | Refused) -> str:
+def refused(result: Offer | Moved | Refused) -> str:
     """The refusal's own words, which are what the model is handed."""
     assert isinstance(result, Refused), result
     return result.reason
@@ -535,11 +536,20 @@ def test_one_place_they_have_already_heard_is_a_move_not_a_question(
     """A list of one they know is a move with a press in front of it.
 
     Making somebody half asleep press a button to be taken to the only place on
-    offer buys nothing, so the tool sends the model back to move them instead.
+    offer buys nothing, so the tool does the move rather than drawing a screen.
+    It used to send the model back to call move_to instead — the same rule as a
+    bounce, which cost a round trip and could be argued with. See ADR 12.
     """
-    assert refused(
-        fixture.library.offer_positions(271, [chunk_at(fixture, 10_000)])
-    ) == ("That is one place they have already heard. Move them there instead.")
+    result = fixture.library.offer_positions(271, [chunk_at(fixture, 10_000)])
+    assert isinstance(result, Moved), result
+    assert (result.gid, result.position_ms) == (271, 10_000)
+    assert result.seq == 1
+    assert result.sentence == "Moved to 0:00:10, and it plays from there."
+
+    row = fixture.conn.execute(
+        "SELECT position_ms FROM books WHERE gid = 271"
+    ).fetchone()
+    assert row["position_ms"] == 10_000
 
 
 def test_one_place_they_have_not_heard_is_the_whole_reason_for_the_list(
@@ -705,12 +715,15 @@ def test_asking_which_place_they_meant_changes_nothing_at_all(
 ) -> None:
     """An offer is a question. Nothing has moved and nothing has been heard.
 
-    ``heard_to_ms`` above all: it rises only from audio that really came out of
-    the speaker, and showing somebody a list of places they have not been is
-    not having been there. If drawing the list raised it, every list would
-    widen the next search past where they had listened, and the guard would
-    unwind itself one question at a time — which is the one failure in this
-    project that cannot be undone in the morning.
+    The position above all, since it is now the guard itself: showing somebody a
+    list of places they have not been is not having been there, and if drawing
+    the list moved the line, every list would widen the next search by exactly
+    the places it had just shown. The guard would unwind itself one question at
+    a time — which is the one failure in this project that cannot be undone in
+    the morning.
+
+    This is only about the outcome that *is* a question. One place behind them
+    is a move now and writes on purpose, which the test above asserts.
     """
     before = night(fixture)
     offered(
@@ -722,7 +735,7 @@ def test_asking_which_place_they_meant_changes_nothing_at_all(
 
     # And a refused one is no different: it writes nothing either, and there is
     # nothing left behind for the next question to trip over.
-    refused(fixture.library.offer_positions(271, [chunk_at(fixture, 10_000)]))
+    refused(fixture.library.offer_positions(271, [999_999]))
     assert night(fixture) == before
 
 

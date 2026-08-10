@@ -2,6 +2,11 @@
 
 ## Status
 
+Amended by [ADR 12](0012-one-way-a-goto-ends.md) in one particular: the two
+refusals below — `move_to` and `offer_positions` each declining a turn that has
+answered — are one refusal now, because a goto has one tool. What that refusal
+protects is exactly what this record says it protects.
+
 Amended by [ADR 11](0011-the-guard-belongs-on-the-row.md), which widens the gap
 this record opened between the two tools rather than narrowing it: `find_passage`
 now reads the whole book and holds back the *words* of anywhere they have not

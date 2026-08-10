@@ -62,6 +62,15 @@ returns anything the sound has not already said out loud. If the request fails o
 the book has nothing indexed, the row offers no press at all, which is what it
 was before.
 
+Amended by [ADR 12](0012-one-way-a-goto-ends.md), which takes away the choice
+this record hands the model: a goto now always ends in `offer_positions`, and
+whether that draws the list or simply moves the book is decided by the server
+from the count and the guard. "A confident single hit is untouched" below is
+still true of what the listener sees — one place they have already heard moves
+the book with no screen in front of it — but it is no longer the model that
+works that out. `move_to` is gone from the tool list, and with it the second
+half of the mutual exclusion described under *Consequences*.
+
 Amended by [ADR 11](0011-the-guard-belongs-on-the-row.md), which takes away
 `Search.better_ahead` — called "the crux of the guard" below — along with the
 bound that made it necessary. A search now reads the whole book and the guard is

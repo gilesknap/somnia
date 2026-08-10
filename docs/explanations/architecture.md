@@ -294,8 +294,8 @@ sequenceDiagram
   AG->>AN: tool runner turn
   AN->>AG: find_passage
   AG->>DB: search, whole book
-  AN->>AG: move_to
-  AG->>DB: position_seq + 1
+  AN->>AG: offer_positions
+  AG->>DB: position_seq + 1, or a list to the page
   AG-->>P: reply, and where to go
   P->>P: jump there and play
 
@@ -350,8 +350,7 @@ and it is never handed the words of a passage past it, so there is nothing there
 to be careless with ([ADR 11](decisions/0011-the-guard-belongs-on-the-row.md)).
 The question tool, `recall`, is the one that stops at the line when it reads,
 because prose has no press in front of it; it also marks the turn so that
-`move_to` and `offer_positions` refuse — a question must not cost the listener
-their place.
+`offer_positions` refuses — a question must not cost the listener their place.
 
 ## What the page has to survive
 

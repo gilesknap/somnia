@@ -431,15 +431,29 @@ class Library:
             searched_to_ms=before_ms,
         )
 
-    def offer_positions(self, gid: int, chunk_ids: list[int]) -> Offer | Refused:
-        """Build the list of places to put on screen, from passages that matched.
+    def offer_positions(
+        self, gid: int, chunk_ids: list[int]
+    ) -> Offer | Moved | Refused:
+        """Put the places somewhere they can be answered — a screen, or the book.
 
-        Reads and nothing else. An offer asks a question, so it must leave the
-        night exactly as it found it: no position and no count. That matters
-        more since the position became the guard's only input (ADR 10) — writing
-        one here would not merely record a place nobody went, it would move the
-        line that decides what may be said, on the strength of a screen somebody
-        has not yet answered.
+        The one way a goto ends, since ADR 12. The model names the passages it
+        judges plausible and this decides what becomes of them, because the
+        decision is arithmetic and the model was bad at it: more than one place,
+        or one place they have not reached, is a list; one place behind them is
+        a move, made here, and the :class:`Moved` says so.
+
+        That last case used to be a :class:`Refused` reading "move them there
+        instead", which is the same rule expressed as a bounce — the model had
+        to read it, agree, and call another tool, and on a small model it would
+        sometimes argue with it instead. Doing the move is the same night with
+        one fewer round trip in it and one fewer judgement asked of the model.
+
+        An offer proper is reads and nothing else. It asks a question, so it
+        must leave the night exactly as it found it: no position and no count.
+        That matters more since the position became the guard's only input
+        (ADR 10) — writing one would not merely record a place nobody went, it
+        would move the line that decides what may be said, on the strength of a
+        screen nobody has answered yet.
 
         The ids are chunk ids, as :class:`somnia.index.Passage` carries them,
         and an id that resolves to nothing is dropped rather than rounded to the
@@ -447,12 +461,6 @@ class Library:
         the passage that matched, which is the one lie this list cannot tell. An
         id belonging to another book refuses the whole call, because a list is
         one book's timeline and half of another book's is not a timeline.
-
-        A list of exactly one place they have already heard is refused too. That
-        is not a question — it is a move with a press in front of it, and making
-        them press it at 2am buys nothing. One place they have *not* heard is
-        accepted, because there the press is the whole point: it is what replaced
-        "shall I take you there anyway?".
         """
         book = self.book(gid)
         if book is None:
@@ -504,10 +512,17 @@ class Library:
         # list is a timeline, and a timeline out of order cannot be read at a
         # glance, which is the only way it will be read.
         places.sort(key=lambda place: place.start_ms)
+        # One place, behind them, and no question left in it: they asked to be
+        # taken somewhere and there is exactly one somewhere it could be. A list
+        # of one is a move with a press in front of it, and making somebody
+        # half asleep press it buys nothing.
+        #
+        # One place *ahead* of them is the opposite, and is the whole reason the
+        # screen exists: there the press is what replaced "shall I take you
+        # there anyway?", and it is answered by a thumb rather than by a
+        # sentence composed in the dark.
         if len(places) == 1 and not places[0].ahead:
-            return Refused(
-                "That is one place they have already heard. Move them there instead."
-            )
+            return self.move_to(gid, places[0].start_ms)
         position = self.get_position(gid)
         return Offer(
             gid=gid,

@@ -248,8 +248,7 @@ distances, and ADR 11 is what stopped that being a rule the model had to hold:
 a search reads everywhere, and the words of anywhere they have not reached
 simply never arrive. The tool that answers, `recall`, is the one still bounded
 when it reads; it hands back no `id=` and no `position_ms`, offers nothing past
-the line, and marks the turn so that `move_to` and `offer_positions` both
-refuse: asking who somebody is used
+the line, and marks the turn so that `offer_positions` refuses: asking who somebody is used
 to drag the audio to a passage about them, and it is the tools that stop it
 rather than a paragraph asking them not to. What the tools cannot hold is the
 turn where nothing was called at all — the line is a number the model only
@@ -350,17 +349,19 @@ not merely a separate connection is
   waiting to be rendered as well as what exists, since a book asked for
   tonight has no `books` row for hours), `search_catalog`, `add_book` (which
   writes a queue row and starts nothing, so what it can honestly say is where
-  in the line the book landed), `find_passage` (places to be taken to, bounded
-  by the guard unless they say otherwise), `recall` (the same search framed to
-  be answered from, with no place in it and no way past the guard),
-  `get_position` (reads somnia's own record of where they are), `move_to`
-  (writes it, and counts the move so the page follows), and `offer_positions`
-  (writes nothing, and puts several places on the screen for them to choose
-  between). The model is never told to tell them to press play, because there is
-  nothing to press. Which *book* they meant is still one short spoken question;
-  which *passage* they meant never is; and whether they wanted moving or telling
-  is the model's to judge, which it declares by which of the two searches it
-  calls.
+  in the line the book landed), `find_passage` (places to be taken to, the whole
+  book, with the words of anywhere they have not reached left off the result),
+  `recall` (the same index framed to be answered from, stopping at the line,
+  with no place in it and no way past it), `get_position` (reads somnia's own
+  record of where they are), and `offer_positions`, which is the one way a goto
+  ends: several places go on the screen for a thumb, and a single place they
+  have already heard simply takes them there
+  ([ADR 12](decisions/0012-one-way-a-goto-ends.md)). The model is never told to
+  tell them to press play, because there is nothing to press. Which *book* they
+  meant is still one short spoken question; which *passage* they meant never is;
+  whether they wanted moving or telling is the model's to judge, which it
+  declares by which of the two searches it calls; and whether a goto ends in a
+  screen or a jump is not its judgement at all.
 - 2am surface: the installed PWA, which is the player as well as the
   conversation, served over the tailnet. The server runs the agent loop
   (Anthropic Python SDK tool runner) with an API key held server-side — no
