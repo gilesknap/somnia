@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.8.dev79+g187524ec5 documentation</title>
+    <title>HTTP surface &#8212; somnia 0.8.dev83+g33a18f721 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=b29d4a1d"></script>
+    <script src="../_static/documentation_options.js?v=1ec6bc3e"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -523,81 +523,101 @@ would tell you.</p>
 <td><p>GET</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">true}</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/books</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/version</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Which somnia is answering</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/books</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>Every book, most recently listened to first</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>One book, whole — or 404</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/audio/{gid}/{idx}</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/audio/{gid}/{idx}</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>The chapter’s audio — or 404</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/stream/{gid}/{n}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/stream/{gid}/{n}</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>The first <code class="docutils literal notranslate"><span class="pre">n</span></code> chapters as one file — or 404</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/sentence/{gid}/{ms}</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>Where the sentence being spoken at <code class="docutils literal notranslate"><span class="pre">ms</span></code> began</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/passage/{gid}/{ms}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/passage/{gid}/{ms}</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>The book’s own words at <code class="docutils literal notranslate"><span class="pre">ms</span></code>, never further on than they have heard</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/catalog?q=…</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>Books to add, from the local catalog (both libraries)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/voices</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/voices</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>The voices a book may be asked for in</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>GET</p></td>
 <td><p>What is rendering, what is waiting, what went wrong</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}</span></code></p></td>
 <td><p>DELETE</p></td>
 <td><p>Take a book away — rows, audio and all</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Make this the book a cold launch opens — or 404</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/finished</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/finished</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Say the reader is done with a book, or that they are not</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/name</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/name</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Say what a book is called here, and who wrote it</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>The agent’s reply, and a move if it made one</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Drops one conversation</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>What became of a report — always 200</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Ask for a book — always 200</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Stop a render, or take a book out of the line</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<section id="get-api-version">
+<h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/version</span></code><a class="headerlink" href="#get-api-version" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.8.dev76+g778d26abf&quot;</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>What <code class="docutils literal notranslate"><span class="pre">somnia.__version__</span></code> says, which setuptools_scm writes from the checkout
+the box was built from. The commit is the point: <code class="docutils literal notranslate"><span class="pre">somnia-install.sh</span></code> defaults to
+<code class="docutils literal notranslate"><span class="pre">main</span></code> rather than the last release, so every box is expected to be ahead of the
+tags, and a bare release number is the one form of this string that two
+different deploys could share.</p>
+<p>The page asks once, on the way in, and draws it at the foot of Settings. It asks
+the server rather than reading a constant out of <code class="docutils literal notranslate"><span class="pre">app.js</span></code> because the two can
+disagree — the service worker answers the shell from its cache when the network
+is gone, so a page older than the box is an ordinary state, and the version that
+decides what may be said is the box’s.</p>
+</section>
 <section id="get-api-books">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/books</span></code><a class="headerlink" href="#get-api-books" title="Link to this heading">#</a></h2>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -1135,6 +1155,7 @@ too.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-version"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/version</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-books"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/books</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-book-gid"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#delete-api-book-gid"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/api/book/{gid}</span></code></a></li>
