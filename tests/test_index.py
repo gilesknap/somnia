@@ -149,3 +149,91 @@ def test_a_search_after_a_re_render_offers_each_passage_once(
 
     found = find_passage(conn, embedder, GID, "the meadow with the pond", k=5)
     assert [p.text for p in found].count("the meadow with the pond") == 1
+
+
+def straddling() -> list[Window]:
+    """Two windows sharing a sentence, as segment.windows really cuts them.
+
+    The shape that took "go to where the hare dies" and answered it with two
+    rows twelve seconds apart: three sentences at a stride of two, so the third
+    sentence of the first window is the first sentence of the second — and on
+    the clock the two spans overlap by most of a window.
+    """
+    death = "the dogs were upon her and that was the end of her"
+    return [
+        Window(
+            text=f"on came the dogs. six men leaped. {death}",
+            start_ms=356_005,
+            end_ms=380_870,
+        ),
+        Window(
+            text=f"{death}. a huntsman rode up. he held her up",
+            start_ms=367_995,
+            end_ms=391_535,
+        ),
+    ]
+
+
+def test_one_moment_is_offered_as_one_place(
+    conn: sqlite3.Connection, embedder: Embedder
+) -> None:
+    """Two windows that share a sentence are not two places to be sent to.
+
+    They overlap on the clock by thirteen seconds, so there is one moment here
+    and the listener has nothing to choose between. Worse than untidy: two rows
+    is what makes Library.offer_positions draw a list instead of moving the
+    book, so a goto with one true answer costs a press.
+    """
+    pair = straddling()
+    add_chunks(conn, embedder, GID, 0, pair)
+
+    found = find_passage(conn, embedder, GID, pair[0].text, k=5)
+
+    assert len(found) == 1
+    assert found[0].start_ms == 356_005
+
+
+def test_the_window_the_search_liked_best_is_the_one_they_are_taken_to(
+    conn: sqlite3.Connection, embedder: Embedder
+) -> None:
+    """The survivor of an overlapping run is chosen by the embedder, not by the clock.
+
+    The two windows land twelve seconds apart, and which of them is the place
+    they arrive at is the whole of what the collapse decides. Asking for the
+    second one's words has to land on the second one: a rule that always kept
+    the earlier would take them somewhere the search did not choose.
+    """
+    pair = straddling()
+    add_chunks(conn, embedder, GID, 0, pair)
+
+    found = find_passage(conn, embedder, GID, pair[1].text, k=5)
+
+    assert len(found) == 1
+    assert found[0].start_ms == 367_995
+
+
+def test_a_collapsed_duplicate_does_not_cost_a_real_place_its_row(
+    conn: sqlite3.Connection, embedder: Embedder
+) -> None:
+    """The cut comes after the collapse, or the list is short by the duplicate.
+
+    Taking k rows and then collapsing them would answer a two-place question
+    with one place and leave a real moment further down the ranking unasked
+    for — the duplicate would have spent a row that was never its own.
+    """
+    add_chunks(conn, embedder, GID, 0, straddling())
+    add_chunks(
+        conn, embedder, GID, 1, chapter("the meadow with the pond", start_ms=900_000)
+    )
+
+    # The whole book, ranked: the pair collapses to one and the meadow keeps its
+    # own row, so a k of two is answered with two moments rather than with one.
+    found = find_passage(conn, embedder, GID, "the meadow with the pond", k=2)
+
+    assert len(found) == 2
+    # Which of the straddling pair survives is not asserted here: this query
+    # matches neither of them, so the two are exactly as far away as each other
+    # and the winner is a tie broken by the row order. Which one wins when the
+    # query does reach into the pair is the test above.
+    assert 900_000 in {p.start_ms for p in found}
+    assert len({p.start_ms for p in found} & {356_005, 367_995}) == 1

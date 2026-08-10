@@ -97,6 +97,25 @@ def find_passage(
     in the book — the spoiler guard. Answering "who is Ginger?" from a chapter
     the listener has not reached yet would ruin the thing we are here to
     protect, so questions are answered from what they could have heard.
+
+    Overlapping windows are collapsed to one, best first. :func:`segment.windows`
+    cuts three sentences at a stride of two, so consecutive windows *share a
+    sentence* by construction — and the sentence they share is exactly the one a
+    good query matches hardest. "Where the hare dies" found both windows either
+    side of the death in Black Beauty: twelve seconds apart, overlapping by
+    thirteen, and the shared sentence was the answer.
+
+    Two rows for one moment is not merely untidy. It is a choice with nothing in
+    it, put to somebody half asleep — and worse, it is the arithmetic in
+    :meth:`Library.offer_positions` reading two places where the book has one,
+    so a goto that should have been a move, made there and then, becomes a list
+    and a press. That is the cost ADR 12 exists to have deleted, coming back in
+    through the search.
+
+    The best-scoring window of an overlapping run is the one that survives, so
+    the place they are taken to is the one the embedder actually chose. It is
+    the ordering that does the work: the rows arrive by distance, and a window
+    is kept only if it touches nothing already kept.
     """
     qvec = embedder.encode_query(query)
     # sqlite-vec applies its k limit before our filters, so over-fetch: the
@@ -113,10 +132,25 @@ def find_passage(
     if before_ms is not None:
         sql += " AND c.start_ms <= ?"
         params.append(before_ms)
-    rows = conn.execute(sql + " ORDER BY v.distance", params).fetchmany(k)
+    # Every candidate, not the first k: the cut has to come after the collapse
+    # or a query whose two best hits are one moment answers with k-1 places, and
+    # the ones it drops to make room for a duplicate are real ones further down.
+    rows = conn.execute(sql + " ORDER BY v.distance", params).fetchall()
 
     passages: list[Passage] = []
     for r in rows:
+        if len(passages) == k:
+            break
+        # Two windows that share a sentence share the clock as well, which is
+        # what makes this exact rather than a threshold somebody has to tune: no
+        # milliseconds of grace, no "close enough", just whether the two spans
+        # touch. Compared against every passage kept and not only the last,
+        # because a long window can swallow two shorter ones after it.
+        if any(
+            r["start_ms"] < kept.end_ms and kept.start_ms < r["end_ms"]
+            for kept in passages
+        ):
+            continue
         chap = conn.execute(
             "SELECT title FROM chapters WHERE book_gid = ? AND idx = ?",
             (book_gid, r["chapter_idx"]),
