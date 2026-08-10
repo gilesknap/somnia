@@ -40,6 +40,7 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from . import __version__
 from .agent import Conversation, Turn, effort_for, open_library
 from .catalog import search_catalog
 from .config import Config
@@ -426,6 +427,23 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
     async def health(request: Request) -> Response:
         return JSONResponse({"ok": True})
 
+    async def version(request: Request) -> Response:
+        """Which somnia is answering, for the caption on Settings.
+
+        The whole of the route, because the question it answers is "am I looking
+        at the deploy I just made?" and that is settled by the commit in the
+        string. setuptools_scm writes it, so a box ahead of the tags — which is
+        every box, since ``somnia-install.sh`` defaults to ``main`` rather than
+        the last release — says so rather than rounding itself down to a version
+        number two deploys share.
+
+        The server's own, deliberately, and not the shell's. The spoiler guard
+        and the tools live in here; a page cached by the service worker can be
+        older than this answer, and the answer would still be the true one about
+        the thing deciding what may be said.
+        """
+        return JSONResponse({"version": __version__})
+
     async def books(request: Request) -> Response:
         return JSONResponse(asdict(await run_in_threadpool(player.books)))
 
@@ -795,6 +813,7 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/ask", ask, methods=["POST"]),
             Route("/api/forget", forget, methods=["POST"]),
             Route("/api/health", health),
+            Route("/api/version", version),
             Route("/api/books", books),
             Route("/api/book/{gid:int}", book),
             # The same path, read and then taken away, in the shape the queue's

@@ -879,6 +879,23 @@
         <p class="setting-note">
           the −30 and +30 buttons either side of play.
         </p>
+
+        <!-- Which somnia this is, and the only thing on the screen that is not
+             a control. It is last because nobody comes to Settings for it: it
+             is here to be found on the night a deploy has to be told from the
+             one before it, and to be scrolled past every other night.
+
+             Written at load and never on the way in, because the comment over
+             showSettings() says this screen fetches nothing and that is worth
+             keeping true — a caption that had to ask for itself would be one
+             more thing to be unreachable at 2am, on the screen somebody opened
+             to make the night quieter.
+
+             `unknown` rather than a blank or a guess: an unreachable server and
+             an old page look identical, and only one of them is worth saying
+             out loud. -->
+        <p class="section-label">which somnia this is</p>
+        <p class="setting-note" id="settings-version">unknown</p>
       </div>
     </section>
 
