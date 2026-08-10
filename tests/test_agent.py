@@ -162,19 +162,18 @@ def library(tmp_path: Path) -> Iterator[Library]:
 
 @pytest.fixture
 def library_with_book(tmp_path: Path) -> Iterator[Library]:
-    """A library the action tools can actually act on."""
+    """A library the action tools can actually act on.
+
+    The book has passages in it, which it did not need until ADR 12: a goto now
+    ends in ``offer_positions`` whatever becomes of it, and that will only name
+    an id a search in the same conversation really returned. So a turn that
+    takes somebody somewhere has to search first here exactly as it does at 2am.
+    """
     conn: sqlite3.Connection = connect(tmp_path / "somnia.db")
+    embedder = cast(Embedder, FakeEmbedder())
     try:
-        with conn:
-            conn.execute(
-                "INSERT INTO books (gid, title, voice, status, total_ms)"
-                " VALUES (271, 'Black Beauty', 'af_heart', 'done', 7200000)"
-            )
-        yield Library(
-            Config(data_dir=tmp_path),
-            conn,
-            cast(Embedder, FakeEmbedder()),
-        )
+        build_black_beauty(conn, embedder)
+        yield Library(Config(data_dir=tmp_path), conn, embedder)
     finally:
         conn.close()
 
@@ -237,9 +236,10 @@ def test_a_refused_turn_does_not_do_the_thing_it_was_refused(
     The SDK's runner has this rule and states it — the tool_use blocks of a
     refused turn would fire side effects the model never confirmed — but it
     applies it after the yield, and somnia runs the tools at the yield. So the
-    guard was read one statement too late: `move_to` had already written a
-    position and bumped the seq, and the page took a jump the model had refused
-    to make and then said nothing about.
+    guard was read one statement too late: `offer_positions` had already put a
+    screen up — or, on a single place behind them, written a position and bumped
+    the seq — and the page took a jump the model had refused to make and then
+    said nothing about.
     """
     runner = FakeRunner(
         [
@@ -348,19 +348,24 @@ def test_acting_without_speaking_answers_with_what_it_did(
         library_with_book,
         client_that_acts(
             [said()],
-            calls=[("move_to", {"gid": 271, "position_ms": 3_600_000})],
+            calls=[
+                ("find_passage", {"gid": 271, "description": "the meadow"}),
+                ("offer_positions", {"gid": 271, "chunk_ids": [1]}),
+            ],
         ),
     )
-    assert conversation.ask("go").reply == "Moved to 1:00:00, and it plays from there."
+    assert conversation.ask("go").reply == "Moved to 0:00:10, and it plays from there."
 
 
-def test_a_turn_that_moved_twice_reports_where_it_left_them(
+def test_a_turn_cannot_take_them_somewhere_twice(
     library_with_book: Library,
 ) -> None:
-    """A turn can search, move, think better of it, and move again.
+    """A turn used to be able to move, think better of it, and move again.
 
-    The page has to end up somewhere, and the last place it was sent is the only
-    one that matches what was said about it.
+    It cannot now, and this is the difference ADR 12 made rather than a rule
+    added on top of it: with one tool for every goto there is one place to say
+    it, and the second call is refused before it writes. A page dragged twice in
+    one answer is a page that arrives somewhere the sentence does not describe.
     """
     conversation = Conversation(
         Config(),
@@ -368,18 +373,20 @@ def test_a_turn_that_moved_twice_reports_where_it_left_them(
         client_that_acts(
             [said(text("You're at the fair."))],
             calls=[
-                ("move_to", {"gid": 271, "position_ms": 60_000}),
-                ("move_to", {"gid": 271, "position_ms": 3_600_000}),
+                ("find_passage", {"gid": 271, "description": "the meadow"}),
+                ("offer_positions", {"gid": 271, "chunk_ids": [1]}),
+                ("offer_positions", {"gid": 271, "chunk_ids": [2]}),
             ],
         ),
     )
     turn = conversation.ask("take me to the fair")
 
     assert turn.move is not None
-    assert (turn.move.gid, turn.move.position_ms) == (271, 3_600_000)
-    # The count the page is handed has to be the one the second move wrote, or
-    # its next report is refused and it is dragged back to the first.
-    assert turn.move.seq == 2
+    assert (turn.move.gid, turn.move.position_ms) == (271, 10_000)
+    # One write, so one count. A second one would leave the page holding a
+    # number the row does not have, and every report for the rest of the night
+    # refused.
+    assert turn.move.seq == 1
 
 
 def test_a_turn_that_moved_nothing_carries_no_move(library_with_book: Library) -> None:
@@ -885,21 +892,27 @@ def test_what_the_model_is_told_after_a_list_holds_no_time_and_no_words(
     assert len(ready.offers) == 1
 
 
-def test_a_search_names_a_passage_it_can_offer_without_giving_the_ahead_one_away(
+def test_a_search_hands_over_the_words_it_may_and_only_a_time_for_the_rest(
     searchable: Searchable,
 ) -> None:
-    """The id is the whole of the new handle, and the only one that ahead one gets.
+    """The guard, in the one place it now lives: the shape of a result line.
 
-    A list may only name passages a search really returned, and an id is how
-    the model says which. For the passage past the mark that is all it is ever
-    told beside the time — not the words, not the chapter, not the position —
-    because offering it is the one thing that can be done with a passage nobody
-    has heard, and offering it needs nothing more.
+    ADR 11 took the bound off the search, so the whole book comes back — and the
+    words of anywhere they have not reached are dropped here, on the way to the
+    model, rather than never having been looked up. That is a stronger promise
+    than the prompt could make. The text of an unheard passage is never in the
+    context, so there is nothing there for a model that reads its instructions
+    carelessly to narrate.
+
+    An id and a time, and nothing else. Not the words, not the chapter title —
+    "47 Hard Times" gives away as much as the sentence under it — and not the
+    position, which is on no line at all now that offers are made by id.
     """
-    ahead = searchable.library.find_passage(
+    search = searchable.library.find_passage(
         271, "a later scene the listener has not reached"
-    ).better_ahead
-    assert ahead is not None
+    )
+    ahead = search.hits[0]
+    assert search.ahead(ahead)
 
     result = wired(searchable).call(
         "find_passage",
@@ -907,23 +920,93 @@ def test_a_search_names_a_passage_it_can_offer_without_giving_the_ahead_one_away
         description="a later scene the listener has not reached",
     )
 
-    assert f"id={place(searchable, 10_000)}, position_ms=10000" in result
-    assert f"(id={ahead.chunk_id})" in result
+    assert f"id={ahead.chunk_id}" in result
     assert "a later scene the listener has not reached" not in result
     assert "47 Hard Times" not in result
     assert "700000" not in result
+    assert "position_ms" not in result
+
+    # And the one behind them keeps everything, because they have heard it.
+    heard = wired(searchable).call(
+        "find_passage", gid=271, description="the meadow with the pond"
+    )
+    assert f"id={place(searchable, 10_000)}" in heard
+    assert "the meadow with the pond" in heard
+    assert "01 My Early Home" in heard
 
 
-def test_a_turn_that_offered_a_list_will_not_also_move_the_book(
+def test_a_list_and_a_move_cannot_come_out_of_one_turn(
     searchable: Searchable,
 ) -> None:
-    """Refused at the tool, because there is nowhere later to refuse it.
+    """They come out of one tool now, so there is one thing to say and one place.
 
-    The row is written before the call returns, so stopping the move when the
-    turn is assembled, or when the reply is serialised, would leave the
-    position and its count in the database — and the page would meet them
-    fifteen seconds later as the refusal of its next report and be dragged off,
-    mid-list, to a place nobody chose.
+    A list drawn over a book that has already jumped is a question about where
+    they are standing, asked after they were taken there; and a jump under a
+    list is a listener dragged off mid-read to a place nobody chose. Before
+    ADR 12 this needed a refusal in each of two tools, and the one in `move_to`
+    had to fire before `library.move_to` wrote, because the row reaches the page
+    fifteen seconds later as the refusal of its next report.
+    """
+    ready = wired(searchable)
+    ready.call("find_passage", gid=271, description="the meadow with the pond")
+    ready.call("offer_positions", gid=271, chunk_ids=[place(searchable, 10_000)])
+    assert [m.position_ms for m in ready.moves] == [10_000]
+
+    said = ready.call(
+        "offer_positions",
+        gid=271,
+        chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
+    )
+
+    assert "do not do it twice" in said
+    assert ready.offers == []
+    assert seq(searchable) == 1
+
+
+def test_a_place_named_under_a_live_list_is_drawn_and_never_written(
+    searchable: Searchable,
+) -> None:
+    """The other order, which is the one that reaches a listener mid-read.
+
+    A list is up and the model narrows it to a single place behind them. Left
+    alone that is the move case, and the move is made inside
+    ``library.offer_positions`` before anything here could stop it — so the
+    turn would carry a list *and* a written row, which :class:`Turn` says is
+    the one pair it never carries. The move is taken away rather than the call:
+    they get a list of one, and the press they have to make is the price of not
+    being dragged off the screen they are reading.
+
+    Not a count of ids. ``[behind, behind]`` is two ids and one place, because
+    the library dedupes before it does the arithmetic, and it was exactly this
+    shape that walked through the first guard written here.
+    """
+    ready = wired(searchable)
+    ready.call("find_passage", gid=271, description="the meadow with the pond")
+    ready.call(
+        "offer_positions",
+        gid=271,
+        chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
+    )
+    behind = place(searchable, 10_000)
+
+    said = ready.call("offer_positions", gid=271, chunk_ids=[behind, behind])
+
+    assert "Offered them 1 place" in said
+    assert ready.moves == []
+    assert seq(searchable) == 0
+    assert [p.start_ms for p in ready.offers[-1].places] == [10_000]
+
+
+def test_narrowing_to_one_place_ahead_of_them_is_the_same_list_either_way(
+    searchable: Searchable,
+) -> None:
+    """The rule that changed is the move, and only the move.
+
+    A single place they have not reached was always a list, live list or not,
+    so the second call here goes down the same road it would have gone down
+    first. Said out loud because the guard is expressed as "may this move?" and
+    a guard that quietly changed what a list is would be a harder thing to keep
+    right.
     """
     ready = wired(searchable)
     ready.call("find_passage", gid=271, description="the meadow with the pond")
@@ -933,34 +1016,14 @@ def test_a_turn_that_offered_a_list_will_not_also_move_the_book(
         chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
     )
 
-    said = ready.call("move_to", gid=271, position_ms=10_000)
-
-    assert "not yours to move" in said
-    assert ready.moves == []
-    assert ready.notes == []
-    assert seq(searchable) == 0
-
-
-def test_a_turn_that_moved_the_book_has_no_list_left_to_offer(
-    searchable: Searchable,
-) -> None:
-    """The other way round, and refused just as flatly.
-
-    A list drawn over a book that has already jumped is a question about where
-    they are standing, asked after they were moved there.
-    """
-    ready = wired(searchable)
-    ready.call("find_passage", gid=271, description="the meadow with the pond")
-    ready.call("move_to", gid=271, position_ms=10_000)
-
     said = ready.call(
-        "offer_positions",
-        gid=271,
-        chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
+        "offer_positions", gid=271, chunk_ids=[place(searchable, 300_000)]
     )
 
-    assert "already moved them" in said
-    assert ready.offers == []
+    assert "Offered them 1 place" in said
+    assert "one of them is further on" in said
+    assert ready.moves == []
+    assert seq(searchable) == 0
 
 
 def test_a_passage_it_did_not_find_here_is_not_a_place_it_can_offer(
@@ -985,37 +1048,42 @@ def test_a_passage_it_did_not_find_here_is_not_a_place_it_can_offer(
     assert ready.offers == []
 
 
-def test_a_refused_offer_leaves_the_turn_free_to_move_them_instead(
+def test_one_place_they_have_heard_takes_them_there_without_a_press(
     searchable: Searchable,
 ) -> None:
-    """Every refusal emits nothing, and that includes not spending the turn.
+    """The whole of what ADR 12 moved out of the model and into the code.
 
-    Told "move them there instead", the model has to be able to do it. A
-    refusal that also locked the move would answer a question with silence.
+    A screen with one row on it, over a passage they have already listened to,
+    is a move with a press in front of it. The tool does the move and hands back
+    the sentence a move has always been reported in, so the model has something
+    true to say and nothing left to decide.
     """
     ready = wired(searchable)
     ready.call("find_passage", gid=271, description="the meadow with the pond")
 
     said = ready.call("offer_positions", gid=271, chunk_ids=[place(searchable, 10_000)])
-    assert said == "That is one place they have already heard. Move them there instead."
+
+    assert said == "Moved to 0:00:10, and it plays from there."
     assert ready.offers == []
+    assert [(m.position_ms, m.seq) for m in ready.moves] == [(10_000, 1)]
+    assert ready.notes == [said]
 
-    assert ready.call("move_to", gid=271, position_ms=10_000).startswith("Moved to")
-    assert [m.seq for m in ready.moves] == [1]
 
-
-def test_a_move_that_landed_nowhere_leaves_the_turn_free_to_offer(
+def test_an_offer_at_a_book_that_is_not_here_leaves_the_turn_free_to_try_again(
     searchable: Searchable,
 ) -> None:
-    """A move at a book that is not here is not a move.
+    """A refusal emits nothing, and that includes not spending the turn.
 
     Nothing was written and nobody was taken anywhere, so there is nothing for
-    a list to contradict — and the model has just been told the gid was wrong,
-    which is exactly when it should be trying something else.
+    a second attempt to contradict — and the model has just been told the gid
+    was wrong, which is exactly when it should be trying something else.
     """
     ready = wired(searchable)
     ready.call("find_passage", gid=271, description="the meadow with the pond")
-    assert "no book 999" in ready.call("move_to", gid=999, position_ms=10_000)
+    assert "no book 999" in ready.call(
+        "offer_positions", gid=999, chunk_ids=[place(searchable, 10_000)]
+    )
+    assert ready.moves == []
 
     ready.call(
         "offer_positions",
@@ -1023,6 +1091,18 @@ def test_a_move_that_landed_nowhere_leaves_the_turn_free_to_offer(
         chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
     )
     assert len(ready.offers) == 1
+
+    # And the move as well, which is the outcome only a turn with nothing on
+    # the screen can have. A refusal draws nothing, so the second call here is
+    # standing where the first one was and not under a list.
+    again = wired(searchable)
+    again.call("find_passage", gid=271, description="the meadow with the pond")
+    again.call("offer_positions", gid=999, chunk_ids=[place(searchable, 10_000)])
+
+    assert "Moved to 0:00:10" in again.call(
+        "offer_positions", gid=271, chunk_ids=[place(searchable, 10_000)]
+    )
+    assert [m.position_ms for m in again.moves] == [10_000]
 
 
 def test_a_passage_found_answering_one_question_can_be_offered_in_the_next(
@@ -1164,8 +1244,8 @@ def test_a_silent_turn_that_offered_answers_with_the_sentence_not_with_what_it_d
 ) -> None:
     """The fallback has two things to choose between, and the list wins.
 
-    A turn can do something worth reporting and then offer — here a move at a
-    book that is not there — and the note it left is true but is not what is on
+    A turn can do something worth reporting and then offer — here an add_book
+    that records a note — and the note it left is true but is not what is on
     the screen. There is nothing useful to say beside a list that the list does
     not already say better, so the one sentence that belongs there is used.
     """
@@ -1175,11 +1255,11 @@ def test_a_silent_turn_that_offered_answers_with_the_sentence_not_with_what_it_d
         client_that_acts(
             [said()],
             calls=[
+                ("add_book", {"gid": 2554}),
                 (
                     "find_passage",
                     {"gid": 271, "description": "the meadow with the pond"},
                 ),
-                ("move_to", {"gid": 999, "position_ms": 10_000}),
                 (
                     "offer_positions",
                     {
@@ -1202,12 +1282,14 @@ def test_a_silent_turn_that_offered_answers_with_the_sentence_not_with_what_it_d
 def test_a_confident_single_hit_still_just_moves_the_book(
     searchable: Searchable,
 ) -> None:
-    """The list is for ambiguity, and nothing else changed.
+    """The list is for ambiguity, and that has not changed.
 
-    When exactly one passage is plainly the moment they described, the book
-    moves and plays and no screen goes up in front of it. Putting a list of one
-    obvious answer between them and the book would be the conversation this
-    replaced, wearing a different coat.
+    When exactly one passage is plainly the moment they described, and they have
+    already heard it, the book moves and plays and no screen goes up in front of
+    it. Putting a list of one obvious answer between them and the book would be
+    the conversation this replaced, wearing a different coat. What changed with
+    ADR 12 is only who decides: the model names the one place, and the tool
+    works out that a list of it would be a move with a press in front of it.
     """
     conversation = Conversation(
         Config(),
@@ -1219,7 +1301,10 @@ def test_a_confident_single_hit_still_just_moves_the_book(
                     "find_passage",
                     {"gid": 271, "description": "the meadow with the pond"},
                 ),
-                ("move_to", {"gid": 271, "position_ms": 10_000}),
+                (
+                    "offer_positions",
+                    {"gid": 271, "chunk_ids": [place(searchable, 10_000)]},
+                ),
             ],
         ),
     )
@@ -1236,10 +1321,10 @@ def test_a_move_on_the_last_question_does_not_stop_a_list_on_this_one(
 ) -> None:
     """What a turn has already done is about that turn and no other.
 
-    Moving them and then offering a list is refused because the list would be a
-    question about where they are now standing. A minute later, when they ask
-    something else, it is an ordinary question again — and the flags that said
-    otherwise belong to the question that set them.
+    Taking them somewhere and then offering a list is refused because the list
+    would be a question about where they are now standing. A minute later, when
+    they ask something else, it is an ordinary question again — and the flags
+    that said otherwise belong to the question that set them.
     """
     conversation = Conversation(
         Config(),
@@ -1252,7 +1337,10 @@ def test_a_move_on_the_last_question_does_not_stop_a_list_on_this_one(
                         "find_passage",
                         {"gid": 271, "description": "the meadow with the pond"},
                     ),
-                    ("move_to", {"gid": 271, "position_ms": 10_000}),
+                    (
+                        "offer_positions",
+                        {"gid": 271, "chunk_ids": [place(searchable, 10_000)]},
+                    ),
                 ],
             ),
             (
@@ -1288,11 +1376,10 @@ def test_what_a_recall_hands_back_holds_no_place_to_send_them_to(
     """The book's words and the chapter they are in, and no handle at all.
 
     A chapter is something an answer can say out loud — "that was back in the
-    hunt" — where an id and a position_ms are the two things offer_positions and
-    move_to consume, and handing them over on a question's tool result is how
-    "who is Rob Roy" turned into a jump. The one timestamp in it is the line the
-    answer may not cross, not a place: it is there so the model knows how far it
-    may speak.
+    hunt" — where an id is what offer_positions consumes, and handing one over
+    on a question's tool result is how "who is Rob Roy" turned into a jump. The
+    one timestamp in it is the line the answer may not cross, not a place: it is
+    there so the model knows how far it may speak.
     """
     result = wired(searchable).call(
         "recall", gid=271, question="Rob Roy was shot after the hunt"
@@ -1347,25 +1434,30 @@ def test_a_book_they_have_finished_is_never_answered_with_not_yet(
     assert "not come up yet" not in result
 
 
-def test_a_turn_that_answered_a_question_will_not_also_move_the_book(
+def test_a_turn_that_answered_a_question_takes_them_nowhere(
     searchable: Searchable,
 ) -> None:
-    """The refusal the whole split exists for, and the bug it closes.
+    """The refusal the whole tool split exists for, and the bug it closes.
 
     Every question used to arrive as a search, every search hands back
     positions, and a position is a thing to move to — so asking who a character
     was ended with the audio dragged to a passage about him and playing, which
     costs the listener the hour they were in. Held here rather than in the
     prompt because the pull is in the shape of the tools, and refused before
-    library.move_to writes anything, because a written move reaches the page
-    fifteen seconds later whatever the reply said.
+    anything is written, because a written move reaches the page fifteen seconds
+    later whatever the reply said.
+
+    Both outcomes are covered by one branch since ADR 12. A single place they
+    have heard would otherwise move them, which is the case this used to need a
+    second refusal in a second tool to stop.
     """
     ready = wired(searchable)
+    ready.call("find_passage", gid=271, description="the meadow with the pond")
     ready.call("recall", gid=271, question="Rob Roy was shot after the hunt")
 
-    said = ready.call("move_to", gid=271, position_ms=10_000)
+    said = ready.call("offer_positions", gid=271, chunk_ids=[place(searchable, 10_000)])
 
-    assert "not to be moved" in said
+    assert "say it in words" in said
     assert ready.moves == []
     assert ready.notes == []
     assert seq(searchable) == 0
@@ -1392,7 +1484,7 @@ def test_a_turn_that_answered_a_question_puts_no_list_of_places_up_either(
         chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
     )
 
-    assert "not an answer" in said
+    assert "Neither a list of places nor a jump is an answer" in said
     assert ready.offers == []
 
 
@@ -1406,11 +1498,14 @@ def test_a_question_about_a_book_that_is_not_here_is_still_a_question(
     not be followed by the book moving somewhere instead.
     """
     ready = wired(searchable)
+    ready.call("find_passage", gid=271, description="the meadow with the pond")
     assert "Nothing in that stretch." in ready.call(
         "recall", gid=999, question="anybody at all"
     )
 
-    assert "not to be moved" in ready.call("move_to", gid=271, position_ms=10_000)
+    assert "say it in words" in ready.call(
+        "offer_positions", gid=271, chunk_ids=[place(searchable, 10_000)]
+    )
     assert seq(searchable) == 0
 
 
@@ -1430,8 +1525,15 @@ def test_a_question_that_tugged_at_the_book_still_leaves_it_where_it_was(
         client_that_acts(
             [said(text("The horse shot after the hunt."))],
             calls=[
+                (
+                    "find_passage",
+                    {"gid": 271, "description": "the meadow with the pond"},
+                ),
                 ("recall", {"gid": 271, "question": "Rob Roy was shot after the hunt"}),
-                ("move_to", {"gid": 271, "position_ms": 300_000}),
+                (
+                    "offer_positions",
+                    {"gid": 271, "chunk_ids": [place(searchable, 10_000)]},
+                ),
             ],
         ),
     )
@@ -1473,6 +1575,10 @@ def test_a_question_answered_now_does_not_stop_them_being_moved_next(
     every question would cost the rest of the conversation its ability to move
     the book.
     """
+    # A step past the hunt, so the place they ask for next is one they have
+    # heard — which is what makes the second turn a move rather than a screen.
+    with searchable.conn:
+        searchable.conn.execute("UPDATE books SET position_ms = 400000 WHERE gid = 271")
     conversation = Conversation(
         Config(),
         searchable.library,
@@ -1493,7 +1599,10 @@ def test_a_question_answered_now_does_not_stop_them_being_moved_next(
                         "find_passage",
                         {"gid": 271, "description": "Rob Roy was shot after the hunt"},
                     ),
-                    ("move_to", {"gid": 271, "position_ms": 300_000}),
+                    (
+                        "offer_positions",
+                        {"gid": 271, "chunk_ids": [place(searchable, 300_000)]},
+                    ),
                 ],
             ),
         ),

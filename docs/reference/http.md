@@ -116,7 +116,7 @@ left with a player showing nothing.
 {
   "gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
   "status": "done", "total_ms": 22320000, "chapters_total": 49,
-  "position_ms": 11560000, "seq": 3, "heard_to_ms": 12040000,
+  "position_ms": 11560000, "seq": 3,
   "chapters": [
     {"idx": 0, "title": "01. My Early Home", "start_ms": 0,
      "end_ms": 455000, "url": "api/audio/271/0"}
@@ -126,10 +126,10 @@ left with a player showing nothing.
 ```
 
 `status` is `pending`, `rendering` or `done` — how the page tells a book still
-growing from a render that died. `heard_to_ms` is the high-water mark the
-spoiler guard uses, which is not `position_ms`: the agent can move someone
-backwards, and doing so must not shrink what may be searched. Chapter `url` is
-relative, because the app may be mounted under a path.
+growing from a render that died. `position_ms` is where the book is, and since
+ADR 10 it is also the line the spoiler guard is drawn at; there is no second
+number, and the page has none to keep in step. Chapter `url` is relative,
+because the app may be mounted under a path.
 
 `stream_url` is the whole of what has been read of this book down one URL, and
 `stream_ms` is how much book that is. The page loads it once and crosses every
@@ -198,8 +198,7 @@ remembered.
 
 Nothing else on the row is touched. `position_ms` stays where the last report
 put it, which is what makes the book resume exactly where it was left;
-`heard_to_ms` stays because pressing a button has not heard anything; and
-`position_seq` stays because that counts agent moves and nothing else, so the
+and `position_seq` stays because that counts agent moves and nothing else, so the
 page's next report is accepted rather than refused and the listener is not
 dragged anywhere. The two numbers in the answer are the book's own, from before
 the press — they say where the page is about to resume, and the page then asks
@@ -343,9 +342,9 @@ was never indexed, or a book nobody has played a second of. The row then offers
 no reveal, which is what it did before this existed.
 
 The bound is inside the statement: the row must satisfy
-`start_ms < heard_to_ms`, applied to the row and not to the argument. Ask about
-a point an hour past where anybody has listened and the answer is the last
-passage that really was spoken — not a refusal, which is a frontier to read off.
+`start_ms < position_ms`, applied to the row and not to the argument. Ask about
+a point an hour past where the book has got to and the answer is the last
+passage behind them — not a refusal, which is a frontier to read off.
 The words are cut to 240 characters, the same limit as the places the row sits
 among.
 
@@ -514,13 +513,14 @@ computes nothing.
 The only position write the page makes.
 
 ```json
-{"gid": 271, "position_ms": 11560000, "seq": 3,
- "played_ms": 15000, "reason": "tick"}
+{"gid": 271, "position_ms": 11560000, "seq": 3, "reason": "tick"}
 ```
 
-`played_ms` is sound that really came out of the speaker since the last report —
-not time that passed — and it is what may raise the heard-to mark. A body
-missing it claims no playback rather than an impossible amount of it.
+There was a `played_ms` here until ADR 10 — sound that really came out of the
+speaker since the last report, which was what a report had to prove before the
+high-water mark would follow it. Nothing reads it now. A page that still sends
+one is taken at its word about the position anyway, which matters because a
+phone holds the app it last loaded for as long as it likes.
 
 `reason` is one of `load`, `play`, `tick`, `seek`, `chapter`, `pause`, `hidden`,
 `unload`, `ended`, `switch`. An unknown one is taken as a tick and noted in the
@@ -530,8 +530,8 @@ than a decision, kept so that a word nobody wrote can be noticed on the way in.
 **Always 200**, in one of three:
 
 ```json
-{"accepted": true,  "gid": 271, "position_ms": 11560000, "seq": 3, "heard_to_ms": 12040000}
-{"accepted": false, "gid": 271, "position_ms": 9930000, "seq": 4, "heard_to_ms": 12040000, "reason": "moved"}
+{"accepted": true,  "gid": 271, "position_ms": 11560000, "seq": 3}
+{"accepted": false, "gid": 271, "position_ms": 9930000, "seq": 4, "reason": "moved"}
 {"accepted": false, "gid": 271, "reason": "gone"}
 ```
 

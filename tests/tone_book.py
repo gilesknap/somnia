@@ -83,8 +83,6 @@ def build_tone_book(
     conn: sqlite3.Connection,
     library_dir: Path,
     embedder: Embedder,
-    *,
-    heard_to_ms: int = TOTAL_MS,
 ) -> Path:
     """Seed the tone book into ``conn``, with its audio under ``library_dir``.
 
@@ -99,9 +97,10 @@ def build_tone_book(
     instance indexed it. Passing one in is what lets a search test find these
     passages at all.
 
-    ``heard_to_ms`` defaults to the whole book: a player test should not have
-    to think about the spoiler guard. A test of the guard itself should lower
-    it, and chapter boundaries are the interesting values.
+    The book is seeded with no position at all, which is a book nobody has
+    started — so the spoiler guard is shut, since ADR 10 made the position the
+    whole of what it reads. A test that wants a listener inside the book puts
+    one there, and chapter boundaries are the interesting values.
     """
     book_dir = library_dir / AUTHORS / TITLE
     book_dir.mkdir(parents=True, exist_ok=True)
@@ -109,8 +108,8 @@ def build_tone_book(
     with conn:
         conn.execute(
             "INSERT OR REPLACE INTO books (gid, title, authors, voice, status,"
-            " total_ms, heard_to_ms) VALUES (?, ?, ?, 'af_heart', 'done', ?, ?)",
-            (GID, TITLE, AUTHORS, TOTAL_MS, heard_to_ms),
+            " total_ms) VALUES (?, ?, ?, 'af_heart', 'done', ?)",
+            (GID, TITLE, AUTHORS, TOTAL_MS),
         )
         for idx, chapter in enumerate(CHAPTERS):
             audio_path = book_dir / chapter.file_name

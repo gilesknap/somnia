@@ -228,15 +228,14 @@ def test_re_rendering_a_book_keeps_where_they_had_got_to(
     with conn:
         conn.execute(
             "UPDATE books SET position_ms = 300000, position_seq = 3,"
-            " position_at = '2026-08-05 23:40:00', heard_to_ms = 250000"
-            " WHERE gid = 271"
+            " position_at = '2026-08-05 23:40:00' WHERE gid = 271"
         )
 
     _ingest(conn, tmp_path)
 
     row = conn.execute("SELECT * FROM books WHERE gid = 271").fetchone()
     assert (row["position_ms"], row["position_seq"]) == (300_000, 3)
-    assert (row["position_at"], row["heard_to_ms"]) == ("2026-08-05 23:40:00", 250_000)
+    assert row["position_at"] == "2026-08-05 23:40:00"
     # And it still did its own job: what a render knows, it wrote.
     assert (row["title"], row["voice"], row["status"]) == (
         "Black Beauty",
@@ -278,7 +277,7 @@ def test_rendering_a_book_for_the_first_time_creates_its_row(tmp_path: Path) -> 
     finally:
         conn.close()
     assert (row["title"], row["status"]) == ("Black Beauty", "done")
-    assert (row["position_ms"], row["heard_to_ms"]) == (None, 0)
+    assert row["position_ms"] is None
     assert row["total_ms"] > 0
     # And how many chapters it has, which is the only honest denominator there
     # is: total_ms cannot serve, because while a book renders it means "how much
@@ -536,8 +535,7 @@ def test_a_stop_and_a_resume_leave_the_listener_exactly_where_they_were(
         with conn:
             conn.execute(
                 "UPDATE books SET position_ms = 4000, position_seq = 3,"
-                " position_at = '2026-08-05 23:40:00', heard_to_ms = 3500"
-                " WHERE gid = 271"
+                " position_at = '2026-08-05 23:40:00' WHERE gid = 271"
             )
         night = dict(book_row(conn))
 
@@ -551,11 +549,7 @@ def test_a_stop_and_a_resume_leave_the_listener_exactly_where_they_were(
         conn.close()
 
     for row in (after_stop, after_resume):
-        assert [row[c] for c in ("position_ms", "position_seq", "heard_to_ms")] == [
-            4000,
-            3,
-            3500,
-        ]
+        assert [row[c] for c in ("position_ms", "position_seq")] == [4000, 3]
         assert row["position_at"] == night["position_at"]
     assert (after_stop["status"], after_resume["status"]) == ("pending", "done")
 

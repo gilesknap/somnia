@@ -637,11 +637,6 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             gid,
             position_ms,
             _number(payload.get("seq")),
-            # A page too old to know about this one, or a garbled body, claims
-            # no playback rather than an impossible amount of it: the mark then
-            # rises only where the report stands, which is what a report with
-            # nothing behind it deserves.
-            max(0, _number(payload.get("played_ms"))),
         )
         # Nulls dropped rather than sent: a report about a book that is gone
         # has no position to talk about, and saying "position_ms": null would

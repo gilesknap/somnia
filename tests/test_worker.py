@@ -273,17 +273,15 @@ def seed_a_night(conn: sqlite3.Connection) -> None:
     with conn:
         conn.execute(
             "INSERT INTO books (gid, title, voice, status, position_ms,"
-            " position_seq, position_at, heard_to_ms)"
+            " position_seq, position_at)"
             " VALUES (271, 'Black Beauty', 'af_heart', 'pending', 4000, 3,"
-            " '2026-08-05 23:40:00', 3500)"
+            " '2026-08-05 23:40:00')"
         )
 
 
 def night(conn: sqlite3.Connection) -> list[Any]:
     row = book_row(conn)
-    return [
-        row[c] for c in ("position_ms", "position_seq", "position_at", "heard_to_ms")
-    ]
+    return [row[c] for c in ("position_ms", "position_seq", "position_at")]
 
 
 def a_book_with_room_to_stop() -> Book:

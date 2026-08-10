@@ -54,19 +54,18 @@ const HIDDEN_TEXT =
 const RAIN_TEXT = "The water was over the low part of the road.";
 const AFTER_TEXT = "Nobody said anything for a long while after that.";
 
-// The mark: how far into this book the sound has really got. The page never
-// reads it and never recomputes anything from it — `ahead` arrives already
-// decided — so this stands in for the server, applying the rule the server
-// applies: `start_ms >= heard_to_ms`, with no slack and no exemption for a
-// finished book. Tests that want to prove the page obeys rather than
-// calculates build their places by hand instead.
+// The line: where this book has got to. `ahead` arrives already decided, so
+// this stands in for the server, applying the rule the server applies:
+// `start_ms >= position_ms`, with no slack and no exemption for a finished
+// book. Tests that want to prove the page obeys rather than calculates build
+// their places by hand instead.
 function place(chunk_id, start_ms, text, { chapter_idx, chapter_title }) {
   return {
     chunk_id,
     start_ms,
     chapter_idx,
     chapter_title,
-    ahead: start_ms >= HALF_HEARD.heard_to_ms,
+    ahead: start_ms >= HALF_HEARD.position_ms,
     text,
   };
 }
@@ -75,14 +74,14 @@ const BEHIND = { chapter_idx: 0, chapter_title: "What They Have Heard" };
 const BEYOND = { chapter_idx: 1, chapter_title: "What They Have Not" };
 
 // Four places in the open book — the most a list is ever allowed to hold: two
-// behind the mark, one exactly on it, and one well past it. The odd
-// millisecond on the second is deliberate; it is the one a row is tapped on,
-// and a page that rounded a candidate to the second would land four hundred
-// milliseconds from the sentence they picked.
+// behind where they are, one just past it on the chapter boundary, and one well
+// past it. The odd millisecond on the second is deliberate; it is the one a row
+// is tapped on, and a page that rounded a candidate to the second would land
+// four hundred milliseconds from the sentence they picked.
 function places() {
   return [
     place(11, 300_000, HEARD_TEXT, BEHIND),
-    place(12, 1_234_567, RAIN_TEXT, BEHIND),
+    place(12, 734_567, RAIN_TEXT, BEHIND),
     place(13, 1_800_000, HIDDEN_TEXT, BEYOND),
     place(14, 2_400_000, AFTER_TEXT, BEYOND),
   ];
@@ -349,20 +348,20 @@ test("the places are in time order with where they are among them", async (t) =>
     rows(page).map((row) => [row.when, row.kind]),
     [
       ["0:05:00", "heard"],
+      ["0:12:14", "heard"],
       // Spliced in among them and not stuck at the top: the whole of what the
       // list answers without reading a word is that everything below this line
       // has not happened yet.
       ["0:16:40", "here"],
-      ["0:20:34", "heard"],
       ["0:30:00", "ahead"],
       ["0:40:00", "ahead"],
     ],
   );
   // The name on the rule, and nothing else on it: the time is stated under it
   // at the size the list states times, not tucked into a label at 11dp.
-  assert.equal(rows(page)[1].label, "you are here");
+  assert.equal(rows(page)[2].label, "you are here");
   assert.equal(
-    rows(page)[1].caveat,
+    rows(page)[2].caveat,
     "anything below this line you may not have heard",
   );
 });
@@ -521,11 +520,11 @@ test("here still names where they asked from after a place has been chosen", asy
   // The move this row exists to undo, and it takes the screen down with it.
   page.click("candidate-go-12");
   await page.settle();
-  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().positionMs, 734_567);
 
   // Opened again, which is the only way back to the press — and the whole of
   // what this test is for. Read off the playhead, the rule would now say
-  // 0:20:34, and the one press that had to remember would be the one that
+  // 0:12:14, and the one press that had to remember would be the one that
   // could not.
   page.openPlaces();
   const here = rows(page).find((row) => row.kind === "here");
@@ -550,11 +549,11 @@ test("after a goto the rule says they were here", async (t) => {
 
   page.click("candidate-go-12");
   await page.settle();
-  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().positionMs, 734_567);
 
   page.openPlaces();
   const here = rows(page).find((row) => row.kind === "here");
-  // The word, and only the word. The book is at 0:20:34 and this row is about
+  // The word, and only the word. The book is at 0:12:14 and this row is about
   // 0:16:40 — "you are here" over that is not a cautious sentence, it is a
   // false one, on the screen that is not allowed any.
   assert.equal(here.label, "you were here");
@@ -636,7 +635,7 @@ test("a goto backwards past no place still changes the word", async (t) => {
   );
   assert.deepEqual(
     rows(page).map((row) => row.kind),
-    ["heard", "here", "heard", "ahead", "ahead"],
+    ["heard", "heard", "here", "ahead", "ahead"],
   );
 });
 
@@ -667,7 +666,7 @@ test("sound under a cancelled list changes the word and nothing else", async (t)
   );
   assert.deepEqual(
     rows(page).map((row) => row.kind),
-    ["heard", "here", "heard", "ahead", "ahead"],
+    ["heard", "heard", "here", "ahead", "ahead"],
   );
 });
 
@@ -702,7 +701,7 @@ test("a night that comes back keeps the rule the question was asked at", async (
   assert.equal(here.label, "you were here");
   assert.deepEqual(
     rows(page).map((row) => row.kind),
-    ["heard", "here", "heard", "ahead", "ahead"],
+    ["heard", "heard", "here", "ahead", "ahead"],
   );
 });
 
@@ -785,17 +784,17 @@ test("a place at the mark is ahead of them and the one before it is not", async 
     reply: OFFER_SENTENCE,
     candidates: offer({
       places: [
-        // A millisecond short of the mark, and exactly on it. This is the whole
+        // A millisecond short of where they are, and exactly on it. This is the whole
         // of the boundary: with `>` instead of `>=` the second of these would
         // paint the sentence they have not heard yet in the clear, and on a
         // book nobody has played a second of it would do it to every row.
-        place(41, 1_799_999, RAIN_TEXT, BEHIND),
-        place(42, 1_800_000, HIDDEN_TEXT, BEYOND),
+        place(41, 999_999, RAIN_TEXT, BEHIND),
+        place(42, 1_000_000, HIDDEN_TEXT, BEYOND),
       ],
     }),
   });
   await page.ask("the bit where the horse goes down");
-  const [, before, at] = rows(page);
+  const [before, at] = rows(page);
   // Behind it: the chapter they are in, named in full because a chapter they
   // have heard cannot spoil anything, and no words. The words are withheld here
   // for a reason that is not the guard — a list of four passages is not a list
@@ -1134,7 +1133,7 @@ test("a tailnet that does not answer costs the rule nothing but the press", asyn
   assert.equal(page.probe().toast, "");
   assert.deepEqual(
     rows(page).map((row) => row.kind),
-    ["heard", "here", "heard", "ahead", "ahead"],
+    ["heard", "heard", "here", "ahead", "ahead"],
   );
 });
 
@@ -1176,11 +1175,11 @@ test("a row goes to the millisecond it names and plays it", async (t) => {
   // has already gone to one of them.
   assert.equal(page.probe().candidatesUp, false);
   // To the millisecond the row named, and not to the second it was drawn as.
-  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().positionMs, 734_567);
   // Within the chapter already loaded: one write to the element's clock and no
   // second source. A seek on a live element needs no permission at all, which
   // is what keeps the autoplay policy out of the common case.
-  assert.equal(page.audio.currentTime, 1234.567);
+  assert.equal(page.audio.currentTime, 734.567);
   assert.equal(page.audio.srcWrites.length, srcWrites);
   // Reproducing "now press play yourself" in JavaScript would be a joke.
   assert.deepEqual(page.order.slice(from), ["play", "state:playing"]);
@@ -1190,7 +1189,7 @@ test("a row goes to the millisecond it names and plays it", async (t) => {
   // be said — and it says where, because where nine hours of book have gone is
   // the one thing the reader cannot see and the fact that it is playing is the
   // one thing they can already hear.
-  assert.equal(page.probe().toast, "moved to 0:20:34");
+  assert.equal(page.probe().toast, "moved to 0:12:14");
 });
 
 test("the move is announced on the seek and not on a timer", async (t) => {
@@ -1207,8 +1206,8 @@ test("the move is announced on the seek and not on a timer", async (t) => {
   // and it is the long one: this sentence carries a way back, and six seconds
   // rather than 2.8 is what gives the realisation somewhere to land.
   assert.deepEqual(page.waits().slice(waits), [6000]);
-  assert.equal(page.probe().positionMs, 1_234_567);
-  assert.equal(page.probe().toast, "moved to 0:20:34");
+  assert.equal(page.probe().positionMs, 734_567);
+  assert.equal(page.probe().toast, "moved to 0:12:14");
 });
 
 // ------------------------------------------------------------- the way back
@@ -1227,7 +1226,7 @@ test("the way back on a goto puts them exactly where it found them", async (t) =
   await page.ask("the bit with the cart");
   page.click("candidate-go-12");
   await page.settle();
-  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().positionMs, 734_567);
   assert.equal(page.probe().undo, true);
 
   page.click("toast-undo");
@@ -1260,7 +1259,7 @@ test("the way back stands for six seconds and then is not there", async (t) => {
   // outlast the moment somebody realises they wanted it, which is after they
   // have read the sentence and not during.
   assert.equal(page.wake(2800), false);
-  assert.equal(page.probe().toast, "moved to 0:20:34");
+  assert.equal(page.probe().toast, "moved to 0:12:14");
   assert.equal(page.probe().undo, true);
 
   assert.equal(page.wake(6000), true);
@@ -1286,7 +1285,7 @@ test("a way back that has expired is a press that does nothing", async (t) => {
   // seek waiting for the one night the sheet loads wrong.
   page.click("toast-undo");
   await page.settle();
-  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().positionMs, 734_567);
   assert.equal(page.probe().toast, "");
 });
 
@@ -1304,12 +1303,12 @@ test("a book that moved since keeps the receipt and loses the way back", async (
   // chosen to leave — a fourth move, offered as a way back.
   page.click("fwd30");
   await page.settle();
-  assert.equal(page.probe().positionMs, 1_264_567);
+  assert.equal(page.probe().positionMs, 764_567);
   assert.equal(page.probe().undo, false);
-  // The sentence stands, because it is still true. "moved to 0:20:34" is a
+  // The sentence stands, because it is still true. "moved to 0:12:14" is a
   // receipt for something that really happened, and it reads no worse for the
   // offer beside it having gone.
-  assert.equal(page.probe().toast, "moved to 0:20:34");
+  assert.equal(page.probe().toast, "moved to 0:12:14");
 });
 
 test("the way back does not survive a change of book", async (t) => {
@@ -1337,7 +1336,7 @@ test("the way back does not survive a change of book", async (t) => {
   for (let turn = 0; turn < 3; turn++) await page.settle();
   assert.equal(page.probe().gid, OTHER_BOOK.gid);
   // A position in the book they have just left is not somewhere this press can
-  // take them: 0:20:34 is past the end of a sixteen-second book, and in a book
+  // take them: 0:12:14 is past the end of a sixteen-second book, and in a book
   // that was long enough it would be a millisecond measured in the wrong one.
   assert.equal(page.probe().undo, false);
 });
@@ -1376,14 +1375,11 @@ test("a chosen row is reported as the seek it is, and bumps no count", async (t)
   // A fabricated one would either do nothing at all or leave this page holding
   // a number the database has never had, after which every report for the rest
   // of the night is refused and the refusal drags them backwards.
-  assert.deepEqual(page.reports(), [[HALF_HEARD.gid, "seek", 1_234_567]]);
+  assert.deepEqual(page.reports(), [[HALF_HEARD.gid, "seek", 734_567]]);
   assert.equal(page.posts[0].body.seq, HALF_HEARD.seq);
-  // And nothing played to get there. A jump moves the position and not the
-  // playback, which is the whole of what the mark is measured against.
-  assert.equal(page.posts[0].body.played_ms, 0);
 });
 
-test("choosing a place they have not heard raises the mark only by what then plays", async (t) => {
+test("choosing a place they have not heard carries the guard there with them", async (t) => {
   const page = await playing(t);
   page.answers({ reply: OFFER_SENTENCE, candidates: offer() });
   await page.ask("the bit where the horse goes down");
@@ -1396,15 +1392,12 @@ test("choosing a place they have not heard raises the mark only by what then pla
   page.audio.arrived();
   for (let turn = 0; turn < 3; turn++) await page.settle();
   assert.equal(page.probe().positionMs, 1_800_000);
-  // Not one millisecond of it is claimed as listened to. Going somewhere is not
-  // hearing it, and this is the direction the guard exists for.
+  // And the server is told where they are, which since ADR 10 is the whole of
+  // what it needs: pressing a row they have not heard is a deliberate act, and
+  // the line the next question is answered against goes with them.
   assert.equal(page.posts.length > 0, true);
-  for (const post of page.posts) assert.equal(post.body.played_ms, 0);
-  // The other direction, which the same file has to prove: a guard that never
-  // rises is not a fix. Three seconds of book really come out of the speaker
-  // and the next report says so — two of them, because the first sample after
-  // a jump is the baseline the rest are measured from and nobody heard the
-  // ground behind it.
+  assert.equal(page.posts.at(-1).body.position_ms, 1_800_000);
+  // The night carries on from there rather than from where the list was drawn.
   page.posts.length = 0;
   page.audio.advance(1);
   page.audio.advance(1);
@@ -1412,10 +1405,7 @@ test("choosing a place they have not heard raises the mark only by what then pla
   page.audio.advance(1);
   await page.settle();
   assert.equal(page.posts.length, 1);
-  assert.deepEqual(
-    [page.posts[0].body.reason, page.posts[0].body.played_ms],
-    ["tick", 2000],
-  );
+  assert.equal(page.posts[0].body.reason, "tick");
   assert.equal(page.posts[0].body.position_ms, 1_803_000);
 });
 
@@ -1535,7 +1525,7 @@ for (const [how, arrive] of [
     await page.ask("the bit with the cart");
     page.click("candidate-go-12");
     await page.settle();
-    assert.equal(page.probe().positionMs, 1_234_567);
+    assert.equal(page.probe().positionMs, 734_567);
     // The book moved, so the book is what is on the screen. A page left on the
     // transcript here is a seek somebody made and cannot see the result of.
     assert.equal(page.probe().screen, "player");
@@ -1911,8 +1901,8 @@ test("a page discarded overnight offers the last query's places again", async (t
     rows(page).map((row) => [row.when, row.kind]),
     [
       ["0:05:00", "heard"],
+      ["0:12:14", "heard"],
       ["0:16:40", "here"],
-      ["0:20:34", "heard"],
       ["0:30:00", "ahead"],
       ["0:40:00", "ahead"],
     ],
@@ -1923,7 +1913,7 @@ test("a page discarded overnight offers the last query's places again", async (t
   // where the line is drawn against tonight rather than against the question,
   // and it is a case that empties itself: the record is rewritten with the
   // stamp in it the moment the screen is opened.
-  assert.equal(rows(page)[1].when, "0:16:40");
+  assert.equal(rows(page)[2].when, "0:16:40");
   assert.equal(
     JSON.parse(page.storage.items.get("somnia-places")).here_ms,
     1_000_000,
@@ -1941,9 +1931,9 @@ test("a place restored from storage is one a thumb can act on", async (t) => {
   // look exactly like this one and do nothing at all when pressed - at 2am,
   // with no way to tell why.
   assert.equal(page.probe().candidatesUp, false);
-  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().positionMs, 734_567);
   assert.equal(page.audio.paused, false);
-  assert.equal(page.probe().toast, "moved to 0:20:34");
+  assert.equal(page.probe().toast, "moved to 0:12:14");
 });
 
 test("places kept overnight still keep their words back until the press", async (t) => {
@@ -2067,7 +2057,7 @@ test("a list found puts a count under the position and opens from it", async (t)
   // And it is the same screen, not a picture of one: the rows can be gone to.
   page.click("candidate-go-12");
   await page.settle();
-  assert.equal(page.probe().positionMs, 1_234_567);
+  assert.equal(page.probe().positionMs, 734_567);
 });
 
 test("one place found is said in the singular, as the screen says it", async (t) => {

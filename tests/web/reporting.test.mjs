@@ -46,9 +46,6 @@ test("a seek is reported at once", async (t) => {
   // between one tick and the next they may be an hour away.
   assert.deepEqual(page.reports(), [[900001, "seek", 4000]]);
   assert.equal(page.posts[0].body.seq, 0);
-  // And nothing played to get there, which is how the server knows it for a
-  // jump rather than for four seconds of listening.
-  assert.equal(page.posts[0].body.played_ms, 0);
 });
 
 test("ticks between heartbeats say nothing, and the fifteenth second does", async (t) => {
@@ -91,10 +88,6 @@ test("a pause is reported however recent the last report was", async (t) => {
     ["pause"],
   );
   assert.equal(page.posts[0].body.position_ms, 2000);
-  // And it carries the second that played since the last report with it. A
-  // pause is the best evidence there is that they listened up to here, and
-  // throwing it away leaves the mark behind the position with no way back.
-  assert.equal(page.posts[0].body.played_ms, 1000);
 });
 
 test("only one report is in flight at a time", async (t) => {
@@ -163,124 +156,31 @@ test("the page says one last thing on its way out", async (t) => {
   );
 });
 
-// ------------------------------------------------------- what really played
+// ------------------------------------------------------- across a boundary
 
-// The spoiler guard is on the other end of these. It cannot see the difference
-// between fifteen seconds of listening and a fifteen-second jump — both arrive
-// as a position further on than the last one — so the page is the thing that
-// has to say which it was, and it says it by counting the media clock. What
-// follows is every way that count can be got wrong.
-
-test("a report says how much of the book has really played", async (t) => {
-  const page = await playing(t);
-  page.audio.advance(1);
-  page.posts.length = 0;
-  page.tick(15_000);
-  page.audio.advance(1);
-  await page.settle();
-  assert.deepEqual(
-    page.posts.map((p) => [p.body.position_ms, p.body.played_ms]),
-    [[2000, 1000]],
-  );
-});
-
-test("a jump moves the position and not the playback", async (t) => {
-  const page = await playing(t);
-  page.audio.advance(0.5);
-  page.audio.advance(0.5);
-  page.posts.length = 0;
-  // Half a second of listening, and five and a half seconds of book. Whether
-  // it was a thumb on +30, a scrub on the lock screen or the agent taking them
-  // somewhere, the sound was not on for the distance.
-  page.seek(6000);
-  page.audio.fire("seeked");
-  await page.settle();
-  // Nothing at all, not even the half second: it was earned over the ground
-  // behind the jump and can only justify standing there. Carried across, it
-  // would be spent on the distance instead — which is what an agent move does
-  // every time, because the move refuses the report in flight and the seek
-  // that follows the refusal is the very next thing said.
-  assert.deepEqual(
-    page.posts.map((p) => [p.body.position_ms, p.body.played_ms]),
-    [[6000, 0]],
-  );
-});
-
-test("a refused report does not leave its playback to pay for the move", async (t) => {
-  const page = await playing(t);
-  page.audio.advance(0.5);
-  page.audio.advance(0.5);
-  page.reply({
-    accepted: false,
-    gid: 900001,
-    position_ms: 6000,
-    seq: 1,
-    reason: "moved",
-  });
-  page.posts.length = 0;
-  page.tick(15_000);
-  page.audio.advance(0.5);
-  await page.settle();
-  page.audio.fire("seeked");
-  await page.settle();
-  const [refused, followed] = page.posts;
-  assert.deepEqual(
-    [refused.body.reason, refused.body.position_ms, refused.body.played_ms],
-    ["tick", 1500, 1000],
-  );
-  // The same playback, arriving a moment later from four and a half seconds
-  // further on, would have covered most of the move.
-  assert.deepEqual(
-    [followed.body.reason, followed.body.position_ms, followed.body.played_ms],
-    ["seek", 6000, 0],
-  );
-});
-
-test("playback a report never got out with is carried by the next one", async (t) => {
-  const page = await playing(t);
-  page.audio.advance(0.5);
-  page.drop(true);
-  page.tick(15_000);
-  page.audio.advance(0.5);
-  await page.settle();
-  page.drop(false);
-  page.posts.length = 0;
-  page.tick(15_000);
-  page.audio.advance(0.5);
-  await page.settle();
-  // A second of listening, in two heartbeats, one of which went nowhere. Spent
-  // on the report that was never taken, the mark would be left half a second
-  // behind the position — and a mark behind the position refuses everything
-  // after it for the rest of the book.
-  assert.deepEqual(
-    page.posts.map((p) => p.body.played_ms),
-    [1000],
-  );
-});
-
-test("a chapter boundary is listening like any other second", async (t) => {
+test("a chapter boundary is playing like any other second", async (t) => {
   const page = await playing(t);
   // Straight across the boundary at the rate sound comes off the pipeline, and
-  // then far enough for a heartbeat to carry what it saw.
+  // then far enough for a heartbeat to carry where it got to.
   for (let tick = 0; tick < 18; tick++) page.audio.advance(0.5);
   page.posts.length = 0;
   page.tick(15_000);
   page.audio.advance(0.5);
   await page.settle();
-  // Nine and a half seconds of book, boundary and all, and every millisecond of
-  // it after the first sample is claimed — that one is the baseline the rest are
-  // measured from, and it is the only one the whole stretch costs.
+  // Nine and a half seconds of book, boundary and all, reported as one place
+  // on one clock. It used to be two reports and a discontinuity: a boundary
+  // was a swap, and a swap stepped over four hundred milliseconds of rendered
+  // silence. With the whole book down one URL there is nothing to step over.
   //
-  // It used to cost a great deal more. A boundary was a swap, and a swap threw
-  // the baseline away and stepped over four hundred milliseconds of rendered
-  // silence, so the guard was told about a chapter change and about landing in
-  // the new file, in two reports, with nothing played between them. With the
-  // whole book down one URL there is no discontinuity to step over and nothing
-  // to forgive: the media clock runs on, and what it says is what was heard.
+  // What the page used to say alongside this — how much of that stretch had
+  // really come out of the speaker — is gone with the mark it was counted for
+  // (ADR 10). The position was always the honest half of this report, and it is
+  // now the whole of it.
   assert.deepEqual(
-    page.posts.map((p) => [p.body.reason, p.body.position_ms, p.body.played_ms]),
-    [["tick", 9500, 9000]],
+    page.posts.map((p) => [p.body.reason, p.body.position_ms]),
+    [["tick", 9500]],
   );
+  assert.equal("played_ms" in page.posts[0].body, false);
 });
 
 // ------------------------------------------------------------------- following
@@ -474,17 +374,11 @@ test("the book they are taken out of is left where they got to", async (t) => {
     [parting.body.reason, parting.body.position_ms],
     ["switch", 6000],
   );
-  // And the playback that belongs to it goes with it, because this is the last
-  // chance to say so: a mark left behind the position they were left at would
-  // refuse everything they play the next time they open this book.
-  assert.equal(parting.body.played_ms, 5500);
-  // None of which is the new book's. The first thing said about that one
-  // claims nothing, or six seconds of somewhere else would be six seconds of
-  // it that nobody has heard.
+  // And the new book is reported on in its own right, from its own place.
   page.audio.ready();
   await page.settle();
   const opened = page.posts.find((p) => p.body.gid === 900002);
-  assert.equal(opened.body.played_ms, 0);
+  assert.equal(opened.body.position_ms, 4000);
 });
 
 test("a book they only opened is not written down when they leave it", async (t) => {

@@ -186,8 +186,7 @@ erDiagram
     text status "pending, rendering, done"
     int total_ms "grows while rendering"
     int chapters_total "how many it HAS; 0 = unknown"
-    int heard_to_ms "high-water mark"
-    int position_ms "nullable: never started"
+    int position_ms "nullable: never started. Also the spoiler guard's line"
     int position_seq "agent moves only"
     text position_at "last report taken, or opened; newest is last_gid"
     text created_at "brought in; the Workshop's other sort"
@@ -233,6 +232,14 @@ erDiagram
   chunks ||--|| vec_chunks : "rowid"
   books ||--o{ queue : "every time it was asked for"
 ```
+
+That is what somnia reads and writes, which is not quite the same list as what
+`PRAGMA table_info` would say. A database written before ADR 10 also carries
+`heard_to_ms`, and nothing removes it: a column nobody selects costs a few bytes
+a row, where `DROP COLUMN` costs a rewrite of the one table somnia cannot lose.
+It is not drawn above because a database made today has no such column, and a
+diagram that showed one would be wrong about every new install to be right about
+the old ones.
 
 `queue` has no foreign key to `books`, and that is not an oversight: a book is
 asked for before it exists, and its `books` row is not written until the parse
@@ -280,23 +287,23 @@ sequenceDiagram
   P->>PL: GET /api/books
   PL-->>P: last_gid
   P->>PL: GET /api/book/{gid}
-  PL-->>P: timeline, position, heard_to_ms
+  PL-->>P: timeline, position
   P->>PL: GET /api/stream/{gid}/{n}, Range
   Note over P,PL: one file for the whole book so far —<br>a chapter at a time is the fallback
 
   loop every 15s, and at every jump and stop
-    P->>PL: position_ms, seq, played_ms
+    P->>PL: position_ms, seq
     PL->>DB: UPDATE ... WHERE position_seq = ?
-    PL-->>P: accepted, heard_to_ms
+    PL-->>P: accepted, seq
   end
 
   Note over P,AN: "where does the horse die?"
   P->>AG: POST /api/ask
   AG->>AN: tool runner turn
   AN->>AG: find_passage
-  AG->>DB: search, bounded at heard_to_ms
-  AN->>AG: move_to
-  AG->>DB: position_seq + 1
+  AG->>DB: search, whole book
+  AN->>AG: offer_positions
+  AG->>DB: position_seq + 1, or a list to the page
   AG-->>P: reply, and where to go
   P->>P: jump there and play
 
@@ -319,40 +326,39 @@ touch is in [design.md](design.md).
 
 ## How far a question may see
 
-The spoiler guard is bounded by the **furthest point ever played through**, not
-by where they are now, because the agent can move the position anywhere. Only
-the page can tell a skip from a stretch of listening, so every report says how
-much audio really came out of the speaker since the last one taken.
+The spoiler guard is bounded by **where the book is**, and by nothing else. One
+column, written by the page's own reports and by an agent move, read by every
+search and by the one route that hands back book text.
 
 ```mermaid
 flowchart TD
-  R["a report arrives: position_ms, and the playback behind it"] --> C{"is it backed by playback that really happened?"}
-  C -- yes --> U["the mark rises to position_ms"]
-  C -- no --> K["the mark stands — a skip is not listening"]
-  U --> S["a search is bounded at the mark + 60 seconds"]
-  K --> S
-  S --> Q{"does a closer match lie past the bound?"}
-  Q -- yes --> O["say it is ahead of them and offer to go —<br>never what happens there"]
-  Q -- no --> A["answer from what they could have heard"]
+  R["a report arrives: position_ms"] --> U["the line moves to it — forwards or back"]
+  U --> F["find_passage reads the whole book"]
+  U --> C["recall reads as far as the line + 60 seconds"]
+  F --> H{"is this hit past the line?"}
+  H -- yes --> T["the model gets a time and an id —<br>no words, no chapter"]
+  H -- no --> W["the model gets the passage whole"]
+  C --> A["answer from what they could have heard,<br>and offer nothing past it"]
 ```
 
-The comparison allows five seconds of slack, and takes the smaller of the
-playback claimed and the wall clock since the last accepted report. The clock is
-a ceiling on the claim, not the answer to it: a phone asleep in a pocket for
-eight hours banks eight hours of clock and no listening at all. Because the
-playback appears on both sides of the comparison, the slack *is* the largest
-jump that can be laundered as listening — which is why it sits well below
-thirty seconds, the smallest forward jump the page has a button for. Two costs
-are accepted, and [design.md](design.md) argues both.
+It was a high-water mark until [ADR
+10](decisions/0010-draw-the-line-where-they-are.md), raised only over ground the
+sound had really covered — which every report had to prove by counting its own
+playback off the media clock, against a wall-clock ceiling and five seconds of
+slack. It could not be made to work: a report standing further past the mark
+than it had playback to show for could not be credited, and every report after
+a forward skip is such a report, so one press of +30 stopped the mark for the
+rest of the book. [design.md](design.md) argues what replaced it and what that
+gives up.
 
-The mark bounds what is *said* as well as what is searched, and those are two
-different distances. The agent may answer a question about a book out of what it
-already knows of it, as far as that line and no further
-([ADR 6](decisions/0006-answer-a-question-about-the-book.md)); `allow_spoilers`
-lets it read past the line to pick the right place to send somebody, and never
-lets it describe what it read. The question tool, `recall`, is bounded by the
-same code as a search and marks the turn so that `move_to` and
-`offer_positions` refuse — a question must not cost the listener their place.
+The line bounds what is *said*, not what may be found. The agent may answer a
+question about a book out of what it already knows of it, as far as that line
+and no further ([ADR 6](decisions/0006-answer-a-question-about-the-book.md)) —
+and it is never handed the words of a passage past it, so there is nothing there
+to be careless with ([ADR 11](decisions/0011-the-guard-belongs-on-the-row.md)).
+The question tool, `recall`, is the one that stops at the line when it reads,
+because prose has no press in front of it; it also marks the turn so that
+`offer_positions` refuses — a question must not cost the listener their place.
 
 ## What the page has to survive
 

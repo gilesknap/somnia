@@ -40,8 +40,15 @@ def test_a_database_from_before_this_feature_gains_the_chapter_count(
     """And the book in it is left exactly as it was found.
 
     A migration that disturbed a books row would be the same bug the upsert was
-    written to fix, arriving by another door: the position, the count of moves
-    and the high-water mark are what somebody's night is made of.
+    written to fix, arriving by another door: the position and the count of
+    moves are what somebody's night is made of.
+
+    ``heard_to_ms`` is asserted here too, and it is the only place left that
+    mentions it. ADR 10 stopped writing and reading it; nothing drops it, because
+    a column nobody selects costs a few bytes a row where DROP COLUMN costs a
+    rewrite of the one table somnia cannot lose. So the old value survives,
+    unread, and this says so out loud rather than leaving the next person to
+    wonder whether the migration ate it.
     """
     db_path = tmp_path / "old.db"
     old = sqlite3.connect(db_path)
