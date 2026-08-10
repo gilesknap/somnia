@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 import sys
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
@@ -1730,7 +1731,15 @@ def test_starting_the_server_starts_nothing_of_its_own(
     than in a stopwatch.
     """
     processes: list[Any] = []
-    warmed: list[bool] = []
+    # An event rather than a list, and waited on rather than read afterwards.
+    # The warm-up runs on the threadpool, so a list can only ever be inspected
+    # once the moment to observe it has gone: `create_task(run_in_threadpool(…))`
+    # at startup and `warming.cancel()` at shutdown mean a thread that has not
+    # been scheduled by the time the block exits is a thread that never runs.
+    # Reading a list afterwards therefore asserted that the scheduler had been
+    # quick, which is not a fact about this app. It held on a quiet machine and
+    # lost three times running on a contended two-core CI box.
+    warmed = threading.Event()
 
     def spawned(*args: Any, **kwargs: Any) -> None:
         processes.append(args)
@@ -1745,7 +1754,7 @@ def test_starting_the_server_starts_nothing_of_its_own(
     monkeypatch.setattr(subprocess, "Popen", spawned)
 
     def record_warm_up(self: server.Conversations) -> None:
-        warmed.append(True)
+        warmed.set()
 
     monkeypatch.setattr(server.Conversations, "warm", record_warm_up)
     monkeypatch.setattr(server, "Conversation", FakeConversation)
@@ -1760,9 +1769,14 @@ def test_starting_the_server_starts_nothing_of_its_own(
         # true of the real server too, and is only ever a deploy restarting
         # inside a second.
         assert started.get("/api/health").status_code == 200
+        # Inside the block, because leaving it is what cancels the warm-up.
+        # The ceiling is a bound on how long a broken app may hang the suite,
+        # not a wait a passing run spends: the thread is already running by the
+        # time the request above has been answered, on every machine where it
+        # is running at all.
+        assert warmed.wait(timeout=10), "the warm-up thread never ran"
 
     assert processes == []
-    assert warmed == [True]
     assert "torch" not in sys.modules
 
 
