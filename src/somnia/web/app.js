@@ -1313,8 +1313,13 @@ function seekGlobal(ms, { play = null } = {}) {
   // The book is going somewhere, so a list of places it might go is answered
   // however it got here — a row, a thumb on −30, the lock screen, or the agent
   // moving the book by the other route while they were still reading. A list
-  // left up over a book that has since moved offers rows whose "you are here"
-  // is a lie, and the next press acts on it.
+  // left up over a book that has since moved is a screen whose every row was
+  // sorted against a mark the book has left, and the next press acts on it.
+  //
+  // Not because of the label: reopened, that rule now reads `you were here` and
+  // says so — see hereRow. The label is redrawn and the rows are not, which is
+  // the whole reason this line is still the right call. Closing is about the
+  // ordering, which nothing redraws.
   closeCandidates();
   // And for the same reason one line up: a way back to where the book was
   // before the last `goto` is a lie the moment the book has been somewhere
@@ -3094,11 +3099,18 @@ placesOpen.addEventListener("click", showRemembered);
 // list took one away. See cancelCandidates.
 let rearmOnCancel = false;
 
-// Where the book is on this book's clock, read once per list and then written
-// into it — showCandidates stamps `here_ms` from this and every later rendering
-// uses the stamp. So this answers "where are they now", and the list answers
-// "where were they when they asked", and those stopped being the same question
-// the moment the rule became something to press.
+// Where the book is on this book's clock, read twice on every showing of a list
+// and for two different purposes. The first reading writes: showCandidates
+// stamps `here_ms` from it, once in the list's life, and every time and every
+// ordering on that screen is that stamp forever after. The second reading only
+// compares — it asks whether the sound is still where the stamp says, and the
+// answer is one word in the label. It must never write, because the stamp is
+// the way back and a way back that follows the playhead is a no-op.
+//
+// So this answers "where are they now", and the list answers "where were they
+// when they asked", and those stopped being the same question the moment the
+// rule became something to press. The row says both: the time is the second
+// question's answer, the tense is the first's.
 //
 // It is drawn into the list so that a glance says which rows are behind them
 // and which are ahead. That is the whole point of the row: "ahead" as a word is
@@ -3321,8 +3333,10 @@ function candidateRow(place) {
   return li;
 }
 
-// The rule drawn across the list at the point they have got to — and a place
-// now, which is the one place on this screen that goes nowhere new.
+// The rule drawn across the list at the point they had got to when they asked —
+// and a place now, which is the one place on this screen that goes nowhere new.
+// "Had got to", because the rule cannot promise the present tense: it is the
+// question's own moment, and the book can be somewhere else by the next showing.
 //
 // It was a rule and nothing else for a long time, and the argument was that the
 // listener's position is not a mark in this list: the places are search hits,
@@ -3347,10 +3361,16 @@ function candidateRow(place) {
 // followed the playhead would name the place the last press landed on, and
 // pressing it would be a no-op offered as an undo.
 //
+// The time is frozen; the word above it is not. The press is the reason for the
+// first — it has to remember a position nothing else wrote down — and the sound
+// is the reason for the second, because the sound is the only thing that can
+// make "you are here" false while the screen is away. `still` is the page
+// having just checked, and the label reads `you are here` only while it holds.
+//
 // `more` is whether there is anything under the rule. The sentence beneath it
 // is about what follows it, and printed with nothing following, it would be a
 // warning about an empty screen.
-function hereRow(list, ms, { more, back }) {
+function hereRow(list, ms, { more, back, still }) {
   const li = document.createElement("li");
   li.className = "candidate here";
   li.setAttribute("aria-current", "true");
@@ -3358,9 +3378,16 @@ function hereRow(list, ms, { more, back }) {
   // the same change that gave this row a time of its own at the size every
   // other row states its time in — one line saying it twice, once at 9px, was
   // the old row's whole problem in one string.
+  //
+  // Two words, and the tense is the only thing on this screen that is not the
+  // photograph. `you are here` said over a book that has moved is not an
+  // over-warning that a reader can discount, it is a false sentence on the one
+  // screen whose promise is that it says nothing nobody has checked — so the
+  // moment the sound is anywhere but the stamp, the row says so and keeps
+  // everything else exactly as it was.
   const mark = document.createElement("p");
   mark.className = "section-label here-mark";
-  mark.textContent = "you are here";
+  mark.textContent = still ? "you are here" : "you were here";
   li.append(mark);
 
   // The reading, in the shape candidateRow builds it: the same classes, so the
@@ -3528,13 +3555,31 @@ function showCandidates(list) {
   // which under the old rule recomputed `here` as the place the `goto` had just
   // landed on. The one press that had to remember was the one that could not.
   //
-  // Frozen, the whole screen is one photograph of the moment the question was
-  // asked, which is what the rest of it already was: `ahead` was decided by the
+  // Frozen, the rows are one photograph of the moment the question was asked,
+  // which is what the rest of them already were: `ahead` was decided by the
   // server against its own mark at that moment and has never been refreshed
   // either. The cost is that the rule can be older than the sound — they may
   // have listened past a row that still sits below the line — and that is the
   // direction this list is allowed to be wrong in. It over-warns. It cannot
   // print a sentence somebody has not heard.
+  //
+  // The label above the rule is the one thing that is not in the photograph,
+  // and it is the exception the over-warning argument does not cover: a warning
+  // that is too cautious is still readable, but `you are here` over a book that
+  // has moved is simply a false sentence, and this is the screen that cannot
+  // afford one. So the tense is decided fresh on every showing, against the
+  // time and nothing else — `still`, below.
+  //
+  // Against the time and not against the splice, which is the tempting cleverer
+  // test and the wrong one. "Has the playhead crossed one of the places?" is
+  // false after a `goto` backwards that lands between the same two rows, which
+  // is precisely the reported bug: press a row at 0:05:00 from a rule at
+  // 0:16:40 and the mark's index has not moved an inch, and the screen would
+  // still claim they are somewhere they left. Exact equality has no such hole
+  // and needs no threshold — see ADR 4, which is explicit that this page has
+  // none. It also has a property worth having: pressing `here` lands the
+  // playhead exactly on the stamp, so the way back, taken, makes the sentence
+  // true again.
   //
   // Unstamped rather than stamped with a lie when there is no number: a book
   // nobody has ever started has no position, and "never started" and "at
@@ -3560,6 +3605,11 @@ function showCandidates(list) {
 
   const rows = list.places.map(candidateRow);
   const here = list.here_ms;
+  // The second reading of hereTime, the one that only compares. On the first
+  // showing of any list this is the same call that stamped, with nothing
+  // between the two that can move the playhead, so an answer arriving always
+  // reads `you are here` — which is the showing that matters most.
+  const now = hereTime(list);
   if (typeof here === "number") {
     // Spliced in among them in book order, which is the only arrangement that
     // answers the question the list is for without reading a word: everything
@@ -3577,6 +3627,12 @@ function showCandidates(list) {
         // Pressable only where going there means anything: the book this list
         // is about is the book making the sound. See hereRow.
         back: list.gid === gid && Boolean(manifest),
+        // Present tense only while the sound has not left the stamp. For a list
+        // about another book `hereTime` hands back `list.position_ms`, which is
+        // what the stamp was taken from and never moves while the list is in
+        // hand, so that rule keeps the present tense — it is a claim about
+        // where they are in that book, and nothing here can make it stale.
+        still: now === here,
       }),
     );
   }

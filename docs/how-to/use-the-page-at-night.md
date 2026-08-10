@@ -43,9 +43,13 @@ after this one. Every row starts covered: press its reading and the words come
 up, press it again and they go away, so the list can be read down without ending
 up as four paragraphs of book on a phone at 2am. Sitting between the rows in
 book order, so you can see which places are behind you and which are ahead,
-there is a *you are here* line — and under it, in amber, where you actually are:
-the time, the words being spoken there behind the same press, and a *here*
-button that takes you back to it if you have gone somewhere and it was wrong.
+there is a *you are here* line — and under it, in amber, where you were when you
+asked: the time, the words being spoken there behind the same press, and a
+*here* button that takes you back to it if you have gone somewhere and it was
+wrong. If the book has moved on since — you pressed *goto*, or the sound simply
+ran on — the line says *you were here* instead, and the amber time under it is
+still the one the *here* button will take you back to. Go back to it and the
+line reads *you are here* again.
 Press *goto* on a row and the book goes there and plays, and the list
 goes with it, leaving you on the player looking at where you have arrived. The
 line at the foot of the screen names where you landed — *moved to 1:20:20* —
