@@ -74,6 +74,10 @@ def _queue_line(row: "QueueRow") -> str:
         )
     elif row.error:
         detail = row.error
+    # Beside the progress rather than instead of it: a note is about the book,
+    # not about how far through it the render is, and both are wanted at once.
+    if row.note:
+        detail = f"{detail} — {row.note}" if detail else row.note
     return f"{row.id:>4}  {where:<14}  {name}" + (f"  ({detail})" if detail else "")
 
 

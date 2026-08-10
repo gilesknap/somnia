@@ -1442,6 +1442,7 @@ def test_the_queue_says_what_is_rendering_and_what_is_waiting(
         "stopping",
         "responding",
         "error",
+        "note",
         "submitted_at",
         "started_at",
     }

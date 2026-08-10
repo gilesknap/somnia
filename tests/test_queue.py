@@ -21,6 +21,7 @@ from somnia.queue import (
     claim,
     finish,
     note_chapter,
+    note_warning,
     reconcile,
     requeue,
     stop,
@@ -348,6 +349,29 @@ def test_a_chapter_moves_its_own_clock(conn: sqlite3.Connection) -> None:
         ).fetchone()["chapter_at"]
         is not None
     )
+
+
+def test_a_note_says_something_without_failing_the_book(
+    conn: sqlite3.Connection,
+) -> None:
+    """A parse that looks wrong is not a render that has gone wrong: the row
+    stays 'rendering' and the readout carries the sentence beside the progress
+    rather than instead of it."""
+    result = submit(conn, 271)
+    claim(conn, lease="a", pid=1)
+    note_warning(conn, result.id, lease="a", note="only 3 chapters")
+    row = next(r for r in view(conn) if r.id == result.id)
+    assert (row.state, row.note, row.error) == ("rendering", "only 3 chapters", "")
+
+
+def test_a_note_needs_the_lease_like_every_other_write(
+    conn: sqlite3.Connection,
+) -> None:
+    result = submit(conn, 271)
+    claim(conn, lease="a", pid=1)
+    note_warning(conn, result.id, lease="", note="ignored")
+    note_warning(conn, result.id, lease="somebody-else", note="ignored")
+    assert next(r for r in view(conn) if r.id == result.id).note == ""
 
 
 def test_finish_records_why_and_gives_the_slot_back(conn: sqlite3.Connection) -> None:
