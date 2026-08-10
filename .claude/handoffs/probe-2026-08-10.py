@@ -106,9 +106,7 @@ def scenario_one_hit() -> bool:
     conversation = Conversation(cfg, lib, client)
     result = turn(conversation, "take me to where the hare dies", BEAUTY)
     show(result)
-    one = bool(result["move"]) or (
-        result["offer"] and len(result["offer"].places) == 1
-    )
+    one = bool(result["move"]) or (result["offer"] and len(result["offer"].places) == 1)
     print(f"      => {'PASS' if one else 'FAIL'} (wanted exactly one place)")
     return bool(one)
 
