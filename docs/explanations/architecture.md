@@ -180,7 +180,8 @@ erDiagram
   }
   books {
     int gid PK
-    text title "the catalog's name; the scrape only if it has none"
+    text title "the catalog's name, until somebody says otherwise"
+    text authors "same, and renamed with it"
     text voice "which narrator read it; never changed mid-book"
     text status "pending, rendering, done"
     int total_ms "grows while rendering"
@@ -189,6 +190,9 @@ erDiagram
     int position_ms "nullable: never started"
     int position_seq "agent moves only"
     text position_at "last report taken, or opened; newest is last_gid"
+    text created_at "brought in; the Workshop's other sort"
+    text finished_at "nullable: the reader is done. Not status, which is the render's"
+    text renamed_at "nullable: a person has had an opinion, so ingest stops overwriting the name"
   }
   queue {
     int id PK
@@ -391,6 +395,7 @@ fling them past the spoiler guard into the ending.
 | `tools` | Everything the agent can do, as a plain library with no Anthropic import |
 | `agent` | The system prompt and the tool-runner loop |
 | `player` | The fast lane: manifest, audio files, position reports |
+| `library` | The daytime verbs: take a book away for good, mark it finished, say what it is called |
 | `stream` | The chapters joined into one file per version, so a boundary touches nothing |
 | `server` | Starlette routes, conversation storage, the mounted page |
 | `config` | Where everything is and what it is set to, from the environment |

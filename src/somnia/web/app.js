@@ -3660,8 +3660,8 @@ function closeCandidates() {
 }
 
 // Cancel, and only cancel. It is three assignments and at most one listener put
-// back, and that is the whole of it: no move, no report, no seq bump, no write
-// to Audiobookshelf, and nothing said on the status line.
+// back, and that is the whole of it: no move, no report, no seq bump, and
+// nothing said on the status line.
 //
 // The button says `close` now and this still is the cancel. `cancel` was the
 // word while the list read as a question with an answer owed; it is a screen of

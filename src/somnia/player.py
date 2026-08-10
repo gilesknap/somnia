@@ -12,8 +12,7 @@ The only thing it may not hand to the page is ``audio_file`` itself, which is an
 absolute path on the VPS. Chapters are addressed by index and resolved here.
 
 It writes one thing: where they have got to. That is the pivot in a sentence —
-the position is somnia's own record now, kept here rather than asked of
-Audiobookshelf, which is told afterwards as a courtesy and never read.
+the position is somnia's own record, kept here, and there is nobody else to ask.
 """
 
 import logging
