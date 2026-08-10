@@ -14,6 +14,7 @@ from fakes import FakeEmbedder
 from somnia.agent import (
     MAX_HOPS,
     OFFER_SENTENCE,
+    ONE_PLACE_SENTENCE,
     SYSTEM_PROMPT,
     Conversation,
     build_tools,
@@ -549,24 +550,75 @@ def test_a_turn_that_offered_hands_the_page_the_list_and_says_one_sentence(
     assert seq(searchable) == 0
 
 
+def test_one_place_on_the_screen_is_not_told_there_are_a_few_of_them(
+    searchable: Searchable,
+) -> None:
+    """A row and a press, said as a row and a press.
+
+    One place is a real outcome and the commonest one there is: "go to chapter
+    5" over a chapter they have not reached resolves to exactly one place, which
+    is ahead of them, which is a covered row. "There are a few places that could
+    be it" is false about it, and a model told to say something false says
+    something else — in the wild it said *"you're there now, at the beginning of
+    chapter 5"* over a book that had not moved and was not going to until a
+    thumb answered. So the sentence for one place says the press out loud.
+    """
+    conversation = Conversation(
+        Config(),
+        searchable.library,
+        client_that_acts(
+            [said()],
+            calls=[
+                (
+                    "find_passage",
+                    {"gid": 271, "description": "the meadow with the pond"},
+                ),
+                (
+                    "offer_positions",
+                    {"gid": 271, "chunk_ids": [place(searchable, 300_000)]},
+                ),
+            ],
+        ),
+    )
+    turn = conversation.ask("the bit by the pond")
+
+    assert turn.reply == ONE_PLACE_SENTENCE
+    assert turn.candidates is not None
+    assert [p.start_ms for p in turn.candidates.places] == [300_000]
+    assert turn.move is None
+    assert seq(searchable) == 0
+
+
 def test_the_sentence_beside_a_list_says_nothing_about_what_is_on_it(
     searchable: Searchable,
 ) -> None:
-    """It names no place, no chapter, no character and no time.
+    """Neither of them names a place, a chapter, a character or a time.
 
     A sentence that summarised the list would leak exactly what the "show me
-    what's there" control exists to withhold, and it would do it in the one
-    part of the reply that is read aloud. The prompt quotes the same constant,
-    so the words the model is told to say and the words said on its behalf
-    cannot drift apart.
+    what's there" control exists to withhold, and it would do it in the one part
+    of the reply that is read aloud.
+
+    There are two because one row is a real outcome and not a degenerate one —
+    a chapter named but not yet reached is a covered row and a press — and "there
+    are a few places" is false about one place. Being told to say something
+    plainly false is what sent the model off writing its own: asked to go to a
+    chapter it had not reached, it drew the row and said "you're there now",
+    which was the one thing that had not happened.
+
+    Neither is quoted in the system prompt any more. Which of them to say
+    depends on what the call came back with, so the tool result carries the
+    words and the prompt says only to repeat them —
+    :func:`test_narrowing_to_one_place_ahead_of_them_is_the_same_list_either_way`
+    and the test above it are what hold the two ends together.
     """
     assert OFFER_SENTENCE == "There are a few places that could be it."
-    assert not re.search(r"\d", OFFER_SENTENCE)
-    for _, text, _ in PASSAGES:
-        assert text not in OFFER_SENTENCE
-    for title, _, _ in CHAPTERS:
-        assert title not in OFFER_SENTENCE
-    assert OFFER_SENTENCE in SYSTEM_PROMPT
+    assert ONE_PLACE_SENTENCE == "It's on the screen — press it to go there."
+    for sentence in (OFFER_SENTENCE, ONE_PLACE_SENTENCE):
+        assert not re.search(r"\d", sentence)
+        for _, text, _ in PASSAGES:
+            assert text not in sentence
+        for title, _, _ in CHAPTERS:
+            assert title not in sentence
 
 
 def client_recording_system(
@@ -627,6 +679,24 @@ def client_recording_calls(
     return cast(Anthropic, fake)
 
 
+def client_recording_questions(asked: list[str]) -> Anthropic:
+    """A client that keeps the question as the model received it, per turn.
+
+    Which book is open and where in it they are ride on the head of the question
+    now rather than on the end of the system prompt, so every assertion about
+    them reads the messages. The last user message is the one this turn added.
+    """
+
+    def tool_runner(**kwargs: Any) -> FakeRunner:
+        asked.append(str(kwargs["messages"][-1]["content"]))
+        return FakeRunner([said(text("Right you are."))])
+
+    fake = SimpleNamespace(
+        beta=SimpleNamespace(messages=SimpleNamespace(tool_runner=tool_runner))
+    )
+    return cast(Anthropic, fake)
+
+
 def test_the_open_book_is_named_to_the_model_on_every_turn(
     library_with_book: Library,
 ) -> None:
@@ -634,25 +704,30 @@ def test_the_open_book_is_named_to_the_model_on_every_turn(
     which one is making the sound, so the prompt's "ask one short question"
     rule fired every turn and the answer to anything was "which book?".
 
-    On the end of the system prompt and not in the messages, because it is a
-    fact about now. A page that opens another book between two questions must
-    not leave a sentence in the history that was true of the first one.
+    On the head of the question, because it is a fact about now and the system
+    prompt is read before a whole conversation that can contradict it. Taken
+    back off before the question is kept, so that a book swapped between two
+    turns leaves no sentence in the history that was true of the first one.
     """
-    systems: list[str] = []
+    asked: list[str] = []
     conversation = Conversation(
-        Config(), library_with_book, client_recording_system(systems)
+        Config(), library_with_book, client_recording_questions(asked)
     )
 
     conversation.ask("where was I?", 271)
-    assert systems[-1].startswith(SYSTEM_PROMPT)
-    assert "gid 271: Black Beauty" in systems[-1]
+    assert asked[-1].startswith("[Open: gid 271, Black Beauty")
+    assert asked[-1].endswith("where was I?")
 
     # Said again on the next turn rather than remembered from the last one.
     conversation.ask("and now?", 271)
-    assert "gid 271: Black Beauty" in systems[-1]
-    # ...and nowhere in the conversation itself, which is what stops a stale
-    # copy of it outliving the book it was about.
+    assert "gid 271, Black Beauty" in asked[-1]
+    # ...and nowhere in the history, which is what stops a stale copy of it
+    # outliving the book — or the position — it was about.
     assert all("gid 271" not in str(m.get("content")) for m in conversation.messages)
+    assert [m["content"] for m in conversation.messages if m["role"] == "user"] == [
+        "where was I?",
+        "and now?",
+    ]
 
 
 def test_how_hard_to_think_is_settable_and_reaches_the_model(
@@ -800,17 +875,18 @@ def test_an_effort_level_that_is_not_one_is_ignored_rather_than_obeyed(
     assert "meduim" in caplog.text
 
 
-def test_the_cached_half_of_the_prompt_is_the_half_that_never_changes(
+def test_the_whole_prompt_is_cached_because_none_of_it_varies(
     library_with_book: Library,
 ) -> None:
-    """A prompt cache is a prefix match, so the order is the whole of it.
+    """A prompt cache is a prefix match, and this is now a prefix of one block.
 
-    The constant prompt goes first with the breakpoint on it, and the line
-    naming the open book goes after. Swap them — or put a second breakpoint on
-    the volatile line — and the prefix changes every time the book does, which
-    is to say it is never read back and the cache silently costs money instead
-    of saving it. Nothing about a turn would look wrong; it would just be slow
-    again.
+    What used to hang off the end of the prompt — which book, where in it — is
+    on the question instead, so there is nothing volatile left to keep out of
+    the cached block. The proof that it worked is byte-identity across two turns
+    about two different books: anything that crept back in here would change
+    with the book, which is to say it would never be read back, and the cache
+    would silently cost money instead of saving it. Nothing about a turn would
+    look wrong; it would just be slow again.
     """
     systems: list[str] = []
     blocks: list[list[dict[str, Any]]] = []
@@ -822,16 +898,10 @@ def test_the_cached_half_of_the_prompt_is_the_half_that_never_changes(
     conversation.ask("and this one?", 999)
 
     for system in blocks:
-        assert system[0]["text"] == SYSTEM_PROMPT
+        assert [block["text"] for block in system] == [SYSTEM_PROMPT]
         assert system[0]["cache_control"] == {"type": "ephemeral"}
-        # Nothing after the breakpoint may be cached: those are the bytes that
-        # differ between two books, and a breakpoint there is a cache of one.
-        assert all("cache_control" not in block for block in system[1:])
 
-    # And the proof that the split was worth making: the cached block is
-    # byte-identical across two turns about two different books.
-    assert blocks[0][0]["text"] == blocks[1][0]["text"]
-    assert blocks[0][1]["text"] != blocks[1][1]["text"]
+    assert blocks[0] == blocks[1]
 
 
 def test_a_page_with_no_book_open_says_so_rather_than_leaving_it_out(
@@ -845,17 +915,16 @@ def test_a_page_with_no_book_open_says_so_rather_than_leaving_it_out(
     holding a book that was deleted underneath it, and an invented title would
     be worse than the ambiguity this whole line exists to remove.
     """
-    systems: list[str] = []
+    asked: list[str] = []
     conversation = Conversation(
-        Config(), library_with_book, client_recording_system(systems)
+        Config(), library_with_book, client_recording_questions(asked)
     )
 
     conversation.ask("what have I got?")
-    assert systems[-1] == SYSTEM_PROMPT + "\n\nThey have no book open."
+    assert asked[-1] == "[No book is open.]\nwhat have I got?"
 
     conversation.ask("what about this one?", 999)
-    assert systems[-1] == SYSTEM_PROMPT + "\n\nThey have no book open."
-    assert "999" not in systems[-1]
+    assert asked[-1] == "[No book is open.]\nwhat about this one?"
 
 
 def test_what_the_model_is_told_after_a_list_holds_no_time_and_no_words(
@@ -991,7 +1060,8 @@ def test_a_place_named_under_a_live_list_is_drawn_and_never_written(
 
     said = ready.call("offer_positions", gid=271, chunk_ids=[behind, behind])
 
-    assert "Offered them 1 place" in said
+    assert "Put 1 place on the screen" in said
+    assert ONE_PLACE_SENTENCE in said
     assert ready.moves == []
     assert seq(searchable) == 0
     assert [p.start_ms for p in ready.offers[-1].places] == [10_000]
@@ -1020,7 +1090,7 @@ def test_narrowing_to_one_place_ahead_of_them_is_the_same_list_either_way(
         "offer_positions", gid=271, chunk_ids=[place(searchable, 300_000)]
     )
 
-    assert "Offered them 1 place" in said
+    assert "Put 1 place on the screen" in said
     assert "one of them is further on" in said
     assert ready.moves == []
     assert seq(searchable) == 0
@@ -1738,3 +1808,69 @@ def test_a_named_place_is_still_refused_after_a_question(
     assert "say it in words" in said
     assert ready.moves == []
     assert seq(searchable) == 0
+
+
+def test_the_prompt_says_where_they_are_now_and_not_where_it_last_put_them(
+    searchable: Searchable,
+) -> None:
+    """The bug that answered "go to chapter 2" with "you're already there".
+
+    Nothing but this block tells the model where they are. The page's own seeks
+    are written to the database and never to the conversation, so the newest
+    thing the history says about their position is whatever this agent last did
+    about it — and after a move that is a sentence claiming they are somewhere
+    they have since dragged the scrubber away from. The model then agrees with
+    itself, calls no tool, and leaves them where they were.
+
+    Read fresh each turn, and put where nothing in the turn can be newer than
+    it: the head of the question. On the end of the system prompt it lost — the
+    system prompt is read before the whole conversation, and the model went on
+    repeating its own "you're at chapter 2, about thirty-two minutes in" from
+    the turn before while the prompt said 1:33:00.
+    """
+    asked: list[str] = []
+    conversation = Conversation(
+        Config(), searchable.library, client_recording_questions(asked)
+    )
+    with searchable.conn:
+        searchable.conn.execute("UPDATE books SET position_ms = 10000 WHERE gid = 271")
+
+    conversation.ask("where was I?", 271)
+    assert "ms=10000" in asked[-1]
+
+    # The page taking them somewhere, which reaches the database and nothing
+    # else. Nothing in the conversation knows it happened.
+    with searchable.conn:
+        searchable.conn.execute("UPDATE books SET position_ms = 800000 WHERE gid = 271")
+
+    conversation.ask("and now?", 271)
+    assert "ms=800000" in asked[-1]
+    assert "ms=10000" not in asked[-1]
+    # And the first turn's number is gone from the history rather than sitting
+    # in it disagreeing, which is the shape of the bug this fixes.
+    assert all("ms=" not in str(m.get("content")) for m in conversation.messages)
+    # Which of two contradicting positions is the live one is said once, in the
+    # constant prompt, since the volatile half is now the newest thing there is.
+    assert "true now and everything else is older" in SYSTEM_PROMPT
+
+
+def test_a_book_nobody_has_started_is_not_said_to_be_at_its_beginning(
+    searchable: Searchable,
+) -> None:
+    """Zero is a place and NULL is not, and this block must not confuse them.
+
+    "They are 0:00:00 into it" claims they have begun, which is the one thing
+    "never started" exists to deny — and it is the difference between a book
+    the spoiler guard is shut on and one open at its first minute.
+    """
+    asked: list[str] = []
+    conversation = Conversation(
+        Config(), searchable.library, client_recording_questions(asked)
+    )
+    with searchable.conn:
+        searchable.conn.execute("UPDATE books SET position_ms = NULL WHERE gid = 271")
+
+    conversation.ask("where was I?", 271)
+
+    assert "Not started." in asked[-1]
+    assert "0:00:00" not in asked[-1]
