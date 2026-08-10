@@ -24,7 +24,6 @@ the ones a served night depends on:
 | `ANTHROPIC_API_KEY` | the agent's model calls, paid by you not the phone |
 | `SOMNIA_LIBRARY_DIR` | where the rendered chapters are; the page streams them |
 | `SOMNIA_DATA_DIR` | where `somnia.db` lives, and where the joined-up copy of each book the page plays is written — sometimes more than one for a book opened mid-render; needs room, not just a path |
-| `SOMNIA_ABS_URL`, `SOMNIA_ABS_TOKEN` | optional: keeping Audiobookshelf roughly in step, and the one-off below |
 | `SOMNIA_AGENT_MODEL` | another model; the default is Haiku 4.5 |
 | `SOMNIA_AGENT_EFFORT` | how hard it may think before answering, on the models that have such a dial; Haiku has not |
 
@@ -33,20 +32,6 @@ fails quietly: everything starts, the agent answers, and every chapter 404s
 with the reason only in the journal. It defaults to `~/library/audiobooks`,
 which is right only if that is genuinely where `somnia add` put things —
 [Configuration](#config-fail-quietly) has why.
-
-Audiobookshelf is now optional. somnia writes your position to it when you
-stop, as a courtesy, so the ABS app finds roughly the right place if you open
-it somewhere else — but nothing reads it while a night is running, and a write
-that fails is logged and forgotten. Leave `SOMNIA_ABS_TOKEN` unset and no ABS
-client is built at all.
-
-Run `somnia seed-positions` once before the first night, if you have been
-listening in Audiobookshelf. It is the one thing that reads ABS: it takes
-where you had got to in each book, and how far you had heard, and puts them in
-somnia's own database, so the page opens the book you were actually in rather
-than the one added most recently, at the beginning. It says what it did for
-every book, it never moves a position backwards, and running it again changes
-nothing — so if you are unsure whether it worked, run it again.
 
 `SOMNIA_AGENT_MODEL` overrides Haiku 4.5. Haiku is the default because over 85
 trial questions on nuc2 it matched Sonnet 5 on every routing case, answered in
@@ -84,7 +69,8 @@ and start or stop hours of rendering. Its only protection is that nothing but
 
 ## Publish it on the tailnet
 
-Audiobookshelf usually already holds port 443, so give the chat page its own:
+Give the page a port of its own rather than the node's 443, which anything else
+already served off that machine will have taken:
 
 ```
 $ tailscale serve --bg --https 8443 http://127.0.0.1:8721

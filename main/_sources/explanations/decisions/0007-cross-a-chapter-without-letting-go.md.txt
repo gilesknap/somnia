@@ -2,6 +2,8 @@
 
 ## Status
 
+**[ADR 9](0009-drop-audiobookshelf.md), 2026-08-10, replaces the reason given below for keeping the joined files out of the library.** The placement is unchanged.
+
 Accepted, on a handset check that was made **over Bluetooth** — the route the
 teardown was reported on, and the one ADR 3's check was never run on. The end of
 *Consequences* says exactly what was observed and what is still untested, and it

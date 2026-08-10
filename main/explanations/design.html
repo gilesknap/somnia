@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design decisions &#8212; somnia 0.8.dev58+ga4d3f5491 documentation</title>
+    <title>Design decisions &#8212; somnia 0.8.dev70+g666264e82 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=1898642d"></script>
+    <script src="../_static/documentation_options.js?v=3ba26199"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -60,7 +60,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Reference" href="../reference.html" />
-    <link rel="prev" title="8. A second library, under the same ids" href="decisions/0008-a-second-library-under-the-same-ids.html" />
+    <link rel="prev" title="9. Drop Audiobookshelf" href="decisions/0009-drop-audiobookshelf.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -432,6 +432,7 @@
 <li class="toctree-l2"><a class="reference internal" href="decisions/0006-answer-a-question-about-the-book.html">6. Answer a question about the book, out of what you know, as far as they have listened</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0007-cross-a-chapter-without-letting-go.html">7. Cross a chapter without letting go of the player</a></li>
 <li class="toctree-l2"><a class="reference internal" href="decisions/0008-a-second-library-under-the-same-ids.html">8. A second library, under the same ids</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decisions/0009-drop-audiobookshelf.html">9. Drop Audiobookshelf</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Design decisions</a></li>
@@ -570,9 +571,8 @@ a live lease, and spawns one child to render it. That is the whole of the
 serialisation, and it is a property of the database rather than a convention:
 the claim is a single guarded <code class="docutils literal notranslate"><span class="pre">UPDATE</span> <span class="pre">...</span> <span class="pre">RETURNING</span></code>, so two books asked for a
 millisecond apart cannot both start.</p>
-<p>The pipeline emits <strong>one m4a file per chapter</strong> into the Audiobookshelf
-library folder as each chapter finishes, then triggers a library rescan.
-Multi-file books are ABS’s native format with a single global timeline, so:</p>
+<p>The pipeline emits <strong>one m4a file per chapter</strong> into the library folder as each
+chapter finishes. A book is many files on one global timeline, so:</p>
 <ul class="simple">
 <li><p>listening can start when chapter one is rendered (minutes after picking)</p></li>
 <li><p>the semantic index grows chapter by chapter, so a book can be asked about
@@ -580,9 +580,9 @@ while it is still being read — but it is not what keeps the ending back. A
 book is indexed whole on the evening it renders and listened to over the
 fortnight after, so from the second night on, the only thing between a
 question and the last page is the spoiler guard below</p></li>
-<li><p>per-chapter files are simultaneously the streaming unit, the ABS-native
-unit, the re-render unit and — since the page became the player — the unit
-the phone fetches over HTTP (a single M4B would defeat all four)</p></li>
+<li><p>per-chapter files are simultaneously the streaming unit, the re-render unit
+and — when there is no join to be had — the unit the phone fetches over HTTP
+(a single M4B would defeat all three)</p></li>
 <li><p>a chapter is also the unit a render can be <strong>stopped and taken up again</strong>
 at. The render asks between sentences and encodes a chapter on the last
 line, so a stop leaves no audio, no chunks and no row for the chapter it was
@@ -593,7 +593,7 @@ which is what makes any of that safe</p></li>
 </ul>
 <p>All timestamps everywhere are <strong>global milliseconds from book start</strong>, on the
 render clock — <code class="docutils literal notranslate"><span class="pre">chapters</span></code> rows carry each chapter’s global start, so index hits,
-the saved position, the player and ABS all speak it.
+the saved position and the player all speak it.
 <a class="reference internal" href="architecture.html"><span class="std std-doc">Architecture</span></a> has the reason that is not what a decoder
 reports.</p>
 </section>
@@ -692,25 +692,12 @@ which is <code class="docutils literal notranslate"><span class="pre">DELETE</sp
 position and the mark, and left the count below the one a still-open page was
 holding: every report that page made for the rest of the night was refused, and
 nothing was written again until it was reloaded.</p>
-<p><strong>Audiobookshelf is written to and never read.</strong> The write is best effort, off
-the critical path, and only when they have stopped: it costs a handful of
-requests a night and means the book is in roughly the right place if they open
-ABS somewhere else. A failure is logged and ignored — the app is not the player
-any more, so nothing tonight depends on it. Both routes to a position — an
-agent move, and the page saying it has stopped — end in the same
-<code class="docutils literal notranslate"><span class="pre">somnia.abs.tell_abs</span></code>, because they are one thing said twice.</p>
-<p>There is exactly one read left, and it is not on a listening path.
-<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code> runs once, by hand, and takes each book’s
-<code class="docutils literal notranslate"><span class="pre">currentTime</span></code> and <code class="docutils literal notranslate"><span class="pre">lastUpdate</span></code> out of ABS’s progress records. Without it the
-first night of the pivot opens the most recently <em>added</em> book at 0:00 and
-bounds every search at the first minute, because the position they have really
-reached lives on the other server and nothing here has ever heard of it. It
-never lowers anything: a position somnia already holds is left alone (the page
-is the player, so the row is the newer of the two) and the high-water mark only
-rises. <code class="docutils literal notranslate"><span class="pre">position_at</span></code> comes from ABS’s <code class="docutils literal notranslate"><span class="pre">lastUpdate</span></code> rather than from the moment
-the seed ran — stamping every book with the same second would hand the choice
-of which book to open back to <code class="docutils literal notranslate"><span class="pre">created_at</span></code>, which is the failure it is there
-to fix.</p>
+<p><strong>Nothing outside somnia is told where the book is.</strong> A courtesy write to
+Audiobookshelf survived the pivot and has since been dropped: it bought a
+position nobody read, and it had already stopped running on the live box —
+the token was commented out and nothing noticed
+(<a class="reference internal" href="decisions/0009-drop-audiobookshelf.html"><span class="std std-doc">ADR 9</span></a>). The row is the record, and
+there is nothing anywhere else for it to disagree with.</p>
 <p><strong>The spoiler guard is bounded by the furthest point ever played through</strong>, not
 by the current position, because the agent can move that position anywhere:
 backwards, where being taken to chapter two must not un-hear chapters three to
@@ -776,11 +763,11 @@ read a frontier off.</p>
 </section>
 <section id="getting-through-the-night-is-the-page-s-job-now">
 <h2>Getting through the night is the page’s job now<a class="headerlink" href="#getting-through-the-night-is-the-page-s-job-now" title="Link to this heading">#</a></h2>
-<p>Three things the ABS app used to absorb, which nothing absorbs any more. All
-three end the same way if they are not handled — silence, with a notification
-that says paused — and none of them can be seen without unlocking the phone,
-which is why each of them says what is happening on the status line as well as
-doing something about it.</p>
+<p>Three things nothing absorbs on the page’s behalf, and there is nothing else
+left to absorb them. All three end the same way if they are not handled —
+silence, with a notification that says paused — and none of them can be seen
+without unlocking the phone, which is why each of them says what is happening
+on the status line as well as doing something about it.</p>
 <p><strong>The book grows while it is being played.</strong> A manifest is a photograph of a
 book that is still arriving: ingest writes each chapter row as it finishes and
 bumps <code class="docutils literal notranslate"><span class="pre">total_ms</span></code> with it, so a book fetched once at boot is frozen at whatever
@@ -931,8 +918,8 @@ mean typing one at 2am, in the dark, to ask where the horse dies.</p></li>
 <section id="network-model">
 <h2>Network model<a class="headerlink" href="#network-model" title="Link to this heading">#</a></h2>
 <p>Nothing is exposed publicly. The server binds to localhost (<code class="docutils literal notranslate"><span class="pre">--host</span></code> defaults to
-<code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>) and only <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach it, fronting ABS and the PWA
-on separate ports with a real TLS certificate on the node’s <code class="docutils literal notranslate"><span class="pre">.ts.net</span></code> name. When
+<code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>) and only <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> can reach it, fronting the PWA with a
+real TLS certificate on the node’s <code class="docutils literal notranslate"><span class="pre">.ts.net</span></code> name. When
 somnia ran on a shared experiment box, that box joined the tailnet <strong>tagged</strong>
 (<code class="docutils literal notranslate"><span class="pre">tag:vps</span></code>) with the ACL never listing the tag as a source, so it could be
 reached from personal devices and could never initiate a connection inward —
@@ -956,8 +943,10 @@ that serves the page cannot kill a render — which, before the worker existed,
 it silently did on every deploy
 (<a class="reference internal" href="decisions/0005-render-one-book-at-a-time.html"><span class="std std-doc">ADR 5</span></a>). Both units run on
 nuc2, a small home machine; the VPS this was first built on is stopped.</p></li>
-<li><p>Audiobookshelf runs as a rootless podman container (quadlet systemd unit)
-under a dedicated user, bound to localhost, fronted by tailscale serve.</p></li>
+<li><p>Nothing else runs beside them. Audiobookshelf was a third unit — a rootless
+podman container under a dedicated user, with a <code class="docutils literal notranslate"><span class="pre">tailscale</span> <span class="pre">serve</span></code> of its own
+— until it was turned off on the box; the code caught up with that in
+<a class="reference internal" href="decisions/0009-drop-audiobookshelf.html"><span class="std std-doc">ADR 9</span></a>.</p></li>
 </ul>
 </section>
 <section id="test-books">
@@ -979,12 +968,12 @@ query (“there are three horses that die in this — which one?”).</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="decisions/0008-a-second-library-under-the-same-ids.html"
+       href="decisions/0009-drop-audiobookshelf.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">8. A second library, under the same ids</p>
+        <p class="prev-next-title">9. Drop Audiobookshelf</p>
       </div>
     </a>
     <a class="right-next"

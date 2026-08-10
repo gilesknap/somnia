@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Serve the page that plays the book &#8212; somnia 0.8.dev58+ga4d3f5491 documentation</title>
+    <title>Serve the page that plays the book &#8212; somnia 0.8.dev70+g666264e82 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=1898642d"></script>
+    <script src="../_static/documentation_options.js?v=3ba26199"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -523,13 +523,10 @@ the ones a served night depends on:</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR</span></code></p></td>
 <td><p>where <code class="docutils literal notranslate"><span class="pre">somnia.db</span></code> lives, and where the joined-up copy of each book the page plays is written — sometimes more than one for a book opened mid-render; needs room, not just a path</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_URL</span></code>, <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code></p></td>
-<td><p>optional: keeping Audiobookshelf roughly in step, and the one-off below</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code></p></td>
 <td><p>another model; the default is Haiku 4.5</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_EFFORT</span></code></p></td>
 <td><p>how hard it may think before answering, on the models that have such a dial; Haiku has not</p></td>
 </tr>
 </tbody>
@@ -540,18 +537,6 @@ fails quietly: everything starts, the agent answers, and every chapter 404s
 with the reason only in the journal. It defaults to <code class="docutils literal notranslate"><span class="pre">~/library/audiobooks</span></code>,
 which is right only if that is genuinely where <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">add</span></code> put things —
 <a class="reference internal" href="../reference/configuration.html#config-fail-quietly"><span class="std std-ref">Configuration</span></a> has why.</p>
-<p>Audiobookshelf is now optional. somnia writes your position to it when you
-stop, as a courtesy, so the ABS app finds roughly the right place if you open
-it somewhere else — but nothing reads it while a night is running, and a write
-that fails is logged and forgotten. Leave <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code> unset and no ABS
-client is built at all.</p>
-<p>Run <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code> once before the first night, if you have been
-listening in Audiobookshelf. It is the one thing that reads ABS: it takes
-where you had got to in each book, and how far you had heard, and puts them in
-somnia’s own database, so the page opens the book you were actually in rather
-than the one added most recently, at the beginning. It says what it did for
-every book, it never moves a position backwards, and running it again changes
-nothing — so if you are unsure whether it worked, run it again.</p>
 <p><code class="docutils literal notranslate"><span class="pre">SOMNIA_AGENT_MODEL</span></code> overrides Haiku 4.5. Haiku is the default because over 85
 trial questions on nuc2 it matched Sonnet 5 on every routing case, answered in
 half the time and cost a fifth as much. It lost the job once, for reading a
@@ -584,7 +569,8 @@ and start or stop hours of rendering. Its only protection is that nothing but
 </section>
 <section id="publish-it-on-the-tailnet">
 <h2>Publish it on the tailnet<a class="headerlink" href="#publish-it-on-the-tailnet" title="Link to this heading">#</a></h2>
-<p>Audiobookshelf usually already holds port 443, so give the chat page its own:</p>
+<p>Give the page a port of its own rather than the node’s 443, which anything else
+already served off that machine will have taken:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ tailscale serve --bg --https 8443 http://127.0.0.1:8721
 $ tailscale serve status
 </pre></div>

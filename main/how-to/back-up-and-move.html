@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Back it up, and move it &#8212; somnia 0.8.dev58+ga4d3f5491 documentation</title>
+    <title>Back it up, and move it &#8212; somnia 0.8.dev70+g666264e82 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=1898642d"></script>
+    <script src="../_static/documentation_options.js?v=3ba26199"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -558,14 +558,6 @@ what it is for:</p>
 <p>It checks every chapter row for a file that exists and sits inside
 <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code>, and names the first one that does not.</p>
 </section>
-<section id="audiobookshelf-if-you-use-it">
-<h3>Audiobookshelf, if you use it<a class="headerlink" href="#audiobookshelf-if-you-use-it" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">books.abs_item_id</span></code> refers to whatever ABS instance you had configured. If ABS
-is not coming with you, point <code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_URL</span></code> at the new one — or unset
-<code class="docutils literal notranslate"><span class="pre">SOMNIA_ABS_TOKEN</span></code> and no client is built at all. There is no need to run
-<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code> again: your positions are in the database you just
-carried across, and seeding never lowers one anyway.</p>
-</section>
 <section id="what-you-do-not-need-to-move">
 <h3>What you do not need to move<a class="headerlink" href="#what-you-do-not-need-to-move" title="Link to this heading">#</a></h3>
 <p>The catalog is a download: <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code> on the new box rebuilds it.
@@ -656,7 +648,6 @@ book across. The same path on both is much the easier of the two.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#back-up-the-database-while-it-is-running">Back up the database while it is running</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#move-both-to-another-machine">Move both to another machine</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-paths-inside-the-database">The paths inside the database</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#audiobookshelf-if-you-use-it">Audiobookshelf, if you use it</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-do-not-need-to-move">What you do not need to move</a></li>
 </ul>
 </li>

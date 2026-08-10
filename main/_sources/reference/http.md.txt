@@ -37,7 +37,10 @@ would tell you.
 | `/api/catalog?q=…` | GET | Books to add, from the local catalog (both libraries) |
 | `/api/voices` | GET | The voices a book may be asked for in |
 | `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
+| `/api/book/{gid}` | DELETE | Take a book away — rows, audio and all |
 | `/api/book/{gid}/open` | POST | Make this the book a cold launch opens — or 404 |
+| `/api/book/{gid}/finished` | POST | Say the reader is done with a book, or that they are not |
+| `/api/book/{gid}/name` | POST | Say what a book is called here, and who wrote it |
 | `/api/ask` | POST | The agent's reply, and a move if it made one |
 | `/api/forget` | POST | Drops one conversation |
 | `/api/position` | POST | What became of a report — always 200 |
@@ -53,7 +56,9 @@ would tell you.
     {
       "gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
       "status": "done", "total_ms": 22320000, "chapters": 49,
-      "position_ms": 11560000, "seq": 3
+      "chapters_total": 49, "position_ms": 11560000, "seq": 3,
+      "finished_at": null, "created_at": "2026-03-11 21:40:02",
+      "source": "gutenberg"
     }
   ]
 }
@@ -69,6 +74,37 @@ rows that really exist, and `0` means there is nothing to open yet: a render
 that has not produced its first chapter, or one that died before it. The books
 panel draws its shelf from this list, and that is the field that decides whether
 a row offers a press at all.
+
+`chapters_total` is how many chapters the book *has*, which is a different
+number from `chapters` on every book whose render has not finished — and the
+one number the player, the `reading now` line, the shelf row and the book page
+all read, so that they cannot disagree about how long a book is. `0` means
+nobody wrote it down, which is true of anything rendered before the column
+existed, and anything drawing it says nothing at all rather than "of 0".
+
+`created_at` is when somnia was first asked for the book. It is the only date on
+this row that is about the reader rather than the render, it is what the
+Workshop means by *brought in*, and it is what sorting the library by how new a
+book is is built on.
+
+`finished_at` is when the reader said they were done with the book, and `null`
+while they have not — which is every book somnia has ever had until somebody
+says otherwise. It is deliberately not `status`: that is the *render's* word,
+and a book somebody has finished reading would otherwise be indistinguishable
+from one that was never made. A finished book is still a book somnia has and
+still plays; the night shelf stops offering it, and the Workshop is where it
+goes.
+
+`source` is which of the two libraries the book came out of — `gutenberg` or
+`australia`, the same two words a search result carries. Nothing stores it: it
+is the gid read against the Australian offset, and it is said here so that the
+book page can draw *where from* without keeping its own copy of a constant it
+cannot see move.
+
+The night shelf shows at most the twenty most recently touched books, and
+finished books and the one playing underneath are not among them and do not
+count towards the twenty. Everything is still in this answer — which books to
+draw is the page's business, not the server's.
 
 ## `GET /api/book/{gid}`
 
@@ -111,6 +147,44 @@ nobody wrote it down, so say nothing rather than "3 of 0".
 
 404 for a book that is not there.
 
+## `DELETE /api/book/{gid}`
+
+```json
+{"ok": true, "found": true, "said": "Black Beauty is gone, with everything rendered of it."}
+```
+
+The only route in somnia that takes something away for good, and it takes all
+of it: the `books` row, the chapters, the indexed chunks and their vectors,
+every queue row the book ever had, the m4a files with the folders above them
+once those are empty, and the joined streams under `data_dir`. Half of that
+would be worse than none of it — a shelf entry that plays silence, or hours of
+audio nothing will ever mention again.
+
+DELETE, and it means it, which is the difference from `POST
+/api/queue/{id}/stop`: that one is a POST because the row it names survives it.
+Nothing survives this and nothing behind it is an undo, so the page asks twice
+before it gets here.
+
+**200 with `"ok": false`** for the two refusals, in the shape the queue's
+routes already answer in — a refusal is an answer, and `said` is the sentence
+to show for it. A book with a live queue row is refused because a render is
+about to write chapters back into the folder this would be emptying, and the
+sentence names the job to stop first; `queue.stop` is keyed on the job id, so
+it is a different number from the one just deleted. And a book with a chapter
+whose `audio_file` lies outside `SOMNIA_LIBRARY_DIR` is refused whole rather
+than in part — the same containment rule `GET /api/audio/{gid}/{idx}` applies,
+and a path outside the library means the database has been carried between
+machines or edited by hand. Which chapter it was is in the journal, not in `said`: it is an absolute
+path on the VPS and this is read on a phone.
+
+**404** only for a gid that is not here at all, which is a page holding an id
+from a database that has moved on. `found` is what tells the two apart, and the
+body carries `said` either way.
+
+A chapter whose file has already gone is not a refusal. There is nothing there
+to delete, and stopping at the first gap would leave the rest of the book
+orphaned for good.
+
 ## `POST /api/book/{gid}/open`
 
 ```json
@@ -143,6 +217,71 @@ answer to a press: there is nothing to open. The guard is here and not only on
 the page because a book nobody can play made the most recent one would leave the
 next launch waiting on a render instead of on the book that was playing.
 
+## `POST /api/book/{gid}/finished`
+
+```json
+{"finished": true}
+```
+```json
+{"ok": true, "found": true, "said": "Black Beauty is finished."}
+```
+
+One column, `books.finished_at`, written as a UTC stamp or cleared. A body that
+says nothing means `true`, which is the press that exists; `{"finished": false}`
+is the undo, and it is the same route on purpose — an undo shaped like the doing
+is what lets the day screen offer one control that toggles rather than two that
+can disagree about a book.
+
+Nothing else changes. The book keeps its position, its audio, its rows and its
+`status`, and it still plays if it is opened. That is the whole distance between
+this and the DELETE on the path above it, and it is why this one is not asked
+about twice: marking the wrong row costs one press back.
+
+POST rather than DELETE because nothing is deleted, and not on the agent at
+all — a hold-to-talk request at 2am is the wrong way to say a book is over.
+
+**404** for a gid that is not here, the same answer as the GET and the DELETE
+on this path.
+
+## `POST /api/book/{gid}/name`
+
+```json
+{"title": "Beauty, the horse", "authors": "Sewell, Anna"}
+```
+```json
+{"ok": true, "found": true, "said": "It is called Beauty, the horse now.",
+ "title": "Beauty, the horse", "authors": "Sewell, Anna"}
+```
+
+Two plain columns, `books.title` and `books.authors`, and a third that is the
+point of the route: `books.renamed_at` records that a person has had an opinion
+about this name, and `ingest_book`'s upsert reads it and leaves the pair alone
+from then on. Without that, re-rendering a book — which is the ordinary way to
+restart a render that died — put the catalog's name back hours later with
+nobody watching.
+
+Both columns in one request because a name and an author are one edit on the
+screen that makes it, and two routes would let a phone that lost the tailnet
+between them leave a book with half the change on it. A missing field means the
+empty string rather than "leave it alone", which is what a form that has been
+cleared actually says.
+
+The stored strings come back, trimmed, so the page can draw what was saved
+rather than what was typed.
+
+**200 with `"ok": false`** for a book asked to have no title at all. Every
+screen names a book by `title` and falls back to `book 1342` for a book the
+catalog never named, so a blanked one would be indistinguishable from a book
+that was never named — a rename that reads as a bug. An empty `authors` is
+stored: plenty of books really do not have one.
+
+The audio does not move. Chapters are found by the absolute path in their own
+row, so a renamed book goes on playing out of a folder named after whatever it
+was called on the day it was rendered.
+
+**404** for a gid that is not here, the same answer as the GET, the DELETE and
+the finished route on this path.
+
 ## `GET /api/audio/{gid}/{idx}`
 
 The audio, as `audio/mp4`. Range, If-Range and 416 are handled, so seeking
@@ -168,7 +307,10 @@ a book that grew while somebody was listening is offered a *new* url and the
 file their phone has open is never rewritten under an in-flight range request.
 Versions are built on the first ask — a second or two of ffmpeg, `-c copy`, so
 not a byte of audio is re-encoded — and kept under `SOMNIA_DATA_DIR/streams`,
-never in the library, because the library is Audiobookshelf's own layout.
+never in the library. The library holds what a render produced, one file per
+chapter, and every one of those paths is in the database; a join is a cache
+that can be deleted at any time and rebuilt in a second or two, so it is kept
+where nothing has to tell the two apart.
 
 404 if the book has fewer than `n` chapters, if any of their audio has gone, or
 if the join could not honestly be made. The reason is in the journal. The page
@@ -382,9 +524,8 @@ missing it claims no playback rather than an impossible amount of it.
 
 `reason` is one of `load`, `play`, `tick`, `seek`, `chapter`, `pause`, `hidden`,
 `unload`, `ended`, `switch`. An unknown one is taken as a tick and noted in the
-journal. The five that mean the sound stopped — `pause`, `hidden`, `unload`,
-`ended`, `switch` — also send the position to Audiobookshelf, as a background
-task after the reply is on the wire.
+journal. Nothing branches on which one it is: the list is a vocabulary rather
+than a decision, kept so that a word nobody wrote can be noticed on the way in.
 
 **Always 200**, in one of three:
 

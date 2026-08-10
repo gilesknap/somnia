@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>HTTP surface &#8212; somnia 0.8.dev58+ga4d3f5491 documentation</title>
+    <title>HTTP surface &#8212; somnia 0.8.dev70+g666264e82 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=1898642d"></script>
+    <script src="../_static/documentation_options.js?v=3ba26199"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -559,27 +559,39 @@ would tell you.</p>
 <td><p>GET</p></td>
 <td><p>What is rendering, what is waiting, what went wrong</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}</span></code></p></td>
+<td><p>DELETE</p></td>
+<td><p>Take a book away — rows, audio and all</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/open</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Make this the book a cold launch opens — or 404</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/finished</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Say the reader is done with a book, or that they are not</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/book/{gid}/name</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Say what a book is called here, and who wrote it</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/ask</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>The agent’s reply, and a move if it made one</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/forget</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Drops one conversation</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/position</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>What became of a report — always 200</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Ask for a book — always 200</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">/api/queue/{id}/stop</span></code></p></td>
 <td><p>POST</p></td>
 <td><p>Stop a render, or take a book out of the line</p></td>
 </tr>
@@ -594,7 +606,9 @@ would tell you.</p>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">      </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">22320000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;chapters&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">      </span><span class="nt">&quot;chapters_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;finished_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-11 21:40:02&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gutenberg&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>
@@ -609,6 +623,32 @@ rows that really exist, and <code class="docutils literal notranslate"><span cla
 that has not produced its first chapter, or one that died before it. The books
 panel draws its shelf from this list, and that is the field that decides whether
 a row offers a press at all.</p>
+<p><code class="docutils literal notranslate"><span class="pre">chapters_total</span></code> is how many chapters the book <em>has</em>, which is a different
+number from <code class="docutils literal notranslate"><span class="pre">chapters</span></code> on every book whose render has not finished — and the
+one number the player, the <code class="docutils literal notranslate"><span class="pre">reading</span> <span class="pre">now</span></code> line, the shelf row and the book page
+all read, so that they cannot disagree about how long a book is. <code class="docutils literal notranslate"><span class="pre">0</span></code> means
+nobody wrote it down, which is true of anything rendered before the column
+existed, and anything drawing it says nothing at all rather than “of 0”.</p>
+<p><code class="docutils literal notranslate"><span class="pre">created_at</span></code> is when somnia was first asked for the book. It is the only date on
+this row that is about the reader rather than the render, it is what the
+Workshop means by <em>brought in</em>, and it is what sorting the library by how new a
+book is is built on.</p>
+<p><code class="docutils literal notranslate"><span class="pre">finished_at</span></code> is when the reader said they were done with the book, and <code class="docutils literal notranslate"><span class="pre">null</span></code>
+while they have not — which is every book somnia has ever had until somebody
+says otherwise. It is deliberately not <code class="docutils literal notranslate"><span class="pre">status</span></code>: that is the <em>render’s</em> word,
+and a book somebody has finished reading would otherwise be indistinguishable
+from one that was never made. A finished book is still a book somnia has and
+still plays; the night shelf stops offering it, and the Workshop is where it
+goes.</p>
+<p><code class="docutils literal notranslate"><span class="pre">source</span></code> is which of the two libraries the book came out of — <code class="docutils literal notranslate"><span class="pre">gutenberg</span></code> or
+<code class="docutils literal notranslate"><span class="pre">australia</span></code>, the same two words a search result carries. Nothing stores it: it
+is the gid read against the Australian offset, and it is said here so that the
+book page can draw <em>where from</em> without keeping its own copy of a constant it
+cannot see move.</p>
+<p>The night shelf shows at most the twenty most recently touched books, and
+finished books and the one playing underneath are not among them and do not
+count towards the twenty. Everything is still in this answer — which books to
+draw is the page’s business, not the server’s.</p>
 </section>
 <section id="get-api-book-gid">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code><a class="headerlink" href="#get-api-book-gid" title="Link to this heading">#</a></h2>
@@ -645,6 +685,38 @@ It is <code class="docutils literal notranslate"><span class="pre">0</span></cod
 nobody wrote it down, so say nothing rather than “3 of 0”.</p>
 <p>404 for a book that is not there.</p>
 </section>
+<section id="delete-api-book-gid">
+<h2><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/api/book/{gid}</span></code><a class="headerlink" href="#delete-api-book-gid" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;found&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty is gone, with everything rendered of it.&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The only route in somnia that takes something away for good, and it takes all
+of it: the <code class="docutils literal notranslate"><span class="pre">books</span></code> row, the chapters, the indexed chunks and their vectors,
+every queue row the book ever had, the m4a files with the folders above them
+once those are empty, and the joined streams under <code class="docutils literal notranslate"><span class="pre">data_dir</span></code>. Half of that
+would be worse than none of it — a shelf entry that plays silence, or hours of
+audio nothing will ever mention again.</p>
+<p>DELETE, and it means it, which is the difference from <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/queue/{id}/stop</span></code>: that one is a POST because the row it names survives it.
+Nothing survives this and nothing behind it is an undo, so the page asks twice
+before it gets here.</p>
+<p><strong>200 with <code class="docutils literal notranslate"><span class="pre">&quot;ok&quot;:</span> <span class="pre">false</span></code></strong> for the two refusals, in the shape the queue’s
+routes already answer in — a refusal is an answer, and <code class="docutils literal notranslate"><span class="pre">said</span></code> is the sentence
+to show for it. A book with a live queue row is refused because a render is
+about to write chapters back into the folder this would be emptying, and the
+sentence names the job to stop first; <code class="docutils literal notranslate"><span class="pre">queue.stop</span></code> is keyed on the job id, so
+it is a different number from the one just deleted. And a book with a chapter
+whose <code class="docutils literal notranslate"><span class="pre">audio_file</span></code> lies outside <code class="docutils literal notranslate"><span class="pre">SOMNIA_LIBRARY_DIR</span></code> is refused whole rather
+than in part — the same containment rule <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code> applies,
+and a path outside the library means the database has been carried between
+machines or edited by hand. Which chapter it was is in the journal, not in <code class="docutils literal notranslate"><span class="pre">said</span></code>: it is an absolute
+path on the VPS and this is read on a phone.</p>
+<p><strong>404</strong> only for a gid that is not here at all, which is a page holding an id
+from a database that has moved on. <code class="docutils literal notranslate"><span class="pre">found</span></code> is what tells the two apart, and the
+body carries <code class="docutils literal notranslate"><span class="pre">said</span></code> either way.</p>
+<p>A chapter whose file has already gone is not a refusal. There is nothing there
+to delete, and stopping at the first gap would leave the rest of the book
+orphaned for good.</p>
+</section>
 <section id="post-api-book-gid-open">
 <h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code><a class="headerlink" href="#post-api-book-gid-open" title="Link to this heading">#</a></h2>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span>
@@ -673,6 +745,61 @@ answer to a press: there is nothing to open. The guard is here and not only on
 the page because a book nobody can play made the most recent one would leave the
 next launch waiting on a render instead of on the book that was playing.</p>
 </section>
+<section id="post-api-book-gid-finished">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/finished</span></code><a class="headerlink" href="#post-api-book-gid-finished" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;finished&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;found&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Black Beauty is finished.&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>One column, <code class="docutils literal notranslate"><span class="pre">books.finished_at</span></code>, written as a UTC stamp or cleared. A body that
+says nothing means <code class="docutils literal notranslate"><span class="pre">true</span></code>, which is the press that exists; <code class="docutils literal notranslate"><span class="pre">{&quot;finished&quot;:</span> <span class="pre">false}</span></code>
+is the undo, and it is the same route on purpose — an undo shaped like the doing
+is what lets the day screen offer one control that toggles rather than two that
+can disagree about a book.</p>
+<p>Nothing else changes. The book keeps its position, its audio, its rows and its
+<code class="docutils literal notranslate"><span class="pre">status</span></code>, and it still plays if it is opened. That is the whole distance between
+this and the DELETE on the path above it, and it is why this one is not asked
+about twice: marking the wrong row costs one press back.</p>
+<p>POST rather than DELETE because nothing is deleted, and not on the agent at
+all — a hold-to-talk request at 2am is the wrong way to say a book is over.</p>
+<p><strong>404</strong> for a gid that is not here, the same answer as the GET and the DELETE
+on this path.</p>
+</section>
+<section id="post-api-book-gid-name">
+<h2><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/name</span></code><a class="headerlink" href="#post-api-book-gid-name" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Beauty, the horse&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;found&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;said&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;It is called Beauty, the horse now.&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Beauty, the horse&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;authors&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sewell, Anna&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Two plain columns, <code class="docutils literal notranslate"><span class="pre">books.title</span></code> and <code class="docutils literal notranslate"><span class="pre">books.authors</span></code>, and a third that is the
+point of the route: <code class="docutils literal notranslate"><span class="pre">books.renamed_at</span></code> records that a person has had an opinion
+about this name, and <code class="docutils literal notranslate"><span class="pre">ingest_book</span></code>’s upsert reads it and leaves the pair alone
+from then on. Without that, re-rendering a book — which is the ordinary way to
+restart a render that died — put the catalog’s name back hours later with
+nobody watching.</p>
+<p>Both columns in one request because a name and an author are one edit on the
+screen that makes it, and two routes would let a phone that lost the tailnet
+between them leave a book with half the change on it. A missing field means the
+empty string rather than “leave it alone”, which is what a form that has been
+cleared actually says.</p>
+<p>The stored strings come back, trimmed, so the page can draw what was saved
+rather than what was typed.</p>
+<p><strong>200 with <code class="docutils literal notranslate"><span class="pre">&quot;ok&quot;:</span> <span class="pre">false</span></code></strong> for a book asked to have no title at all. Every
+screen names a book by <code class="docutils literal notranslate"><span class="pre">title</span></code> and falls back to <code class="docutils literal notranslate"><span class="pre">book</span> <span class="pre">1342</span></code> for a book the
+catalog never named, so a blanked one would be indistinguishable from a book
+that was never named — a rename that reads as a bug. An empty <code class="docutils literal notranslate"><span class="pre">authors</span></code> is
+stored: plenty of books really do not have one.</p>
+<p>The audio does not move. Chapters are found by the absolute path in their own
+row, so a renamed book goes on playing out of a folder named after whatever it
+was called on the day it was rendered.</p>
+<p><strong>404</strong> for a gid that is not here, the same answer as the GET, the DELETE and
+the finished route on this path.</p>
+</section>
 <section id="get-api-audio-gid-idx">
 <h2><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code><a class="headerlink" href="#get-api-audio-gid-idx" title="Link to this heading">#</a></h2>
 <p>The audio, as <code class="docutils literal notranslate"><span class="pre">audio/mp4</span></code>. Range, If-Range and 416 are handled, so seeking
@@ -695,7 +822,10 @@ a book that grew while somebody was listening is offered a <em>new</em> url and 
 file their phone has open is never rewritten under an in-flight range request.
 Versions are built on the first ask — a second or two of ffmpeg, <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">copy</span></code>, so
 not a byte of audio is re-encoded — and kept under <code class="docutils literal notranslate"><span class="pre">SOMNIA_DATA_DIR/streams</span></code>,
-never in the library, because the library is Audiobookshelf’s own layout.</p>
+never in the library. The library holds what a render produced, one file per
+chapter, and every one of those paths is in the database; a join is a cache
+that can be deleted at any time and rebuilt in a second or two, so it is kept
+where nothing has to tell the two apart.</p>
 <p>404 if the book has fewer than <code class="docutils literal notranslate"><span class="pre">n</span></code> chapters, if any of their audio has gone, or
 if the join could not honestly be made. The reason is in the journal. The page
 still has a url for every chapter, so a book with no stream is one that rebuilds
@@ -880,9 +1010,8 @@ not time that passed — and it is what may raise the heard-to mark. A body
 missing it claims no playback rather than an impossible amount of it.</p>
 <p><code class="docutils literal notranslate"><span class="pre">reason</span></code> is one of <code class="docutils literal notranslate"><span class="pre">load</span></code>, <code class="docutils literal notranslate"><span class="pre">play</span></code>, <code class="docutils literal notranslate"><span class="pre">tick</span></code>, <code class="docutils literal notranslate"><span class="pre">seek</span></code>, <code class="docutils literal notranslate"><span class="pre">chapter</span></code>, <code class="docutils literal notranslate"><span class="pre">pause</span></code>, <code class="docutils literal notranslate"><span class="pre">hidden</span></code>,
 <code class="docutils literal notranslate"><span class="pre">unload</span></code>, <code class="docutils literal notranslate"><span class="pre">ended</span></code>, <code class="docutils literal notranslate"><span class="pre">switch</span></code>. An unknown one is taken as a tick and noted in the
-journal. The five that mean the sound stopped — <code class="docutils literal notranslate"><span class="pre">pause</span></code>, <code class="docutils literal notranslate"><span class="pre">hidden</span></code>, <code class="docutils literal notranslate"><span class="pre">unload</span></code>,
-<code class="docutils literal notranslate"><span class="pre">ended</span></code>, <code class="docutils literal notranslate"><span class="pre">switch</span></code> — also send the position to Audiobookshelf, as a background
-task after the reply is on the wire.</p>
+journal. Nothing branches on which one it is: the list is a vocabulary rather
+than a decision, kept so that a word nobody wrote can be noticed on the way in.</p>
 <p><strong>Always 200</strong>, in one of three:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">  </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">11560000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gid&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">271</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9930000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;seq&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;heard_to_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12040000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;moved&quot;</span><span class="p">}</span>
@@ -1008,7 +1137,10 @@ too.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-books"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/books</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-book-gid"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/book/{gid}</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#delete-api-book-gid"><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/api/book/{gid}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-book-gid-open"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/open</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-book-gid-finished"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/finished</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-api-book-gid-name"><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/book/{gid}/name</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-audio-gid-idx"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/audio/{gid}/{idx}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-stream-gid-n"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/stream/{gid}/{n}</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#get-api-sentence-gid-ms"><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/sentence/{gid}/{ms}</span></code></a></li>

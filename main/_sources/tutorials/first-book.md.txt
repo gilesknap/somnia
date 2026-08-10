@@ -122,18 +122,3 @@ Once it is on your phone, a night looks like this:
 - Half asleep, hold the talk button and say *"go back to where the horse gets
   hurt"*. The book goes there and plays from there. There is nothing to press
   afterwards.
-
-## If you already listened in Audiobookshelf
-
-Run this once, before the first night:
-
-```console
-$ somnia seed-positions
-   271  Black Beauty: seeded at 3:12:40 (2026-08-01 22:41:03); heard to 3:12:40
-1 of 1 books changed.
-```
-
-It is the only thing that ever reads Audiobookshelf. Without it, somnia thinks
-you have heard nothing, opens the wrong book, and bounds every search at the
-first minute. It never moves a position backwards and running it twice changes
-nothing.

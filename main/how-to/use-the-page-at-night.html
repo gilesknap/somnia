@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Use the page at night &#8212; somnia 0.8.dev58+ga4d3f5491 documentation</title>
+    <title>Use the page at night &#8212; somnia 0.8.dev70+g666264e82 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=1898642d"></script>
+    <script src="../_static/documentation_options.js?v=3ba26199"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -573,14 +573,12 @@ name, since a chapter called <em>How Ginger Died</em> gives away as much as the
 sentence under it. What it says instead is <em>tap to reveal · may spoil</em>: press
 anywhere on the row’s reading and it uncovers, and you decide having read it;
 press it again and it goes back under, name and all; press <em>goto</em> and you go
-there without reading it at all. Two
-things follow from measuring it that way. A book
-somnia has never played is bounded at its opening minute, so if a book you have
-been listening to for a fortnight puts everything on the list as <em>ahead</em>, the
-listening happened in Audiobookshelf and somnia does not know about it — run
-<code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">seed-positions</span></code>. And skipping forward while the sound is on stops the
-mark where it was until you come back behind it, which is the price of one
-press of <em>+30</em> not marking the rest of the book as heard.</p>
+there without reading it at all. Two things follow from measuring it that way.
+A book somnia has never played is bounded at its opening minute, so a book you
+know well but have never played here puts everything on the list as <em>ahead</em>
+until some of it has come out of the speaker. And skipping forward while the
+sound is on stops the mark where it was until you come back behind it, which is
+the price of one press of <em>+30</em> not marking the rest of the book as heard.</p>
 <p>Conversations are held in memory, keyed by a token the page mints when it
 starts, and nothing is written to disk. <em>Start over</em> drops the history when the
 agent has got the wrong end of a mumbled question; restarting the service drops
@@ -694,8 +692,8 @@ then there is nothing to start. The hairline is not drawn at all while the book
 is still being rendered, because until the render is over the book’s length is
 only how much of it exists so far. Tapping the block starts it and puts the
 panel away — the same press as the play button, made from up here.</p>
-<p>Under it, <em>on the shelf</em> is every other book somnia has, each with where you
-left it — <em>0:27:42 in</em>, or <em>not started</em>. Tapping a row opens that book at that
+<p>Under it, <em>on the shelf</em> are the books you are most likely to want, each with
+where you left it — <em>0:27:42 in</em>, or <em>not started</em>. Tapping a row opens that book at that
 place and takes the panel away with it. Changing your mind costs one press back:
 nothing is written to the book you left, so it is still exactly where it was,
 and so is the one you looked at. A book still being rendered says so and is not
@@ -704,6 +702,14 @@ nothing to play. A book whose render stopped part way says <em>part rendered</em
 can still be opened — what was read plays. If the box cannot be reached, the
 shelf you last saw stays on screen with <em>couldn’t reach somnia</em> under it: an
 empty shelf and an unreachable server look identical and mean opposite things.</p>
+<p>The shelf stops at twenty books — the twenty you were nearest to most recently,
+which after a year of somnia is not all of them. A book you have said you are
+finished with is not on it either, and does not take up one of the twenty. When
+anything has been left out, the foot of the list says <em>the rest of your books
+are in the workshop</em>, and on a night when nothing has been, it says nothing:
+the line is an answer rather than a fixture. Nothing is hidden by any of this —
+every book somnia has is in <em>Workshop</em>, and a finished book still plays if you
+open it there.</p>
 <p>The rows say the title and nothing else — no author, no dates, no cover. At this
 size the catalogue’s <em>Title — Surname, Forename, dates</em> is three lines of a
 phone, and it is metadata about a book you already own and chose. The title is
@@ -730,7 +736,7 @@ through comes off entirely while it is up. Every alpha in the night scale was
 chosen for a dark room, and in daylight those same values are not quiet, they
 are gone. Nothing on it goes below 16dp. It asks one question too: <em>get me a new
 book, and tell me it worked</em>. The order down it is that sentence.</p>
-<p>At the top, under <em>project gutenberg</em>, is the search. Under the results is what
+<p>At the top, under <em>bring in a new book</em>, is the search. Under the results is what
 is happening, in a box headed <em>the server is working</em> — on the same screen and
 directly beneath them on purpose, because somebody who has just pressed <em>add
 this book</em> wants to see it being made, and splitting the press from its
@@ -757,7 +763,11 @@ cannot read it</em>. They go away by themselves after a day. There is nothing to
 dismiss and no badge or count anywhere: a book finishing at 3am is
 not news to somebody asleep, and it is on a screen nobody opens at 3am.</p>
 <p>Searching is the top of this screen, and it is what you came here for: type part
-of a title or an author and press <em>find</em>. That searches
+of a title or an author into <em>search gutenberg</em> and press <em>find</em>. The line above
+it says where that goes — <em>searching Project Gutenberg, not the books below</em> —
+because there are two lists of books on this screen now and typing into the
+wrong one is either adding a book you already have or waiting for a render that
+has already been made. That searches
 the copy of the Gutenberg catalog on this machine, so it answers in the time a
 tap takes and works with the internet down — run <code class="docutils literal notranslate"><span class="pre">somnia</span> <span class="pre">catalog-update</span></code> if a
 book you know exists is not in it. A book somnia already has, or already has
@@ -794,6 +804,71 @@ about the queue is polled otherwise — and since this is the only screen the
 queue is on, and it is two presses from the player behind a row that says
 <em>daytime</em>, no night has a five-second wake in it.</p>
 <p><em>Workshop</em> holds no settings. They are all on <em>Settings</em>, below.</p>
+</section>
+<section id="the-books-you-already-have-in-workshop">
+<h2>The books you already have, in <em>Workshop</em><a class="headerlink" href="#the-books-you-already-have-in-workshop" title="Link to this heading">#</a></h2>
+<p>At the foot of <em>Workshop</em>, under <em>books you already have</em>, is the whole library
+— including the book playing underneath and the ones you have said you are
+finished with. This is where the night shelf’s <em>the rest of your books are in
+the workshop</em> sends you, and it is the whole of somnia rather than the
+remainder: a list whose contents depended on what you happened to listen to last
+week would not be a list anybody could search.</p>
+<p>Each row is the title, who wrote it, and how much of it is actually here — <em>all
+27 chapters</em>, or <em>read to 8 of 21</em> in amber for a book somnia has not finished
+reading yet. That second number is the number of chapters the book <em>has</em>, and it
+never shrinks to match a render that is behind: what moves is the count of what
+is ready. A book rendered before somnia counted chapters says nothing at all
+there rather than <em>all 0 chapters</em>.</p>
+<p>Every row is a press, and where it goes is that book’s own page — the section
+below.</p>
+<p><em>filter your books</em> narrows the list as you type, on the title and on the
+author, and asks the server nothing: the books are already on the phone. The
+three words under it — <em>recent</em>, <em>title</em>, <em>author</em> — are the order the rows are
+in, and <em>recent</em> is when somnia was first asked for the book. This is the only
+sort control in the app, and it is deliberately on this screen and nowhere near
+the night one: a filter has states, and a filter at 2am is a shelf that can be
+left in a shape where the book you want is missing.</p>
+<p>Books you have finished are under the ones you have not, behind a count of them
+— <em>4 finished</em>. They are still here and still play. The count is of what is on
+the screen, so with a filter on it counts what the filter left.</p>
+</section>
+<section id="one-book-renaming-it-finishing-it-removing-it">
+<h2>One book: renaming it, finishing it, removing it<a class="headerlink" href="#one-book-renaming-it-finishing-it-removing-it" title="Link to this heading">#</a></h2>
+<p>Press a row of <em>books you already have</em> and you get that book’s own page, over
+<em>Workshop</em>. <em>‹ workshop</em> comes back, and the list is exactly where you left it,
+filter and ordering intact.</p>
+<p>The title and the author at the top are boxes, not headings: type in them, and
+what you typed is saved when you leave the box. There is no <em>edit</em> to press
+first, because a mode is a thing to get into and then out of, and this screen is
+two presses deep in daylight. A book cannot be renamed to nothing — every screen
+in somnia names a book by its title, so a blank one would look exactly like a
+book the catalog never named — but it can be given no author at all.</p>
+<p>A name you choose is yours from then on. Rendering a book again is the ordinary
+way to restart a render that died, and it used to write the catalog’s title back
+over yours hours later; it no longer touches either column once a person has.</p>
+<p>Under the boxes, how far into the book you are, counted in chapters — <em>read up
+to chapter 24 of 37</em>. Nothing anywhere stores that: it is where the book was
+left and the list of chapters, read against each other. It is information and
+not something to act on. A book somnia is behind on reading says so in <em>how much
+is here</em> below, and the answer to that is to wait.</p>
+<p>Then four facts: where the book came from — <em>gutenberg #289</em>, or <em>gutenberg
+australia #900000123</em> for the other library — when somnia was first asked for
+it, how long it is, and how much of it has been rendered. A fact somnia does not
+have is left off rather than drawn empty, so a book still being rendered has no
+length on it: while a render runs, the length somnia knows is how much audio
+exists rather than how long the book is.</p>
+<p><em>read it</em> is the same press a shelf row is: it makes this the book a cold launch
+opens, starts it, and puts all three screens away. <em>mark finished</em> takes the
+book off the night shelf and puts it under the count of finished ones in the
+list you came from — it changes nothing else, the book still plays, and the
+label then says <em>back on the shelf</em>, which is the whole of undoing it.</p>
+<p><em>remove this book</em> is the only press in somnia that cannot be undone, and it
+asks twice: the button becomes <em>really remove it?</em> and forgets it was ever asked
+after a few seconds. The second press takes the book away — the audio, the text,
+the chunks the agent searches, every queue row it ever had, and where you had
+got to. A book being rendered right now is refused rather than raced, with a
+sentence saying which job to stop first. There is no undo behind any of it: a
+removed book comes back only by being rendered again.</p>
 </section>
 <section id="changing-how-it-behaves-at-night-settings">
 <h2>Changing how it behaves at night: <em>Settings</em><a class="headerlink" href="#changing-how-it-behaves-at-night-settings" title="Link to this heading">#</a></h2>
@@ -876,6 +951,8 @@ about one night.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#playing-the-book">Playing the book</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-book-books">Choosing a book: <em>Books</em></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-a-book-and-watching-it-made-workshop">Adding a book, and watching it made: <em>Workshop</em></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-books-you-already-have-in-workshop">The books you already have, in <em>Workshop</em></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#one-book-renaming-it-finishing-it-removing-it">One book: renaming it, finishing it, removing it</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-how-it-behaves-at-night-settings">Changing how it behaves at night: <em>Settings</em></a></li>
 </ul>
   </nav></div>
