@@ -142,9 +142,15 @@ def render(
     # panel. That is the same conflation of a keyboard with a page out of room
     # that this whole pass exists to undo, in the only tool anyone has to check
     # the pass. The height with nothing over it is taken to be the design's own
-    # phone, which is the only phone this skill knows the full height of: a
-    # keyboard render of some other device wants `--height` given as that
-    # device's own full height and the keyboard drawn over it.
+    # phone, which is the only phone this skill knows the full height of.
+    #
+    # So a keyboard render is judged against 780 whatever `--height` says, and
+    # that is a limit rather than an instruction: on a keyboard render `--height`
+    # means the shortened window, and the full height it was shortened *from* is
+    # a second number this script is never told. Photographing another device's
+    # keyboard correctly would need that number as its own flag. There is no
+    # such flag, and until there is, a keyboard render of anything but the
+    # design's phone gets this class from the design phone's height.
     unobscured = HEIGHT if (keyboard or screen == "chat") else height
     if unobscured < PLAYER_NEEDS_ROOTS * effective_root(width, root, text_size):
         classes.append("short-page")

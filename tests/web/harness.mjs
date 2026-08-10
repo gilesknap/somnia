@@ -922,9 +922,9 @@ export const VIEWPORT_WIDTH = 360;
 
 // The one declaration of style.css this harness reproduces, and it is
 // reproduced rather than read because it is the yardstick the page is measured
-// against: app.js asks the browser for the root and compares the height to 34 of
-// them, and a fake that answered anything would be testing arithmetic against
-// itself. `font-size: calc(var(--text-size) * min(100vw, 460px) / 18)` — the 18
+// against: app.js asks the browser for the root and compares the height to
+// `PLAYER_NEEDS_ROOTS` of them, and a fake that answered anything would be
+// testing arithmetic against itself. `font-size: calc(var(--text-size) * min(100vw, 460px) / 18)` — the 18
 // is the design's own width in rem, and the 460 is the cap past which a desktop
 // window stops growing the type.
 //
