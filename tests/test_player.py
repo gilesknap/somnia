@@ -273,18 +273,17 @@ def test_opening_a_book_is_what_makes_it_the_one_a_cold_launch_opens(
 def test_opening_a_book_leaves_everything_else_about_it_alone(
     player: Player, tone_book: ToneBook
 ) -> None:
-    """Where it is, how much has been heard, and how often it has been moved.
+    """Where it is, and how often it has been moved.
 
-    All three are the reasons this is safe to press in the dark. The position
-    is what makes it resume where it was left; the mark is the spoiler guard,
-    which nobody has heard any more of by pressing a button; and the count is
-    agent moves and nothing else, so a page holding the old one is still in
-    step and its next report is still accepted.
+    Both are reasons this is safe to press in the dark. The position is what
+    makes it resume where it was left — and since ADR 10 it is the spoiler guard
+    too, so an open that moved it would unlock a stretch of book for the price
+    of a button. The count is agent moves and nothing else, so a page holding
+    the old one is still in step and its next report is still accepted.
     """
     with tone_book.conn:
         tone_book.conn.execute(
-            "UPDATE books SET position_ms = 11000, position_seq = 3,"
-            " heard_to_ms = 9000 WHERE gid = ?",
+            "UPDATE books SET position_ms = 11000, position_seq = 3 WHERE gid = ?",
             (GID,),
         )
     opened = player.open_book(GID)
@@ -293,15 +292,11 @@ def test_opening_a_book_leaves_everything_else_about_it_alone(
 
     manifest = player.manifest(GID)
     assert manifest is not None
-    assert (manifest.position_ms, manifest.seq, manifest.heard_to_ms) == (
-        11_000,
-        3,
-        9_000,
-    )
+    assert (manifest.position_ms, manifest.seq) == (11_000, 3)
     # The page opened this book holding seq 3 and has heard nothing since, so
     # the first thing it says has to be taken rather than refused. An open that
     # bumped the count would answer it with a jump to where the book already is.
-    assert player.report(GID, 11_500, seq=3, played_ms=500).accepted is True
+    assert player.report(GID, 11_500, seq=3).accepted is True
 
 
 def test_the_book_left_behind_cannot_take_the_switch_back(
@@ -326,7 +321,7 @@ def test_the_book_left_behind_cannot_take_the_switch_back(
     listening_to(tone_book, GID)
 
     assert player.open_book(GID + 1) is not None
-    parting = player.report(GID, 6_000, seq=0, played_ms=1_000)
+    parting = player.report(GID, 6_000, seq=0)
     assert parting.accepted is True
     assert player.books().last_gid == GID + 1
 
@@ -438,10 +433,24 @@ def test_a_book_with_nothing_indexed_has_no_sentence_to_offer(
 # ------------------------------------------- what is being said where they are
 
 
+def listening_at(tone_book: ToneBook, position_ms: int) -> None:
+    """Put the listener somewhere in the book.
+
+    The fixture book has no position at all, which since ADR 10 is a book nobody
+    has started and a guard that is shut. Every test of what may be said has to
+    say where they are first, because that is now the whole of the input.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "UPDATE books SET position_ms = ? WHERE gid = ?", (position_ms, GID)
+        )
+
+
 def test_the_words_at_a_point_are_the_ones_last_spoken_before_it(
-    player: Player,
+    player: Player, tone_book: ToneBook
 ) -> None:
     """The "you are here" row's words, which no answer carries down for it."""
+    listening_at(tone_book, TOTAL_MS)
     assert player.passage_at(GID, 5_000) == (
         "the low tone holds to the end of the first chapter"
     )
@@ -451,96 +460,59 @@ def test_the_words_at_a_point_are_the_ones_last_spoken_before_it(
     )
 
 
-def test_a_point_past_the_mark_is_answered_from_behind_it(
+def test_a_point_past_the_line_is_answered_from_behind_it(
     player: Player, tone_book: ToneBook
 ) -> None:
     """The bound is on the row, not on the question — see Player.passage_at.
 
     This is the whole security argument for the route. Ask about a point an hour
-    past anything anybody has listened to and the answer is still the last thing
-    that was really spoken: there is no id to guess, and no refusal to read a
-    frontier off either.
+    past where the book has got to and the answer is still the last thing behind
+    them: there is no id to guess, and no refusal to read a frontier off either.
     """
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET heard_to_ms = 12000 WHERE gid = ?", (GID,)
-        )
+    listening_at(tone_book, 12_000)
     spoken = "the second tone, a fifth above the first"
     assert player.passage_at(GID, TOTAL_MS) == spoken
     # And nothing from beyond it, however the question is put.
     assert player.passage_at(GID, 20_000) == "the second tone, a fifth above the first"
 
 
-def test_a_passage_beginning_exactly_at_the_mark_has_not_been_spoken(
+def test_a_passage_beginning_exactly_where_they_are_has_not_been_spoken(
     player: Player, tone_book: ToneBook
 ) -> None:
-    """`start_ms < heard_to_ms`, which is the guard's own predicate negated.
+    """`start_ms < position_ms`, which is the guard's own predicate negated.
 
-    A passage that begins where the sound stopped is a passage nobody has heard
-    a word of — :class:`somnia.tools.Candidate` calls exactly that one `ahead` —
-    and the two ends of somnia must not disagree about a boundary case on the
-    one screen that shows both.
+    A passage that begins where the sound has got to is a passage nobody has
+    heard a word of — :class:`somnia.tools.Candidate` calls exactly that one
+    `ahead` — and the two ends of somnia must not disagree about a boundary case
+    on the one screen that shows both.
     """
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET heard_to_ms = 8000 WHERE gid = ?", (GID,)
-        )
+    listening_at(tone_book, 8_000)
     assert player.passage_at(GID, 8_000) == (
         "the low tone holds to the end of the first chapter"
     )
 
 
-def test_a_book_nobody_has_played_has_no_words_to_offer(
+def test_a_book_nobody_has_started_has_no_words_to_offer(
     player: Player, tone_book: ToneBook
 ) -> None:
-    """No such book, nothing indexed, and nothing heard all answer the same.
+    """No such book, nothing indexed, and never started all answer the same.
 
-    The row offers no reveal, which is what it did before the route existed.
+    The row offers no reveal, which is what it did before the route existed. A
+    NULL position matches no row at all, which is how "never started" arrives
+    here — the comparison does the work rather than a branch above it.
     """
     assert player.passage_at(GID + 1, 5_000) is None
     assert player.passage_at(GID, -1) is None
-    with tone_book.conn:
-        tone_book.conn.execute("UPDATE books SET heard_to_ms = 0 WHERE gid = ?", (GID,))
     assert player.passage_at(GID, 5_000) is None
 
 
 # ------------------------------------------------- what the page reports back
 
 
-def set_heard(tone_book: ToneBook, heard_to_ms: int) -> None:
-    """Wind the high-water mark back; the fixture starts at the whole book."""
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET heard_to_ms = ? WHERE gid = ?", (heard_to_ms, GID)
-        )
-
-
-def heard(tone_book: ToneBook) -> int:
-    row = tone_book.conn.execute(
-        "SELECT heard_to_ms FROM books WHERE gid = ?", (GID,)
-    ).fetchone()
-    return int(row["heard_to_ms"])
-
-
-def reported_since(tone_book: ToneBook, seconds_ago: int) -> None:
-    """Say when the last report the server took came in.
-
-    That is the ceiling on how much playback the next report may claim to have
-    done since, and a test that runs in a millisecond has no time in it to have
-    played anything at all. Writing it is how a night of listening fits inside
-    a test.
-    """
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET position_at = datetime('now', ?) WHERE gid = ?",
-            (f"-{seconds_ago} seconds", GID),
-        )
-
-
 def test_a_position_report_is_taken_at_its_word(
     player: Player, tone_book: ToneBook
 ) -> None:
-    report = player.report(GID, 5_000, seq=0, played_ms=0)
+    report = player.report(GID, 5_000, seq=0)
     assert (report.accepted, report.position_ms, report.reason) == (True, 5_000, None)
 
     manifest = player.manifest(GID)
@@ -548,176 +520,49 @@ def test_a_position_report_is_taken_at_its_word(
     assert manifest.position_ms == 5_000
 
 
-def test_a_book_played_through_raises_the_high_water_mark(
+def test_a_skip_forward_is_simply_where_they_are_now(
     player: Player, tone_book: ToneBook
 ) -> None:
-    """Nine seconds of book with nine seconds of playback behind it."""
-    set_heard(tone_book, 0)
-    reported_since(tone_book, 9)
-    report = player.report(GID, 9_000, seq=0, played_ms=9_000)
-    assert report.heard_to_ms == 9_000
-    assert heard(tone_book) == 9_000
+    """The bug ADR 10 was written for, from the side the listener felt it on.
 
+    There used to be a second column here, raised only over ground the sound
+    had really covered, and a report standing further past it than it had
+    playback to show for could not raise it. A skip is exactly such a report —
+    so one press of +30 stopped the mark for the rest of the book, and the gap
+    in front of it only grew. Every question for the rest of the night was then
+    answered against the place they last listened straight through, and the
+    agent kept saying that things behind them lay ahead.
 
-def test_a_report_with_no_playback_behind_it_does_not_raise_the_mark(
-    player: Player, tone_book: ToneBook
-) -> None:
-    """A page sitting paused while they ask a question has heard nothing.
-
-    A minute of clock is left between the reports, so what is being tested is
-    that time on its own buys nothing: no sound came out of it.
+    Now a skip is a position like any other, and the line the guard is drawn at
+    goes with them.
     """
-    set_heard(tone_book, 4_000)
-    reported_since(tone_book, 60)
-    report = player.report(GID, 20_000, seq=0, played_ms=0)
-    assert (report.accepted, report.position_ms) == (True, 20_000)
-    assert report.heard_to_ms == 4_000
-    assert heard(tone_book) == 4_000
+    assert player.report(GID, 4_000, seq=0).accepted
+    assert player.passage_at(GID, 16_000) == "the first tone begins, low and steady"
+
+    # The skip, and the line goes with them rather than staying at 4_000.
+    assert player.report(GID, 20_000, seq=0).accepted
+    assert player.passage_at(GID, 16_000) == (
+        "the third tone, an octave above the first"
+    )
 
 
-def test_the_pause_at_the_end_of_a_stretch_carries_the_mark_with_it(
+def test_a_report_can_carry_the_line_backwards_as_well(
     player: Player, tone_book: ToneBook
 ) -> None:
-    """A pause is the best evidence in the protocol that they listened to here.
+    """The cost ADR 10 took on knowingly, asserted so nobody meets it by surprise.
 
-    It is also where the mark would otherwise be left behind. A pause lands up
-    to a heartbeat past the last report taken, and a mark a heartbeat behind
-    the position refuses everything that comes after it — so reading a pause as
-    "they have heard nothing" stopped the guard for the rest of the book on the
-    first ordinary pause of the night, which most nights is within a minute.
+    Where they are is the whole of what may be spoken about, so a rewind really
+    does make the stretch above them unsayable again. It is self-healing — the
+    next few minutes of playing put it back, one report at a time — which is
+    what the high-water mark it replaced could not say for the skip case.
     """
-    set_heard(tone_book, 8_000)
-    reported_since(tone_book, 7)
-    paused = player.report(GID, 14_500, seq=0, played_ms=6_500)
-    assert paused.heard_to_ms == 14_500
+    assert player.report(GID, TOTAL_MS, seq=0).accepted
+    assert player.passage_at(GID, 20_000) == "the high tone closes the book"
 
-    # The press of play that follows stands exactly where the pause did, so it
-    # has nothing to prove and claims nothing.
-    resumed = player.report(GID, 14_500, seq=0, played_ms=0)
-    assert resumed.heard_to_ms == 14_500
-
-    # And the night carries on from there rather than from where it stuck.
-    reported_since(tone_book, 9)
-    on = player.report(GID, 23_500, seq=0, played_ms=9_000)
-    assert on.heard_to_ms == 23_500
-
-
-def test_a_skip_forward_while_playing_is_not_counted_as_heard(
-    player: Player, tone_book: ToneBook
-) -> None:
-    """One press of +30 used to hand over the whole book.
-
-    Four seconds into the tone book, one second of playback since the last
-    report, and this report says twenty seconds: sixteen of them went past with
-    no sound behind them, so nobody listened to them.
-    """
-    set_heard(tone_book, 4_000)
-    reported_since(tone_book, 1)
-    report = player.report(GID, 20_000, seq=0, played_ms=1_000)
-    assert (report.accepted, report.position_ms) == (True, 20_000)
-    assert report.heard_to_ms == 4_000
-    assert heard(tone_book) == 4_000
-
-
-def test_the_ticks_after_a_skip_do_not_carry_the_mark_over_it(
-    player: Player, tone_book: ToneBook
-) -> None:
-    """The heartbeats that follow a skip are honest, and still prove nothing.
-
-    Each is a second of listening at a place they were never played to, and the
-    hole in front of them does not shrink for being reported across. The mark
-    stays behind it rather than stepping over it a minute later. This is the
-    whole of what the rule costs: after a skip forward the mark stops, and it
-    stops until they go back to where they really were.
-    """
-    set_heard(tone_book, 4_000)
-    reported_since(tone_book, 1)
-    player.report(GID, 20_000, seq=0, played_ms=1_000)
-    for position_ms in (21_000, 22_000, 23_000):
-        reported_since(tone_book, 1)
-        player.report(GID, position_ms, seq=0, played_ms=1_000)
-    assert heard(tone_book) == 4_000
-
-
-def test_a_move_the_page_followed_does_not_mark_the_book_between_as_heard(
-    player: Player, tone_book: ToneBook
-) -> None:
-    """Every agent move seeks with the sound on, which is the same hole.
-
-    Being taken to the passage they asked for says nothing about the hours in
-    front of it, and the page reporting from there must not claim them.
-    """
-    set_heard(tone_book, 4_000)
-    moved_by_the_agent(tone_book, 20_000)
-    reported_since(tone_book, 1)
-    report = player.report(GID, 20_000, seq=1, played_ms=1_000)
-    assert (report.accepted, report.heard_to_ms) == (True, 4_000)
-
-
-def test_a_stretch_played_through_off_the_network_still_counts(
-    player: Player, tone_book: ToneBook
-) -> None:
-    """A gap between reports is not a gap in the listening.
-
-    Reports die on a tailnet that is down, and the book plays on regardless.
-    The one that gets through afterwards is twenty seconds further on with
-    twenty seconds of playback behind it, which is exactly what listening looks
-    like — so the mark catches up rather than freezing at the moment the signal
-    went. The page owes that playback until a report carrying it is taken,
-    which is what makes this possible after four minutes as well as after
-    twenty seconds.
-    """
-    set_heard(tone_book, 0)
-    reported_since(tone_book, 20)
-    report = player.report(GID, 20_000, seq=0, played_ms=20_000)
-    assert report.heard_to_ms == 20_000
-
-
-def test_a_night_the_phone_slept_through_cannot_be_spent_as_listening(
-    player: Player, tone_book: ToneBook
-) -> None:
-    """Eight hours of clock is not eight hours of listening.
-
-    The last thing a page says before the phone is put down is that the sound
-    is on, and then nothing arrives for hours — the tab is frozen, or
-    discarded, or simply has nothing to say. Measured off the wall clock, the
-    first report after that could cover a move of five hours in full: the guard
-    turned itself off overnight with nobody touching it. Measured off playback
-    there is nothing to spend, because nothing played.
-    """
-    set_heard(tone_book, 4_000)
-    reported_since(tone_book, 8 * 60 * 60)
-    report = player.report(GID, 20_000, seq=0, played_ms=0)
-    assert report.heard_to_ms == 4_000
-    assert heard(tone_book) == 4_000
-
-
-def test_a_report_cannot_claim_more_playback_than_there_was_time_for(
-    player: Player, tone_book: ToneBook
-) -> None:
-    """The clock is not the answer any more, but it is still the ceiling.
-
-    A page whose acknowledgement was lost owes that playback again and sends it
-    with the next report, which is right and is what stops the mark being left
-    behind. Two pages open on the same book would owe each other's, which is
-    not. Neither can produce more listening than the interval it happened in.
-    """
-    set_heard(tone_book, 0)
-    reported_since(tone_book, 2)
-    report = player.report(GID, 20_000, seq=0, played_ms=20_000)
-    assert report.heard_to_ms == 0
-    assert heard(tone_book) == 0
-
-
-def test_a_position_report_never_lowers_the_high_water_mark(
-    player: Player, tone_book: ToneBook
-) -> None:
-    """Being taken back to chapter one must not un-hear chapters two and three."""
-    set_heard(tone_book, 20_000)
-    reported_since(tone_book, 5)
-    report = player.report(GID, 1_000, seq=0, played_ms=5_000)
-    assert (report.accepted, report.heard_to_ms) == (True, 20_000)
-    assert heard(tone_book) == 20_000
+    assert player.report(GID, 5_000, seq=0).accepted
+    assert player.passage_at(GID, 20_000) == (
+        "the low tone holds to the end of the first chapter"
+    )
 
 
 def test_two_reports_in_a_row_from_the_same_page_are_both_accepted(
@@ -731,8 +576,8 @@ def test_two_reports_in_a_row_from_the_same_page_are_both_accepted(
     ago — a backwards yank per dropped packet, all night, each one looking
     exactly like the agent doing it.
     """
-    first = player.report(GID, 1_000, seq=0, played_ms=0)
-    second = player.report(GID, 2_000, seq=0, played_ms=0)
+    first = player.report(GID, 1_000, seq=0)
+    second = player.report(GID, 2_000, seq=0)
     assert (first.accepted, second.accepted) == (True, True)
     assert (first.seq, second.seq) == (0, 0)
 
@@ -741,7 +586,7 @@ def test_a_position_written_by_a_page_that_missed_a_move_is_refused(
     player: Player, tone_book: ToneBook
 ) -> None:
     moved_by_the_agent(tone_book, 16_500)
-    report = player.report(GID, 3_000, seq=0, played_ms=0)
+    report = player.report(GID, 3_000, seq=0)
     assert (report.accepted, report.reason) == (False, "moved")
 
     manifest = player.manifest(GID)
@@ -758,17 +603,26 @@ def test_a_refused_report_carries_the_move_it_missed(
     asked would keep being refused for the rest of the night.
     """
     moved_by_the_agent(tone_book, 16_500)
-    report = player.report(GID, 3_000, seq=0, played_ms=0)
+    report = player.report(GID, 3_000, seq=0)
     assert (report.position_ms, report.seq) == (16_500, 1)
 
 
-def test_a_refused_report_leaves_the_high_water_mark_alone(
+def test_a_refused_report_leaves_the_position_alone(
     player: Player, tone_book: ToneBook
 ) -> None:
-    set_heard(tone_book, 4_000)
+    """The refusal has to be inert, because the position is now the guard.
+
+    A refused report that still wrote its position would move the line the
+    spoiler guard is drawn at on the strength of a page that has been overtaken
+    — and the page it was refused for is by definition the one that does not
+    know where the book is.
+    """
     moved_by_the_agent(tone_book, 16_500)
-    player.report(GID, 12_000, seq=0, played_ms=0)
-    assert heard(tone_book) == 4_000
+    player.report(GID, 12_000, seq=0)
+    row = tone_book.conn.execute(
+        "SELECT position_ms FROM books WHERE gid = ?", (GID,)
+    ).fetchone()
+    assert row["position_ms"] == 16_500
 
 
 def test_a_page_that_has_seen_the_move_is_allowed_to_write_again(
@@ -776,40 +630,38 @@ def test_a_page_that_has_seen_the_move_is_allowed_to_write_again(
 ) -> None:
     """A refusal has to be recoverable, or the move ends the night's writes."""
     moved_by_the_agent(tone_book, 16_500)
-    refused = player.report(GID, 3_000, seq=0, played_ms=0)
+    refused = player.report(GID, 3_000, seq=0)
     assert refused.seq is not None
 
-    caught_up = player.report(GID, 17_000, seq=refused.seq, played_ms=0)
+    caught_up = player.report(GID, 17_000, seq=refused.seq)
     assert (caught_up.accepted, caught_up.position_ms) == (True, 17_000)
 
 
 def test_a_report_about_a_book_that_is_gone_says_so(player: Player) -> None:
     """Left open on a deleted book, a page should stop talking about it."""
-    report = player.report(404_404, 1_000, seq=0, played_ms=0)
+    report = player.report(404_404, 1_000, seq=0)
     assert (report.accepted, report.reason) == (False, "gone")
     assert report.position_ms is None
 
 
-def test_a_list_of_places_neither_raises_the_mark_nor_stops_it_rising(
+def test_a_list_of_places_neither_moves_the_guard_nor_stops_it_moving(
     player: Player, tone_book: ToneBook
 ) -> None:
     """Both directions, because only one of them is a fix.
 
     A list of places they might have meant is a question. Nothing has played
-    and nobody has been anywhere, so the mark must not move by a millisecond —
-    if it did, every list would widen the next search past what they have
-    listened to and the guard would unwind itself one question at a time.
+    and nobody has been anywhere, so the position must not move by a
+    millisecond — since ADR 10 that number is the guard itself, so a list that
+    nudged it would widen the next search by exactly the places it had just
+    shown, and the guard would unwind itself one question at a time.
 
-    And a mark that has stopped rising is not a guard, it is a book that can
-    never be searched again. So the same night carries on either side of the
-    question: nine seconds of listening before it, nine seconds after, and the
-    mark steps to both. The two assertions belong in one test because a broken
-    guard passes either of them alone.
+    And a guard that cannot move afterwards is not a guard, it is a book that
+    can never be searched again. So the same night carries on either side of
+    the question, and the line steps with it. The two assertions belong in one
+    test because a broken guard passes either of them alone.
     """
     library = Library(tone_book.cfg, tone_book.conn, embedder=tone_book.embedder)
-    set_heard(tone_book, 0)
-    reported_since(tone_book, 9)
-    assert player.report(GID, 9_000, seq=0, played_ms=9_000).heard_to_ms == 9_000
+    assert player.report(GID, 9_000, seq=0).accepted
 
     places = [
         int(row["id"])
@@ -821,13 +673,11 @@ def test_a_list_of_places_neither_raises_the_mark_nor_stops_it_rising(
     ]
     offer = library.offer_positions(GID, places)
     assert isinstance(offer, Offer), offer
-    assert heard(tone_book) == 9_000
-    # Nor did it move them, or count anything: the whole of an offer is reads.
+    # It moved nobody and counted nothing: the whole of an offer is reads.
     row = tone_book.conn.execute(
         "SELECT position_ms, position_seq FROM books WHERE gid = ?", (GID,)
     ).fetchone()
     assert (row["position_ms"], row["position_seq"]) == (9_000, 0)
 
-    reported_since(tone_book, 9)
-    assert player.report(GID, 18_000, seq=0, played_ms=9_000).heard_to_ms == 18_000
-    assert heard(tone_book) == 18_000
+    assert player.report(GID, 18_000, seq=0).accepted
+    assert library.position_ms(GID) == 18_000

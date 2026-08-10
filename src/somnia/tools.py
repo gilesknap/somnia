@@ -115,14 +115,14 @@ class Candidate:
     sentence about a passage it may be wrong about, and the whole point of
     showing the list is that they recognise the moment themselves.
 
-    ``ahead`` says the passage begins at or after the furthest point they have
-    ever reached, and it is decided here, once, by the same code that owns the
-    spoiler guard. The page obeys it and computes nothing: it has never read
-    ``heard_to_ms`` and the copy it holds goes stale over a night, so letting it
-    judge would mean two numbers that can disagree about exactly the rows a
-    mistake matters most on. When it is true the page keeps both these words and
-    ``chapter_title`` off the screen until they ask for them — a Gutenberg
-    chapter heading is as much of a spoiler as the sentence under it.
+    ``ahead`` says the passage begins at or after the point the book has reached,
+    and it is decided here, once, by the same code that owns the spoiler guard.
+    The page obeys it and computes nothing: its own copy of the position goes
+    stale over a night, so letting it judge would mean two numbers that can
+    disagree about exactly the rows a mistake matters most on. When it is true
+    the page keeps ``chapter_title`` off the screen — a Gutenberg chapter
+    heading is as much of a spoiler as the sentence under it — while the words
+    are behind a press on every row either way.
     """
 
     chunk_id: int
@@ -327,11 +327,23 @@ class Library:
             finished=book.status == "done" and position_ms >= book.total_ms - 1000,
         )
 
-    def heard_to_ms(self, gid: int) -> int:
+    def position_ms(self, gid: int) -> int:
+        """Where the book is, as one number, with never-started counted as zero.
+
+        The spoiler guard's whole input since ADR 10, and deliberately cheaper
+        than :meth:`get_position` — the guard wants the line and not the chapter
+        title or the words at it, and it is read on every search.
+
+        A book nobody has started reads 0, which bounds everything at the
+        beginning rather than leaving it unbounded. That distinction is kept
+        where it means something, in ``get_position``, and collapsed here where
+        it does not: "never started" and "at the very beginning" have exactly
+        the same answer to the question this asks.
+        """
         row = self._conn.execute(
-            "SELECT heard_to_ms FROM books WHERE gid = ?", (gid,)
+            "SELECT position_ms FROM books WHERE gid = ?", (gid,)
         ).fetchone()
-        return int(row["heard_to_ms"]) if row else 0
+        return int(row["position_ms"] or 0) if row else 0
 
     def find_passage(
         self,
@@ -343,38 +355,35 @@ class Library:
     ) -> Search:
         """Search a book for a passage — an event, a character, a moment.
 
-        With ``spoiler_free`` (the default) the search stops at the furthest
-        point they have ever reached, and reports separately whether a closer
-        match lies beyond it. Pass False once they have said they don't mind.
+        With ``spoiler_free`` (the default) the search stops where the book is,
+        and reports separately whether a closer match lies beyond it. Pass False
+        once they have said they don't mind.
 
-        The bound is the high-water mark and nothing else. Not the current
-        position, because the agent can move them anywhere: backwards, where
-        having been taken to chapter two must not un-hear chapters three to
-        twenty, and forwards, where treating where they were put as what they
-        have heard would unlock the whole book behind a single move. Not a
-        status of done either — that says the rendering finished, not that
+        The bound is the position and nothing else. It was a high-water mark
+        until ADR 10, on the argument that being taken back to chapter two must
+        not un-hear chapters three to twenty — true, and paid for at a rate
+        nobody expected, because the mark could only rise over ground the sound
+        had really covered and so stopped dead at the first press of the skip
+        button. What it protects against now costs a stretch of book until they
+        play back over it, which the next few minutes of listening undo. What
+        the mark cost lasted the rest of the night.
+
+        A position of zero therefore bounds the search at the beginning of the
+        book rather than leaving it unbounded. Zero means nothing has been
+        heard, and that is precisely when the whole book is ahead of them;
+        reading it as "no limit" would turn the guard off on every book the page
+        has never played, and have the agent free to quote the ending of
+        something they are three chapters into.
+
+        Not a status of done either — that says the rendering finished, not that
         anybody listened to it.
-
-        A mark of zero therefore bounds the search at the beginning of the book
-        rather than leaving it unbounded, which is what it used to do. Zero
-        means nothing has been heard, and that is precisely when the whole book
-        is ahead of them; reading it as "no limit" turned the guard off on every
-        book the page has never played — since the position pivot, every book
-        there is — and had the agent free to quote the ending of something they
-        are three chapters into.
-
-        What that costs is night one: until they have listened to some of a
-        book, a search finds nothing in range and the agent has to say the match
-        lies further on than they have got and offer to take them there. That is
-        one question in the dark, and they can answer it. The other way round
-        they cannot un-hear the answer.
         """
         before_ms: int | None = None
         if spoiler_free:
             position = self.get_position(gid)
             if position is None or not position.finished:
                 # Include the sentence being spoken, not just what precedes it.
-                before_ms = self.heard_to_ms(gid) + 60_000
+                before_ms = self.position_ms(gid) + 60_000
 
         hits = find_passage(
             self._conn, self.embedder, gid, query, k=k, before_ms=before_ms
@@ -436,9 +445,11 @@ class Library:
         """Build the list of places to put on screen, from passages that matched.
 
         Reads and nothing else. An offer asks a question, so it must leave the
-        night exactly as it found it: no position, no count, and above all no
-        ``heard_to_ms``, which rises only from audio that really played. Showing
-        somebody a list of places they have not been is not having been there.
+        night exactly as it found it: no position and no count. That matters
+        more since the position became the guard's only input (ADR 10) — writing
+        one here would not merely record a place nobody went, it would move the
+        line that decides what may be said, on the strength of a screen somebody
+        has not yet answered.
 
         The ids are chunk ids, as :class:`somnia.index.Passage` carries them,
         and an id that resolves to nothing is dropped rather than rounded to the
@@ -480,24 +491,24 @@ class Library:
             return Refused("None of those are passages from a search. Search first.")
 
         # Read once for the whole offer. Asking per row would let two rows be
-        # judged against different marks if a report landed in between, and the
+        # judged against different lines if a report landed in between, and the
         # row that changed its mind would be the one furthest on.
-        heard = self.heard_to_ms(gid)
+        here = self.position_ms(gid)
         places = [
             Candidate(
                 chunk_id=int(row["id"]),
                 start_ms=int(row["start_ms"]),
                 chapter_idx=int(row["chapter_idx"]),
                 chapter_title=self._chapter_title(gid, int(row["chapter_idx"])),
-                # Not `>`. A chunk that begins exactly at the mark is the
+                # Not `>`. A chunk that begins exactly where they are is the
                 # sentence they have not heard yet, and on a book nobody has
-                # played a second of — heard_to_ms 0, which is every book until
-                # it is played — `>` would print the opening words in the clear.
-                # No slack either: the search bound is the mark plus a minute
-                # (see find_passage), so a passage inside that minute is in
-                # range to be found and still covered up here. That is the safe
+                # started — position 0, which is every book until it is played —
+                # `>` would print the opening words in the clear. No slack
+                # either: the search bound is the position plus a minute (see
+                # find_passage), so a passage inside that minute is in range to
+                # be found and still covered up here. That is the safe
                 # direction, and it costs one press.
-                ahead=int(row["start_ms"]) >= heard,
+                ahead=int(row["start_ms"]) >= here,
                 text=shorten(str(row["text"]), CANDIDATE_TEXT_CHARS),
             )
             for row in rows[:CANDIDATE_MAX]
@@ -572,9 +583,11 @@ class Library:
         number higher than the one the page holds can therefore only be a move
         it has not applied, which is what lets it act on one unconditionally.
 
-        ``heard_to_ms`` is deliberately untouched. Being taken back to chapter
-        two must not un-hear chapters three to twenty, or the whole stretch they
-        had already listened to becomes unsearchable for the rest of the night.
+        It moves the spoiler guard with it, which is what a move now means: the
+        position is the line, so being taken back to chapter two makes chapters
+        three to twenty unsayable again until they are played back over. That is
+        the cost ADR 10 took on knowingly, against a mark that stopped rising at
+        the first press of the skip button and stayed stopped.
 
         None if there is no such book: the guarded UPDATE returns no row at all,
         which is the cheapest way to ask and answer in one statement.

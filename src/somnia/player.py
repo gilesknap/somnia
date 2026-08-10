@@ -39,17 +39,6 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-# How much further on than the playback it reports a report may stand and still
-# be believed to have been played through. Because the playback appears on both
-# sides of the comparison, this is exactly the size of the largest jump that can
-# be laundered as listening, so it is also the number to argue about. It has to
-# cover the 400ms of rendered silence a chapter swap steps over, the quarter of
-# a second between the last timeupdate and a pause, the second datetime('now')
-# truncates away at each end, and a render clock that can legitimately run a
-# frame past the container's. What it must stay well below is thirty seconds,
-# which is the smallest forward jump the page has a button for.
-HEARD_SLACK_MS = 5_000
-
 # How far ahead of everything else the book somebody just chose is stamped, in
 # whole seconds. It is not a fudge factor, it is the resolution of the column:
 # ``position_at`` is written by ``datetime('now')``, which counts whole seconds,
@@ -66,11 +55,11 @@ HEARD_SLACK_MS = 5_000
 # and still win, and that is left alone: the cost is a launch that opens the
 # book they came from, which one more press puts right.
 #
-# It costs a stamp up to two seconds in the future, which is read in exactly one
-# place — the ceiling on how much playback the *next* report may claim, in
-# :meth:`Player.report`. There it makes the first report after an open measure
-# against a slightly shorter interval, which can only stop the mark rising, and
-# the report after that one has already put the clock back where it belongs.
+# It costs a stamp up to two seconds in the future, and nothing reads it for
+# anything but the ordering above. It used to be read a second time, as the
+# ceiling on how much playback the next report might claim — that ceiling went
+# with the mark it protected (ADR 10), and with it the one place where a stamp in
+# the future could do any harm.
 OPENED_AHEAD_S = 2
 
 
@@ -202,7 +191,6 @@ class Manifest:
     chapters_total: int
     position_ms: int | None
     seq: int
-    heard_to_ms: int
     stream_url: str | None
     stream_ms: int
     chapters: list[Chapter]
@@ -238,7 +226,6 @@ class Report:
     gid: int
     position_ms: int | None = None
     seq: int | None = None
-    heard_to_ms: int | None = None
     reason: str | None = None
 
 
@@ -309,8 +296,10 @@ class Player:
         What it must not touch is everything else in that row. ``position_ms``
         stays where the last report put it, because opening a book is not
         listening to it and a book they change their mind about must be exactly
-        as they left it. ``heard_to_ms`` stays because nothing has been heard.
-        And ``position_seq`` stays because that number counts agent moves and
+        as they left it — and since the position is now the whole of what the
+        spoiler guard reads, leaving it alone is also what keeps opening a book
+        from unlocking anything in it. And ``position_seq`` stays because that
+        number counts agent moves and
         nothing else — bumping it here would refuse the page's next report and
         drag the listener back to wherever the server thought they were, which
         is the failure ADR 4 already refused for a chosen row.
@@ -376,7 +365,7 @@ class Player:
         with self._lock:
             book = self._conn.execute(
                 "SELECT gid, title, authors, status, total_ms, chapters_total,"
-                " position_ms, position_seq, heard_to_ms FROM books WHERE gid = ?",
+                " position_ms, position_seq FROM books WHERE gid = ?",
                 (gid,),
             ).fetchone()
             if book is None:
@@ -395,7 +384,6 @@ class Player:
             chapters_total=book["chapters_total"],
             position_ms=book["position_ms"],
             seq=book["position_seq"],
-            heard_to_ms=book["heard_to_ms"],
             # Advertised on the strength of the rows and not of the file: the
             # join happens on the first ask, in the request that wants it, so
             # there is nothing here for a manifest to look at. A book with no
@@ -422,7 +410,7 @@ class Player:
             ],
         )
 
-    def report(self, gid: int, position_ms: int, seq: int, played_ms: int) -> Report:
+    def report(self, gid: int, position_ms: int, seq: int) -> Report:
         """Take the page's word for where the book is, unless it is out of date.
 
         Compare-and-swap on ``position_seq``, which counts agent moves and
@@ -434,83 +422,29 @@ class Player:
         tailnet would look like a move, and the listener would be yanked
         backwards fifteen seconds at random all night.
 
-        How far they have *heard* is a different question from where the book
-        is, and its honest answer is playback that really came out of the
-        speaker. One press of the skip button is thirty seconds, an agent move
-        is hours, and both arrive here as a report from further on than the last
-        one. Believing those handed the whole spoiler guard away for a single
-        nudge, and MAX() meant it never came back.
+        One column, and it is the position. There was a second until ADR 10 — a
+        mark of how far the sound had really reached, which the spoiler guard
+        was drawn at rather than here, and which every report had to prove it
+        had earned by counting its own playback off the media clock. It is gone,
+        and with it the count on the report, the wall-clock ceiling over that
+        count, and the slack that decided what was a listen and what was a jump.
 
-        Only the page can tell the two apart, so the page is asked. Every report
-        says how much of the book has really played since the last one taken,
-        counted off the media clock: a stretch they listened to moves that by as
-        much as it moves the position, and a jump moves the position alone. The
-        mark rises to the reported position when the two agree — when the report
-        stands no further past the mark than the playback it brought with it,
-        give or take :data:`HEARD_SLACK_MS`. Since the playback is on both sides
-        of that comparison, the slack *is* the largest jump that can be
-        laundered, whatever else the night did.
-
-        It follows that the wall clock is no longer consulted for the answer,
-        only as a ceiling: no report may claim more playback than has had time
-        to happen since the last one taken. Elapsed time was the answer once and
-        was too generous by exactly the shape of a night — a phone spends eight
-        hours asleep with the sound off, reports nothing while it does, and the
-        first thing it says on waking is five hours further on, which the clock
-        would have covered in full. The ceiling and the claim measure the same
-        interval by construction: ``position_at`` moves only on an accepted
-        report, and so does the page's idea of what it has already been credited
-        with. That is what makes it safe, and it is also what catches the one
-        report that legitimately claims twice — an acknowledgement lost on the
-        tailnet leaves the page owing that playback again. It does assume the
-        book plays at the speed it was written: a playback-rate control, which
-        somnia deliberately does not have, would have to scale this or a
-        listener going faster than the clock would be refused for it.
-
-        None of this consults ``reason``, and no report is disbelieved for
-        saying the sound is off. A pause is the strongest evidence in the whole
-        protocol that they listened right up to where it happened, and throwing
-        it away left the mark a heartbeat behind the position with no way back —
-        every report afterwards stood further on than the mark by more than it
-        had playback to show for, so an ordinary pause stopped the guard for the
-        rest of the book. A guard that has stopped rising is not a fix.
-
-        One cost is real and is the one worth paying: after a forward skip the
-        mark stops, because everything reported afterwards stands past a stretch
-        with no playback behind it. Searches stay bounded at the last place they
-        truly listened until they go back over it, and the agent offers to go on
-        ahead rather than quoting what lies past it. One number cannot say "I
-        heard this stretch but not that one" — that wants a set of intervals —
-        and failing this way costs them a question at 2am, where failing the
-        other way costs them the book.
+        What it cost is worth writing down, because it is why this is now one
+        statement. A report standing further past the mark than it had playback
+        to show for could not be credited, and after a forward skip every report
+        stands past a stretch nothing was heard over — so one press of the skip
+        button stopped the mark for the rest of the book, and the gap only ever
+        grew from there. The guard then bounded every question at the last place
+        they listened straight through, which after an evening of skipping is
+        nowhere near where they are, and the agent spent the night saying that
+        things behind them lay ahead.
         """
         with self._lock, self._conn:
             row = self._conn.execute(
-                "UPDATE books SET position_ms = ?, position_at = datetime('now'),"
-                # Every expression in a SET reads the row as it was before the
-                # update, so the position_at inside this one is the previous
-                # report's and not the one being written beside it. A book that
-                # has never been reported on has no interval to have played
-                # anything in, which is why a missing timestamp counts as no
-                # time rather than as no limit. MAX(x, 0) is a no-op on a column
-                # that is NOT NULL DEFAULT 0, so a report that cannot be
-                # credited needs no second statement.
-                " heard_to_ms = MAX(heard_to_ms, CASE WHEN ? - heard_to_ms <= MIN(?,"
-                " (strftime('%s', 'now')"
-                " - COALESCE(strftime('%s', position_at), strftime('%s', 'now')))"
-                " * 1000) + ?"
-                " THEN ? ELSE 0 END)"
+                "UPDATE books SET position_ms = ?, position_at = datetime('now')"
                 " WHERE gid = ? AND position_seq = ?"
-                " RETURNING position_seq, heard_to_ms",
-                (
-                    position_ms,
-                    position_ms,
-                    played_ms,
-                    HEARD_SLACK_MS,
-                    position_ms,
-                    gid,
-                    seq,
-                ),
+                " RETURNING position_seq",
+                (position_ms, gid, seq),
             ).fetchone()
             if row is not None:
                 # The seq handed back is the one that was sent. Saying so out
@@ -520,11 +454,9 @@ class Player:
                     gid=gid,
                     position_ms=position_ms,
                     seq=row["position_seq"],
-                    heard_to_ms=row["heard_to_ms"],
                 )
             current = self._conn.execute(
-                "SELECT position_ms, position_seq, heard_to_ms FROM books"
-                " WHERE gid = ?",
+                "SELECT position_ms, position_seq FROM books WHERE gid = ?",
                 (gid,),
             ).fetchone()
         if current is None:
@@ -536,7 +468,6 @@ class Player:
             gid=gid,
             position_ms=current["position_ms"],
             seq=current["position_seq"],
-            heard_to_ms=current["heard_to_ms"],
             reason="moved",
         )
 
@@ -569,7 +500,7 @@ class Player:
         return int(row["start_ms"]) if row is not None else None
 
     def passage_at(self, gid: int, ms: int) -> str | None:
-        """The book's own words at ``ms``, never any further on than they got.
+        """The book's own words at ``ms``, never any further on than they are.
 
         For the "you are here" row on the list of places. Every other row on
         that screen carries its words down with the answer that named it; this
@@ -580,30 +511,25 @@ class Player:
 
         The guard is in the statement rather than in a branch above it, and that
         is the whole of why this route is safe to exist. ``start_ms <
-        heard_to_ms`` is the spoiler guard's own predicate — it is exactly what
+        position_ms`` is the spoiler guard's own predicate — it is exactly what
         :class:`somnia.tools.Candidate` calls not being ``ahead``, written the
         other way round — and it is applied to the row, not to the argument: a
-        caller who asks about a point an hour past where anybody has listened is
-        answered with the last passage that really was spoken, not refused and
-        not obliged. So there is no number to guess and no error to read a
-        frontier off. The furthest this can ever hand back is the furthest the
-        sound has ever reached.
-
-        ``heard_to_ms`` and not ``position_ms``, for the reason the column
-        exists: being taken backwards must not shrink what may be shown, and the
-        page asks about where they are now, which is at or behind it either way.
+        caller who asks about a point an hour past where the book has got to is
+        answered with the last passage behind them, not refused and not obliged.
+        So there is no number to guess and no error to read a frontier off.
 
         None when there is nothing to say: no such book, a book whose text was
-        never indexed, or a book nobody has played a second of — the last of
-        those falls out of the same comparison, since no passage begins before
-        zero. The row simply offers no reveal then, which is what it did before
-        this existed.
+        never indexed, or a book nobody has started — the last of those falls
+        out of the same comparison, since a NULL position matches no row at all,
+        which is the answer "never started" deserves rather than the answer
+        0:00:00 would get. The row simply offers no reveal then, which is what
+        it did before this existed.
         """
         with self._lock:
             row = self._conn.execute(
                 "SELECT chunks.text FROM chunks JOIN books ON books.gid ="
                 " chunks.book_gid WHERE chunks.book_gid = ? AND chunks.start_ms"
-                " <= ? AND chunks.start_ms < books.heard_to_ms"
+                " <= ? AND chunks.start_ms < books.position_ms"
                 " ORDER BY chunks.start_ms DESC LIMIT 1",
                 (gid, ms),
             ).fetchone()

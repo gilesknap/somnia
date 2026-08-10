@@ -55,7 +55,6 @@ CREATE TABLE IF NOT EXISTS books (
     status TEXT NOT NULL DEFAULT 'pending',
     total_ms INTEGER NOT NULL DEFAULT 0,
     abs_item_id TEXT NOT NULL DEFAULT '',
-    heard_to_ms INTEGER NOT NULL DEFAULT 0,
     position_ms INTEGER,
     position_seq INTEGER NOT NULL DEFAULT 0,
     position_at TEXT,
@@ -138,13 +137,14 @@ CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
 # leaves an existing table alone, so new columns have to be added by hand.
 _ADDED_COLUMNS = (
     ("books", "abs_item_id", "TEXT NOT NULL DEFAULT ''"),
-    # The furthest point ever reached, which is not the same as where they are
-    # now: the agent can move them backwards, and doing so must not shrink what
-    # the spoiler guard is willing to search.
-    ("books", "heard_to_ms", "INTEGER NOT NULL DEFAULT 0"),
-    # Where they are now, as against how far they have ever got. Nullable on
-    # purpose: "never started" and "at the very beginning" are different answers
-    # to "where am I?", and only NULL can give the first one.
+    # Where they are, which since ADR 10 is also the whole of what the spoiler
+    # guard reads — there was a `heard_to_ms` beside this one until then, and a
+    # database written before it still has the column. Nothing removes it: a
+    # column nobody selects costs a few bytes a row, where DROP COLUMN on the
+    # live database costs a rewrite of the one table somnia cannot lose.
+    #
+    # Nullable on purpose: "never started" and "at the very beginning" are
+    # different answers to "where am I?", and only NULL can give the first one.
     ("books", "position_ms", "INTEGER"),
     # How many times the agent has moved this book. Not a write counter and not
     # a timestamp: the page's own saves leave it alone. That asymmetry is what

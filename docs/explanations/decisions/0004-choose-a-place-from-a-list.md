@@ -62,6 +62,13 @@ returns anything the sound has not already said out loud. If the request fails o
 the book has nothing indexed, the row offers no press at all, which is what it
 was before.
 
+Amended by [ADR 10](0010-draw-the-line-where-they-are.md), which takes away the
+high-water mark this record measures `ahead` against. Everything below that says
+`heard_to_ms` now reads `position_ms`, and the sentence about the two ends of
+somnia not disagreeing about a boundary case is stronger for it: there is one
+number left to disagree about. What the guard costs and what it gives up moved
+with it, and are argued there.
+
 Amended once more by
 [ADR 6](0006-answer-a-question-about-the-book.md), in one particular. The
 rejected alternative below rests part of its case on `find_passage` being both

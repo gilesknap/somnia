@@ -79,9 +79,8 @@ come out of somnia's own reading of the book rather than only out of the passage
 it just looked up, and that line is the whole of what bounds it: somebody who
 has not turned up yet gets *he hasn't come up yet in what you've heard*, and
 nothing after that — not who he is, and not that he arrives later. The bound is
-the furthest point the page has actually *played through*, not where you are
-now — so being taken back to chapter two does not un-hear chapter twenty, and
-being taken forward does not unlock what you were carried over. What you get
+simply where the book is: the line on the scrubber is the line the answers stop
+at. What you get
 instead is that place as a row on the list, marked *ahead*, showing its time
 and its chapter number and nothing else — no words, and not even the chapter's
 name, since a chapter called *How Ginger Died* gives away as much as the
@@ -90,10 +89,10 @@ anywhere on the row's reading and it uncovers, and you decide having read it;
 press it again and it goes back under, name and all; press *goto* and you go
 there without reading it at all. Two things follow from measuring it that way.
 A book somnia has never played is bounded at its opening minute, so a book you
-know well but have never played here puts everything on the list as *ahead*
-until some of it has come out of the speaker. And skipping forward while the
-sound is on stops the mark where it was until you come back behind it, which is
-the price of one press of *+30* not marking the rest of the book as heard.
+know well but have never opened here puts everything on the list as *ahead*
+until you have played into it. And going backwards takes the bound back with
+you: rewind an hour and the hour above you goes quiet again until you have
+played over it. It comes back as fast as the book plays.
 
 Conversations are held in memory, keyed by a token the page mints when it
 starts, and nothing is written to disk. *Start over* drops the history when the

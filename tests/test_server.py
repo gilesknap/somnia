@@ -100,24 +100,23 @@ def chunks_at(tone_book: ToneBook, *starts: int) -> list[int]:
     return ids
 
 
-def listening_at(tone_book: ToneBook, position_ms: int, heard_to_ms: int) -> None:
-    """Put the listener somewhere, with a high-water mark behind them.
+def listening_at(tone_book: ToneBook, position_ms: int) -> None:
+    """Put the listener somewhere in the book.
 
-    The fixture book is heard end to end, which is the one state in which
-    nothing on a list can be ahead of them.
+    One number since ADR 10: where they are is the line the guard is drawn at,
+    so everything before this has been heard and everything after it has not.
     """
     with tone_book.conn:
         tone_book.conn.execute(
-            "UPDATE books SET position_ms = ?, heard_to_ms = ? WHERE gid = ?",
-            (position_ms, heard_to_ms, GID),
+            "UPDATE books SET position_ms = ? WHERE gid = ?",
+            (position_ms, GID),
         )
 
 
 def book_row(tone_book: ToneBook) -> dict[str, Any]:
     """Everything about the book a listener could tell had changed."""
     row = tone_book.conn.execute(
-        "SELECT position_ms, position_seq, position_at, heard_to_ms FROM books"
-        " WHERE gid = ?",
+        "SELECT position_ms, position_seq, position_at FROM books WHERE gid = ?",
         (GID,),
     ).fetchone()
     return dict(row)
@@ -315,7 +314,7 @@ def test_a_turn_that_asks_which_place_they_meant_sends_the_whole_list(
     something. What is settled here is that the answer arrives at the page
     saying so.
     """
-    listening_at(tone_book, position_ms=8_000, heard_to_ms=12_000)
+    listening_at(tone_book, position_ms=8_000)
     monkeypatch.setattr(server, "Conversation", OfferingConversation)
     monkeypatch.setattr(
         OfferingConversation, "places", chunks_at(tone_book, 4_000, 12_000)
@@ -368,7 +367,7 @@ def test_a_list_and_a_seek_never_arrive_in_the_same_answer(
     next report, whereas a seek under somebody still reading a list is a
     listener dragged somewhere nobody chose.
     """
-    listening_at(tone_book, position_ms=8_000, heard_to_ms=12_000)
+    listening_at(tone_book, position_ms=8_000)
     monkeypatch.setattr(server, "Conversation", OfferingConversation)
     monkeypatch.setattr(
         OfferingConversation, "places", chunks_at(tone_book, 4_000, 12_000)
@@ -389,12 +388,12 @@ def test_asking_which_place_they_meant_writes_nothing_to_the_book(
 ) -> None:
     """A turn that offers is a question, and a question leaves no mark.
 
-    Not the position, not the count that would have the page's next report
-    refused, and above all not ``heard_to_ms``: showing somebody a list of
+    Not the position, which since ADR 10 is the guard itself, and not the count
+    that would have the page's next report refused. Showing somebody a list of
     places they have not been is not having been there, and a guard that could
     be widened by asking about it would unwind one question at a time.
     """
-    listening_at(tone_book, position_ms=8_000, heard_to_ms=12_000)
+    listening_at(tone_book, position_ms=8_000)
     monkeypatch.setattr(server, "Conversation", OfferingConversation)
     monkeypatch.setattr(
         OfferingConversation, "places", chunks_at(tone_book, 4_000, 12_000)
@@ -422,12 +421,12 @@ def test_there_is_no_second_way_to_ask_what_is_at_a_place_they_have_not_heard(
 
     ``/api/passage`` is not that route and this is where the difference is
     written down. Its address is a point on the book's clock, not an identifier:
-    there is no id to guess, the row it returns is bounded by ``heard_to_ms``
+    there is no id to guess, the row it returns is bounded by ``position_ms``
     inside the same statement that finds it — see
     :meth:`somnia.player.Player.passage_at` — and no way of asking makes it
-    return anything the sound has not already said out loud. It exists for the
-    one row on that screen the answer carries nothing for, which is the row that
-    is by definition behind the mark: where they are now.
+    return anything from in front of where the book has got to. It exists for
+    the one row on that screen the answer carries nothing for, which is the row
+    that is by definition behind the line: where they are now.
     """
     # Only the route table is under test, but the app is still started and
     # stopped properly, because create_app builds a Player that opens its own
@@ -973,7 +972,7 @@ def test_the_book_list_says_what_there_is_to_play(tone_client: TestClient) -> No
 
 
 def report(client: TestClient, **body: Any) -> Any:
-    payload = {"token": TOKEN, "gid": GID, "seq": 0, "played_ms": 0, "reason": "tick"}
+    payload = {"token": TOKEN, "gid": GID, "seq": 0, "reason": "tick"}
     payload.update(body)
     response = client.post("/api/position", json=payload)
     return response.status_code, response.json()
@@ -1009,7 +1008,6 @@ def test_a_position_report_is_answered_two_hundred_even_when_refused(
         "gid": GID,
         "position_ms": 20_000,
         "seq": 4,
-        "heard_to_ms": 24_000,
         "reason": "moved",
     }
 
@@ -1043,29 +1041,29 @@ def test_a_report_of_an_unknown_kind_is_taken_as_a_tick(
     assert (status, body["accepted"]) == (200, True)
 
 
-def test_a_report_that_says_nothing_about_playback_claims_none_of_it(
+def test_a_page_still_reporting_its_playback_is_taken_at_its_word_anyway(
     tone_client: TestClient, tone_book: ToneBook
 ) -> None:
-    """A body with no playback in it is nothing played, never no limit.
+    """The field ADR 10 deleted, still arriving, and costing nothing.
 
-    The mark is raised by what a report says has really come out of the speaker
-    since the last one, so a page too old to send that number — or a body with
-    a word where the number goes — has to be read as having played nothing.
-    Read the other way round, the oldest page on the phone would be the one
-    thing that could unlock the whole book.
+    A phone holds the app it last loaded, and a service worker can hold it for
+    weeks — so the page that reports tonight may be the one that was written
+    when the mark still had to be earned, and it will keep sending the playback
+    it counted. The number is read by nothing now. What matters is that its
+    presence is not an error and does not stop the position being written,
+    because the alternative is a phone that silently stops recording where it
+    got to until somebody notices the app is a version behind.
     """
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET heard_to_ms = 4000 WHERE gid = ?", (GID,)
-        )
-    body = tone_client.post(
-        "/api/position",
-        json={"token": TOKEN, "gid": GID, "seq": 0, "position_ms": 20_000},
-    ).json()
-    assert (body["accepted"], body["heard_to_ms"]) == (True, 4_000)
+    status, body = report(tone_client, position_ms=20_000, played_ms=8_000)
+    assert (status, body["accepted"]) == (200, True)
+    assert "heard_to_ms" not in body
+    assert book_row(tone_book)["position_ms"] == 20_000
 
-    status, garbled = report(tone_client, position_ms=20_000, played_ms="all of it")
-    assert (status, garbled["heard_to_ms"]) == (200, 4_000)
+    # And a garbled one, for the same reason: what it says about playback is
+    # not read, so there is nothing in it left to be wrong.
+    status, garbled = report(tone_client, position_ms=21_000, played_ms="all of it")
+    assert (status, garbled["accepted"]) == (200, True)
+    assert book_row(tone_book)["position_ms"] == 21_000
 
 
 # ----------------------------------------------------------- switching books
@@ -1131,7 +1129,7 @@ def test_opening_a_book_changes_nothing_a_listener_could_notice(
     next report refused, and the refusal would drag it to wherever the server
     thought the book was.
     """
-    listening_at(tone_book, position_ms=11_000, heard_to_ms=9_000)
+    listening_at(tone_book, position_ms=11_000)
     before = book_row(tone_book)
     assert tone_client.post(f"/api/book/{GID}/open").status_code == 200
     after = book_row(tone_book)
@@ -1393,9 +1391,10 @@ def test_a_book_with_no_sentence_to_offer_is_not_an_error(
 
 
 def test_the_page_can_ask_what_is_being_said_where_they_are(
-    tone_client: TestClient,
+    tone_client: TestClient, tone_book: ToneBook
 ) -> None:
     """The words for the "you are here" row, which no answer carries down."""
+    listening_at(tone_book, TOTAL_MS)
     body = tone_client.get(f"/api/passage/{GID}/5000").json()
     assert body == {
         "gid": GID,
@@ -1410,14 +1409,11 @@ def test_the_only_route_that_serves_book_text_cannot_serve_unheard_text(
     """The one thing this route must never do, asked for directly.
 
     There is no chunk id in the address and no way to put one there: the address
-    is a point on the clock, and what comes back is bounded by how far the sound
-    has really got — so a caller naming the last millisecond of the book is
-    answered from behind the mark like everybody else. See Player.passage_at.
+    is a point on the clock, and what comes back is bounded by where the book
+    has got to — so a caller naming the last millisecond of the book is answered
+    from behind the line like everybody else. See Player.passage_at.
     """
-    with tone_book.conn:
-        tone_book.conn.execute(
-            "UPDATE books SET heard_to_ms = 12000 WHERE gid = ?", (GID,)
-        )
+    listening_at(tone_book, position_ms=12_000)
     body = tone_client.get(f"/api/passage/{GID}/{TOTAL_MS}").json()
     assert body["text"] == "the second tone, a fifth above the first"
 

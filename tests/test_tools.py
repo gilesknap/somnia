@@ -125,17 +125,14 @@ def test_find_passage_will_not_search_past_where_they_are(fixture: Fixture) -> N
 def test_a_book_nobody_has_listened_to_yet_is_bounded_at_its_start(
     fixture: Fixture,
 ) -> None:
-    """A mark of zero is nothing heard, which is the opposite of no limit.
+    """No position at all is nothing heard, which is the opposite of no limit.
 
-    The mark is only raised by the page playing the book, so every book somnia
-    has rendered but nobody has yet played from it stands at zero — and reading
-    that as "search the whole thing" turns the guard off on exactly the books
-    that have never been opened.
+    A book somnia has rendered and nobody has played has no position, and
+    reading that as "search the whole thing" would turn the guard off on
+    exactly the books that have never been opened.
     """
     with fixture.conn:
-        fixture.conn.execute(
-            "UPDATE books SET heard_to_ms = 0, position_ms = NULL WHERE gid = 271"
-        )
+        fixture.conn.execute("UPDATE books SET position_ms = NULL WHERE gid = 271")
     search = fixture.library.find_passage(
         271, "a later scene the listener has not reached"
     )
@@ -147,31 +144,30 @@ def test_a_book_nobody_has_listened_to_yet_is_bounded_at_its_start(
     assert search.better_ahead.start_ms == 700_000
 
 
-def test_a_book_they_have_only_been_moved_through_is_still_bounded(
+def test_a_book_they_have_been_moved_through_is_bounded_where_they_landed(
     fixture: Fixture,
 ) -> None:
-    """Where they were put is not what they have heard.
+    """Where they were put is where they are, and the guard follows them there.
 
-    The agent can move the book anywhere, and it moves it by writing the
-    position. If the bound followed the position, one move ahead — which they
-    may well have asked for — would unlock everything behind it for the rest of
-    the book's life.
+    This is the half of ADR 10 that gives something up. A move forward really
+    does unlock what it skipped over, on the argument that a skip is a
+    deliberate act — and the mark that used to hold the line here was paid for
+    by stopping dead at the first press of the skip button, which cost every
+    question for the rest of the night.
     """
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET position_ms = 700000 WHERE gid = 271")
     search = fixture.library.find_passage(
         271, "a later scene the listener has not reached"
     )
-    assert search.searched_to_ms == 360_000
-    assert 700_000 not in [p.start_ms for p in search.hits]
+    assert search.searched_to_ms == 760_000
+    assert search.hits[0].start_ms == 700_000
 
 
 def test_a_book_they_have_finished_is_searched_whole(fixture: Fixture) -> None:
     """There is nothing left to spoil once they have heard the end of it."""
     with fixture.conn:
-        fixture.conn.execute(
-            "UPDATE books SET heard_to_ms = 0, position_ms = 900000 WHERE gid = 271"
-        )
+        fixture.conn.execute("UPDATE books SET position_ms = 900000 WHERE gid = 271")
     search = fixture.library.find_passage(
         271, "a later scene the listener has not reached"
     )
@@ -234,19 +230,27 @@ def test_moving_a_book_that_is_not_here_says_so_rather_than_raising(
     assert "no book 999" in moved.sentence
 
 
-def test_being_moved_back_does_not_un_hear_the_rest(fixture: Fixture) -> None:
-    """The guard bounds searches by the furthest point ever reached.
+def test_being_moved_back_narrows_the_guard_and_playing_on_widens_it(
+    fixture: Fixture,
+) -> None:
+    """The price of one number, and the reason it is payable.
 
-    Taking someone back to an earlier passage moves their position backwards.
-    If that also moved the spoiler bound, the whole stretch they had already
-    listened to would become unsearchable for the rest of the night.
+    Taking someone back to an earlier passage moves their position backwards,
+    and since ADR 10 the position is the guard — so the stretch they had already
+    listened to really does go quiet until they play over it again. What makes
+    that bearable is the second half of this test: it heals by itself, as fast
+    as the book plays. The high-water mark it replaced never healed at all once
+    a skip had stopped it.
     """
-    fixture.library.find_passage(271, "anything")  # records 300s as heard
     fixture.library.move_to(271, 10_000)
+    narrowed = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    assert narrowed.searched_to_ms == 70_000
+    assert 300_000 not in [p.start_ms for p in narrowed.hits]
 
-    search = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
-    assert search.searched_to_ms == 360_000
-    assert search.hits[0].start_ms == 300_000
+    fixture.library.move_to(271, 300_000)
+    again = fixture.library.find_passage(271, "Rob Roy was shot after the hunt")
+    assert again.searched_to_ms == 360_000
+    assert again.hits[0].start_ms == 300_000
 
 
 def test_format_timestamp_reads_as_a_listening_position() -> None:
@@ -312,9 +316,7 @@ def test_a_question_about_a_book_they_have_finished_may_be_answered_whole(
     the agent is told there is nothing to keep back.
     """
     with fixture.conn:
-        fixture.conn.execute(
-            "UPDATE books SET heard_to_ms = 0, position_ms = 900000 WHERE gid = 271"
-        )
+        fixture.conn.execute("UPDATE books SET position_ms = 900000 WHERE gid = 271")
     recalled = fixture.library.recall(271, "a later scene the listener has not reached")
 
     assert recalled.searched_to_ms is None
@@ -324,12 +326,12 @@ def test_a_question_about_a_book_they_have_finished_may_be_answered_whole(
 def test_answering_a_question_changes_nothing_about_the_night(
     fixture: Fixture,
 ) -> None:
-    """A question must cost them nothing at all, and that includes the mark.
+    """A question must cost them nothing at all, the position most of all.
 
-    Reading the book back to answer is not listening to it, so heard_to_ms must
-    not move — and neither must the position, which is the whole complaint this
-    tool exists to answer: asking who somebody was used to end with the book
-    somewhere else.
+    That is the whole complaint this tool exists to answer — asking who
+    somebody was used to end with the book somewhere else — and since ADR 10 it
+    is the spoiler guard as well, so a question that nudged the position would
+    widen what the next question may be answered from.
     """
     before = night(fixture)
     fixture.library.recall(271, "Rob Roy was shot after the hunt")
@@ -407,8 +409,7 @@ def passage_in_another_book(fixture: Fixture) -> int:
 def night(fixture: Fixture) -> dict[str, Any]:
     """Everything about the book a listener could tell had changed."""
     row = fixture.conn.execute(
-        "SELECT position_ms, position_seq, position_at, heard_to_ms FROM books"
-        " WHERE gid = 271"
+        "SELECT position_ms, position_seq, position_at FROM books WHERE gid = 271"
     ).fetchone()
     return dict(row)
 
@@ -423,15 +424,17 @@ def test_a_list_of_places_carries_the_books_own_words_for_each(
     recognise the moment themselves. The model ranks; the server writes what
     each row says.
     """
+    # A step past the first two passages, so both rows are behind them and this
+    # test is about what a row says rather than about what it covers up.
     with fixture.conn:
-        fixture.conn.execute("UPDATE books SET heard_to_ms = 800000 WHERE gid = 271")
+        fixture.conn.execute("UPDATE books SET position_ms = 400000 WHERE gid = 271")
     offer = offered(
         fixture.library.offer_positions(
             271, [chunk_at(fixture, 300_000), chunk_at(fixture, 10_000)]
         )
     )
 
-    assert (offer.gid, offer.title, offer.position_ms) == (271, "Black Beauty", 300_000)
+    assert (offer.gid, offer.title, offer.position_ms) == (271, "Black Beauty", 400_000)
     # Named in the model's order, drawn in the book's: a timeline out of order
     # cannot be read at a glance, and a glance is the only way it will be read.
     assert [p.start_ms for p in offer.places] == [10_000, 300_000]
@@ -482,17 +485,17 @@ def test_the_passage_the_guard_held_back_is_offered_and_marked_ahead(
     assert ahead.chapter_title == "47 Hard Times"
 
 
-def test_a_passage_that_begins_at_the_mark_has_not_been_heard_yet(
+def test_a_passage_that_begins_where_they_are_has_not_been_heard_yet(
     fixture: Fixture,
 ) -> None:
-    """``>=`` and not ``>``: the sentence starting at the mark is the next one.
+    """``>=`` and not ``>``: the sentence starting where they are is the next one.
 
-    There is no slack either. The search bound is the mark plus a minute, so a
-    passage inside that minute can be found and is still covered up here —
+    There is no slack either. The search bound is the position plus a minute,
+    so a passage inside that minute can be found and is still covered up here —
     strictly tighter than the guard that let it through, which is the safe
     direction and costs one press.
     """
-    assert fixture.library.heard_to_ms(271) == 300_000
+    assert fixture.library.position_ms(271) == 300_000
     offer = offered(
         fixture.library.offer_positions(
             271, [chunk_at(fixture, 10_000), chunk_at(fixture, 300_000)]
@@ -507,14 +510,14 @@ def test_a_passage_that_begins_at_the_mark_has_not_been_heard_yet(
 def test_a_book_nobody_has_played_covers_up_even_its_opening_words(
     fixture: Fixture,
 ) -> None:
-    """Every book stands at a mark of zero until the page plays one.
+    """Every book stands at nothing until the page plays one.
 
     With ``>``, a passage beginning at 0:00:00 would be judged already heard on
     a book nobody has listened to a second of, and its opening words would be
     painted in the clear on the very screen built to cover them.
     """
     with fixture.conn:
-        fixture.conn.execute("UPDATE books SET heard_to_ms = 0 WHERE gid = 271")
+        fixture.conn.execute("UPDATE books SET position_ms = NULL WHERE gid = 271")
         fixture.conn.execute(
             "UPDATE chunks SET start_ms = 0 WHERE book_gid = 271 AND start_ms = 10000"
         )
@@ -766,15 +769,18 @@ def test_a_passage_inside_the_searches_own_slack_is_still_covered_up(
     ]
 
 
-def test_a_book_they_have_finished_still_covers_up_what_they_never_heard(
+def test_a_book_they_have_reached_the_end_of_holds_nothing_back(
     fixture: Fixture,
 ) -> None:
-    """Reaching the end is not the same as having listened to all of it.
+    """Standing at the end unlocks the book, and that is the deliberate half.
 
-    Being finished switches the search bound off, because there is nothing left
-    to spoil in a book you have heard. The mark says otherwise: it rises only
-    from audio that really played, so a book skipped to the end still has hours
-    behind it that nobody heard. This rule has no modes and never turns off.
+    There used to be a mark here saying otherwise — it rose only over audio
+    that really played, so a book skipped to the end still had hours behind it
+    that nobody had heard, and those stayed covered. ADR 10 gave that up on the
+    grounds it was bought too dear: the same rule stopped the mark at the first
+    press of the skip button and left every question for the rest of the night
+    answered against a place they had long since passed. Somebody who skipped
+    to the end of a book meant to be there.
     """
     with fixture.conn:
         fixture.conn.execute("UPDATE books SET position_ms = 900000 WHERE gid = 271")
@@ -787,7 +793,7 @@ def test_a_book_they_have_finished_still_covers_up_what_they_never_heard(
     )
     assert [(p.start_ms, p.ahead) for p in offer.places] == [
         (10_000, False),
-        (700_000, True),
+        (700_000, False),
     ]
 
 

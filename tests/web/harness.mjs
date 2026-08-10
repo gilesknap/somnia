@@ -41,7 +41,6 @@ export const TONE_BOOK = {
   total_ms: 24000,
   position_ms: null,
   seq: 0,
-  heard_to_ms: 24000,
   // How many chapters the book HAS, as against how many have been rendered.
   // Equal here, and in every fixture below that is finished, because that is
   // what a finished book looks like — the interesting case, where the two
@@ -89,7 +88,6 @@ export const OTHER_BOOK = {
   total_ms: 16000,
   position_ms: 4000,
   seq: 7,
-  heard_to_ms: 16000,
   chapters_total: 2,
   stream_url: "api/stream/900002/2",
   stream_ms: 16000,
@@ -122,7 +120,6 @@ export const RENDERING_BOOK = {
   total_ms: 0,
   position_ms: null,
   seq: 0,
-  heard_to_ms: 0,
   // Nobody has written it down: the fetch and the parse are what produce this
   // number and neither has finished. 0 is what every book rendered before the
   // column existed says as well, which is every book on the live VPS, so the
@@ -149,7 +146,6 @@ export const PART_READ = {
   total_ms: 8000,
   position_ms: 0,
   seq: 0,
-  heard_to_ms: 0,
   chapters_total: 3,
   stream_url: "api/stream/900006/1",
   stream_ms: 8000,
@@ -164,16 +160,15 @@ export const PART_READ = {
   ],
 };
 
-// A book with the mark somewhere in the middle of it, which is the one shape
-// none of the others have: every book above has been heard to the end or not
-// started at all, and a candidate list is only interesting where some of the
-// places are behind the listener and some are in front. Heard to the end of the
-// first chapter, of two, with the position a little way behind that — so the
-// "you are here" row has rows on both sides of it, and the boundary either side
-// of the mark is also a boundary between two chapter titles, which is what makes
-// a title withheld and a title shown tellable apart. The page never reads
-// heard_to_ms; it is here so the tests can work out what the server would have
-// said about each place.
+// A book with the listener somewhere in the middle of it, which is the one
+// shape none of the others have: every book above has been played to the end or
+// not started at all, and a candidate list is only interesting where some of
+// the places are behind the listener and some are in front. Stopped part way
+// through the first chapter, of two, so the line the server draws `ahead` at
+// falls between the places on either side of it, and the chapter beyond it is
+// one no title may be shown for — which is what makes a title withheld and a
+// title shown tellable apart. Since ADR 10 that line is this position and
+// nothing else, so there is one number here where there were two.
 export const HALF_HEARD = {
   gid: 900005,
   title: "Half Heard",
@@ -182,7 +177,6 @@ export const HALF_HEARD = {
   total_ms: 3_600_000,
   position_ms: 1_000_000,
   seq: 2,
-  heard_to_ms: 1_800_000,
   chapters_total: 2,
   stream_url: "api/stream/900005/2",
   stream_ms: 3_600_000,
@@ -218,7 +212,6 @@ export const UNCOUNTED_BOOK = {
   total_ms: 16000,
   position_ms: 0,
   seq: 0,
-  heard_to_ms: 16000,
   chapters_total: 0,
   stream_url: "api/stream/900007/2",
   stream_ms: 16000,
@@ -257,7 +250,6 @@ export const UNMEASURED_BOOK = {
   total_ms: 0,
   position_ms: 0,
   seq: 0,
-  heard_to_ms: 0,
   chapters_total: 2,
   stream_url: "api/stream/900009/2",
   stream_ms: 16000,
@@ -294,7 +286,6 @@ export const SHRUNK_BOOK = {
   total_ms: 16000,
   position_ms: 40000,
   seq: 0,
-  heard_to_ms: 16000,
   chapters_total: 2,
   stream_url: "api/stream/900010/2",
   stream_ms: 16000,
@@ -344,7 +335,6 @@ export function growingBook(read) {
     total_ms: read * 600_000,
     position_ms: 1_800_000,
     seq: 0,
-    heard_to_ms: 1_800_000,
     chapters_total: 37,
     stream_url: `api/stream/900008/${read}`,
     stream_ms: read * 600_000,
@@ -374,7 +364,6 @@ export const NIGHT_BOOK = {
   total_ms: 3_600_000,
   position_ms: 0,
   seq: 0,
-  heard_to_ms: 3_600_000,
   chapters_total: 2,
   stream_url: "api/stream/900004/2",
   stream_ms: 3_600_000,
@@ -410,7 +399,6 @@ export const UNJOINED_BOOK = {
   total_ms: 16000,
   position_ms: 0,
   seq: 0,
-  heard_to_ms: 16000,
   chapters_total: 2,
   stream_url: null,
   stream_ms: 0,

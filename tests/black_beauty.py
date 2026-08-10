@@ -54,16 +54,15 @@ def build_black_beauty(
     conn: sqlite3.Connection,
     embedder: Embedder,
     *,
-    heard_to_ms: int = 300_000,
     position_ms: int | None = 300_000,
 ) -> None:
-    """Seed the book into ``conn``, five minutes in and five minutes heard.
+    """Seed the book into ``conn``, five minutes in.
 
-    Both numbers are seeded because the page writes both — it reports where it
-    has reached every few seconds — so a test starts from a listener who has
-    been listening rather than from one who has not. They are separate
-    arguments because the whole of the guard lives in the gap between them:
-    where they were put is not what they have heard.
+    One number, since ADR 10: where the book is, which is the whole of what the
+    spoiler guard reads. There used to be a second seeded beside it — how far
+    the sound had really reached — and the gap between them was where every
+    guard test did its work. The gap is gone, and a test that wants a listener
+    further on than the guard allows moves the position instead.
 
     The embedder is the caller's because :class:`fakes.FakeEmbedder` hands out
     an axis per string it has seen, so a query only finds a passage if the same
@@ -73,9 +72,8 @@ def build_black_beauty(
     with conn:
         conn.execute(
             "INSERT INTO books (gid, title, authors, voice, status, total_ms,"
-            " position_ms, heard_to_ms)"
-            " VALUES (?, ?, ?, 'af_heart', 'done', ?, ?, ?)",
-            (GID, TITLE, AUTHORS, TOTAL_MS, position_ms, heard_to_ms),
+            " position_ms) VALUES (?, ?, ?, 'af_heart', 'done', ?, ?)",
+            (GID, TITLE, AUTHORS, TOTAL_MS, position_ms),
         )
         for idx, (title, start_ms, end_ms) in enumerate(CHAPTERS):
             conn.execute(

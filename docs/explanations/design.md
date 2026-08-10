@@ -112,7 +112,7 @@ A second library sits in the same FTS5 table — Project Gutenberg Australia,
 which publishes no CSV and no API, only a text index meant for a person to
 read, and whose ids are offset clear of Gutenberg's so that one integer goes on
 meaning one book in the queue, the player and every saved position
-([ADR 8](decisions/0008-a-second-library-under-the-same-ids.md)).
+([ADR 10](decisions/0008-a-second-library-under-the-same-ids.md)).
 
 ## Playback: the page is the player, and the position is somnia's own
 
@@ -184,7 +184,7 @@ Nothing else in somnia may write those four columns. Ingest upserts the `books`
 row rather than replacing it, and updates only what a render knows — title,
 authors, voice, and that it is running. It used to be `INSERT OR REPLACE`,
 which is `DELETE` then `INSERT`, so restarting a render that died wiped the
-position and the mark, and left the count below the one a still-open page was
+position, and left the count below the one a still-open page was
 holding: every report that page made for the rest of the night was refused, and
 nothing was written again until it was reloaded.
 
@@ -195,44 +195,42 @@ the token was commented out and nothing noticed
 ([ADR 9](decisions/0009-drop-audiobookshelf.md)). The row is the record, and
 there is nothing anywhere else for it to disagree with.
 
-**The spoiler guard is bounded by the furthest point ever played through**, not
-by the current position, because the agent can move that position anywhere:
-backwards, where being taken to chapter two must not un-hear chapters three to
-twenty, and forwards, where treating where they were put as what they have
-heard would unlock the whole book behind a single move. `books.heard_to_ms`
-records the mark and only ever rises, and it rises only as far as sound really
-came out of the speaker. Only the page can know that — a skip and a stretch of
-listening both arrive at the server as a position further on than the last one
-— so every report says how much of the book has actually played since the last
-report the server took, counted off the media clock, and the mark rises to the
-reported position only when the report stands no further past the mark than
-that playback accounts for. The wall clock is a ceiling on the claim and not
-the answer to it ([Architecture](architecture.md) has the arithmetic). A pause
-raises the mark like anything else, because a pause is the best evidence in the
-protocol that they listened right up to it; and playback the server never
-acknowledged stays owed and is sent again, because a mark left even a heartbeat
-behind the position refuses every report after it and never recovers — except
-across a jump, where it is given up instead, since it was earned over the
-ground behind the jump and would otherwise be spent on the distance by the
-report from the far side. Two costs, both chosen: after a skip forward the mark
-stops until they go back over it, and a book nobody has played is bounded at
-its start rather than left unbounded, so on night one the passage they asked
-for is somewhere to be offered rather than somewhere to be played from. Failing
-that way costs a press in the dark; failing the other way costs them the book.
+**The spoiler guard is bounded by where the book is**, and by nothing else
+([ADR 10](decisions/0010-draw-the-line-where-they-are.md)). `books.position_ms`
+is the line, a book with no position is bounded at its start rather than left
+unbounded, and there is no second number anywhere to keep in step with it.
+
+It was a high-water mark until then — the furthest point ever played *through*,
+raised only as far as sound really came out of the speaker, which every report
+had to prove by counting the media clock. The argument for it was the rewind:
+being taken back to chapter two must not un-hear chapters three to twenty. The
+argument against it was what it cost to be sure. A report standing further past
+the mark than it had playback to show for could not be credited, and after any
+forward skip every report stands past a stretch nothing was heard over — so one
+press of +30 stopped the mark for the rest of the book, and the gap in front of
+it only grew. Every question afterwards was answered against the place they
+last listened straight through, which after an evening of skipping is nowhere
+near where they are, and the agent spent the night saying that things behind
+them lay ahead.
+
+So the rewind is paid for instead, and it is the cheaper of the two: a move
+backwards really does make the stretch above them unsayable, and playing on
+puts it back a minute at a time. A skip forward is taken as meant — somebody
+who skips is somebody who decided to — and what it steps over goes with it.
 
 A bounded search does not simply come back empty. It also runs unbounded and
-says whether a closer match lies past the mark — never what it is — which is
+says whether a closer match lies past the line — never what it is — which is
 what lets the agent offer rather than shrug, and `find_passage(allow_spoilers)`
 is the way through, asked for by them and by nobody else.
 
-**The mark is also how far the agent may speak**, which used to be a different
+**The line is also how far the agent may speak**, which used to be a different
 rule entirely. The prompt's strongest line was that everything said about a book
 had to come from a tool result in this conversation, and it was doing two jobs
 at once — the guard, and a fence against the model's own knowledge — by drawing
 one fence around the retrieval. [ADR
 6](decisions/0006-answer-a-question-about-the-book.md) takes them apart. The
 agent may now answer a question about a book out of what it already knows, and
-the line it may not cross is the mark: everything behind it may be talked about
+the line it may not cross is that one: everything behind it may be talked about
 freely, nothing in front of it may be said at all, and a character who has not
 appeared yet gets "he hasn't come up yet in what you've heard" and nothing after
 that sentence. What may be *read* and what may be *said* are two different
@@ -243,7 +241,7 @@ answers, `recall`, is bounded exactly as a search is, hands back no `id=` and no
 so that `move_to` and `offer_positions` both refuse: asking who somebody is used
 to drag the audio to a passage about them, and it is the tools that stop it
 rather than a paragraph asking them not to. What the tools cannot hold is the
-turn where nothing was called at all — the mark is a number the model only
+turn where nothing was called at all — the line is a number the model only
 learns by asking for it, so an answer given without looking is bounded by
 nothing, where under the old rule it was impossible. That one the prompt has to
 carry, and it does: look before you speak, and hardest on the question you are
@@ -259,7 +257,7 @@ general way to read unheard book text, one guessed integer wide, sitting on the
 server for the life of the deployment. `/api/passage/{gid}/{ms}` is the one
 exception and proves the rule — addressed by a point on the book's clock rather
 than by an identifier, and answering out of a statement whose own `WHERE`
-carries `start_ms < heard_to_ms`, so there is nothing to guess and no refusal to
+carries `start_ms < position_ms`, so there is nothing to guess and no refusal to
 read a frontier off.
 
 ## Getting through the night is the page's job now
@@ -372,7 +370,7 @@ not merely a separate connection is
   environment variable away. See `somnia/config.py` for the table.
 - **The spoiler guard is two things and only one of them is sound.** In that
   same run, retrieval never once crossed the line — checked mechanically, every
-  passage handed to the model began before the mark. What leaked, on both
+  passage handed to the model began before the line. What leaked, on both
   models, at two to four turns in a hundred, was the model's own knowledge of
   the book. That is precisely the surface ADR 6 opened when it let the agent
   answer out of what it already knows: everything behind the line is a prompt
