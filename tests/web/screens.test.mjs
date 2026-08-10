@@ -200,12 +200,17 @@ test("a focus nobody asked for does not open the chat screen", async (t) => {
   page.focus("question");
   page.resize(WITH_KEYBOARD);
   assert.equal(page.probe().screen, "player");
-  // `short-page` comes with it and is the right answer here. The page has been
-  // given no evidence that anybody is typing — that is the whole of what this
-  // test sets up — so 420px is simply what the page is, and 420px has no room
-  // to draw the reading in. The reading gives way, the player does not, and the
-  // difference between those two is what this section is about.
-  assert.deepEqual(classes(page), ["player-screen", "short-page"]);
+  // Both room classes come with it and both are the right answer here. The page
+  // has been given no evidence that anybody is typing — that is the whole of what
+  // this test sets up — so 420px is simply what the page is, and 420px has no
+  // room to draw the reading in, let alone a second line of it. The reading gives
+  // way, the player does not, and the difference between those two is what this
+  // section is about.
+  assert.deepEqual(classes(page), [
+    "player-screen",
+    "short-page",
+    "title-one-line",
+  ]);
 });
 
 // ------------------------------------------------- a window is not a keyboard

@@ -6652,6 +6652,30 @@ function readKeyboard() {
 // judges a wide window by the reading's own measured height instead.
 const PLAYER_NEEDS_ROOTS = 32;
 
+// And the room the two headings want for their second line, which is a different
+// number and is the one 34 was always measuring.
+//
+// Both are clamped to two lines and both carry `overflow: hidden` to do it, and
+// that is the whole of the bug this answers: a flex item whose overflow is not
+// `visible` has its automatic minimum size resolve to ZERO, so asking for the
+// clamp quietly took away the floor under the heading. Flex was then free to
+// shrink it to any fraction of a line, and it did — 1.6 lines at 360x640, which
+// `overflow: hidden` then cut through the middle of the letters. Not a truncation
+// and not an overlap: a horizontal slice, which reads as a font bug. The chapter
+// name is worse, because it loses its second line and takes the ellipsis with it:
+// the clamp is still 2, so the ellipsis is placed on a line that has just been
+// clipped away, and a long chapter name simply stops mid-title.
+//
+// Below this the headings take one line each and say so with an ellipsis, which
+// is the only failure here that a reader can tell from the page working. Measured
+// on the real page at three roots, because roots do not scale exactly: a two-line
+// title fits at 33.8 roots and is sliced at 32.6 with a root of 17.2; fits at 33.0
+// and is sliced at 32.5 with a root of 20; fits at 32.5 with a root of 24. 34
+// clears all three. It is deliberately the number #65 rejected — that pass had
+// measured where the second line stops fitting and then used it to hide the whole
+// reading, which is why it took the book off the design's own phone.
+const TITLE_NEEDS_ROOTS = 34;
+
 // Measured, and against `unobscured` rather than `viewport.height`. The height a
 // page is judged by is the one with nothing over it: a keyboard is not a page
 // with no room in it, and conflating the two is the whole of the bug the section
@@ -6666,10 +6690,13 @@ function readRoom() {
   // whatever overlap comes with it, which is the failure that leaves the reader
   // something rather than the one that leaves them a void.
   if (!(root > 0) || !(unobscured > 0)) return;
-  document.body.classList.toggle(
-    "short-page",
-    unobscured < PLAYER_NEEDS_ROOTS * root,
-  );
+  const roots = unobscured / root;
+  document.body.classList.toggle("short-page", roots < PLAYER_NEEDS_ROOTS);
+  // Asked of the page and not of the heading. Measuring the heading itself would
+  // be measuring this class's own output — clamp it to one line and it fits, so
+  // the answer becomes "there is room" and the page flickers between the two.
+  // The room is the stable thing.
+  document.body.classList.toggle("title-one-line", roots < TITLE_NEEDS_ROOTS);
 }
 
 viewport?.addEventListener("resize", () => {
