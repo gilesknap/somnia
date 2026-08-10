@@ -24,6 +24,7 @@ from pathlib import Path
 
 from .config import Config
 from .db import connect
+from .library import inside_library
 
 __all__ = [
     "BookEntry",
@@ -609,20 +610,14 @@ class Player:
     def _playable(self, audio_file: str, what: str) -> Path | None:
         """A row's path, if it is inside the library and really there.
 
-        Containment is checked after resolving, because the row is not beyond
-        suspicion either: a symlink in the library, or a database carried over
-        from a machine whose SOMNIA_LIBRARY_DIR was somewhere else, can both
-        point outside. That case is logged rather than silently dropped — a
-        library that has moved should be explicable from the journal, not
-        guessed at.
+        The containment half is :func:`somnia.library.inside_library`, which is
+        also what a delete asks before it unlinks anything. Two answers to
+        "is this file the library's" would be one answer too many.
+
+        The other half stays here, because it is only true of serving. A
+        chapter that has been deleted, or has not finished rendering, is an
+        absence rather than a traceback — but it is nothing to delete either,
+        so a delete must not treat the same missing file as a refusal.
         """
-        path = Path(audio_file).resolve()
-        # expanduser as well as resolve: Config's default library_dir is the
-        # literal "~/library/audiobooks", and only load_config expands it.
-        library = self._cfg.library_dir.expanduser().resolve()
-        if not path.is_relative_to(library):
-            logger.warning("%s lies outside %s: %s", what, library, path)
-            return None
-        # A chapter that has been deleted, or has not finished rendering, is an
-        # absence rather than a traceback.
-        return path if path.is_file() else None
+        path = inside_library(self._cfg, audio_file, what)
+        return path if path is not None and path.is_file() else None

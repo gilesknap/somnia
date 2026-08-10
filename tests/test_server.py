@@ -1201,6 +1201,65 @@ def test_switching_books_is_a_post_and_a_get_does_not_do_it(
     assert tone_client.get("/api/books").json()["last_gid"] == GID
 
 
+def test_a_book_can_be_taken_away_and_then_there_is_no_book(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """DELETE on the path the manifest is read from, and it means it.
+
+    The GET afterwards is the assertion that matters: this is the one route in
+    somnia whose effect a later request cannot undo, so what it leaves behind
+    has to be the same nothing a gid that was never here leaves.
+    """
+    response = tone_client.delete(f"/api/book/{GID}")
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert "Three Tones" in response.json()["said"]
+    assert tone_client.get(f"/api/book/{GID}").status_code == 404
+    assert tone_client.get("/api/books").json()["books"] == []
+    assert not tone_book.book_dir.exists()
+
+
+def test_deleting_a_book_that_is_not_here_is_the_same_404_as_reading_one(
+    tone_client: TestClient,
+) -> None:
+    """A page holding an id from a database that has moved on, and its body says so.
+
+    404 rather than 200, because "there is no such book" is a different fact
+    from "there was, and it is refused" — and the sentence travels either way,
+    so the page has something to show whichever it turns out to be.
+    """
+    response = tone_client.delete("/api/book/404404")
+
+    assert response.status_code == 404
+    assert response.json()["ok"] is False
+    assert "404404" in response.json()["said"]
+
+
+def test_a_book_being_rendered_answers_200_and_stays_where_it_is(
+    tone_client: TestClient, tone_book: ToneBook
+) -> None:
+    """A refusal is an answer, in the shape /api/queue/{id}/stop already uses.
+
+    Nothing is wrong here: the book is there, a render holds it, and the reply
+    is the sentence saying which job to stop first. A 409 would put a red line
+    in the console for something working exactly as designed.
+    """
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO queue (gid, title, state) VALUES (?, 'Three Tones',"
+            " 'rendering')",
+            (GID,),
+        )
+
+    response = tone_client.delete(f"/api/book/{GID}")
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+    assert "stop it first" in response.json()["said"]
+    assert tone_client.get(f"/api/book/{GID}").status_code == 200
+
+
 # ---------------------------------------------------- coming back to the book
 
 

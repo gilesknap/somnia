@@ -45,6 +45,7 @@ from .catalog import search_catalog
 from .config import Config
 from .db import connect
 from .format import shorten
+from .library import Removed, remove_book
 from .player import Player
 from .queue import LIVE, QueueRow, Stopped, Submission, stop, submit, view
 from .stream import build_stream, stream_path
@@ -245,6 +246,7 @@ class Queue:
     """
 
     def __init__(self, cfg: Config) -> None:
+        self._cfg = cfg
         self._lock = threading.Lock()
         self._conn: sqlite3.Connection = connect(cfg.db_path, cross_thread=True)
 
@@ -264,6 +266,22 @@ class Queue:
     def stop(self, job_id: int) -> Stopped:
         with self._lock:
             return stop(self._conn, job_id)
+
+    def remove(self, gid: int) -> Removed:
+        """Take a book out of the library altogether — rows, audio and streams.
+
+        On this connection rather than the player's, because the first thing a
+        delete does is ask the queue whether anything is rendering the book,
+        and that is this lane's question. Under this lock for the same reason
+        `stop` is: two presses on the same book a millisecond apart must not
+        both walk the same folder.
+
+        The player will not notice, and does not have to. It holds no rows in
+        Python — every manifest is a fresh SELECT — so the next request simply
+        finds the book gone, which is what it now is.
+        """
+        with self._lock:
+            return remove_book(self._cfg, self._conn, gid)
 
     def search(self, query: str, language: str) -> list[Found]:
         """The local catalog, offline, with what somnia already has marked."""
@@ -399,6 +417,23 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
         if manifest is None:
             return JSONResponse({"error": "no such book"}, 404)
         return JSONResponse(asdict(manifest))
+
+    async def remove_the_book(request: Request) -> Response:
+        """Take a book out of somnia: its rows, its audio, its joined streams.
+
+        DELETE, and it means it — unlike ``/api/queue/{id}/stop``, which is a
+        POST precisely because the row it names survives it. There is nothing
+        left of a book after this and no undo anywhere behind it, which is why
+        the page will ask twice before it gets here.
+
+        200 with ``"ok": false`` for a refusal: a book being rendered right now
+        is a real book that is staying, and the sentence says how to stop the
+        render first. **404** only for a gid that is not here at all, the same
+        answer, for the same reason, as the GET on this path.
+        """
+        gid = int(request.path_params["gid"])
+        removed = await run_in_threadpool(renders.remove, gid)
+        return JSONResponse(asdict(removed), 200 if removed.found else 404)
 
     async def open_book(request: Request) -> Response:
         """Make this the book the page opens, which is the whole of switching.
@@ -696,6 +731,9 @@ def create_app(cfg: Config, conn: sqlite3.Connection) -> Starlette:
             Route("/api/health", health),
             Route("/api/books", books),
             Route("/api/book/{gid:int}", book),
+            # The same path, read and then taken away, in the shape the queue's
+            # two routes are already in: one method each, one handler each.
+            Route("/api/book/{gid:int}", remove_the_book, methods=["DELETE"]),
             Route("/api/book/{gid:int}/open", open_book, methods=["POST"]),
             Route("/api/audio/{gid:int}/{idx:int}", audio),
             Route("/api/stream/{gid:int}/{n:int}", stream),

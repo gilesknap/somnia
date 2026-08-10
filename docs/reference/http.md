@@ -37,6 +37,7 @@ would tell you.
 | `/api/catalog?q=…` | GET | Books to add, from the local catalog (both libraries) |
 | `/api/voices` | GET | The voices a book may be asked for in |
 | `/api/queue` | GET | What is rendering, what is waiting, what went wrong |
+| `/api/book/{gid}` | DELETE | Take a book away — rows, audio and all |
 | `/api/book/{gid}/open` | POST | Make this the book a cold launch opens — or 404 |
 | `/api/ask` | POST | The agent's reply, and a move if it made one |
 | `/api/forget` | POST | Drops one conversation |
@@ -110,6 +111,44 @@ It is `0` for every book rendered before the column existed, and `0` means
 nobody wrote it down, so say nothing rather than "3 of 0".
 
 404 for a book that is not there.
+
+## `DELETE /api/book/{gid}`
+
+```json
+{"ok": true, "found": true, "said": "Black Beauty is gone, with everything rendered of it."}
+```
+
+The only route in somnia that takes something away for good, and it takes all
+of it: the `books` row, the chapters, the indexed chunks and their vectors,
+every queue row the book ever had, the m4a files with the folders above them
+once those are empty, and the joined streams under `data_dir`. Half of that
+would be worse than none of it — a shelf entry that plays silence, or hours of
+audio nothing will ever mention again.
+
+DELETE, and it means it, which is the difference from `POST
+/api/queue/{id}/stop`: that one is a POST because the row it names survives it.
+Nothing survives this and nothing behind it is an undo, so the page asks twice
+before it gets here.
+
+**200 with `"ok": false`** for the two refusals, in the shape the queue's
+routes already answer in — a refusal is an answer, and `said` is the sentence
+to show for it. A book with a live queue row is refused because a render is
+about to write chapters back into the folder this would be emptying, and the
+sentence names the job to stop first; `queue.stop` is keyed on the job id, so
+it is a different number from the one just deleted. And a book with a chapter
+whose `audio_file` lies outside `SOMNIA_LIBRARY_DIR` is refused whole rather
+than in part — the same containment rule `GET /api/audio/{gid}/{idx}` applies,
+and a path outside the library means the database has been carried between
+machines or edited by hand. Which chapter it was is in the journal, not in `said`: it is an absolute
+path on the VPS and this is read on a phone.
+
+**404** only for a gid that is not here at all, which is a page holding an id
+from a database that has moved on. `found` is what tells the two apart, and the
+body carries `said` either way.
+
+A chapter whose file has already gone is not a refusal. There is nothing there
+to delete, and stopping at the first gap would leave the rest of the book
+orphaned for good.
 
 ## `POST /api/book/{gid}/open`
 

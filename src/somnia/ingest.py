@@ -19,6 +19,7 @@ from .config import Config
 from .embed import Embedder
 from .gutenberg import Chapter, fetch_book
 from .index import add_chunks
+from .library import forget_the_chapters
 from .pgau import is_australian
 from .segment import TimedSentence, sentences, windows
 from .stream import forget_streams
@@ -116,20 +117,20 @@ def _render_chapter(
 def _forget_the_old_edition(conn: sqlite3.Connection, gid: int) -> None:
     """Take away everything a previous render of this book wrote to the database.
 
-    Not the audio: the m4a files are numbered by chapter, so re-rendering
-    overwrites them one for one, and the only ones left behind are the surplus
-    from an edition that got shorter. They are orphans in the library folder
-    rather than in the timeline — nothing points at them, and deleting files
-    somebody may be listening to right now is a worse thing to be wrong about.
+    Not the audio, and now that there is a verb that does take the audio away
+    the reason is worth putting the other way round. A re-render is not a
+    delete. Nobody asked for this book to stop existing — they asked for it in
+    another voice, or from an edition Gutenberg has re-issued — so the files
+    are overwritten one for one as the new chapters arrive, and the only ones
+    left behind are the surplus from an edition that got shorter. Those are
+    orphans in the library folder rather than in the timeline: nothing points
+    at them, and a listener whose phone has one open at 2am keeps reading it to
+    the end of the request. :func:`somnia.library.remove_book` is where a book
+    is actually taken away, and it is refused while a render holds the book for
+    exactly the reason this function does not do it.
     """
     with conn:
-        conn.execute(
-            "DELETE FROM vec_chunks WHERE rowid IN"
-            " (SELECT id FROM chunks WHERE book_gid = ?)",
-            (gid,),
-        )
-        conn.execute("DELETE FROM chunks WHERE book_gid = ?", (gid,))
-        conn.execute("DELETE FROM chapters WHERE book_gid = ?", (gid,))
+        forget_the_chapters(conn, gid)
 
 
 def _resume_from(conn: sqlite3.Connection, gid: int) -> tuple[int, int]:

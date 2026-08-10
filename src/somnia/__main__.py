@@ -107,6 +107,9 @@ def main(args: Sequence[str] | None = None) -> None:
     )
     p_queue_stop.add_argument("job_id", type=int, metavar="ID", help="the queue row id")
 
+    p_remove = sub.add_parser("remove", help="take a book out of the library for good")
+    p_remove.add_argument("gid", type=int, help="Gutenberg book id")
+
     p_find = sub.add_parser("find", help="semantic search within an ingested book")
     p_find.add_argument("gid", type=int)
     p_find.add_argument("query")
@@ -235,6 +238,15 @@ def main(args: Sequence[str] | None = None) -> None:
                 print("Nothing in the queue.")
             for row in rows:
                 print(_queue_line(row))
+    elif ns.command == "remove":
+        from .library import remove_book  # noqa: PLC0415
+
+        # No confirmation prompt. Typing a Gutenberg id is already a deliberate
+        # act — nothing offers this command a gid to press — and a terminal
+        # that stops to ask cannot be run from a script or over ssh from a
+        # phone, which is where this actually gets used. The asking belongs on
+        # the page, where a delete is one tap away from everything else.
+        print(remove_book(cfg, conn, ns.gid).said)
     elif ns.command == "find":
         from .embed import Embedder  # noqa: PLC0415
         from .index import find_passage  # noqa: PLC0415

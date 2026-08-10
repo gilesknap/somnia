@@ -54,6 +54,7 @@ __all__ = [
     "Stopped",
     "Submission",
     "beat",
+    "book_name",
     "claim",
     "finish",
     "note_chapter",
@@ -205,13 +206,17 @@ class QueueRow:
     started_at: str
 
 
-def _name(title: str, gid: int) -> str:
+def book_name(title: str, gid: int) -> str:
     """What to call a book in a sentence when it may not have a name yet.
 
     A submitted book has been through nothing but the local catalog, and the
     catalog can be missing, stale, or simply not have the book. "book 1342" is
     then the whole of the truth, and it is a good deal better than an empty pair
     of quotes in the middle of a sentence somebody reads at 2am.
+
+    Public because :mod:`somnia.library` says sentences about the same books,
+    and a second copy of this would be a second answer to what an unnamed book
+    is called — which is exactly the sort of thing that drifts apart quietly.
     """
     return title or f"book {gid}"
 
@@ -258,7 +263,7 @@ def submit(conn: sqlite3.Connection, gid: int, voice: str = "") -> Submission:
         f"SELECT title, state FROM queue WHERE gid = ? AND state IN {LIVE}", (gid,)
     ).fetchone()
     if live is not None:
-        name = _name(str(live["title"]), gid)
+        name = book_name(str(live["title"]), gid)
         return Submission(
             False,
             0,
@@ -270,9 +275,8 @@ def submit(conn: sqlite3.Connection, gid: int, voice: str = "") -> Submission:
         "SELECT title, status FROM books WHERE gid = ?", (gid,)
     ).fetchone()
     if book is not None and str(book["status"]) == "done":
-        return Submission(
-            False, 0, f"{_name(str(book['title']), gid)} is already here, all of it."
-        )
+        name = book_name(str(book["title"]), gid)
+        return Submission(False, 0, f"{name} is already here, all of it.")
 
     # str(gid), and it matters. The catalog is an FTS5 table, so its gid column
     # holds the text '271'; handed the integer 271 sqlite compares an integer
@@ -298,7 +302,7 @@ def submit(conn: sqlite3.Connection, gid: int, voice: str = "") -> Submission:
         # that race is the same answer as being refused by the check above, and
         # is said in the shape that is true of both live states — whoever won it
         # a millisecond ago may already have been claimed.
-        return Submission(False, 0, f"{_name(title, gid)} is already in the queue.")
+        return Submission(False, 0, f"{book_name(title, gid)} is already in the queue.")
 
     job_id = int(row["id"])
     ahead = int(
@@ -307,7 +311,7 @@ def submit(conn: sqlite3.Connection, gid: int, voice: str = "") -> Submission:
             (job_id,),
         ).fetchone()["n"]
     )
-    name = _name(title, gid)
+    name = book_name(title, gid)
     if ahead == 0:
         # Not "starts now", which would be a promise about a worker this process
         # cannot see. Next is true whether or not anything is running, and
@@ -360,7 +364,7 @@ def stop(conn: sqlite3.Connection, job_id: int) -> Stopped:
             (job_id,),
         ).fetchone()
     if row is not None:
-        name = _name(str(row["title"]), int(row["gid"]))
+        name = book_name(str(row["title"]), int(row["gid"]))
         state = str(row["state"])
         said = (
             f"{name} has been taken out of the queue."
@@ -378,7 +382,7 @@ def stop(conn: sqlite3.Connection, job_id: int) -> Stopped:
     if other is None:
         return Stopped(False, "", f"There is no job {job_id} in the queue.")
     state = str(other["state"])
-    name = _name(str(other["title"]), int(other["gid"]))
+    name = book_name(str(other["title"]), int(other["gid"]))
     return Stopped(
         False,
         state,
