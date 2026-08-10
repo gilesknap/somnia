@@ -233,6 +233,14 @@ erDiagram
   books ||--o{ queue : "every time it was asked for"
 ```
 
+That is what somnia reads and writes, which is not quite the same list as what
+`PRAGMA table_info` would say. A database written before ADR 10 also carries
+`heard_to_ms`, and nothing removes it: a column nobody selects costs a few bytes
+a row, where `DROP COLUMN` costs a rewrite of the one table somnia cannot lose.
+It is not drawn above because a database made today has no such column, and a
+diagram that showed one would be wrong about every new install to be right about
+the old ones.
+
 `queue` has no foreign key to `books`, and that is not an oversight: a book is
 asked for before it exists, and its `books` row is not written until the parse
 finishes. A partial unique index on `gid` over the waiting and rendering states

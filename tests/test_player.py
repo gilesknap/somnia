@@ -495,15 +495,19 @@ def test_a_passage_beginning_exactly_where_they_are_has_not_been_spoken(
 def test_a_book_nobody_has_started_has_no_words_to_offer(
     player: Player, tone_book: ToneBook
 ) -> None:
-    """No such book, nothing indexed, and never started all answer the same.
+    """A point with no words behind it, for each of the reasons there are.
 
     The row offers no reveal, which is what it did before the route existed. A
     NULL position matches no row at all, which is how "never started" arrives
-    here — the comparison does the work rather than a branch above it.
+    here — the comparison does the work rather than a branch above it — and a
+    point before the book's first word is refused on its own account.
     """
     assert player.passage_at(GID + 1, 5_000) is None
     assert player.passage_at(GID, 5_000) is None
-    # Set a valid position, then check out-of-range independently
+    # The guard is opened before the last one is asked. Under a NULL position
+    # every point in the book answers None, so a -1 asked up there would be the
+    # line above it a second time, and would go on passing whatever became of
+    # the way a point before the first word is handled.
     listening_at(tone_book, 8_000)
     assert player.passage_at(GID, -1) is None
 

@@ -81,10 +81,10 @@ has not turned up yet gets *he hasn't come up yet in what you've heard*, and
 nothing after that — not who he is, and not that he arrives later. The bound is
 simply where the book is: the line on the scrubber is the line the answers stop
 at. What you get
-instead is that place as a row on the list, marked *ahead*, showing only its
-time and the label *ahead* — no chapter name, and no words, since a chapter
-called *How Ginger Died* gives away as much as the sentence under it. What it
-says instead is *tap to reveal · may spoil*: press
+instead is that place as a row on the list, marked *ahead*, showing its time
+and its chapter number and nothing else — no words, and not even the chapter's
+name, since a chapter called *How Ginger Died* gives away as much as the
+sentence under it. What it says instead is *tap to reveal · may spoil*: press
 anywhere on the row's reading and it uncovers, and you decide having read it;
 press it again and it goes back under, name and all; press *goto* and you go
 there without reading it at all. Two things follow from measuring it that way.
