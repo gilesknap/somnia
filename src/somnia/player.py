@@ -24,6 +24,7 @@ from pathlib import Path
 from .config import Config
 from .db import connect
 from .library import Finished, Renamed, finish_book, inside_library, rename_book
+from .pgau import source_of
 
 __all__ = [
     "BookEntry",
@@ -105,6 +106,12 @@ class BookEntry:
     # It is already the tie-break under ``position_at`` in the ordering below,
     # so this is that same column said out loud rather than a new fact.
     created_at: str
+    # Which of the two libraries the book came out of, in the same word a search
+    # result carries it in. Nothing stores it: it is the gid read against the
+    # Australian offset, which is arithmetic that belongs on this side of the
+    # wire — a page that worked it out for itself would be holding a copy of a
+    # constant it cannot see move.
+    source: str
 
 
 @dataclass
@@ -279,6 +286,7 @@ class Player:
                 seq=row["position_seq"],
                 finished_at=row["finished_at"],
                 created_at=row["created_at"],
+                source=source_of(int(row["gid"])),
             )
             for row in rows
         ]

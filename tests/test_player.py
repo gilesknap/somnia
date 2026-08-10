@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from conftest import ToneBook
+from somnia.pgau import PGAU_GID_BASE
 from somnia.player import Player
 from somnia.tools import Library, Offer
 from tone_book import CHAPTERS, GID, TOTAL_MS
@@ -168,6 +169,30 @@ def test_a_listed_book_says_how_many_chapters_it_has_and_when_it_came_in(
     behind = player.books().books[0]
     assert (behind.chapters, behind.chapters_total) == (len(CHAPTERS), 39)
     assert behind.created_at == "2000-01-01 00:00:00"
+
+
+def test_a_listed_book_says_which_library_it_came_out_of(
+    player: Player, tone_book: ToneBook
+) -> None:
+    """The same word a search result carries, worked out in the same place.
+
+    Which library a book came from is the gid read against the Australian
+    offset, and the offset lives in :mod:`somnia.pgau`. Saying it on the row
+    keeps that comparison on the side of the wire that owns the constant: the
+    book page draws *where from* out of this field rather than doing the
+    arithmetic on the phone.
+    """
+    assert player.books().books[0].source == "gutenberg"
+
+    over_the_offset = PGAU_GID_BASE + 123
+    with tone_book.conn:
+        tone_book.conn.execute(
+            "INSERT INTO books (gid, title, voice, status, total_ms)"
+            " VALUES (?, 'A Book From Australia', 'af_heart', 'done', 8000)",
+            (over_the_offset,),
+        )
+    entries = {book.gid: book.source for book in player.books().books}
+    assert entries[over_the_offset] == "australia"
 
 
 # ------------------------------------------------ choosing which book to open

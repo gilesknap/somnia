@@ -4964,18 +4964,19 @@ const REMOVE_CONFIRM_MS = 5000;
 
 // Where a book came from, which is two facts and neither of them is stored: the
 // gid is the book's address in the library it came out of, and which library
-// that is, is which side of the offset the gid falls.
+// that is, is `source`, which the server derives from the gid the same way it
+// derives it for a search result. The comparison against the Australian offset
+// stays on the side of the wire that owns the offset — a copy of it here would
+// be this file knowing a piece of the server's arithmetic, and two places to
+// change if it ever moved.
 //
-// The number is repeated here from pgau.py rather than asked for, which is the
-// one thing in this file that knows something about the server's arithmetic.
-// The alternative was a field on every row of /api/books carrying the answer to
-// a comparison against a constant that has not moved since the Australian
-// catalog was added and cannot move without every saved position moving with
-// it. If it ever does move, this is the line that has to move with it.
-const PGAU_GID_BASE = 900_000_000;
+// The words are this screen's own rather than the search row's `PG Australia`:
+// the facts list is written in the same lower case as everything around it, and
+// a row named in the search results' register would read as a quotation.
+const SOURCE_FROM = { australia: "gutenberg australia", gutenberg: "gutenberg" };
 
-function whereFrom(id) {
-  return `${id >= PGAU_GID_BASE ? "gutenberg australia" : "gutenberg"} #${id}`;
+function whereFrom(entry) {
+  return `${SOURCE_FROM[entry.source] || SOURCE_FROM.gutenberg} #${entry.gid}`;
 }
 
 // A date somnia wrote down, as a person writes one. Built by hand for the
@@ -5020,9 +5021,13 @@ function whenWords(stamp) {
 //
 // Silence when there is no chapter list, which is a book still waiting on its
 // first chapter, and when nobody wrote the total down. "chapter 3 of 0" is the
-// sentence both of those guards exist to prevent.
+// sentence both of those guards exist to prevent, and the second of them says
+// nothing rather than counting the rendered chapters instead: a total taken
+// from the render would read "chapter 3 of 12" here while the player, the shelf
+// row and the coverage line under it all stay silent about how long the book
+// is, which is four places disagreeing about the one number they share.
 function readToWords(entry) {
-  const total = entry.chapters_total || bookChapters.length;
+  const total = entry.chapters_total || 0;
   if (!bookChapters.length || !total) return "";
   if (bookAt === null || bookAt === undefined) return "not started";
   const inside = bookChapters.findIndex((chapter) => bookAt < chapter.end_ms);
@@ -5058,7 +5063,7 @@ function factRow(name, said) {
 // facts. That one is how far the person has got; this is how much of the book
 // somnia has made.
 function drawFacts(entry) {
-  const facts = [["where from", whereFrom(entry.gid)]];
+  const facts = [["where from", whereFrom(entry)]];
   const when = whenWords(entry.created_at);
   if (when) facts.push(["brought in", when]);
   const long = entry.status === "done" ? howMuch(entry.total_ms) : "";
@@ -5160,6 +5165,13 @@ function hideBook() {
   bookChapters = [];
   bookAt = null;
   bookNamed = null;
+  // Both presses live again, because the page can be left while one of their
+  // requests is still in flight and the answer to that request returns early
+  // rather than re-enabling anything. Without this, closing the page during a
+  // delete or a mark-finished would leave every book opened afterwards with a
+  // dead `remove this book` until the phone reloaded.
+  bookRemove.disabled = false;
+  bookFinish.disabled = false;
   forgetRemove();
   bookSaid.textContent = "";
   bookFacts.replaceChildren();
@@ -5207,6 +5219,17 @@ async function saveTheName() {
     if (entry) fillTheBoxes(entry);
     return;
   }
+  // What was stored, which is what was typed with the whitespace taken off it.
+  // The server answers with both strings for exactly this: a box left holding
+  // " Elsewhere " while the shelf under it says "Elsewhere" is a box saving
+  // something nobody can see, and the next blur would compare equal and never
+  // put it right. Only a box still holding what was sent is rewritten, so an
+  // edit made in the other box while this was in flight is not typed over.
+  if (bookNameBox.value === title) bookNameBox.value = body.title ?? title;
+  if (bookAuthorBox.value === authors) {
+    bookAuthorBox.value = body.authors ?? authors;
+  }
+  bookNamed = { title: bookNameBox.value, authors: bookAuthorBox.value };
   // And then the one list this page and the two screens under it are all drawn
   // from, so the shelf, the library and this screen cannot be holding different
   // names for the same book. It is a round trip on a daytime screen after a

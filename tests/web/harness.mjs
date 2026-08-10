@@ -477,6 +477,12 @@ export function listed(book) {
     // order is decided by everything else, which is what most of these tests
     // want. A test about the ordering itself puts its own dates on the rows.
     created_at: book.created_at ?? "2026-01-01 00:00:00",
+    // Which library the book came out of, which the server derives from the
+    // gid. Written out rather than worked out here for the reason the page
+    // does not work it out either: a fixture that repeated the offset would be
+    // a second copy of the arithmetic, and the point of the field is that there
+    // is one. A book from the other library says so on itself.
+    source: book.source ?? "gutenberg",
   };
 }
 
@@ -1509,23 +1515,31 @@ export async function boot(t, options = {}) {
         if (renameAnswer.ok) {
           const gid = Number(url.split("/")[2]);
           const book = manifests.get(`api/book/${gid}`);
+          // What library.rename_book stores, which is what was sent with the
+          // whitespace taken off it, and what it answers with. A harness that
+          // stored the string exactly as typed would be a kinder server than
+          // somnia is, and the one thing these two fields exist for — a page
+          // drawing what was saved rather than what it typed — could not be
+          // tested at all. `renames` keeps what was sent, untouched, because
+          // that is the other half of the same question.
+          const stored = {
+            title: named.title.trim(),
+            authors: named.authors.trim(),
+          };
           // A copy, and this is not fussiness: the map is per boot but the
           // manifests in it are the module's own fixtures, so a rename written
           // through one of them is a book called something else in every suite
           // that runs after this one.
           if (book) {
-            manifests.set(`api/book/${gid}`, {
-              ...book,
-              title: named.title,
-              authors: named.authors,
-            });
+            manifests.set(`api/book/${gid}`, { ...book, ...stored });
           }
           for (const row of shelfRows) {
             if (row.gid === gid) {
-              row.title = named.title;
-              row.authors = named.authors;
+              row.title = stored.title;
+              row.authors = stored.authors;
             }
           }
+          return json({ ...renameAnswer, ...stored });
         }
         return json(renameAnswer);
       }

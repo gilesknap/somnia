@@ -36,6 +36,7 @@ __all__ = [
     "fetch_index",
     "is_australian",
     "parse_index",
+    "source_of",
 ]
 
 PGAU_INDEX_URL = "http://gutenberg.net.au/gutindex_aus.txt"
@@ -72,6 +73,17 @@ class PgauEntry:
 def is_australian(gid: int) -> bool:
     """Whether this id belongs to Project Gutenberg Australia rather than PG."""
     return gid >= PGAU_GID_BASE
+
+
+def source_of(gid: int) -> str:
+    """Which of the two libraries a book came from, in the word the API uses.
+
+    The catalog rows carry this word and so does every book on the shelf, and
+    both of them mean the same comparison against the same offset. It lives
+    here, beside the offset, so that a page asking where a book came from is
+    reading an answer rather than repeating the arithmetic.
+    """
+    return "australia" if is_australian(gid) else "gutenberg"
 
 
 def _gid(directory: str, stem: str) -> int:

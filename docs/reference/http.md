@@ -57,7 +57,8 @@ would tell you.
       "gid": 271, "title": "Black Beauty", "authors": "Sewell, Anna",
       "status": "done", "total_ms": 22320000, "chapters": 49,
       "chapters_total": 49, "position_ms": 11560000, "seq": 3,
-      "finished_at": null, "created_at": "2026-03-11 21:40:02"
+      "finished_at": null, "created_at": "2026-03-11 21:40:02",
+      "source": "gutenberg"
     }
   ]
 }
@@ -93,6 +94,12 @@ and a book somebody has finished reading would otherwise be indistinguishable
 from one that was never made. A finished book is still a book somnia has and
 still plays; the night shelf stops offering it, and the Workshop is where it
 goes.
+
+`source` is which of the two libraries the book came out of — `gutenberg` or
+`australia`, the same two words a search result carries. Nothing stores it: it
+is the gid read against the Australian offset, and it is said here so that the
+book page can draw *where from* without keeping its own copy of a constant it
+cannot see move.
 
 The night shelf shows at most the twenty most recently touched books, and
 finished books and the one playing underneath are not among them and do not

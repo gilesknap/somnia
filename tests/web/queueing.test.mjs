@@ -2508,7 +2508,12 @@ test("a book's page cannot outlive the screen it was opened from", async (t) => 
 
 test("the book page counts how far in they are in chapters", async (t) => {
   const page = await opened(t, {
-    library: [listed(OTHER_BOOK), listed(TONE_BOOK), listed(RENDERING_BOOK)],
+    library: [
+      listed(OTHER_BOOK),
+      listed(TONE_BOOK),
+      listed(RENDERING_BOOK),
+      listed(UNCOUNTED_BOOK),
+    ],
   });
   page.queueView([]);
 
@@ -2539,6 +2544,17 @@ test("the book page counts how far in they are in chapters", async (t) => {
   // nothing at all. "chapter 1 of 0" is the sentence both halves of that guard
   // exist to prevent.
   assert.equal(page.el("book-read-to").textContent, "");
+
+  page.click("book-close");
+  await page.settle();
+  await bookPage(page, 900007);
+
+  // Two chapters rendered and no total written down, which is every book made
+  // before that column existed. Still nothing at all: counting the rendered
+  // chapters instead would give this page a total the player, the shelf row
+  // and the coverage line under it are all silent about, and the one number
+  // those four share would have four different readings.
+  assert.equal(page.el("book-read-to").textContent, "");
 });
 
 test("the book page says where the book came from and when it arrived", async (t) => {
@@ -2562,15 +2578,16 @@ test("the book page says where the book came from and when it arrived", async (t
 
 test("a book out of the other library says which one", async (t) => {
   const page = await opened(t, {
-    library: [{ ...listed(OTHER_BOOK), gid: 900000123 }],
+    library: [{ ...listed(OTHER_BOOK), gid: 900000123, source: "australia" }],
   });
   page.queueView([]);
 
   await bookPage(page, 900000123);
 
-  // Above the offset, which is the whole of how the two collections are told
-  // apart — and worth saying because they clear their books against different
-  // countries' law.
+  // The server's word for it, worked out from which side of the Australian
+  // offset the gid falls — which is the whole of how the two collections are
+  // told apart, and worth saying because they clear their books against
+  // different countries' law.
   assert.deepEqual(facts(page)[0], [
     "where from",
     "gutenberg australia #900000123",
@@ -2623,6 +2640,35 @@ test("what a book is called is saved when the box is left", async (t) => {
   assert.deepEqual(names(page), ["Elsewhere"]);
   assert.equal(page.el("shelf-900002").children.length, 1);
   assert.equal(words(page.el("shelf-900002"), "shelved-name"), "Elsewhere");
+});
+
+test("the boxes end up holding what was stored, not what was typed", async (t) => {
+  const page = await opened(t, { library: [listed(OTHER_BOOK)] });
+  page.queueView([]);
+  await bookPage(page, 900002);
+  page.saysRename({
+    ok: true,
+    found: true,
+    said: "It is called Elsewhere now.",
+  });
+
+  page.el("book-name").value = "  Elsewhere  ";
+  page.blur("book-name");
+  await page.settle();
+  await page.settle();
+  await page.settle();
+
+  // somnia takes the whitespace off before it writes, and answers with both
+  // strings as they were stored. A box left holding the spaces would be a box
+  // disagreeing with the shelf under it about what the book is called — and
+  // the next blur would compare its own value against itself and send nothing,
+  // so it would go on disagreeing until the phone reloaded.
+  assert.equal(page.el("book-name").value, "Elsewhere");
+  assert.equal(words(page.el("shelf-900002"), "shelved-name"), "Elsewhere");
+
+  page.blur("book-name");
+  await page.settle();
+  assert.equal(page.renames.length, 1);
 });
 
 test("leaving a box nobody typed in asks somnia nothing", async (t) => {
@@ -2813,4 +2859,37 @@ test("a delete that never left the phone has removed nothing", async (t) => {
   // And the press comes back, disarmed, because trying again is the whole of
   // what there is to do about it.
   assert.deepEqual(remove(page), { says: "remove this book", armed: false });
+});
+
+test("a page left while a press is in flight does not leave it dead", async (t) => {
+  const page = await opened(t, {
+    library: [listed(OTHER_BOOK), listed(TONE_BOOK)],
+  });
+  page.queueView([]);
+  await bookPage(page, 900002);
+
+  // Both presses are disabled while their request is out, and the answer to
+  // that request returns early on a page that has gone — so leaving here is
+  // the one way either of them could stay disabled with nothing left to
+  // re-enable it.
+  page.click("book-finish");
+  page.click("book-close");
+  await page.settle();
+  await page.settle();
+
+  await bookPage(page, 900001);
+  assert.equal(page.el("book-finish").disabled, false);
+
+  page.click("book-remove");
+  await page.settle();
+  page.click("book-remove");
+  page.click("book-close");
+  await page.settle();
+  await page.settle();
+
+  await bookPage(page, 900001);
+  // Without this the next book opened — and every book after it, until the
+  // phone reloaded — would have a `remove this book` that could not be
+  // pressed.
+  assert.equal(page.el("book-remove").disabled, false);
 });

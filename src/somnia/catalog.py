@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from .pgau import PgauEntry, fetch_index, is_australian, parse_index
+from .pgau import PgauEntry, fetch_index, parse_index, source_of
 
 __all__ = [
     "CATALOG_CSV_URL",
@@ -52,10 +52,6 @@ class CatalogUpdate:
     @property
     def total(self) -> int:
         return self.gutenberg + self.australia
-
-
-def _source(gid: int) -> str:
-    return "australia" if is_australian(gid) else "gutenberg"
 
 
 def _gutenberg_rows(csv_text: str) -> list[tuple[str, str, str, str, str, str]]:
@@ -166,7 +162,7 @@ def search_catalog(
             authors=r["authors"],
             subjects=r["subjects"],
             language=r["language"],
-            source=_source(int(r["gid"])),
+            source=source_of(int(r["gid"])),
         )
         for r in rows
     ]
