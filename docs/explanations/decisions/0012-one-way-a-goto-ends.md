@@ -64,7 +64,8 @@ decides:
 - one place at or past the position → the list goes on the screen, one row,
   covered — the press *is* the consent, which is what ADR 4 built it for;
 - one place behind the position → `Library.move_to`, there and then, returning a
-  `Moved`.
+  `Moved` — unless a list is already on the screen, and then it is the second
+  case instead: one row, and a press.
 
 `move_to` comes off the model's tool list. `Library.move_to` stays and is what
 the third case calls.
@@ -77,6 +78,18 @@ with.
 the whole tool, so a question can no longer end in either a list or a jump, and
 that is now one branch rather than two in two files. A turn that has already
 taken somebody somewhere refuses a second go.
+
+A turn that has already drawn a list is the one exclusion that is not a refusal.
+It may draw another — that is a change of mind, the last offer wins, and nothing
+has left the process yet — but it may not move, and the move cannot be caught
+after the fact, because `Library.offer_positions` makes it before it returns and
+a `Turn` is assembled long after that. So the fact that a list is up travels
+down with the call, as `may_move`, and the place behind them comes back as a row
+to press. Only the caller knows the screen is busy and only the library knows
+what the arithmetic came to; the argument is where those two meet. It is
+deliberately not a count of ids at the caller: the ids are deduplicated and the
+ones resolving to nothing are dropped before any of this is decided, so two ids
+are routinely one place.
 
 ## Consequences
 

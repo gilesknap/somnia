@@ -483,12 +483,6 @@ def build_tools(
                 "You have already taken them somewhere; do not do it twice."
                 " They are where you put them."
             )
-        if acted.get("offered") and len(chunk_ids) == 1:
-            return (
-                "You have already offered them a list of places. A single passage"
-                " now would move them without choosing — offer another list or"
-                " say where the first one took them."
-            )
         unknown = [i for i in chunk_ids if i not in seen]
         if unknown:
             # Refused outright rather than resolved to whatever is nearest. An
@@ -501,9 +495,19 @@ def build_tools(
                 " conversation. A passage id is the id= on a find_passage"
                 " result line. Search first."
             )
-        acted["offered"] = True
-        result = library.offer_positions(gid, chunk_ids)
+        # A second list is a change of mind and is allowed — the last offer wins
+        # and nothing has left here yet — but a *move* under one is not, and it
+        # cannot be caught after the fact: library.offer_positions writes before
+        # it returns, and by the time a Turn is assembled the row is already on
+        # its way to the page. So the fact that a list is up travels down with
+        # the call, and the one place behind them comes back as a list of one.
+        result = library.offer_positions(
+            gid, chunk_ids, may_move=not acted.get("offered")
+        )
         if isinstance(result, Refused):
+            # Nothing was drawn and nothing was written, so nothing has been
+            # spent: the model has just been told the gid or the ids were wrong,
+            # which is exactly the moment it should be free to try again.
             return result.reason
         if isinstance(result, Moved):
             # One place, behind them, so the tools took them there rather than
@@ -516,6 +520,7 @@ def build_tools(
                 record(result)
                 acted["moved"] = True
             return result.sentence
+        acted["offered"] = True
         offer(result)
         # Counts and instructions, and deliberately not one time, title or word
         # of what is on the list: everything it would need to narrate the places

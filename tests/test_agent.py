@@ -963,6 +963,69 @@ def test_a_list_and_a_move_cannot_come_out_of_one_turn(
     assert seq(searchable) == 1
 
 
+def test_a_place_named_under_a_live_list_is_drawn_and_never_written(
+    searchable: Searchable,
+) -> None:
+    """The other order, which is the one that reaches a listener mid-read.
+
+    A list is up and the model narrows it to a single place behind them. Left
+    alone that is the move case, and the move is made inside
+    ``library.offer_positions`` before anything here could stop it — so the
+    turn would carry a list *and* a written row, which :class:`Turn` says is
+    the one pair it never carries. The move is taken away rather than the call:
+    they get a list of one, and the press they have to make is the price of not
+    being dragged off the screen they are reading.
+
+    Not a count of ids. ``[behind, behind]`` is two ids and one place, because
+    the library dedupes before it does the arithmetic, and it was exactly this
+    shape that walked through the first guard written here.
+    """
+    ready = wired(searchable)
+    ready.call("find_passage", gid=271, description="the meadow with the pond")
+    ready.call(
+        "offer_positions",
+        gid=271,
+        chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
+    )
+    behind = place(searchable, 10_000)
+
+    said = ready.call("offer_positions", gid=271, chunk_ids=[behind, behind])
+
+    assert "Offered them 1 place" in said
+    assert ready.moves == []
+    assert seq(searchable) == 0
+    assert [p.start_ms for p in ready.offers[-1].places] == [10_000]
+
+
+def test_narrowing_to_one_place_ahead_of_them_is_the_same_list_either_way(
+    searchable: Searchable,
+) -> None:
+    """The rule that changed is the move, and only the move.
+
+    A single place they have not reached was always a list, live list or not,
+    so the second call here goes down the same road it would have gone down
+    first. Said out loud because the guard is expressed as "may this move?" and
+    a guard that quietly changed what a list is would be a harder thing to keep
+    right.
+    """
+    ready = wired(searchable)
+    ready.call("find_passage", gid=271, description="the meadow with the pond")
+    ready.call(
+        "offer_positions",
+        gid=271,
+        chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
+    )
+
+    said = ready.call(
+        "offer_positions", gid=271, chunk_ids=[place(searchable, 300_000)]
+    )
+
+    assert "Offered them 1 place" in said
+    assert "one of them is further on" in said
+    assert ready.moves == []
+    assert seq(searchable) == 0
+
+
 def test_a_passage_it_did_not_find_here_is_not_a_place_it_can_offer(
     searchable: Searchable,
 ) -> None:
@@ -1028,6 +1091,18 @@ def test_an_offer_at_a_book_that_is_not_here_leaves_the_turn_free_to_try_again(
         chunk_ids=[place(searchable, 10_000), place(searchable, 300_000)],
     )
     assert len(ready.offers) == 1
+
+    # And the move as well, which is the outcome only a turn with nothing on
+    # the screen can have. A refusal draws nothing, so the second call here is
+    # standing where the first one was and not under a list.
+    again = wired(searchable)
+    again.call("find_passage", gid=271, description="the meadow with the pond")
+    again.call("offer_positions", gid=999, chunk_ids=[place(searchable, 10_000)])
+
+    assert "Moved to 0:00:10" in again.call(
+        "offer_positions", gid=271, chunk_ids=[place(searchable, 10_000)]
+    )
+    assert [m.position_ms for m in again.moves] == [10_000]
 
 
 def test_a_passage_found_answering_one_question_can_be_offered_in_the_next(

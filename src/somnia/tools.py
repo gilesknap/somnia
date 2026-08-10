@@ -432,7 +432,7 @@ class Library:
         )
 
     def offer_positions(
-        self, gid: int, chunk_ids: list[int]
+        self, gid: int, chunk_ids: list[int], may_move: bool = True
     ) -> Offer | Moved | Refused:
         """Put the places somewhere they can be answered — a screen, or the book.
 
@@ -461,6 +461,21 @@ class Library:
         the passage that matched, which is the one lie this list cannot tell. An
         id belonging to another book refuses the whole call, because a list is
         one book's timeline and half of another book's is not a timeline.
+
+        ``may_move`` is False on the second call of a turn that has already
+        drawn a list, and it takes the move away rather than the call: the one
+        place behind them comes back as a list of one, which is a move with a
+        press in front of it and is the whole of what is left to safely do. A
+        second list is a change of mind and stays allowed — nothing has left
+        here yet, and the last offer wins — but a write under a live list
+        reaches the page fifteen seconds later as the refusal of its next
+        report, and drags a listener who is still reading it. Only the caller
+        knows a list is up, and only this method knows a move is what the
+        arithmetic came to, so the two facts have to meet somewhere: they meet
+        here, on the argument, and not on a count of ids at the caller, which
+        is not the same question. ``chunk_ids`` is deduplicated below and ids
+        resolving to no row are dropped, so ``[7, 7]`` and ``[7, gone]`` are
+        both one place and neither is one id.
         """
         book = self.book(gid)
         if book is None:
@@ -521,7 +536,11 @@ class Library:
         # screen exists: there the press is what replaced "shall I take you
         # there anyway?", and it is answered by a thumb rather than by a
         # sentence composed in the dark.
-        if len(places) == 1 and not places[0].ahead:
+        #
+        # And where a list is already on the screen the press comes back to this
+        # row too, for the length of that turn: buying somebody a press is worth
+        # less than not moving the book under what they are reading.
+        if may_move and len(places) == 1 and not places[0].ahead:
             return self.move_to(gid, places[0].start_ms)
         position = self.get_position(gid)
         return Offer(
