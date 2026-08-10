@@ -80,3 +80,4 @@ scratch/
 # somnia is, and a redesign workflow that has already run its course should not
 # go on collecting review comments on every PR after it.
 .claude/workflows/
+*.code-workspace
