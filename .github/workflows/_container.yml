@@ -5,9 +5,33 @@ on:
         type: boolean
         description: If true, pushes image to container registry
 
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
 jobs:
+  # One job per architecture, each on a runner of that architecture.
+  #
+  # The obvious way to do this is `platforms: linux/amd64,linux/arm64` on a
+  # single x86 runner, and it does work — through QEMU, which emulates every
+  # instruction of the build. For an image whose whole cost is unpacking torch
+  # that turns a few minutes into the better part of an hour, and it is paid on
+  # every tag. GitHub's arm64 runners are free for public repositories, so each
+  # architecture is built by a machine that already speaks it.
+  #
+  # The other reason is the test below: `docker run --version` on a foreign
+  # architecture needs binfmt as well, and an emulated smoke test proves rather
+  # less about the image than a native one does.
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runs-on: ubuntu-latest
+          - platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.runs-on }}
 
     steps:
       - name: Checkout
@@ -34,31 +58,114 @@ jobs:
           DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
-          # Need load and tags so we can test it below
+          # Single platform, so `load` still works — a manifest list cannot be
+          # loaded into the Docker daemon, which is the whole reason the
+          # per-architecture images are pushed by digest and stitched together
+          # in the merge job rather than built as a list here.
+          platforms: ${{ matrix.platform }}
           load: true
           tags: tag_for_testing
 
       - name: Test cli works in cached runtime image
         run: docker run --rm tag_for_testing --version
 
-      - name: Create tags for publishing image
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest
+      # Not just `--version` any more. The image now carries torch, Kokoro and
+      # ffmpeg, and the failure that matters is an architecture with no wheel
+      # or a missing shared library — neither of which `--version` touches,
+      # because every subcommand imports what it needs where it needs it.
+      # Importing the two heavy modules is what proves the arm64 image is real.
+      - name: Test the ml stack imports in the runtime image
+        run: |
+          docker run --rm --entrypoint python tag_for_testing -c "
+          import torch, sentence_transformers, kokoro
+          print('torch', torch.__version__)
+          "
+          docker run --rm --entrypoint ffmpeg tag_for_testing -version | head -1
+          docker run --rm --entrypoint espeak-ng tag_for_testing --version
 
-      - name: Push cached image to container registry
+      - name: Push image by digest to container registry
+        id: push
         if: inputs.publish && github.ref_type == 'tag'
         uses: docker/build-push-action@v6
         env:
           DOCKER_BUILD_RECORD_UPLOAD: false
         # This does not build the image again, it will find the image in the
-        # Docker cache and publish it
+        # buildx cache. It is pushed under its digest and given no tag at all —
+        # the tags belong to the manifest list the merge job creates, and a tag
+        # pushed from here would be one architecture claiming the whole name.
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export the digest
+        if: inputs.publish && github.ref_type == 'tag'
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${{ steps.push.outputs.digest }}"
+
+      - name: Upload the digest
+        if: inputs.publish && github.ref_type == 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          # One artifact per architecture, merged by the job below. The slash
+          # in linux/amd64 is not legal in an artifact name.
+          name: digest-${{ strategy.job-index }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # The tags are created exactly once, here, over the digests the jobs above
+  # pushed. Until this runs the registry holds two untagged images and
+  # `:latest` still points at whatever the last release was — so a failed arm64
+  # build cannot leave `:latest` meaning "amd64 only".
+  merge:
+    needs: build
+    if: inputs.publish && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download the digests
+        uses: actions/download-artifact@v5
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create tags for publishing image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
+      - name: Create and push the manifest list
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: Check the manifest list has both architectures
+        run: |
+          set -e
+          manifest=$(docker buildx imagetools inspect "${IMAGE}:latest" --raw)
+          for arch in amd64 arm64; do
+            echo "${manifest}" | jq -e \
+              --arg a "${arch}" \
+              '.manifests | map(.platform.architecture) | index($a)' > /dev/null \
+              || { echo "no ${arch} in the published manifest list"; exit 1; }
+          done
+          echo "amd64 and arm64 both present"

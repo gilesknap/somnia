@@ -1,0 +1,72 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "somnia.fullname" . }}-worker
+  labels:
+    {{- include "somnia.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  # Recreate, and it matters more here than on the page. A RollingUpdate would
+  # start the new worker before the old one had finished the sentence it is on,
+  # and for that overlap two Kokoros would be competing for the same cores. The
+  # lease in the database means the second one cannot claim a book that is
+  # already being rendered, so nothing would be corrupted — it would just be
+  # slower than one worker, which on a machine that renders barely faster than
+  # somebody listens is the whole problem.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "somnia.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "somnia.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "somnia.podCommon" . | trim | nindent 6 }}
+      # somnia catches SIGTERM and stops at the end of the sentence it is
+      # speaking, puts the book back in the queue and exits. Kubernetes sends
+      # SIGKILL when this runs out, and a chapter killed part way through is
+      # the one death that can leave the index holding words the player cannot
+      # see. Same number, same reason, as the unit file's TimeoutStopSec.
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      containers:
+        - name: worker
+          image: {{ include "somnia.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # The supervisor, not `--once`: it watches the queue and spawns one
+          # child per book, forever. It carries no torch itself, so an OOM in a
+          # render kills one book rather than the thing that would restart it.
+          args:
+            - worker
+          env:
+            {{- include "somnia.env" . | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.dataDir }}
+          # No probes, deliberately. There is no port to ask and no cheap
+          # question to put to it — a supervisor that is correctly doing
+          # nothing for six hours looks exactly like one that has hung, and the
+          # only real liveness signal somnia has is the render heartbeat, which
+          # is a row in the database rather than anything a kubelet can reach.
+          # `somnia queue` reads it, and says "not responding" when it stops.
+          {{- with .Values.worker.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

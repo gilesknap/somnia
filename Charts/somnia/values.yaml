@@ -1,0 +1,166 @@
+# Default values for somnia.
+
+image:
+  repository: ghcr.io/gilesknap/somnia
+  # Empty means the chart's appVersion, which CI stamps from the git tag, so a
+  # chart version and the image it was built beside stay together. Set it to
+  # pin an image without moving the chart.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# The node both deployments run on, by hostname.
+#
+# THIS IS LOAD-BEARING AND NOT A PREFERENCE. The page and the renderer share
+# one sqlite file and one directory of audio, and somnia opens that database in
+# WAL mode (see somnia/db.py). WAL coordinates its writers through a shared
+# memory file that every connection maps — which works between processes on one
+# machine and cannot work between two, on any filesystem, network or otherwise.
+# Both pods must therefore be on the same node as each other and as the volume,
+# and that is what pinning them by hostname buys.
+#
+# Empty schedules them anywhere, which is only safe if the storage class below
+# genuinely follows the pod. It does not for the node-pinned local volumes this
+# chart was written for, so set it.
+node: ""
+
+# Extra scheduling controls, applied to both deployments. `node` above is the
+# one that matters; these are here so an arch or a taint can be handled without
+# a chart change.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+persistence:
+  enabled: true
+  # One claim, mounted by both pods.
+  #
+  # ReadWriteOnce is correct here and is not the restriction it looks like: it
+  # is once per *node*, not once per pod, so two pods on the pinned node above
+  # both mount it read-write. It is exactly the arrangement the two systemd
+  # units have on one box today.
+  accessMode: ReadWriteOnce
+  # Roughly 30MB an hour of book, doubled for anything actually listened to
+  # because opening it in the page joins its chapters into a second copy. The
+  # models land here too (see HF_HOME), which is about 1GB before any book.
+  size: 100Gi
+  # Empty uses the cluster default. For node-pinned local volumes, name the
+  # class here and make sure `node` above matches where the volume lives.
+  storageClassName: ""
+  # Bind an already-existing claim instead of letting the chart create one.
+  # Useful when the PV is pre-bound by claimRef from somewhere else, which is
+  # how static local volumes are usually wired up.
+  existingClaim: ""
+
+# Where the data directory is mounted. The image already points
+# SOMNIA_DATA_DIR, SOMNIA_LIBRARY_DIR and HF_HOME inside this path.
+dataDir: /data
+
+serve:
+  enabled: true
+  port: 8721
+  # The page is a singleton. There is one sqlite file behind it and one saved
+  # position in it, and a second replica would be a second opinion about where
+  # the listener is.
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      memory: 4Gi
+  # No CPU limit by default, deliberately. The page is the latency-sensitive
+  # half — a question at 2am is waiting on it — so it is the renderer that gets
+  # capped, below, rather than this.
+
+worker:
+  enabled: true
+  # Exactly one, and the deployment strategy below is Recreate to keep it that
+  # way through an upgrade. Renders take a lease in the database so two workers
+  # cannot corrupt anything, but two Kokoros on the same cores render slower
+  # than one and slower than somebody listens.
+  replicas: 1
+  # What `Nice=10` and `CPUWeight=20` do in the systemd unit: keep the renderer
+  # from taking the cores the page needs. On an 8-core RK1 this leaves the page
+  # room while still giving a render most of the machine when nothing is being
+  # asked.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "6"
+      memory: 6Gi
+  # A stop waits for the sentence being spoken, not the chapter being rendered:
+  # the child finishes its sentence, puts the book back in the queue and exits.
+  # This is the systemd unit's TimeoutStopSec=90, for the same reason — far
+  # more than a sentence needs and far less than a chapter, and a chapter
+  # killed part way through is the one death that can leave the index holding
+  # words the player cannot see.
+  terminationGracePeriodSeconds: 90
+
+service:
+  type: ClusterIP
+  annotations: {}
+
+# Off by default, and that default is a security decision rather than caution.
+#
+# somnia has no login of any kind: reachability is the authentication. On a box
+# it binds 127.0.0.1 and only `tailscale serve` can reach the port. In a pod it
+# must bind 0.0.0.0, so the only thing standing between the page and whoever
+# can reach the ingress is the ingress itself.
+#
+# The intended answer is the Tailscale Kubernetes operator —
+# `className: tailscale` puts the service on the tailnet with a real
+# certificate and nothing else changes, which is the same security model the
+# box has. That certificate is not optional either: the page registers a
+# service worker, and browsers only allow that in a secure context, so over
+# plain HTTP it stops being an installable PWA.
+#
+# An nginx ingress works too, but put something in front of it — the cluster's
+# oauth2-proxy annotations go in `annotations` below.
+ingress:
+  enabled: false
+  className: ""
+  # Just the host name for a tailscale ingress; the full FQDN for nginx.
+  host: ""
+  annotations: {}
+  tls:
+    enabled: true
+    # Empty is right for the tailscale operator, which provisions the
+    # certificate itself. Name a secret for cert-manager.
+    secretName: ""
+
+config:
+  # Every one of these maps to the environment variable of the same shape that
+  # somnia/config.py reads. Empty means "leave it out and let the default in
+  # config.py stand", so this chart never has to be updated when one changes.
+  voice: ""
+  embedModel: ""
+  agentModel: ""
+  agentEffort: ""
+
+secret:
+  # Name of an existing Secret holding ANTHROPIC_API_KEY. The chart does not
+  # create it — a key does not belong in values.yaml, and in a GitOps cluster
+  # it wants to be a SealedSecret committed beside the Application.
+  #
+  # Empty means no key is passed, which is a working configuration: the page,
+  # the player and the renderer all run without one. Only the agent lane needs
+  # it, so the effect of leaving it out is that asking a question fails while
+  # everything else works.
+  name: ""
+  key: ANTHROPIC_API_KEY
+
+# Applied to both pods. Empty by default because the volumes this chart is
+# usually pointed at are host directories whose ownership is decided outside
+# the cluster, and guessing a uid there fails in a way that is tedious to
+# debug. Set runAsUser/fsGroup once you know what owns the directory.
+podSecurityContext: {}
+securityContext: {}
+
+podAnnotations: {}
+podLabels: {}
